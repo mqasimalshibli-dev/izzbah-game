@@ -1051,6 +1051,20 @@
       align-self: center;
     }
 
+    .board-scroll {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      justify-content: center;
+      overflow: visible;
+      direction: ltr;
+    }
+
+    .board-scroll > .board {
+      direction: rtl;
+    }
+
     .board-head, .cell {
       border-radius: 8px;
       min-width: 0;
@@ -1913,11 +1927,13 @@
       .custom-row .actions { grid-column: 1 / -1; }
       .question-editor { grid-template-columns: 1fr; justify-items: center; }
       .score-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .game-screen {
+      .game-screen { overflow: hidden; }
+      .board-scroll {
+        justify-content: flex-start;
         overflow-x: auto;
+        overflow-y: visible;
         overscroll-behavior-x: contain;
         scroll-behavior: smooth;
-        justify-content: flex-start;
         touch-action: pan-x pan-y;
         -webkit-overflow-scrolling: touch;
       }
@@ -1970,26 +1986,27 @@
         height: 100svh;
         overflow: hidden;
       }
-      .app { padding: 4px; }
+      .app { padding: 2px; }
       .game-screen {
         width: 100%;
         max-width: 100%;
-        height: calc(100svh - 8px);
+        height: calc(100svh - 4px);
         min-height: 0;
         overflow: hidden;
-        gap: 3px;
-        padding: 4px;
-        border-radius: 8px;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 6px;
+        border-width: 1px;
       }
       .topbar {
-        min-height: 36px;
-        margin: -4px -4px 2px;
-        padding: 3px 6px;
-        gap: 4px;
+        min-height: 28px;
+        margin: -2px -2px 1px;
+        padding: 2px 5px;
+        gap: 3px;
       }
       .mini-brand-logo {
-        width: 28px;
-        height: 28px;
+        width: 22px;
+        height: 22px;
       }
       .mini-brand {
         margin-inline: 0;
@@ -1997,7 +2014,7 @@
         gap: 0;
       }
       .mini-brand-name {
-        font-size: 15px;
+        font-size: 12px;
       }
       .game-actions {
         gap: 4px;
@@ -2006,64 +2023,72 @@
       .game-actions .danger,
       .game-actions .secondary,
       .game-actions .primary {
-        min-height: 32px;
-        padding: 3px 6px;
-        font-size: 12px;
-        border-width: 2px;
+        min-height: 24px;
+        padding: 2px 5px;
+        font-size: 11px;
+        border-width: 1px;
+        box-shadow: none;
       }
       .turn-box,
       .turn-pill,
       .question-page .topbar .turn-box {
         min-width: 0;
-        padding: 3px 6px;
-        font-size: 12px;
-        border-width: 2px;
+        padding: 2px 5px;
+        font-size: 11px;
+        border-width: 1px;
       }
       .turn-photo,
       .question-page .topbar .turn-photo,
       .question-page .topbar .default-avatar {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
       .turn-label small {
-        font-size: 11px;
+        font-size: 9px;
       }
       .turn-label strong {
-        font-size: 13px;
+        font-size: 11px;
       }
       .score-row {
-        gap: 4px;
+        gap: 3px;
         width: 100%;
         grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
       }
       .score-box {
-        padding: 2px 4px;
-        border-width: 2px;
+        padding: 1px 3px;
+        border-width: 1px;
+        border-radius: 6px;
       }
       .score-photo,
       .default-avatar {
-        width: 22px;
-        height: 22px;
-        border-width: 2px;
+        width: 18px;
+        height: 18px;
+        border-width: 1px;
       }
       .score-head {
         gap: 4px;
       }
       .score-name {
-        font-size: clamp(10px, 1.6vw, 13px);
+        font-size: clamp(8px, 1.25vw, 11px);
       }
       .score-value {
-        font-size: clamp(16px, 2.8vw, 24px);
+        font-size: clamp(13px, 2.2vw, 20px);
       }
       .score-tools {
         margin-top: 1px;
-        gap: 5px;
+        gap: 4px;
       }
       .score-tools button {
-        width: 21px;
-        height: 21px;
-        border-width: 2px;
-        font-size: 15px;
+        width: 18px;
+        height: 18px;
+        border-width: 1px;
+        border-radius: 5px;
+        font-size: 13px;
+      }
+      .board-scroll {
+        flex: 1 1 auto;
+        overflow: hidden;
+        min-height: 0;
       }
       .board {
         width: 100%;
@@ -2072,28 +2097,33 @@
         margin-inline: 0;
         flex: 1 1 auto;
         grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(32px, .6fr) repeat(5, minmax(22px, 1fr));
-        gap: 3px;
+        grid-template-rows: minmax(24px, .52fr) repeat(5, minmax(18px, 1fr));
+        gap: 2px;
       }
       .board-head {
-        padding: 2px;
-        border-width: 2px;
-        font-size: clamp(9px, 1.35vw, 13px);
-        line-height: 1.02;
+        padding: 1px;
+        border-width: 1px;
+        border-radius: 5px;
+        font-size: clamp(8px, 1.1vw, 11px);
+        line-height: 1;
       }
       .board-head span {
-        padding: 2px 4px;
-        border-radius: 7px;
+        padding: 1px 3px;
+        border-radius: 5px;
       }
       .cell {
-        font-size: clamp(16px, 3.2vw, 27px);
-        border-width: 2px;
+        font-size: clamp(14px, 2.7vw, 23px);
+        border-width: 1px;
+        border-radius: 5px;
       }
       .done-banner {
         min-height: 0;
-        padding: 5px;
-        font-size: 14px;
-        line-height: 1.15;
+        padding: 2px;
+        font-size: 10px;
+        line-height: 1;
+      }
+      #game > .ad-space {
+        display: none;
       }
       .question-page .topbar .ghost {
         min-height: 30px;
@@ -2280,7 +2310,9 @@
         انتهت الأسئلة!
         <button class="gold-btn" id="showResults" style="margin-right:12px">عرض النتائج</button>
       </div>
-      <div class="board" id="board"></div>
+      <div class="board-scroll" id="boardScroll">
+        <div class="board" id="board"></div>
+      </div>
       <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
 
@@ -3027,14 +3059,14 @@
     }
 
     function centerBoardScroll() {
-      const game = $("#game");
-      if (!game) return;
+      const scroller = document.querySelector("#game .board-scroll");
+      if (!scroller) return;
       const apply = () => {
-        const extra = game.scrollWidth - game.clientWidth;
+        const extra = scroller.scrollWidth - scroller.clientWidth;
         if (extra > 2 && window.matchMedia("(orientation: portrait)").matches) {
-          game.scrollTo({ left: extra / 2, behavior: "auto" });
+          scroller.scrollTo({ left: extra / 2, behavior: "auto" });
         } else {
-          game.scrollLeft = 0;
+          scroller.scrollLeft = 0;
         }
       };
       requestAnimationFrame(() => {
