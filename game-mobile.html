@@ -2039,19 +2039,19 @@
         border-width: 1px;
       }
       .topbar {
-        height: 26px;
-        min-height: 26px;
+        height: 32px;
+        min-height: 32px;
         margin: -2px -2px 1px;
-        padding: 1px 5px;
+        padding: 1px 6px;
         gap: 2px;
         grid-template-columns: 1fr auto 1fr;
         grid-template-rows: auto;
         align-items: center;
-        overflow: visible;
+        overflow: hidden;
       }
       .mini-brand-logo {
-        width: 24px;
-        height: 24px;
+        width: 30px;
+        height: 30px;
       }
       .mini-brand {
         margin-inline: 0;
@@ -2065,18 +2065,31 @@
       .game-actions {
         grid-column: 1;
         grid-row: 1;
-        gap: 4px;
+        gap: 8px;
+        align-items: center;
+        justify-self: start;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
       }
       .game-actions .ghost,
       .game-actions .danger,
       .game-actions .secondary,
       .game-actions .primary {
-        min-height: 20px;
-        padding: 1px 4px;
-        font-size: 10px;
+        min-height: 26px;
+        padding: 1px 5px;
+        font-size: clamp(9px, 1.25vw, 12px);
         line-height: 1;
         border-width: 1px;
         box-shadow: none;
+        white-space: nowrap;
+      }
+      .game-actions .gold-btn {
+        min-height: 26px;
+        padding: 1px 5px;
+        font-size: clamp(9px, 1.25vw, 12px);
+        line-height: 1;
+        white-space: nowrap;
       }
       .turn-box,
       .turn-pill,
@@ -2084,29 +2097,30 @@
         grid-column: 3;
         grid-row: 1;
         min-width: 0;
-        max-width: 150px;
-        height: 24px;
+        max-width: 138px;
+        height: 26px;
         padding: 1px 4px;
         font-size: 10px;
         line-height: 1;
         border-width: 1px;
+        gap: 4px;
       }
       .turn-switch {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         font-size: 12px;
       }
       .turn-photo,
       .question-page .topbar .turn-photo,
       .question-page .topbar .default-avatar {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
       }
       .turn-label small {
         font-size: 8px;
       }
       .turn-label strong {
-        font-size: 10px;
+        font-size: 11px;
       }
       .score-row {
         gap: 2px;
@@ -2114,7 +2128,7 @@
         grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
       }
       .score-box {
-        padding: 0 2px;
+        padding: 0 2px 1px;
         border-width: 1px;
         border-radius: 5px;
         line-height: 1;
@@ -2140,11 +2154,11 @@
         gap: 3px;
       }
       .score-tools button {
-        width: 14px;
-        height: 14px;
+        width: 13px;
+        height: 13px;
         border-width: 1px;
         border-radius: 4px;
-        font-size: 10px;
+        font-size: 9px;
       }
       .board-scroll {
         flex: 1 1 auto;
@@ -2158,7 +2172,7 @@
         margin-inline: 0;
         flex: 1 1 auto;
         grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(38px, .85fr) repeat(5, minmax(19px, 1fr));
+        grid-template-rows: minmax(36px, .82fr) repeat(5, minmax(20px, 1fr));
         gap: 2px;
       }
       .board-head {
