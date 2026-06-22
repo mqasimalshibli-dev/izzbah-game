@@ -745,6 +745,7 @@
       flex-direction: column;
       gap: 12px;
       width: min(1380px, 100%);
+      direction: ltr;
       background:
         radial-gradient(circle at 0% 86%, rgba(145, 24, 28, .08), transparent 18%),
         radial-gradient(circle at 100% 88%, rgba(201, 151, 74, .16), transparent 20%),
@@ -763,6 +764,7 @@
     .game-screen > * {
       position: relative;
       z-index: 1;
+      direction: rtl;
     }
 
     .topbar {
@@ -1954,48 +1956,89 @@
     }
 
     @media (orientation: landscape) and (max-height: 520px) {
-      .app { padding: 8px; }
+      body[data-screen="game"],
+      body[data-screen="questionPage"],
+      body[data-screen="answerPage"],
+      body[data-screen="results"] {
+        height: 100svh;
+        overflow: hidden;
+      }
+      body[data-screen="game"] .app,
+      body[data-screen="questionPage"] .app,
+      body[data-screen="answerPage"] .app,
+      body[data-screen="results"] .app {
+        min-height: 100svh;
+        height: 100svh;
+        overflow: hidden;
+      }
+      .app { padding: 6px; }
       .game-screen {
         width: 100%;
         max-width: 100%;
-        height: calc(100svh - 16px);
+        height: calc(100svh - 12px);
+        min-height: 0;
         overflow: hidden;
-        gap: 7px;
-        padding: 8px;
+        gap: 5px;
+        padding: 6px;
+        border-radius: 8px;
       }
       .topbar {
-        min-height: 54px;
-        margin: -8px -8px 6px;
-        padding: 6px 10px;
-        gap: 8px;
+        min-height: 44px;
+        margin: -6px -6px 4px;
+        padding: 4px 8px;
+        gap: 6px;
       }
       .mini-brand-logo {
-        width: 40px;
-        height: 40px;
+        width: 34px;
+        height: 34px;
+      }
+      .mini-brand {
+        margin-inline: 0;
+        padding: 0 4px;
+        gap: 0;
       }
       .mini-brand-name {
-        font-size: 22px;
+        font-size: 18px;
+      }
+      .game-actions {
+        gap: 4px;
+      }
+      .game-actions .ghost,
+      .game-actions .danger,
+      .game-actions .secondary,
+      .game-actions .primary {
+        min-height: 32px;
+        padding: 4px 7px;
+        font-size: 14px;
+        border-width: 2px;
       }
       .turn-box,
       .turn-pill,
       .question-page .topbar .turn-box {
         min-width: 0;
-        padding: 6px 9px;
-        font-size: 17px;
+        padding: 4px 7px;
+        font-size: 14px;
+        border-width: 2px;
       }
       .turn-photo,
       .question-page .topbar .turn-photo,
       .question-page .topbar .default-avatar {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
+      }
+      .turn-label small {
+        font-size: 11px;
+      }
+      .turn-label strong {
+        font-size: 15px;
       }
       .score-row {
-        gap: 7px;
+        gap: 5px;
         width: 100%;
         grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
       }
       .score-box {
-        padding: 4px 5px;
+        padding: 3px 5px;
         border-width: 2px;
       }
       .score-photo,
@@ -2005,19 +2048,20 @@
         border-width: 2px;
       }
       .score-name {
-        font-size: clamp(13px, 2vw, 17px);
+        font-size: clamp(12px, 1.8vw, 15px);
       }
       .score-value {
-        font-size: clamp(24px, 4vw, 34px);
+        font-size: clamp(20px, 3.4vw, 28px);
       }
       .score-tools {
-        margin-top: 2px;
+        margin-top: 1px;
+        gap: 5px;
       }
       .score-tools button {
-        width: 27px;
-        height: 27px;
+        width: 24px;
+        height: 24px;
         border-width: 2px;
-        font-size: 20px;
+        font-size: 18px;
       }
       .board {
         width: 100%;
@@ -2025,22 +2069,28 @@
         min-height: 0;
         flex: 1 1 auto;
         grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(52px, .9fr) repeat(5, minmax(38px, 1fr));
-        gap: 5px;
+        grid-template-rows: minmax(40px, .75fr) repeat(5, minmax(29px, 1fr));
+        gap: 4px;
       }
       .board-head {
-        padding: 4px;
+        padding: 3px;
         border-width: 2px;
-        font-size: clamp(12px, 1.9vw, 18px);
+        font-size: clamp(10px, 1.55vw, 15px);
         line-height: 1.02;
       }
       .board-head span {
-        padding: 3px 5px;
+        padding: 2px 4px;
         border-radius: 7px;
       }
       .cell {
-        font-size: clamp(22px, 4.5vw, 36px);
+        font-size: clamp(19px, 3.8vw, 31px);
         border-width: 2px;
+      }
+      .done-banner {
+        min-height: 0;
+        padding: 5px;
+        font-size: 14px;
+        line-height: 1.15;
       }
       .question-page .topbar .ghost {
         min-height: 34px;
@@ -2931,6 +2981,7 @@
       if (!options.keepQuestion) clearQuestionView();
       document.querySelectorAll(".screen, .game-screen").forEach(screen => screen.classList.remove("active"));
       $("#" + id).classList.add("active");
+      document.body.dataset.screen = id;
       if (id === "gameLibrary") renderGameLibrary();
       if (id === "categories") renderCategories();
       if (id === "setup") renderTeamSetup();
@@ -2945,6 +2996,8 @@
         const extra = game.scrollWidth - game.clientWidth;
         if (extra > 2 && window.matchMedia("(orientation: portrait)").matches) {
           game.scrollLeft = extra / 2;
+        } else {
+          game.scrollLeft = 0;
         }
       });
     }
