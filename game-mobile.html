@@ -1918,10 +1918,13 @@
         overscroll-behavior-x: contain;
         scroll-behavior: smooth;
         justify-content: flex-start;
+        touch-action: pan-x pan-y;
+        -webkit-overflow-scrolling: touch;
       }
       .board {
         min-width: 820px;
         flex: 0 0 auto;
+        margin-inline: max(18px, calc((100vw - 820px) / 2));
       }
       .question-meta { flex-direction: column; }
       .topbar { align-items: flex-start; }
@@ -1957,40 +1960,36 @@
 
     @media (orientation: landscape) and (max-height: 520px) {
       body[data-screen="game"],
-      body[data-screen="questionPage"],
-      body[data-screen="answerPage"],
       body[data-screen="results"] {
         height: 100svh;
         overflow: hidden;
       }
       body[data-screen="game"] .app,
-      body[data-screen="questionPage"] .app,
-      body[data-screen="answerPage"] .app,
       body[data-screen="results"] .app {
         min-height: 100svh;
         height: 100svh;
         overflow: hidden;
       }
-      .app { padding: 6px; }
+      .app { padding: 4px; }
       .game-screen {
         width: 100%;
         max-width: 100%;
-        height: calc(100svh - 12px);
+        height: calc(100svh - 8px);
         min-height: 0;
         overflow: hidden;
-        gap: 5px;
-        padding: 6px;
+        gap: 3px;
+        padding: 4px;
         border-radius: 8px;
       }
       .topbar {
-        min-height: 44px;
-        margin: -6px -6px 4px;
-        padding: 4px 8px;
-        gap: 6px;
+        min-height: 36px;
+        margin: -4px -4px 2px;
+        padding: 3px 6px;
+        gap: 4px;
       }
       .mini-brand-logo {
-        width: 34px;
-        height: 34px;
+        width: 28px;
+        height: 28px;
       }
       .mini-brand {
         margin-inline: 0;
@@ -1998,7 +1997,7 @@
         gap: 0;
       }
       .mini-brand-name {
-        font-size: 18px;
+        font-size: 15px;
       }
       .game-actions {
         gap: 4px;
@@ -2008,74 +2007,78 @@
       .game-actions .secondary,
       .game-actions .primary {
         min-height: 32px;
-        padding: 4px 7px;
-        font-size: 14px;
+        padding: 3px 6px;
+        font-size: 12px;
         border-width: 2px;
       }
       .turn-box,
       .turn-pill,
       .question-page .topbar .turn-box {
         min-width: 0;
-        padding: 4px 7px;
-        font-size: 14px;
+        padding: 3px 6px;
+        font-size: 12px;
         border-width: 2px;
       }
       .turn-photo,
       .question-page .topbar .turn-photo,
       .question-page .topbar .default-avatar {
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
       }
       .turn-label small {
         font-size: 11px;
       }
       .turn-label strong {
-        font-size: 15px;
+        font-size: 13px;
       }
       .score-row {
-        gap: 5px;
+        gap: 4px;
         width: 100%;
         grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
       }
       .score-box {
-        padding: 3px 5px;
+        padding: 2px 4px;
         border-width: 2px;
       }
       .score-photo,
       .default-avatar {
-        width: 28px;
-        height: 28px;
+        width: 22px;
+        height: 22px;
         border-width: 2px;
       }
+      .score-head {
+        gap: 4px;
+      }
       .score-name {
-        font-size: clamp(12px, 1.8vw, 15px);
+        font-size: clamp(10px, 1.6vw, 13px);
       }
       .score-value {
-        font-size: clamp(20px, 3.4vw, 28px);
+        font-size: clamp(16px, 2.8vw, 24px);
       }
       .score-tools {
         margin-top: 1px;
         gap: 5px;
       }
       .score-tools button {
-        width: 24px;
-        height: 24px;
+        width: 21px;
+        height: 21px;
         border-width: 2px;
-        font-size: 18px;
+        font-size: 15px;
       }
       .board {
         width: 100%;
         min-width: 0;
         min-height: 0;
+        margin-inline: 0;
         flex: 1 1 auto;
         grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(40px, .75fr) repeat(5, minmax(29px, 1fr));
-        gap: 4px;
+        grid-template-rows: minmax(32px, .6fr) repeat(5, minmax(22px, 1fr));
+        gap: 3px;
       }
       .board-head {
-        padding: 3px;
+        padding: 2px;
         border-width: 2px;
-        font-size: clamp(10px, 1.55vw, 15px);
+        font-size: clamp(9px, 1.35vw, 13px);
         line-height: 1.02;
       }
       .board-head span {
@@ -2083,7 +2086,7 @@
         border-radius: 7px;
       }
       .cell {
-        font-size: clamp(19px, 3.8vw, 31px);
+        font-size: clamp(16px, 3.2vw, 27px);
         border-width: 2px;
       }
       .done-banner {
@@ -2093,23 +2096,57 @@
         line-height: 1.15;
       }
       .question-page .topbar .ghost {
-        min-height: 34px;
-        padding: 5px 8px;
-        font-size: 15px;
+        min-height: 30px;
+        padding: 3px 6px;
+        font-size: 12px;
+      }
+      .question-page {
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        overflow: visible;
       }
       .qa-card {
         width: 100%;
-        padding: 14px;
-        gap: 10px;
+        min-height: 0;
+        padding: 8px;
+        gap: 6px;
+      }
+      .question-card {
+        border-width: 3px;
+        padding: 8px;
+      }
+      .question-main-card {
+        padding: 20px 10px 12px;
+      }
+      .answer-card {
+        min-height: 0;
+        padding: 16px 10px 10px;
+      }
+      .answer-layout {
+        grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
+        gap: 8px;
+        min-height: 0;
       }
       .question-text,
       .answer-text {
-        min-height: 92px;
-        font-size: clamp(24px, 4.2vw, 40px);
+        min-height: 56px;
+        font-size: clamp(18px, 3.3vw, 30px);
       }
       .question-actions,
       .answer-actions {
         margin-top: 0;
+      }
+      .answer-bottom-actions {
+        gap: 8px;
+        margin-top: 2px;
+      }
+      .answer-bottom-actions button,
+      #revealAnswer {
+        min-height: 36px;
+        min-width: 120px;
+        padding: 5px 10px;
+        font-size: 15px;
       }
     }
   </style>
@@ -2992,13 +3029,17 @@
     function centerBoardScroll() {
       const game = $("#game");
       if (!game) return;
-      requestAnimationFrame(() => {
+      const apply = () => {
         const extra = game.scrollWidth - game.clientWidth;
         if (extra > 2 && window.matchMedia("(orientation: portrait)").matches) {
-          game.scrollLeft = extra / 2;
+          game.scrollTo({ left: extra / 2, behavior: "auto" });
         } else {
           game.scrollLeft = 0;
         }
+      };
+      requestAnimationFrame(() => {
+        apply();
+        setTimeout(apply, 120);
       });
     }
 
