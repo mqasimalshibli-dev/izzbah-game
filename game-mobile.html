@@ -2039,9 +2039,9 @@
         border-width: 1px;
       }
       .topbar {
-        height: 32px;
-        min-height: 32px;
-        margin: -2px -2px 1px;
+        height: 40px;
+        min-height: 40px;
+        margin: -2px -2px 4px;
         padding: 1px 6px;
         gap: 2px;
         grid-template-columns: 1fr auto 1fr;
@@ -2050,8 +2050,8 @@
         overflow: hidden;
       }
       .mini-brand-logo {
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
       }
       .mini-brand {
         margin-inline: 0;
@@ -2065,7 +2065,7 @@
       .game-actions {
         grid-column: 1;
         grid-row: 1;
-        gap: 8px;
+        gap: 10px;
         align-items: center;
         justify-self: start;
         min-width: 0;
@@ -2076,19 +2076,19 @@
       .game-actions .danger,
       .game-actions .secondary,
       .game-actions .primary {
-        min-height: 26px;
-        padding: 1px 5px;
-        font-size: clamp(9px, 1.25vw, 12px);
-        line-height: 1;
+        min-height: 30px;
+        padding: 2px 6px;
+        font-size: clamp(10px, 1.35vw, 13px);
+        line-height: 1.05;
         border-width: 1px;
         box-shadow: none;
         white-space: nowrap;
       }
       .game-actions .gold-btn {
-        min-height: 26px;
-        padding: 1px 5px;
-        font-size: clamp(9px, 1.25vw, 12px);
-        line-height: 1;
+        min-height: 30px;
+        padding: 2px 6px;
+        font-size: clamp(10px, 1.35vw, 13px);
+        line-height: 1.05;
         white-space: nowrap;
       }
       .turn-box,
@@ -2097,8 +2097,8 @@
         grid-column: 3;
         grid-row: 1;
         min-width: 0;
-        max-width: 138px;
-        height: 26px;
+        max-width: 150px;
+        height: 30px;
         padding: 1px 4px;
         font-size: 10px;
         line-height: 1;
@@ -2106,8 +2106,8 @@
         gap: 4px;
       }
       .turn-switch {
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
         font-size: 12px;
       }
       .turn-photo,
@@ -2125,7 +2125,12 @@
       .score-row {
         gap: 2px;
         width: 100%;
+        margin-top: 1px;
         grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
+      }
+      .score-box.active-team {
+        outline-width: 2px;
+        outline-offset: 1px;
       }
       .score-box {
         padding: 0 2px 1px;
