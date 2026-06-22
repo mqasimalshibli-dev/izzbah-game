@@ -1,0 +1,3547 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>عِزبه — لعبة تريفيا</title>
+  <style>
+    :root {
+      --red: #db161b;
+      --sand: #efd6ba;
+      --dark: #1b3a2f;
+      --cream: #efd6ba;
+      --cream-soft: #f5dec4;
+      --gold: #c9974a;
+      --gold-dark: #8c6a2e;
+      --blue: #1b6a8f;
+      --green: #5b7a6b;
+      --ink: #14241f;
+      --white: #fffdfa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(255, 246, 229, .58), transparent 24%),
+        radial-gradient(circle at 88% 8%, rgba(145, 24, 28, .08), transparent 22%),
+        linear-gradient(135deg, #efd6ba 0%, #f3dcc3 48%, #e9c7aa 100%);
+      color: var(--dark);
+      direction: rtl;
+      font-family: "Amiri", "Scheherazade New", "DecoType Naskh", "Traditional Arabic", "Geeza Pro", "Diwan Kufi", Tahoma, Arial, sans-serif;
+      font-size: 19px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    button, input, textarea {
+      font: inherit;
+      font-weight: 900;
+    }
+
+    .clean-number,
+    .team-number,
+    .score-value,
+    .cell,
+    .bar-score {
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "kern" 1;
+      letter-spacing: 0;
+      text-shadow: none;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .app::before,
+    .app::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .app::before {
+      background:
+        linear-gradient(45deg, transparent 48%, rgba(145, 24, 28, .055) 49%, rgba(145, 24, 28, .055) 51%, transparent 52%),
+        linear-gradient(-45deg, transparent 48%, rgba(201, 151, 74, .09) 49%, rgba(201, 151, 74, .09) 51%, transparent 52%);
+      background-size: 64px 64px;
+      opacity: .8;
+    }
+
+    .app::after {
+      background:
+        radial-gradient(circle at 50% 18%, transparent 0 28px, rgba(145, 24, 28, .08) 29px 31px, transparent 32px),
+        radial-gradient(circle at 50% 18%, transparent 0 56px, rgba(145, 24, 28, .045) 57px 59px, transparent 60px);
+      background-size: 260px 180px;
+      opacity: .65;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,.75), rgba(0,0,0,.18));
+    }
+
+    .screen, .game-screen {
+      display: none;
+      flex: 1;
+      width: min(1220px, 100%);
+      margin: 0 auto;
+    }
+
+    .screen.active { display: flex; }
+    .game-screen.active { display: flex; }
+
+    .center {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stack {
+      width: min(700px, 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .wide-stack { width: min(1060px, 100%); }
+
+    #gameLibrary {
+      justify-content: flex-start;
+      padding-top: clamp(14px, 4vh, 42px);
+    }
+
+    #gameLibrary .stack {
+      gap: 10px;
+    }
+
+    #gameLibrary .screen-title {
+      margin-bottom: 2px;
+    }
+
+    #gameLibrary .hint {
+      margin-bottom: 10px;
+    }
+
+    #gameLibrary .category-tabs {
+      margin-bottom: 10px;
+    }
+
+    .brand-mark {
+      width: min(280px, 70vw);
+      height: auto;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+      filter: contrast(1.04) saturate(1.04);
+    }
+
+    .title {
+      margin: 0;
+      color: var(--red);
+      font-size: clamp(54px, 9vw, 88px);
+      line-height: 0.95;
+      text-shadow: 0 4px 0 white;
+    }
+
+    .mini-brand-logo {
+      width: 58px;
+      height: 58px;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    .mini-brand-name {
+      color: var(--red);
+      font-size: 30px;
+    }
+
+    .subtitle {
+      margin: 0 0 22px;
+      color: var(--dark);
+      font-size: clamp(22px, 2.6vw, 30px);
+    }
+
+    .screen-title {
+      margin: 0 0 8px;
+      color: var(--red);
+      font-size: clamp(42px, 4.8vw, 58px);
+      text-align: center;
+    }
+
+    .hint {
+      margin: 0 0 18px;
+      color: var(--dark);
+      text-align: center;
+      font-size: clamp(22px, 2.4vw, 28px);
+    }
+
+    #setup {
+      position: relative;
+      padding-top: 82px;
+    }
+
+    .setup-nav {
+      position: absolute;
+      inset: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      direction: ltr;
+      width: 100%;
+      margin: 0;
+      z-index: 2;
+    }
+
+    .setup-nav button {
+      direction: rtl;
+      min-width: 150px;
+    }
+
+    .primary, .secondary, .ghost, .danger, .gold-btn {
+      min-height: 52px;
+      border-radius: 8px;
+      padding: 12px 22px;
+      border: 3px solid transparent;
+      font-size: clamp(21px, 2.3vw, 28px);
+      transition: transform .12s ease, filter .12s ease;
+    }
+
+    button:hover, .image-picker:hover { transform: translateY(-1px); filter: brightness(1.02); }
+    button:active, .image-picker:active { transform: translateY(0); }
+    button:disabled { cursor: not-allowed; opacity: .52; transform: none; }
+
+    .primary,
+    .secondary,
+    .ghost,
+    .danger,
+    .gold-btn {
+      background: var(--red);
+      color: var(--cream);
+      border-color: #9e1014;
+      box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .14);
+    }
+
+    .panel {
+      width: min(760px, 100%);
+      background: rgba(239, 214, 186, .88);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 26px;
+      box-shadow: 0 12px 0 rgba(140, 106, 46, .09), 0 18px 34px rgba(145, 24, 28, .08);
+    }
+
+    .actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .team-count {
+      display: grid;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .team-stepper {
+      width: 104px;
+      display: grid;
+      grid-template-rows: 48px 58px 48px;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 4px solid var(--red);
+      background: var(--cream);
+      box-shadow: 0 8px 0 rgba(140, 106, 46, .16);
+    }
+
+    .stepper-btn {
+      background: var(--red);
+      color: var(--cream);
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .team-number {
+      display: grid;
+      place-items: center;
+      color: var(--dark);
+      font-size: 34px;
+      background: white;
+      border-block: 3px solid rgba(219, 22, 27, .22);
+    }
+
+    .team-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .team-card {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 12px;
+      background: var(--white);
+      border: 3px solid currentColor;
+      border-radius: 8px;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--dark);
+      font-size: 18px;
+      text-align: center;
+    }
+
+    input, textarea {
+      width: 100%;
+      min-width: 0;
+      padding: 13px 14px;
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      background: white;
+      color: var(--dark);
+      text-align: center;
+      caret-color: var(--red);
+      font-size: 20px;
+      resize: vertical;
+    }
+
+    textarea {
+      min-height: 86px;
+      line-height: 1.45;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #9b8060;
+      opacity: 1;
+      text-align: center;
+    }
+
+    .image-picker {
+      width: 68px;
+      height: 68px;
+      border-radius: 8px;
+      border: 3px solid currentColor;
+      background: #fff7e8;
+      color: var(--gold-dark);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform .12s ease, filter .12s ease;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .image-picker input { display: none; }
+
+    .image-picker .plus {
+      font-size: 42px;
+      line-height: 1;
+      color: currentColor;
+    }
+
+    .image-picker img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .category-toolbar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .category-tabs {
+      width: min(680px, 100%);
+      margin: 0 auto 16px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 8px;
+      border: 3px solid rgba(201, 151, 74, .55);
+      border-radius: 8px;
+      background: rgba(255, 246, 229, .58);
+    }
+
+    .category-tab {
+      min-height: 58px;
+      padding: 10px 18px;
+      border-color: var(--gold);
+      background: var(--cream);
+      color: var(--dark);
+      box-shadow: 0 5px 0 rgba(140, 106, 46, .18);
+      font-size: clamp(22px, 2.3vw, 30px);
+    }
+
+    .category-tab.active {
+      border-color: var(--red);
+      background: var(--red);
+      color: white;
+      box-shadow: 0 5px 0 var(--red-dark);
+    }
+
+    .community-tools {
+      display: none;
+    }
+
+    .community-tools.active {
+      display: flex;
+    }
+
+    .category-empty {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      text-align: center;
+      grid-column: 1 / -1;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .category {
+      min-height: 184px;
+      background:
+        radial-gradient(circle at 50% 10%, rgba(255, 246, 229, .42), transparent 28%),
+        linear-gradient(180deg, rgba(239, 214, 186, .95), rgba(245, 222, 196, .88));
+      border: 4px solid var(--gold-dark);
+      border-radius: 8px;
+      color: var(--dark);
+      display: grid;
+      place-items: center;
+      padding: 12px 8px;
+      position: relative;
+      box-shadow: 0 6px 0 rgba(140, 106, 46, .18);
+      text-align: center;
+      font-size: clamp(18px, 1.75vw, 24px);
+      overflow: hidden;
+    }
+
+    .category-main {
+      width: 100%;
+      min-height: 154px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      color: inherit;
+      border: 0;
+      padding: 18px 4px 4px;
+      box-shadow: none;
+      text-align: center;
+    }
+
+    .category-main:hover,
+    .category-main:active {
+      transform: none;
+      filter: none;
+    }
+
+    .category-eye {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 30px;
+      height: 30px;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, .95);
+      background: var(--red);
+      color: white;
+      box-shadow: 0 4px 0 rgba(120, 12, 15, .2);
+      font-size: 15px;
+      line-height: 1;
+      z-index: 3;
+    }
+
+    .category::after {
+      content: "◆";
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      color: rgba(145, 24, 28, .18);
+      font-size: 22px;
+    }
+
+    .category.selected {
+      border-color: var(--red);
+      background:
+        radial-gradient(circle at 50% 10%, rgba(255, 246, 229, .5), transparent 30%),
+        linear-gradient(180deg, #f3d2c5, #efd6ba);
+      color: var(--red);
+      box-shadow: 0 8px 0 rgba(219, 22, 27, .18);
+    }
+
+    .category svg {
+      width: 54px;
+      height: 54px;
+      margin-bottom: 8px;
+    }
+
+    .category-thumb {
+      width: 74px;
+      height: 74px;
+      border-radius: 0;
+      object-fit: contain;
+      margin: 0 auto 8px;
+      border: 0;
+      filter: drop-shadow(0 4px 5px rgba(120, 80, 45, .16));
+    }
+
+    .check {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: none;
+      place-items: center;
+      background: var(--red);
+      color: white;
+      border: 4px solid white;
+      font-size: 20px;
+    }
+
+    .category.selected .check { display: grid; }
+
+    .custom-list {
+      width: min(900px, 100%);
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .game-library-list {
+      width: min(980px, 100%);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 0 auto;
+    }
+
+    .saved-game-card {
+      background:
+        radial-gradient(circle at 50% 0, rgba(255, 246, 229, .6), transparent 34%),
+        linear-gradient(180deg, rgba(239, 214, 186, .96), rgba(245, 222, 196, .9));
+      border: 4px solid var(--gold-dark);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 8px 0 rgba(140, 106, 46, .16);
+      text-align: center;
+      display: grid;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+    }
+
+    .saved-game-card:hover,
+    .saved-game-card:focus-visible {
+      transform: translateY(-2px);
+      filter: saturate(1.04);
+      outline: 3px solid rgba(219, 22, 27, .45);
+      outline-offset: 3px;
+    }
+
+    .saved-game-card:active {
+      transform: translateY(1px);
+    }
+
+    .saved-game-title {
+      color: var(--red);
+      font-size: clamp(26px, 2.8vw, 34px);
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+
+    .saved-game-meta {
+      color: var(--dark);
+      font-size: clamp(18px, 2vw, 23px);
+      line-height: 1.35;
+    }
+
+    .saved-game-cats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .saved-game-category {
+      min-height: 82px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 3px solid var(--cat-border, var(--gold-dark));
+      border-radius: 8px;
+      background:
+        linear-gradient(0deg, var(--cat-bg, rgba(201, 151, 74, .7)), var(--cat-bg, rgba(201, 151, 74, .7))),
+        var(--white);
+      color: white;
+      text-shadow: 0 2px 4px rgba(27, 58, 47, .42);
+      font-size: clamp(20px, 2vw, 26px);
+      line-height: 1.1;
+      padding: 8px;
+    }
+
+    .saved-game-category.bg-category {
+      background:
+        linear-gradient(0deg, rgba(27, 58, 47, .56), rgba(145, 24, 28, .5)),
+        var(--cat-image) center / cover no-repeat,
+        var(--cat-bg, rgba(201, 151, 74, .7));
+    }
+
+    .saved-game-category.bg-category::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 246, 229, .12), rgba(27, 58, 47, .42));
+      pointer-events: none;
+    }
+
+    .saved-game-category span,
+    .saved-game-category svg {
+      position: relative;
+      z-index: 1;
+    }
+
+    .saved-game-category svg {
+      width: 42px;
+      height: 42px;
+      margin-bottom: 4px;
+    }
+
+    .saved-game-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .saved-game-actions .primary,
+    .saved-game-actions .secondary,
+    .saved-game-actions .ghost,
+    .saved-game-actions .danger {
+      min-height: 40px;
+      padding: 7px 14px;
+      border-width: 2px;
+      font-size: clamp(16px, 1.65vw, 20px);
+      border-radius: 7px;
+    }
+
+    .library-empty {
+      grid-column: 1 / -1;
+      width: min(740px, 100%);
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .game-name-box {
+      width: min(680px, 100%);
+      margin: 0 auto 16px;
+      display: grid;
+      gap: 8px;
+      background: rgba(255, 246, 229, .64);
+      border: 3px solid rgba(201, 151, 74, .62);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .game-name-box label {
+      color: var(--red);
+      font-size: clamp(22px, 2.4vw, 30px);
+      text-align: center;
+    }
+
+    .custom-list > .panel {
+      justify-self: center;
+      text-align: center;
+    }
+
+    .custom-row {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      background: var(--cream);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .editor-panel {
+      width: min(900px, 100%);
+      margin: 0 auto;
+      background: rgba(239, 214, 186, .9);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 12px 0 rgba(140, 106, 46, .09), 0 18px 34px rgba(145, 24, 28, .08);
+    }
+
+    .question-editor {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--white);
+      border: 3px solid var(--dark);
+      border-radius: 8px;
+    }
+
+    .question-fields {
+      display: grid;
+      gap: 10px;
+    }
+
+    .game-screen {
+      flex-direction: column;
+      gap: 12px;
+      width: min(1380px, 100%);
+      background:
+        radial-gradient(circle at 0% 86%, rgba(145, 24, 28, .08), transparent 18%),
+        radial-gradient(circle at 100% 88%, rgba(201, 151, 74, .16), transparent 20%),
+        linear-gradient(180deg, rgba(239, 214, 186, .96), rgba(245, 222, 196, .94));
+      border: 2px solid rgba(145, 24, 28, .18);
+      border-radius: 10px;
+      padding: 14px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-screen::before {
+      content: none;
+    }
+
+    .game-screen > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 18px;
+      direction: ltr;
+      margin: -14px -18px 18px;
+      padding: 12px 22px;
+      min-height: 76px;
+      background: #9f1515;
+      box-shadow: 0 8px 18px rgba(140, 106, 46, .18);
+    }
+
+    .turn-box {
+      justify-self: end;
+      min-width: 230px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      direction: rtl;
+      padding: 8px 14px;
+      border: 3px solid rgba(255, 255, 255, .86);
+      border-radius: 999px;
+      color: white;
+      background: rgba(255, 255, 255, .1);
+      box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .12);
+    }
+
+    .turn-switch {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: rgba(255, 255, 255, .18);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, .78);
+      box-shadow: none;
+      padding: 0;
+      min-height: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .turn-photo,
+    .turn-box .default-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, .9);
+      background: white;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+
+    .turn-photo { object-fit: cover; }
+
+    .turn-label {
+      display: grid;
+      gap: 1px;
+      text-align: right;
+      line-height: 1.1;
+    }
+
+    .turn-label small {
+      font-size: 16px;
+      opacity: .82;
+    }
+
+    .turn-label strong {
+      font-size: 24px;
+    }
+
+    .game-watermark {
+      display: none;
+    }
+
+    .game-actions {
+      justify-self: start;
+      justify-content: flex-start;
+      direction: rtl;
+      gap: 12px;
+    }
+
+    .game-actions #endGameEarly {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      color: white;
+    }
+
+    .game-actions #exitGame {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      color: white;
+    }
+
+    .mini-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: var(--red);
+      font-size: 30px;
+      text-align: center;
+      direction: rtl;
+      padding: 0 34px;
+      margin-inline: 28px;
+    }
+
+    .mini-brand .mini-brand-logo {
+      width: 68px;
+      height: 68px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .18));
+    }
+
+    .mini-brand-name {
+      color: white;
+      font-size: 42px;
+      line-height: .85;
+    }
+
+    .question-page .topbar .mini-brand {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: center;
+      margin-inline: 0;
+      padding: 0 18px;
+    }
+
+    .question-page .topbar .mini-brand .mini-brand-logo {
+      width: 62px;
+      height: 62px;
+    }
+
+    .question-page .topbar .ghost {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: start;
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      color: white;
+      min-height: 44px;
+      padding: 8px 16px;
+      font-size: clamp(18px, 1.9vw, 23px);
+      white-space: nowrap;
+    }
+
+    .question-page .topbar .turn-box {
+      min-width: 210px;
+      padding: 7px 12px;
+    }
+
+    .question-page .topbar .turn-photo,
+    .question-page .topbar .default-avatar {
+      width: 38px;
+      height: 38px;
+    }
+
+    .question-page .topbar .turn-label small {
+      font-size: 14px;
+    }
+
+    .question-page .topbar .turn-label strong {
+      font-size: 22px;
+    }
+
+    .turn-pill {
+      justify-self: end;
+      min-width: 190px;
+      border-radius: 999px;
+      background: #a81815;
+      color: white;
+      padding: 12px 26px;
+      text-align: center;
+      font-size: 22px;
+      box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .14);
+      direction: rtl;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
+      gap: 14px;
+      width: min(1160px, 100%);
+      align-self: center;
+    }
+
+    .score-box {
+      background: rgba(255, 253, 248, .72);
+      border: 3px solid currentColor;
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .score-box.active-team {
+      outline: 5px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .score-head {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .score-photo, .default-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid currentColor;
+      flex: 0 0 auto;
+    }
+
+    .score-photo { object-fit: cover; }
+
+    .default-avatar {
+      display: grid;
+      place-items: center;
+      background: #dedede;
+      color: #9a9a9a;
+      overflow: hidden;
+    }
+
+    .default-avatar svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .score-name {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: clamp(19px, 2vw, 25px);
+    }
+
+    .score-value {
+      display: block;
+      margin-top: 2px;
+      color: var(--ink);
+      font-size: clamp(40px, 4.6vw, 58px);
+    }
+
+    .score-tools {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 5px;
+    }
+
+    .score-tools button {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      color: inherit;
+      background: white;
+      border: 3px solid currentColor;
+      font-size: 26px;
+      line-height: 1;
+      touch-action: none;
+    }
+
+    .board {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--cat-count), minmax(132px, 1fr));
+      grid-template-rows: 116px repeat(5, minmax(70px, 1fr));
+      gap: 9px;
+      min-height: 500px;
+      width: min(1220px, 100%);
+      align-self: center;
+    }
+
+    .board-head, .cell {
+      border-radius: 8px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .board-head {
+      background: var(--cat-bg, rgba(27, 58, 47, .7));
+      color: var(--cream);
+      border: 3px solid var(--cat-border, var(--gold));
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 9px;
+      overflow-wrap: anywhere;
+      font-size: clamp(19px, 2vw, 28px);
+      line-height: 1.08;
+      box-shadow: inset 0 -8px 0 rgba(0, 0, 0, .11), 0 4px 0 rgba(140, 106, 46, .13);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .board-head.bg-category {
+      background:
+        linear-gradient(180deg, rgba(239, 214, 186, .42), rgba(245, 222, 196, .5)),
+        var(--cat-bg, rgba(27, 58, 47, .7));
+    }
+
+    .board-head.bg-category::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(180deg, rgba(239, 214, 186, .52), rgba(245, 222, 196, .62)),
+        var(--cat-image) center / cover no-repeat;
+      opacity: .82;
+      filter: saturate(1.03) contrast(.96);
+    }
+
+    .board-head span {
+      position: relative;
+      z-index: 1;
+      max-width: 100%;
+      padding: 5px 10px;
+      border-radius: 12px;
+      background: rgba(145, 24, 28, .5);
+      color: white;
+      text-shadow: 0 2px 3px rgba(0, 0, 0, .35);
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .board-head svg {
+      width: 46px;
+      height: 46px;
+      margin-bottom: 4px;
+    }
+
+    .cell {
+      background: var(--cell-bg, rgba(219, 22, 27, .6));
+      color: var(--cream);
+      border: 2px solid rgba(255, 255, 255, .38);
+      font-size: clamp(42px, 4.8vw, 66px);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 -6px 0 rgba(140, 106, 46, .12);
+    }
+
+    .cell.used {
+      background: #b9aa90;
+      color: #fff7e8;
+    }
+
+    #game::before,
+    #game::after {
+      content: "";
+      position: absolute;
+      bottom: 28px;
+      width: 90px;
+      height: 150px;
+      opacity: .45;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 50% 100%, rgba(91, 122, 107, .45), transparent 62%),
+        linear-gradient(40deg, transparent 40%, rgba(91, 122, 107, .5) 42% 49%, transparent 51%),
+        linear-gradient(-35deg, transparent 35%, rgba(91, 122, 107, .42) 38% 47%, transparent 50%);
+    }
+
+    #game::before { left: 8px; }
+    #game::after { right: 8px; transform: scaleX(-1); }
+
+    .question-page {
+      flex-direction: column;
+      gap: 10px;
+      width: min(1180px, 100%);
+      position: relative;
+      isolation: isolate;
+      padding: 10px 16px 8px;
+      overflow: visible;
+    }
+
+    .question-page .topbar {
+      min-height: 92px;
+      margin: -10px -16px 10px;
+      padding: 14px 24px;
+      gap: 16px;
+    }
+
+    .question-page::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(255, 246, 229, .55), transparent 26%),
+        radial-gradient(circle at 90% 18%, rgba(145, 24, 28, .08), transparent 24%),
+        linear-gradient(135deg, #efd6ba, #f3dcc3 54%, #e9c7aa);
+      pointer-events: none;
+    }
+
+    .question-page::after {
+      content: "";
+      position: fixed;
+      inset: 70px 24px 24px;
+      z-index: -1;
+      border: 1px solid rgba(140, 106, 46, .22);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 50% 0, transparent 0 30px, rgba(145, 24, 28, .08) 31px 33px, transparent 34px),
+        linear-gradient(45deg, transparent 48%, rgba(201, 151, 74, .13) 49%, rgba(201, 151, 74, .13) 51%, transparent 52%),
+        linear-gradient(-45deg, transparent 48%, rgba(145, 24, 28, .06) 49%, rgba(145, 24, 28, .06) 51%, transparent 52%);
+      background-size: 52px 52px;
+      pointer-events: none;
+    }
+
+    .answer-layout {
+      display: grid;
+      grid-template-columns: minmax(170px, 230px) minmax(0, 1fr);
+      gap: 14px;
+      flex: 1;
+      align-items: stretch;
+    }
+
+    .answer-bottom-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: min(900px, 100%);
+      align-self: center;
+      margin-top: 4px;
+      direction: ltr;
+    }
+
+    .answer-bottom-actions button {
+      min-width: 200px;
+    }
+
+    #backToQuestion {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+    }
+
+    #continueAnswer {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: start;
+    }
+
+    .question-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(255, 246, 229, .7), transparent 34%),
+        radial-gradient(circle at 18% 20%, rgba(145, 24, 28, .08), transparent 18%),
+        linear-gradient(180deg, rgba(239, 214, 186, .97), rgba(245, 222, 196, .9));
+      border: 5px solid var(--red);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 14px 0 rgba(140, 106, 46, .14), 0 22px 44px rgba(27, 58, 47, .14);
+      position: relative;
+      overflow: visible;
+    }
+
+    .question-card::before,
+    .question-card::after {
+      content: "";
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border: 20px solid rgba(145, 24, 28, .09);
+      transform: rotate(45deg);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .question-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .question-card::before {
+      top: -88px;
+      right: 38px;
+    }
+
+    .question-card::after {
+      bottom: -96px;
+      left: 54px;
+      border-color: rgba(219, 22, 27, .1);
+    }
+
+    .question-main-card {
+      padding: 62px 22px 58px;
+    }
+
+    .question-main-card #questionActions {
+      position: absolute;
+      left: 28px;
+      bottom: -14px;
+      margin: 0;
+      z-index: 3;
+    }
+
+    .question-main-card #revealAnswer {
+      border-radius: 8px 8px 0 8px;
+      min-height: 56px;
+      padding-inline: 26px;
+      border-color: var(--red);
+      background: var(--red);
+      box-shadow: 7px -7px 0 rgba(120, 12, 15, .16);
+    }
+
+    .answer-card {
+      min-height: 320px;
+      justify-content: center;
+      padding: 62px 22px 26px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(27, 58, 47, .58);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 5;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .question-modal {
+      width: min(940px, 100%);
+      max-height: min(92vh, 820px);
+      overflow: auto;
+      background: var(--cream);
+      border: 5px solid var(--red);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+    }
+
+    .preview-modal {
+      width: min(820px, 100%);
+      text-align: right;
+    }
+
+    .preview-title {
+      margin: 0 0 14px;
+      color: var(--red);
+      font-size: clamp(32px, 4vw, 48px);
+      text-align: center;
+    }
+
+    .preview-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: preview;
+    }
+
+    .preview-list li {
+      counter-increment: preview;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      background: var(--white);
+      border: 3px solid rgba(201, 151, 74, .72);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--dark);
+      font-size: clamp(20px, 2.2vw, 26px);
+      line-height: 1.35;
+    }
+
+    .preview-list li::before {
+      content: counter(preview);
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--red);
+      color: white;
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      font-size: 20px;
+    }
+
+    .preview-modal .actions {
+      margin-top: 18px;
+    }
+
+    .question-meta {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      color: var(--red);
+      font-size: clamp(24px, 2.6vw, 34px);
+      margin-bottom: 14px;
+    }
+
+    .meta-box {
+      min-width: 150px;
+      background: var(--white);
+      border: 4px solid var(--gold);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: var(--red);
+      box-shadow: 0 5px 0 rgba(140, 106, 46, .18);
+    }
+
+    .question-main-card .question-meta {
+      position: absolute;
+      inset: -5px -5px auto -5px;
+      display: block;
+      margin: 0;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .question-main-card .meta-box {
+      position: absolute;
+      top: -15px;
+      min-width: 170px;
+      background: var(--red);
+      color: var(--cream);
+      border-color: var(--red);
+      box-shadow: 0 7px 0 rgba(120, 12, 15, .24);
+      pointer-events: auto;
+      line-height: 1.1;
+    }
+
+    .question-main-card .meta-category {
+      left: 28px;
+      border-radius: 8px 8px 8px 0;
+    }
+
+    .question-main-card .meta-points {
+      right: 28px;
+      border-radius: 8px 8px 0 8px;
+    }
+
+    .answer-card .question-meta {
+      position: absolute;
+      inset: -5px -5px auto -5px;
+      display: block;
+      margin: 0;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .answer-card .meta-box {
+      position: absolute;
+      top: -15px;
+      min-width: 170px;
+      background: var(--red);
+      color: var(--cream);
+      border-color: var(--red);
+      box-shadow: 0 6px 0 rgba(120, 12, 15, .22);
+      pointer-events: auto;
+      line-height: 1.1;
+    }
+
+    .answer-card .answer-category {
+      right: 28px;
+      border-radius: 8px 8px 0 8px;
+    }
+
+    .answer-card .answer-points {
+      left: 28px;
+      border-radius: 8px 8px 8px 0;
+    }
+
+    .question-image {
+      display: none;
+      width: min(320px, 78%);
+      max-height: 210px;
+      object-fit: contain;
+      margin: 0 auto 12px;
+      border: 4px solid var(--gold);
+      border-radius: 8px;
+      background: white;
+    }
+
+    .question-image.visible { display: block; }
+
+    .answer-image {
+      display: none;
+      width: min(380px, 84%);
+      max-height: 230px;
+      object-fit: contain;
+      margin: 0 auto 12px;
+      border: 4px solid var(--gold-dark);
+      border-radius: 14px;
+      background: white;
+      box-shadow: 0 8px 0 rgba(140, 106, 46, .16);
+      position: relative;
+      z-index: 1;
+    }
+
+    .answer-image.visible { display: block; }
+
+    .question-text {
+      min-height: 128px;
+      display: grid;
+      place-items: center;
+      color: var(--dark);
+      font-size: clamp(36px, 4.6vw, 58px);
+      line-height: 1.35;
+      margin: auto 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .answer {
+      display: none;
+      margin: 16px auto 0;
+      padding: 8px;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      color: var(--dark);
+      font-size: clamp(34px, 4vw, 50px);
+      box-shadow: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    .answer.visible { display: block; }
+
+    .award-row {
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      margin-top: 0;
+      background:
+        linear-gradient(180deg, rgba(250, 247, 240, .95), rgba(237, 228, 211, .92));
+      border: 4px solid var(--gold);
+      border-radius: 14px;
+      padding: 12px;
+      align-self: start;
+      box-shadow: 0 12px 0 rgba(140, 106, 46, .14);
+    }
+
+    .award-row.visible { display: flex; }
+
+    .question-media-stack {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+    }
+
+    .media-item {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      padding: 8px;
+      border: 2px solid rgba(201, 151, 74, .45);
+      border-radius: 8px;
+      background: rgba(250, 247, 240, .72);
+    }
+
+    .award-title {
+      color: var(--dark);
+      font-size: 22px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .team-award {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 58px;
+      border-radius: 8px;
+      color: white;
+      padding: 10px;
+      border: 4px solid transparent;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .12);
+    }
+
+    .team-award.selected {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 5px rgba(201, 151, 74, .34);
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    .team-award .default-avatar,
+    .team-award img {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.8);
+      flex: 0 0 auto;
+    }
+
+    .team-award .default-avatar {
+      display: grid;
+      place-items: center;
+      background: #dedede;
+      color: #9a9a9a;
+      overflow: hidden;
+    }
+
+    .team-award img { object-fit: cover; }
+
+    .done-banner {
+      display: none;
+      background: var(--dark);
+      color: var(--cream);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      font-size: 24px;
+    }
+
+    .done-banner.visible { display: block; }
+
+    .ad-space {
+      min-height: 10vh;
+      width: min(1220px, 100%);
+      margin-top: 12px;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(145, 24, 28, .12);
+      box-shadow: inset 0 0 0 1px rgba(145, 24, 28, .08);
+      color: rgba(27, 58, 47, .72);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: clamp(18px, 2vw, 24px);
+    }
+
+    .results-stage {
+      width: min(1040px, 100%);
+      background:
+        radial-gradient(circle at 50% -10%, rgba(255, 246, 229, .7), transparent 34%),
+        linear-gradient(180deg, rgba(239, 214, 186, .96), rgba(245, 222, 196, .9));
+      border: 4px solid var(--gold);
+      border-radius: 8px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 18px 0 rgba(140, 106, 46, .14), 0 28px 70px rgba(27, 58, 47, .14);
+    }
+
+    .results-stage::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      width: 150px;
+      aspect-ratio: 1;
+      background: url("assets/izzbah-white-logo.png") center / contain no-repeat;
+      opacity: .16;
+      pointer-events: none;
+    }
+
+    .result-watermark {
+      position: absolute;
+      right: 18px;
+      top: 16px;
+      width: 132px;
+      opacity: .22;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 10px rgba(145, 24, 28, .12));
+    }
+
+    .results-stage::before {
+      content: "";
+      position: absolute;
+      inset: -40% -10% auto;
+      height: 70%;
+      background: radial-gradient(circle, rgba(201, 151, 74, .2), transparent 58%);
+      animation: stageGlow 2.2s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    .winner-phrase {
+      min-height: 56px;
+      margin: 0 0 12px;
+      color: var(--red);
+      font-size: clamp(36px, 4.8vw, 62px);
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      animation: winnerPop .8s cubic-bezier(.2, .9, .25, 1.25) both;
+    }
+
+    .winner-spot {
+      min-height: 92px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 2;
+      margin-bottom: 4px;
+    }
+
+    .winner-portrait {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 6px solid var(--gold);
+      background: white;
+      color: var(--red);
+      object-fit: cover;
+      box-shadow: 0 0 0 7px rgba(201, 151, 74, .25), 0 14px 28px rgba(27, 58, 47, .22);
+      animation: winnerPortraitPop .9s cubic-bezier(.2, .9, .25, 1.25) both, winnerPortraitGlow 1.7s ease-in-out infinite;
+    }
+
+    .winner-portrait.default-avatar {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .draw-spot {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .draw-team {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      color: var(--dark);
+      font-size: 20px;
+    }
+
+    .chart {
+      height: 430px;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      gap: clamp(14px, 3vw, 34px);
+      padding: 22px 12px 0;
+      direction: rtl;
+      position: relative;
+      z-index: 2;
+    }
+
+    .bar-wrap {
+      width: min(150px, 24%);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: end;
+      align-items: center;
+      gap: 10px;
+      color: var(--bar-color);
+      min-width: 92px;
+    }
+
+    .bar {
+      width: 100%;
+      height: 0;
+      min-height: 18px;
+      border-radius: 8px 8px 0 0;
+      background: currentColor;
+      border: 4px solid rgba(0, 0, 0, .16);
+      transition: height 1.15s cubic-bezier(.2, .8, .22, 1.05);
+      position: relative;
+      transform-origin: bottom center;
+    }
+
+    .bar.winner {
+      box-shadow: 0 0 0 6px rgba(201, 151, 74, .34);
+      animation: winnerPulse 1.45s ease-in-out infinite;
+    }
+
+    .bar.winner::after {
+      content: "";
+      position: absolute;
+      inset: -18px -12px auto;
+      height: 32px;
+      background: radial-gradient(circle, rgba(255,255,255,.9) 0 13%, transparent 15% 100%);
+      background-size: 18px 18px;
+      animation: sparkleDrift 1.6s linear infinite;
+      opacity: .75;
+      pointer-events: none;
+    }
+
+    .bar-score {
+      position: absolute;
+      top: -42px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--dark);
+      font-size: 36px;
+      white-space: nowrap;
+    }
+
+    .result-name {
+      color: var(--dark);
+      font-size: 28px;
+      text-align: center;
+      overflow-wrap: anywhere;
+      min-height: 54px;
+      display: grid;
+      place-items: center;
+    }
+
+    .result-photo {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid currentColor;
+      background: white;
+    }
+
+    .confetti {
+      position: absolute;
+      top: -24px;
+      width: 12px;
+      height: 20px;
+      border-radius: 3px;
+      background: var(--confetti-color);
+      left: var(--confetti-left);
+      transform: rotate(var(--confetti-rotate));
+      animation: confettiFall var(--confetti-duration) ease-in var(--confetti-delay) forwards;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    @keyframes stageGlow {
+      from { transform: translateY(-8px) scale(.96); opacity: .65; }
+      to { transform: translateY(10px) scale(1.05); opacity: 1; }
+    }
+
+    @keyframes winnerPop {
+      0% { transform: translateY(12px) scale(.88); opacity: 0; }
+      70% { transform: translateY(-3px) scale(1.04); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes winnerPortraitPop {
+      0% { transform: translateY(18px) scale(.72); opacity: 0; }
+      70% { transform: translateY(-4px) scale(1.08); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes winnerPortraitGlow {
+      0%, 100% { box-shadow: 0 0 0 7px rgba(201, 151, 74, .25), 0 14px 28px rgba(27, 58, 47, .22); }
+      50% { box-shadow: 0 0 0 12px rgba(201, 151, 74, .14), 0 18px 34px rgba(27, 58, 47, .28); }
+    }
+
+    @keyframes winnerPulse {
+      0%, 100% { filter: brightness(1); transform: scaleX(1); }
+      50% { filter: brightness(1.12); transform: scaleX(1.04); }
+    }
+
+    @keyframes sparkleDrift {
+      from { background-position: 0 0; opacity: .9; }
+      to { background-position: 36px 0; opacity: .45; }
+    }
+
+    @keyframes confettiFall {
+      0% { transform: translateY(0) rotate(var(--confetti-rotate)); opacity: 0; }
+      12% { opacity: .95; }
+      100% { transform: translateY(520px) rotate(calc(var(--confetti-rotate) + 260deg)); opacity: 0; }
+    }
+
+    .file-note {
+      color: var(--gold-dark);
+      font-size: 16px;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    @media (max-width: 800px) {
+      .app { padding: 12px; }
+      .team-fields, .game-library-list, .saved-game-cats { grid-template-columns: 1fr; }
+      .custom-row { grid-template-columns: 70px 1fr; }
+      .custom-row .actions { grid-column: 1 / -1; }
+      .question-editor { grid-template-columns: 1fr; justify-items: center; }
+      .score-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .game-screen { overflow-x: auto; }
+      .board {
+        min-width: 820px;
+      }
+      .question-meta { flex-direction: column; }
+      .topbar { align-items: flex-start; }
+      .chart { gap: 12px; }
+      .bar-wrap { min-width: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="menu" class="screen active center">
+      <div class="stack">
+        <img class="brand-mark" src="assets/izzbah-official-logo-transparent.png" alt="عِزبه">
+        <p class="subtitle">لعبة تريفيا جماعية</p>
+        <button class="primary" data-screen="gameLibrary">ابدأ لعبة جديدة</button>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="gameLibrary" class="screen center">
+      <div class="stack wide-stack">
+        <h2 class="screen-title">الألعاب</h2>
+        <p class="hint" id="gameLibraryHint">اختر لعبة محفوظة أو أنشئ لعبة جديدة.</p>
+        <div class="category-tabs" role="tablist" aria-label="Games type">
+          <button class="category-tab active" id="yourGamesTab" type="button">ألعابك</button>
+          <button class="category-tab" id="ourGamesTab" type="button">ألعابنا</button>
+        </div>
+        <div class="category-toolbar">
+          <button class="primary" id="createSavedGame">إنشاء لعبة جديدة</button>
+        </div>
+        <div class="game-library-list" id="gameLibraryList"></div>
+        <div class="actions">
+          <button class="ghost" data-screen="menu">رجوع</button>
+        </div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="setup" class="screen center">
+      <div class="setup-nav">
+        <button class="ghost" data-screen="categories">رجوع</button>
+        <button class="primary" id="startGame">ابدأ اللعبة</button>
+      </div>
+      <div class="stack">
+        <h2 class="screen-title">الفرق</h2>
+        <p class="hint">اختر عدد الفرق واكتب أسماءهم، ويمكنك إضافة صورة لكل فريق.</p>
+        <div class="panel">
+          <div class="team-count" id="teamCount"></div>
+          <div class="team-fields" id="teamFields"></div>
+        </div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="categories" class="screen center">
+      <div class="stack wide-stack">
+        <h2 class="screen-title">اختر الفئات</h2>
+        <p class="hint" id="categoryStatus">اختر فئة واحدة على الأقل.</p>
+        <div class="category-tabs" role="tablist" aria-label="Category type">
+          <button class="category-tab active" id="gameCategoriesTab" type="button">فئات اللعبة</button>
+          <button class="category-tab" id="communityCategoriesTab" type="button">فئات المجتمع</button>
+        </div>
+        <div class="game-name-box">
+          <label for="gameNameInput">اسم اللعبة</label>
+          <input id="gameNameInput" type="text" placeholder="اكتب اسم مجموعة الفئات">
+        </div>
+        <div class="category-toolbar">
+          <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
+        </div>
+        <div class="category-grid" id="categoryGrid"></div>
+        <div class="actions">
+          <button class="ghost" data-screen="gameLibrary">رجوع</button>
+          <button class="primary" id="goTeams" disabled>اختيار الفرق</button>
+        </div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="customManager" class="screen center">
+      <div class="stack wide-stack">
+        <h2 class="screen-title">فئاتك الخاصة</h2>
+        <p class="hint">أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.</p>
+        <div class="actions">
+          <button class="primary" id="newCustomCategory">+ فئة جديدة</button>
+          <button class="ghost" id="customBack">رجوع</button>
+        </div>
+        <div class="custom-list" id="customList"></div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="customEditor" class="screen center">
+      <div class="stack wide-stack">
+        <h2 class="screen-title">تعديل الفئة</h2>
+        <div class="editor-panel" id="editorPanel"></div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <div class="modal-backdrop" id="categoryPreview" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+        <h3 class="preview-title" id="previewTitle"></h3>
+        <ol class="preview-list" id="previewList"></ol>
+        <div class="actions">
+          <button class="primary" id="closePreview">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="deleteGameConfirm" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="deleteGameTitle">
+        <h3 class="preview-title" id="deleteGameTitle">هل أنت متأكد؟</h3>
+        <p class="hint" id="deleteGameMessage">سيتم حذف هذه اللعبة من ألعابك المحفوظة.</p>
+        <div class="actions">
+          <button class="danger" id="confirmDeleteGame">حذف اللعبة</button>
+          <button class="ghost" id="cancelDeleteGame">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="game" class="game-screen">
+      <div class="topbar">
+        <div class="actions game-actions" style="margin:0">
+          <button class="ghost" id="exitGame"><span aria-hidden="true">×</span> خروج</button>
+          <button class="gold-btn" id="endGameEarly"><span aria-hidden="true">←</span> إنهاء وعرض النتائج</button>
+        </div>
+        <div class="mini-brand">
+          <img class="mini-brand-logo" src="assets/izzbah-white-logo.png" alt="عِزبه">
+        </div>
+        <div class="turn-box" data-turn-box></div>
+      </div>
+      <div class="score-row" id="scoreRow"></div>
+      <img class="game-watermark" src="assets/izzbah-white-logo.png" alt="" aria-hidden="true">
+      <div class="done-banner" id="doneBanner">
+        انتهت الأسئلة!
+        <button class="gold-btn" id="showResults" style="margin-right:12px">عرض النتائج</button>
+      </div>
+      <div class="board" id="board"></div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="questionPage" class="game-screen question-page">
+      <div class="topbar">
+        <button class="ghost" id="questionBackTop">رجوع للوحة</button>
+        <div class="mini-brand">
+          <img class="mini-brand-logo" src="assets/izzbah-white-logo.png" alt="عِزبه">
+        </div>
+        <div class="turn-box" data-turn-box></div>
+      </div>
+      <div class="question-card question-main-card">
+        <div class="question-meta">
+          <span class="meta-box meta-category" id="modalCategory"></span>
+          <span class="meta-box meta-points" id="modalPoints"></span>
+        </div>
+        <img id="modalQuestionImage" class="question-image" alt="" />
+        <p class="question-text" id="modalQuestion"></p>
+        <div class="actions" id="questionActions">
+          <button class="gold-btn" id="revealAnswer">إظهار الإجابة</button>
+        </div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="answerPage" class="game-screen question-page">
+      <div class="topbar">
+        <button class="ghost" id="answerBackTop">رجوع للوحة</button>
+        <div class="mini-brand">
+          <img class="mini-brand-logo" src="assets/izzbah-white-logo.png" alt="عِزبه">
+        </div>
+        <div class="turn-box" data-turn-box></div>
+      </div>
+      <div class="answer-layout">
+        <div class="award-row" id="awardRow"></div>
+        <div class="question-card answer-card">
+          <div class="question-meta">
+            <span class="meta-box answer-category" id="answerCategory"></span>
+            <span class="meta-box answer-points" id="answerPoints"></span>
+          </div>
+          <img id="modalAnswerImage" class="answer-image" alt="" />
+          <div class="answer visible" id="modalAnswer"></div>
+        </div>
+      </div>
+      <div class="answer-bottom-actions">
+        <button class="secondary" id="backToQuestion">رجوع للسؤال</button>
+        <button class="gold-btn" id="continueAnswer" disabled>متابعة</button>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+
+    <section id="results" class="screen center">
+      <div class="stack wide-stack">
+        <h2 class="screen-title">النتائج النهائية</h2>
+        <div class="results-stage">
+          <img class="result-watermark" src="assets/izzbah-white-logo.png" alt="" aria-hidden="true">
+          <p class="winner-phrase" id="winnerPhrase"></p>
+          <div class="winner-spot" id="winnerSpot"></div>
+          <div class="chart" id="resultsChart"></div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="newGame">لعبة جديدة</button>
+          <button class="secondary" id="resultsMenu">القائمة الرئيسية</button>
+        </div>
+      </div>
+      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
+    </section>
+  </main>
+
+  <script>
+    const colors = ["#1B6A8F", "#5B7A6B", "#7A3D88", "#C9974A", "#2F6F73"];
+    const teamDefaults = ["", "", "", "", ""];
+    const pointValues = [100, 200, 300, 400, 500];
+    const maxTotalScore = 10000;
+    const toArabicDigits = value => String(value);
+    const builtinQuestionBanks = {
+      history: {
+        100: [
+          ["في أي قرن بدأت الثورة الصناعية؟", "القرن الثامن عشر"],
+          ["من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن"],
+          ["ما اسم الحضارة التي بنت الأهرامات في الجيزة؟", "الحضارة المصرية القديمة"],
+          ["في أي بلد ظهرت الألعاب الأولمبية القديمة؟", "اليونان"],
+          ["ما اسم السفينة التي غرقت عام 1912؟", "تيتانيك"],
+          ["من هو القائد المغولي الشهير الذي أسس إمبراطورية واسعة؟", "جنكيز خان"],
+          ["ما المدينة التي كانت عاصمة الدولة العباسية في أوجها؟", "بغداد"]
+        ],
+        200: [
+          ["ما اسم الطريق التجاري القديم الذي ربط الشرق بالغرب عبر آسيا؟", "طريق الحرير"],
+          ["في أي عام سقطت القسطنطينية؟", "1453"],
+          ["من هو القائد المسلم في معركة حطين؟", "صلاح الدين الأيوبي"],
+          ["ما اسم أول خليفة في الإسلام؟", "أبو بكر الصديق"],
+          ["أي حرب انتهت بمعاهدة فرساي عام 1919؟", "الحرب العالمية الأولى"],
+          ["ما اسم الملكة المصرية التي حكمت مع يوليوس قيصر ومارك أنطونيو؟", "كليوباترا"],
+          ["ما اسم الدولة التي قامت فيها الثورة الفرنسية؟", "فرنسا"]
+        ],
+        300: [
+          ["من هو القائد الذي بنى أول إمبراطورية موحدة في الصين؟", "تشين شي هوانغ"],
+          ["ما اسم المعركة التي هزم فيها نابليون عام 1815؟", "واترلو"],
+          ["ما الحضارة القديمة التي استخدمت الكتابة المسمارية؟", "السومرية"],
+          ["من هو الخليفة الأموي الذي بنى قبة الصخرة؟", "عبد الملك بن مروان"],
+          ["ما اسم الإمبراطورية التي كانت عاصمتها تينوختيتلان؟", "الأزتك"],
+          ["أي دولة استعمرت البرازيل تاريخياً؟", "البرتغال"],
+          ["ما اسم أول إمبراطور روماني؟", "أغسطس"]
+        ],
+        400: [
+          ["في أي عام انتهت الحرب العالمية الثانية؟", "1945"],
+          ["ما اسم الاتفاقية التي قسمت النفوذ بين بريطانيا وفرنسا في المشرق عام 1916؟", "سايكس بيكو"],
+          ["من هو الرحالة الذي كتب عن رحلاته في كتاب تحفة النظار؟", "ابن بطوطة"],
+          ["ما اسم السلالة التي حكمت الصين عند بناء معظم سور الصين العظيم بشكله المعروف؟", "سلالة مينغ"],
+          ["ما اسم الثورة التي أطاحت بالقيصر الروسي عام 1917؟", "الثورة البلشفية"],
+          ["أي مدينة كانت عاصمة الأندلس في عصر الخلافة الأموية؟", "قرطبة"],
+          ["ما اسم المعركة التي أوقفت التوسع المغولي في بلاد الشام عام 1260؟", "عين جالوت"]
+        ],
+        500: [
+          ["ما اسم الحضارة التي بنت مدينة البتراء؟", "الأنباط"],
+          ["من هو المؤرخ العربي صاحب كتاب المقدمة؟", "ابن خلدون"],
+          ["ما اسم المعاهدة التي أنهت حرب الثلاثين عاماً في أوروبا؟", "صلح وستفاليا"],
+          ["ما اسم الملك البابلي الذي اشتهر بقانون مكتوب قديم؟", "حمورابي"],
+          ["أي إمبراطورية حكمها شارلمان في أوروبا الغربية؟", "الإمبراطورية الكارولنجية"],
+          ["ما اسم المدينة اليابانية التي كانت تعرف قديماً باسم إيدو؟", "طوكيو"],
+          ["ما اسم آخر ملوك الأندلس في غرناطة؟", "أبو عبد الله الصغير"]
+        ]
+      },
+      science: {
+        100: [
+          ["ما هو الغاز الذي يحتاجه الإنسان للتنفس؟", "الأكسجين"],
+          ["كم عدد أرجل العنكبوت؟", "ثمانية"],
+          ["ما الكوكب المعروف بالكوكب الأحمر؟", "المريخ"],
+          ["ما العضو الذي يضخ الدم في جسم الإنسان؟", "القلب"],
+          ["ما الحالة التي يكون عليها الماء عند التجمد؟", "صلبة"],
+          ["ما اسم نجم مجموعتنا الشمسية؟", "الشمس"],
+          ["ما الحاسة التي نستخدمها لمعرفة الروائح؟", "الشم"]
+        ],
+        200: [
+          ["كم عدد العظام في جسم الإنسان البالغ؟", "206"],
+          ["ما الغاز الذي تمتصه النباتات غالباً في عملية البناء الضوئي؟", "ثاني أكسيد الكربون"],
+          ["ما وحدة قياس درجة الحرارة الشائعة في العلوم؟", "الدرجة المئوية"],
+          ["ما اسم الجهاز الذي يكبر الأشياء الصغيرة جداً؟", "المجهر"],
+          ["ما أكبر كوكب في المجموعة الشمسية؟", "المشتري"],
+          ["ما اسم المادة الوراثية المختصرة بالحروف DNA؟", "الحمض النووي"],
+          ["ما المعدن السائل عند درجة حرارة الغرفة؟", "الزئبق"]
+        ],
+        300: [
+          ["ما اسم القوة التي تجذب الأجسام نحو الأرض؟", "الجاذبية"],
+          ["ما العضية المسؤولة عن إنتاج الطاقة في الخلية؟", "الميتوكوندريا"],
+          ["ما الرمز الكيميائي للذهب؟", "Au"],
+          ["ما اسم طبقة الغلاف الجوي التي تحتوي على معظم الطقس؟", "التروبوسفير"],
+          ["ما نوع الشحنة التي يحملها البروتون؟", "موجبة"],
+          ["ما اسم العملية التي يتحول فيها السائل إلى غاز؟", "التبخر"],
+          ["ما الجهاز المستخدم لقياس الضغط الجوي؟", "البارومتر"]
+        ],
+        400: [
+          ["ما هو أصغر جزء في الذرة يحمل شحنة سالبة؟", "الإلكترون"],
+          ["ما اسم قانون نيوتن الذي يقول إن لكل فعل رد فعل مساوياً له ومعاكساً له؟", "القانون الثالث"],
+          ["ما الرقم الهيدروجيني للماء النقي تقريباً؟", "7"],
+          ["ما اسم المرض الناتج عن نقص فيتامين د عند الأطفال؟", "الكساح"],
+          ["ما اسم العالم الذي وضع جدول العناصر الدوري الأول؟", "مندليف"],
+          ["ما نوع الموجات التي يستخدمها جهاز الرادار غالباً؟", "الموجات الكهرومغناطيسية"],
+          ["ما اسم انتقال الحرارة في السوائل والغازات بحركة المادة نفسها؟", "الحمل الحراري"]
+        ],
+        500: [
+          ["ما اسم العلم الذي يدرس الوراثة؟", "علم الجينات"],
+          ["ما اسم الجسيم دون الذري عديم الشحنة داخل النواة؟", "النيوترون"],
+          ["ما اسم ثابت الغاز العام في المعادلة PV=nRT؟", "R"],
+          ["ما اسم العملية النووية التي تمد الشمس بالطاقة؟", "الاندماج النووي"],
+          ["ما اسم الرابطة الكيميائية التي تنتج عن مشاركة الإلكترونات؟", "الرابطة التساهمية"],
+          ["ما اسم العالم الذي اقترح نظرية النسبية العامة؟", "ألبرت أينشتاين"],
+          ["ما اسم الوحدة الأساسية لقياس شدة التيار الكهربائي؟", "الأمبير"]
+        ]
+      },
+      geo: {
+        100: [
+          ["ما أطول نهر في العالم؟", "نهر النيل"],
+          ["ما عاصمة فرنسا؟", "باريس"],
+          ["في أي قارة تقع مصر؟", "أفريقيا"],
+          ["ما أكبر محيط في العالم؟", "المحيط الهادئ"],
+          ["ما عاصمة اليابان؟", "طوكيو"],
+          ["ما اسم البحر الذي يقع غرب السعودية؟", "البحر الأحمر"],
+          ["ما الدولة التي عاصمتها الرياض؟", "السعودية"]
+        ],
+        200: [
+          ["كم عدد القارات في العالم؟", "سبع قارات"],
+          ["ما عاصمة سلطنة عمان؟", "مسقط"],
+          ["ما اسم الجبل الأعلى في أفريقيا؟", "كليمنجارو"],
+          ["ما الدولة التي تشتهر بشكل الحذاء على الخريطة؟", "إيطاليا"],
+          ["ما عاصمة أستراليا؟", "كانبرا"],
+          ["ما المضيق الذي يفصل بين المغرب وإسبانيا؟", "مضيق جبل طارق"],
+          ["في أي قارة تقع الأرجنتين؟", "أمريكا الجنوبية"]
+        ],
+        300: [
+          ["ما هي أكبر صحراء حارة في العالم؟", "الصحراء الكبرى"],
+          ["ما عاصمة كندا؟", "أوتاوا"],
+          ["أي نهر يمر بمدينة لندن؟", "نهر التايمز"],
+          ["ما الدولة التي تضم مدينة مراكش؟", "المغرب"],
+          ["ما البحر الذي يفصل أوروبا عن أفريقيا شمالاً؟", "البحر المتوسط"],
+          ["ما الدولة الأكبر مساحة في العالم؟", "روسيا"],
+          ["ما عاصمة كوريا الجنوبية؟", "سيول"]
+        ],
+        400: [
+          ["ما اسم أعلى قمة جبلية في العالم؟", "إفرست"],
+          ["ما اسم أعمق نقطة معروفة في المحيطات؟", "خندق ماريانا"],
+          ["ما عاصمة نيوزيلندا؟", "ويلينغتون"],
+          ["ما الدولة التي تقع فيها صحراء أتاكاما؟", "تشيلي"],
+          ["ما اسم النهر الذي يمر في بغداد؟", "دجلة"],
+          ["ما الأرخبيل الذي تقع فيه جزر بالي؟", "إندونيسيا"],
+          ["أي دولة لها أطول حدود برية مع الولايات المتحدة؟", "كندا"]
+        ],
+        500: [
+          ["ما هي أصغر دولة في العالم من حيث المساحة؟", "الفاتيكان"],
+          ["ما عاصمة منغوليا؟", "أولان باتور"],
+          ["ما اسم الخط الوهمي الواقع عند خط عرض صفر؟", "خط الاستواء"],
+          ["ما الدولة التي تضم إقليم باتاغونيا مع الأرجنتين؟", "تشيلي"],
+          ["ما البحيرة الأكبر مساحة في العالم؟", "بحر قزوين"],
+          ["ما اسم المضيق الذي يفصل آسيا عن أمريكا الشمالية؟", "مضيق بيرنغ"],
+          ["ما عاصمة أيسلندا؟", "ريكيافيك"]
+        ]
+      },
+      culture: {
+        100: [
+          ["كم عدد أيام السنة الكبيسة؟", "366 يوم"],
+          ["كم عدد حروف اللغة العربية؟", "28 حرفاً"],
+          ["ما الحيوان المعروف بسفينة الصحراء؟", "الجمل"],
+          ["ما العملة الرسمية في اليابان؟", "الين"],
+          ["ما اسم الشهر الذي يصوم فيه المسلمون؟", "رمضان"],
+          ["كم عدد أيام الأسبوع؟", "سبعة"],
+          ["ما اللغة الرسمية في البرازيل؟", "البرتغالية"]
+        ],
+        200: [
+          ["ما هي اللغة الأكثر تحدثاً في العالم كلغة أم؟", "الماندرين الصينية"],
+          ["ما اسم أكبر قارة من حيث السكان؟", "آسيا"],
+          ["ما الآلة التي تستخدم لقياس الوقت؟", "الساعة"],
+          ["ما اسم الجائزة السينمائية الأمريكية الشهيرة؟", "الأوسكار"],
+          ["ما الدولة التي تشتهر برقصة الفلامنكو؟", "إسبانيا"],
+          ["ما اسم الكتاب المقدس عند المسلمين؟", "القرآن الكريم"],
+          ["ما اسم الوجبة اليابانية الشهيرة المصنوعة غالباً من الأرز والسمك؟", "السوشي"]
+        ],
+        300: [
+          ["ما اسم أول رياضة أولمبية أقيمت في التاريخ؟", "العدو"],
+          ["ما معنى كلمة أطلس في سياق الكتب؟", "مجموعة خرائط"],
+          ["ما الدولة التي ابتكرت لعبة الشطرنج بصورتها الأولى غالباً؟", "الهند"],
+          ["ما اسم يوم الاستقلال الأمريكي؟", "الرابع من يوليو"],
+          ["ما اسم الزي الياباني التقليدي؟", "الكيمونو"],
+          ["ما اسم المنظمة الدولية التي ترمز لها الحروف UNESCO؟", "اليونسكو"],
+          ["ما اسم نظام الكتابة للمكفوفين؟", "برايل"]
+        ],
+        400: [
+          ["كم عدد أوتار آلة العود التقليدية؟", "خمسة أو ستة أوتار"],
+          ["ما اسم أكبر مهرجان سينمائي سنوي في فرنسا؟", "مهرجان كان"],
+          ["ما اسم علم دراسة العملات؟", "النميات أو علم المسكوكات"],
+          ["ما المدينة التي تلقب بمدينة الضباب؟", "لندن"],
+          ["ما اسم القهوة الإيطالية المركزة الصغيرة؟", "إسبريسو"],
+          ["ما اسم الجائزة السويدية الشهيرة في العلوم والآداب والسلام؟", "جائزة نوبل"],
+          ["ما اسم التقويم الذي يعتمد على دورة القمر؟", "التقويم القمري"]
+        ],
+        500: [
+          ["ما اسم الكتاب الذي يعد الأكثر طبعاً في التاريخ؟", "الكتاب المقدس"],
+          ["ما اسم اللغة الكلاسيكية القديمة في الهند؟", "السنسكريتية"],
+          ["ما اسم فن طي الورق الياباني؟", "الأوريغامي"],
+          ["من صاحب رواية مئة عام من العزلة؟", "غابرييل غارثيا ماركيز"],
+          ["ما اسم المدينة التي يقع فيها متحف اللوفر؟", "باريس"],
+          ["ما اسم الخط العربي الذي اشتهر بالاستعمال في كتابة المصاحف قديماً؟", "النسخ"],
+          ["ما اسم أقدم جامعة قائمة في العالم حسب تصنيفات شائعة وتقع في فاس؟", "جامعة القرويين"]
+        ]
+      },
+      sports: {
+        100: [
+          ["كم عدد لاعبي فريق كرة القدم في الملعب؟", "11 لاعباً"],
+          ["ما الرياضة التي يستخدم فيها المضرب والكرة الصفراء؟", "التنس"],
+          ["ما اسم الرياضة التي تلعب على الجليد بالعصا والقرص؟", "هوكي الجليد"],
+          ["كم عدد الحلقات في شعار الألعاب الأولمبية؟", "خمس حلقات"],
+          ["ما الرياضة التي يشتهر بها مايكل جوردن؟", "كرة السلة"],
+          ["في أي رياضة يستخدم القفاز والمضرب والقاعدة؟", "البيسبول"],
+          ["ما الرياضة التي تقام في حوض سباحة؟", "السباحة"]
+        ],
+        200: [
+          ["كل كم سنة تقام دورة الألعاب الأولمبية الصيفية؟", "كل 4 سنوات"],
+          ["كم عدد لاعبي فريق كرة السلة داخل الملعب لكل فريق؟", "5 لاعبين"],
+          ["ما اسم البطولة الأشهر في كرة القدم للمنتخبات؟", "كأس العالم"],
+          ["كم شوطاً في مباراة كرة السلة NBA عادة؟", "أربعة أشواط"],
+          ["ما الأداة الأساسية في رياضة الغولف؟", "المضرب"],
+          ["ما الرياضة التي يستخدم فيها مصطلح إرسال؟", "التنس أو الكرة الطائرة"],
+          ["ما اسم سباق الجري لمسافة 42.195 كم؟", "الماراثون"]
+        ],
+        300: [
+          ["ما هي الرياضة التي تستخدم فيها كلمة مات؟", "الشطرنج"],
+          ["ما المنتخب الفائز بكأس العالم 2022؟", "الأرجنتين"],
+          ["كم عدد لاعبي الكرة الطائرة داخل الملعب لكل فريق؟", "6 لاعبين"],
+          ["ما اسم سباق الدراجات الشهير في فرنسا؟", "طواف فرنسا"],
+          ["ما الرياضة التي يستخدم فيها مصطلح ضربة جزاء؟", "كرة القدم"],
+          ["ما اسم بطولة التنس التي تقام على الملاعب العشبية في لندن؟", "ويمبلدون"],
+          ["في أي رياضة يوجد مركز حارس المرمى؟", "كرة القدم أو كرة اليد أو الهوكي"]
+        ],
+        400: [
+          ["كم تبلغ مدة شوطي مباراة كرة القدم الرسمية؟", "90 دقيقة"],
+          ["ما اسم اللاعب الذي يحمل الرقم القياسي التاريخي لعدد كرات الذهب حتى 2024؟", "ليونيل ميسي"],
+          ["ما الدولة التي استضافت كأس العالم 2010؟", "جنوب أفريقيا"],
+          ["في الفورمولا 1، ماذا تعني الراية المتقلبة؟", "نهاية السباق"],
+          ["ما اسم رياضة القتال اليابانية التي تعني الطريق اللين؟", "الجودو"],
+          ["كم عدد المربعات في رقعة الشطرنج؟", "64 مربعاً"],
+          ["ما اسم البطولة الأوروبية الكبرى للأندية في كرة القدم؟", "دوري أبطال أوروبا"]
+        ],
+        500: [
+          ["في أي رياضة يستخدم مصطلح هاتريك؟", "كرة القدم"],
+          ["ما اسم العداء الجامايكي صاحب أرقام قياسية في 100 و200 متر؟", "يوسين بولت"],
+          ["ما الدولة التي فازت بأول كأس عالم لكرة القدم عام 1930؟", "الأوروغواي"],
+          ["ما اسم الحركة الثلاثية في كرة السلة: خطوة ثم قفزة للتسجيل قرب السلة؟", "اللي أب"],
+          ["ما اسم بطولة الغولف التي تمنح الفائز سترة خضراء؟", "الماسترز"],
+          ["ما اسم سباق الخيل البريطاني الشهير الذي يعرف باسم الديربي؟", "ديربي إبسوم"],
+          ["في أي رياضة يظهر مصطلح إيبيون؟", "الجودو"]
+        ]
+      },
+      art: {
+        100: [
+          ["ما هي الألوان الأساسية الثلاثة؟", "الأحمر، الأزرق، الأصفر"],
+          ["ما الأداة التي يستخدمها الرسام غالباً مع الألوان؟", "الفرشاة"],
+          ["ما الفن الذي يعتمد على التقاط الصور بالكاميرا؟", "التصوير"],
+          ["ما اسم المكان الذي تعرض فيه اللوحات؟", "المعرض أو المتحف"],
+          ["ما اللون الناتج عن مزج الأحمر والأصفر؟", "البرتقالي"],
+          ["ما الآلة الموسيقية التي تحتوي على مفاتيح بيضاء وسوداء؟", "البيانو"],
+          ["ما اسم الشخص الذي يكتب الشعر؟", "الشاعر"]
+        ],
+        200: [
+          ["ما اسم الفن الذي يعتمد على نقش الأشكال في الحجر أو المعدن؟", "النقش أو الحفر"],
+          ["من رسم لوحة الموناليزا؟", "ليوناردو دافنشي"],
+          ["ما اسم المسرحية التي يكتبها شاعر أو كاتب للمسرح؟", "نص مسرحي"],
+          ["ما اللون الناتج عن مزج الأزرق والأصفر؟", "الأخضر"],
+          ["ما الآلة الوترية العربية الشهيرة ذات الصندوق الخشبي؟", "العود"],
+          ["ما اسم فن تشكيل الطين ثم حرقه؟", "الخزف"],
+          ["ما اسم الشخص الذي يقود الفرقة الموسيقية؟", "المايسترو"]
+        ],
+        300: [
+          ["ما اسم الخط العربي المعروف بزخارفه الهندسية المتداخلة؟", "الخط الكوفي"],
+          ["من رسم لوحة ليلة النجوم؟", "فان غوخ"],
+          ["ما المدرسة الفنية التي اشتهر بها بيكاسو؟", "التكعيبية"],
+          ["ما اسم الفن الياباني في طي الورق؟", "الأوريغامي"],
+          ["ما نوع الفن الذي تمثله المنحوتات؟", "النحت"],
+          ["ما اسم الفن الذي يعتمد على ترتيب قطع صغيرة ملونة لتكوين صورة؟", "الفسيفساء"],
+          ["ما اسم أعلى طبقة صوت نسائية في الغناء الكلاسيكي؟", "السوبرانو"]
+        ],
+        400: [
+          ["ما اسم الآلة الموسيقية ذات الشكل النصف دائري المستخدمة في الموسيقى الشرقية؟", "العود"],
+          ["من نحت تمثال داود الشهير في عصر النهضة؟", "مايكل أنجلو"],
+          ["ما اسم الحركة الفنية التي ركزت على الضوء واللحظة العابرة؟", "الانطباعية"],
+          ["ما اسم اللوحة الجدارية الشهيرة لليوناردو دافنشي عن عشاء المسيح؟", "العشاء الأخير"],
+          ["ما اسم القالب الموسيقي الكبير الذي تعزفه أوركسترا كاملة غالباً؟", "السيمفونية"],
+          ["ما اسم فن الكتابة الجميلة بالحروف؟", "الخط"],
+          ["ما اسم الفنان الإسباني الذي رسم غرنيكا؟", "بابلو بيكاسو"]
+        ],
+        500: [
+          ["ما اسم فن النسيج التقليدي الذي يستخدم خيوطاً متقاطعة بأنماط هندسية؟", "النسيج اليدوي مثل السدو"],
+          ["ما اسم الفنان النرويجي صاحب لوحة الصرخة؟", "إدفارد مونك"],
+          ["ما اسم متحف الفن الشهير في مدريد الذي يضم أعمال غويا وفيلاسكيز؟", "متحف البرادو"],
+          ["ما اسم التقنية الفنية التي تستخدم قطع زجاج أو حجر صغيرة؟", "الفسيفساء"],
+          ["ما اسم المقام الموسيقي العربي الذي يعطي إحساساً شرقياً شائعاً ويبدأ غالباً بنصف بيمول؟", "مقام راست أو بياتي حسب السياق"],
+          ["من مؤلف باليه بحيرة البجع؟", "تشايكوفسكي"],
+          ["ما اسم المدرسة الفنية التي سبقت عصر النهضة واشتهرت بالرموز الدينية المسطحة؟", "الفن البيزنطي"]
+        ]
+      },
+      foreignMovies: {
+        100: [
+          ["أي مسلسل اشتهر بمقهى اسمه Central Perk؟", "Friends"],
+          ["ما اسم شخصية ليوناردو دي كابريو في فيلم Titanic؟", "Jack Dawson"],
+          ["في Harry Potter، ما اسم رياضة السحرة التي تلعب على المكانس؟", "Quidditch"],
+          ["في Stranger Things، ما اسم العالم الموازي المظلم؟", "The Upside Down"],
+          ["أي فيلم تظهر فيه شخصية Woody مع Buzz Lightyear؟", "Toy Story"],
+          ["في The Matrix، أي لون من الحبوب يختاره Neo لمعرفة الحقيقة؟", "الحبة الحمراء"],
+          ["ما اسم المدينة الخيالية التي يحميها Batman؟", "Gotham City"]
+        ],
+        200: [
+          ["من الممثل الذي لعب دور Tony Stark في عالم مارفل السينمائي؟", "Robert Downey Jr."],
+          ["أي مسلسل يحمل فيه البطل الاسم المستعار Heisenberg؟", "Breaking Bad"],
+          ["أي سلسلة أفلام تضم شخصيات Luke Skywalker وDarth Vader؟", "Star Wars"],
+          ["أي مسلسل تدور فيه صراعات كبرى على العرش الحديدي؟", "Game of Thrones"],
+          ["من الممثل الذي لعب دور Jack Sparrow؟", "Johnny Depp"],
+          ["أي فيلم رعب تدور أحداثه في فندق Overlook؟", "The Shining"],
+          ["أي فيلم تدور فكرته حول حديقة تضم ديناصورات مستنسخة؟", "Jurassic Park"]
+        ],
+        300: [
+          ["من أخرج Jurassic Park وE.T.؟", "Steven Spielberg"],
+          ["أي مسلسل تبدأ أحداثه باختفاء Will Byers؟", "Stranger Things"],
+          ["أي فيلم لكريستوفر نولان يعتمد على فكرة زرع الأفكار داخل الأحلام؟", "Inception"],
+          ["من لعب دور Joker في The Dark Knight؟", "Heath Ledger"],
+          ["أي مسلسل كوميدي تدور أحداثه في شركة Dunder Mifflin؟", "The Office"],
+          ["أي فيلم من بيكسار بطله روبوت يجمع النفايات على الأرض؟", "WALL-E"],
+          ["ما اسم المدرسة التي يدرس فيها Harry Potter؟", "Hogwarts"]
+        ],
+        400: [
+          ["أي فيلم تدور معظم أحداثه داخل سجن Shawshank؟", "The Shawshank Redemption"],
+          ["من أخرج Avatar وTitanic؟", "James Cameron"],
+          ["أي مسلسل بريطاني يقوده Tommy Shelby؟", "Peaky Blinders"],
+          ["أي فيلم من أفلام Batman صدر عام 2008 وأخرجه Christopher Nolan؟", "The Dark Knight"],
+          ["أي فيلم خيال علمي يستخدم ثقباً دودياً للبحث عن كوكب صالح للبشر؟", "Interstellar"],
+          ["ما اسم شخصية Tom Hanks التي تقابل رؤساء أمريكيين وتعيش أحداثاً تاريخية بالصدفة؟", "Forrest Gump"],
+          ["في The Lord of the Rings، ما اسم المملكة التي يحكمها Aragorn لاحقاً؟", "Gondor"]
+        ],
+        500: [
+          ["أي فيلم كلاسيكي يبدأ بحفل زفاف ابنة Vito Corleone؟", "The Godfather"],
+          ["من أخرج ثلاثية The Lord of the Rings؟", "Peter Jackson"],
+          ["أي مسلسل تدور أحداثه حول زعيم مافيا يزور طبيبة نفسية؟", "The Sopranos"],
+          ["أي فيلم لتارانتينو تظهر فيه شخصيتا Vincent Vega وJules Winnfield؟", "Pulp Fiction"],
+          ["أي فيلم لهتشكوك اشتهر بمشهد الاستحمام في فندق Bates؟", "Psycho"],
+          ["أي فيلم خيال علمي من 1982 تدور أحداثه حول Rick Deckard؟", "Blade Runner"],
+          ["في Sherlock بنسخته الحديثة، من لعب دور Sherlock Holmes؟", "Benedict Cumberbatch"]
+        ]
+      }
+    };
+
+    const builtinCategoryMeta = [
+      { id: "history", name: "تاريخ", image: "assets/category-history.png" },
+      { id: "science", name: "علوم", image: "assets/category-science.png" },
+      { id: "geo", name: "جغرافيا", image: "assets/category-geo.png" },
+      { id: "culture", name: "ثقافة عامة", image: "assets/category-culture.png" },
+      { id: "sports", name: "رياضة", image: "assets/category-sports.png" },
+      { id: "art", name: "فنون", image: "assets/category-art.png" },
+      { id: "foreignMovies", name: "أفلام ومسلسلات أجنبية", image: "assets/category-foreign-movies.png" }
+    ];
+
+    function randomQuestion(categoryId, points) {
+      const bank = builtinQuestionBanks[categoryId]?.[points] || [];
+      const qa = bank[Math.floor(Math.random() * bank.length)] || ["", ""];
+      return { points, q: qa[0], a: qa[1], image: "", answerImage: "" };
+    }
+
+    function buildQuestionSet(categoryId) {
+      return pointValues.map(points => randomQuestion(categoryId, points));
+    }
+
+    const builtinCategories = builtinCategoryMeta.map(category => ({
+      ...category,
+      custom: false,
+      questions: buildQuestionSet(category.id)
+    }));
+
+    const state = {
+      teamCount: 2,
+      teams: teamDefaults.map(name => ({ name, score: 0, image: "" })),
+      selected: new Set(),
+      customCategories: [],
+      savedGames: [],
+      used: new Set(),
+      activeTeam: 0,
+      activeQuestion: null,
+      gameLibraryMode: "your",
+      categoryMode: "game",
+      currentGameName: "",
+      editingSavedGameId: null,
+      customReturn: "categories",
+      editingCategory: null,
+      pendingWinner: null,
+      pendingDeleteGameId: null,
+      holdTimer: null,
+      holdDelay: null
+    };
+
+    const $ = selector => document.querySelector(selector);
+    const saveKey = "izzbah-trivia-settings-v1";
+    const savedGamesKey = "izzbah-trivia-saved-games-v1";
+    const previewSaveKey = "izzbah-trivia-preview-questions-v1";
+
+    function saveGameSettings() {
+      try {
+        localStorage.setItem(saveKey, JSON.stringify({
+          teamCount: state.teamCount,
+          teams: state.teams.map(team => ({ name: team.name, image: team.image })),
+          selected: [...state.selected],
+          customCategories: state.customCategories
+        }));
+      } catch (error) {
+        console.warn("تعذر حفظ إعدادات اللعبة.", error);
+      }
+    }
+
+    function loadGameSettings() {
+      try {
+        const raw = localStorage.getItem(saveKey);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved.teamCount >= 2 && saved.teamCount <= 5) {
+          state.teamCount = saved.teamCount;
+        }
+        if (Array.isArray(saved.teams)) {
+          const oldDefaultNames = new Set(["الفريق الأول", "الفريق الثاني", "الفريق الثالث", "الفريق الرابع", "الفريق الخامس"]);
+          state.teams = teamDefaults.map((fallback, index) => ({
+            name: oldDefaultNames.has(saved.teams[index]?.name) ? "" : (saved.teams[index]?.name || fallback),
+            image: saved.teams[index]?.image || "",
+            score: 0
+          }));
+        }
+        if (Array.isArray(saved.customCategories)) {
+          state.customCategories = saved.customCategories.map(category => ({
+            ...category,
+            questions: category.questions.map((question, index) => ({
+              answerImage: "",
+              ...question,
+              points: pointValues[index] || question.points
+            }))
+          }));
+        }
+        state.selected = new Set();
+      } catch (error) {
+        console.warn("تعذر استرجاع إعدادات اللعبة.", error);
+      }
+    }
+
+    function iconSvg(id) {
+      const common = `<circle cx="25" cy="25" r="22" fill="#f7ead3" stroke="#c9974a" stroke-width="2"/>`;
+      const shapes = {
+        history: `<rect x="15" y="13" width="20" height="24" fill="#c9974a" stroke="#1b3a2f" stroke-width="2"/><path d="M19 20h12M19 26h12M19 32h12" stroke="#1b3a2f" stroke-width="2"/>`,
+        science: `<path d="M21 10v15l-9 15h26l-9-15V10z" fill="#fff" stroke="#1b3a2f" stroke-width="2"/><circle cx="28" cy="33" r="5" fill="#1b6a8f"/>`,
+        geo: `<circle cx="25" cy="25" r="14" fill="none" stroke="#db161b" stroke-width="3"/><path d="M11 25h28M25 11v28M14 18c7 4 15 4 22 0" stroke="#db161b" stroke-width="1.5"/>`,
+        culture: `<path d="M25 8l5 12 13 1-10 8 3 13-11-7-11 7 3-13-10-8 13-1z" fill="#c9974a" stroke="#1b3a2f" stroke-width="2"/>`,
+        sports: `<circle cx="25" cy="25" r="15" fill="#fff" stroke="#1b3a2f" stroke-width="3"/><path d="M19 18h12l-3 13h-6z" fill="#1b3a2f"/>`,
+        art: `<circle cx="18" cy="20" r="7" fill="#db161b"/><circle cx="31" cy="20" r="7" fill="#c9974a"/><circle cx="25" cy="33" r="7" fill="#1b3a2f"/>`,
+        foreignMovies: `<rect x="13" y="15" width="24" height="20" rx="3" fill="#7a3d88" stroke="#1b3a2f" stroke-width="2"/><path d="M15 20h20M18 15l4 5M26 15l4 5" stroke="#f7ead3" stroke-width="2"/><path d="M20 28l9-5v10z" fill="#f7ead3"/>`,
+        custom: `<path d="M25 9v32M9 25h32" stroke="#7a3d88" stroke-width="7" stroke-linecap="round"/>`
+      };
+      return `<svg viewBox="0 0 50 50" aria-hidden="true">${common}${shapes[id] || shapes.custom}</svg>`;
+    }
+
+    function categoryColor(cat) {
+      const colorsById = {
+        history: "#c9974a",
+        science: "#1b6a8f",
+        geo: "#db161b",
+        culture: "#c9974a",
+        sports: "#1b3a2f",
+        art: "#7a3d88",
+        foreignMovies: "#7a3d88"
+      };
+      return colorsById[cat.id] || "#7a3d88";
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace("#", "");
+      return {
+        r: parseInt(clean.slice(0, 2), 16),
+        g: parseInt(clean.slice(2, 4), 16),
+        b: parseInt(clean.slice(4, 6), 16)
+      };
+    }
+
+    function rgba(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function defaultAvatarHtml(className = "default-avatar") {
+      return `
+        <span class="${className}" aria-hidden="true">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#dedede"/>
+            <circle cx="50" cy="38" r="18" fill="#a5a5a5"/>
+            <path d="M18 88c7-23 24-34 32-34s25 11 32 34" fill="#a5a5a5"/>
+          </svg>
+        </span>
+      `;
+    }
+
+    function teamDisplayName(team, index) {
+      return team.name || `الفريق ${toArabicDigits(index + 1)}`;
+    }
+
+    function allCategories() {
+      return [...builtinCategories, ...state.customCategories];
+    }
+
+    function activeCategories() {
+      return allCategories().filter(cat => state.selected.has(cat.id));
+    }
+
+    function categoryById(id) {
+      return allCategories().find(cat => cat.id === id);
+    }
+
+    function savedGameCategories(game) {
+      return (game.categoryIds || []).map(id => categoryById(id)).filter(Boolean);
+    }
+
+    function saveSavedGames() {
+      try {
+        localStorage.setItem(savedGamesKey, JSON.stringify(state.savedGames));
+      } catch (error) {
+        console.warn("Could not save games.", error);
+      }
+    }
+
+    function loadSavedGames() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(savedGamesKey)) || [];
+        state.savedGames = Array.isArray(saved)
+          ? saved.filter(game => Array.isArray(game.categoryIds)).map((game, index) => ({
+              id: game.id || `saved-${Date.now()}-${index}`,
+              title: game.title || `لعبة ${index + 1}`,
+              createdAt: game.createdAt || new Date().toISOString(),
+              categoryIds: game.categoryIds.filter(Boolean)
+            }))
+          : [];
+      } catch (error) {
+        state.savedGames = [];
+      }
+    }
+
+    function nextSavedGameTitle() {
+      return `لعبة ${toArabicDigits(state.savedGames.length + 1)}`;
+    }
+
+    function saveCurrentGameCategories() {
+      const categoryIds = [...state.selected];
+      if (!categoryIds.length) return;
+      const title = state.currentGameName.trim() || nextSavedGameTitle();
+      if (state.editingSavedGameId) {
+        const existing = state.savedGames.find(game => game.id === state.editingSavedGameId);
+        if (existing) {
+          existing.title = title;
+          existing.categoryIds = categoryIds;
+          existing.updatedAt = new Date().toISOString();
+          saveSavedGames();
+          return;
+        }
+      }
+      state.savedGames.unshift({
+        id: `saved-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+        title,
+        createdAt: new Date().toISOString(),
+        categoryIds
+      });
+      state.savedGames = state.savedGames.slice(0, 30);
+      saveSavedGames();
+    }
+
+    function openGameLibrary(mode = "your") {
+      state.gameLibraryMode = mode;
+      showScreen("gameLibrary");
+    }
+
+    function visibleCategoryGroup() {
+      return state.categoryMode === "community" ? state.customCategories : builtinCategories;
+    }
+
+    function setCategoryMode(mode) {
+      state.categoryMode = mode;
+      renderCategories();
+    }
+
+    function openNewGameCategories() {
+      state.selected = new Set();
+      state.currentGameName = "";
+      state.editingSavedGameId = null;
+      state.categoryMode = "game";
+      showScreen("categories");
+    }
+
+    function openSavedGameSettings(gameId) {
+      const game = state.savedGames.find(item => item.id === gameId);
+      if (!game) return;
+      state.selected = new Set(game.categoryIds.filter(id => categoryById(id)));
+      state.currentGameName = game.title || "";
+      state.editingSavedGameId = game.id;
+      state.categoryMode = "game";
+      showScreen("categories");
+    }
+
+    function playSavedGame(gameId) {
+      const game = state.savedGames.find(item => item.id === gameId);
+      if (!game) return;
+      state.selected = new Set(game.categoryIds.filter(id => categoryById(id)));
+      state.currentGameName = game.title || "";
+      state.editingSavedGameId = game.id;
+      showScreen("setup");
+    }
+
+    function loadPreviewChoices() {
+      try {
+        return JSON.parse(localStorage.getItem(previewSaveKey)) || {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function savePreviewChoices(choices) {
+      try {
+        localStorage.setItem(previewSaveKey, JSON.stringify(choices));
+      } catch (error) {
+        console.warn("Could not save preview question.", error);
+      }
+    }
+
+    function stableHash(value) {
+      return String(value || "").split("").reduce((hash, char) => {
+        return ((hash << 5) - hash + char.charCodeAt(0)) >>> 0;
+      }, 0);
+    }
+
+    function previewPoolForCategory(cat) {
+      if (cat.custom) {
+        return (cat.questions || []).map((question, index) => ({
+          ...question,
+          previewId: `${question.points || pointValues[index] || index}-${stableHash(question.q || question.a || index)}`
+        }));
+      }
+      const bank = builtinQuestionBanks[cat.id] || {};
+      return pointValues.flatMap(points => (bank[points] || []).map(([q, a], index) => ({
+        points,
+        q,
+        a,
+        image: "",
+        answerImage: "",
+        previewId: `${points}-${index}`
+      })));
+    }
+
+    function previewQuestionForCategory(cat) {
+      const fallback = cat.questions?.[0] || { q: "" };
+      const pool = previewPoolForCategory(cat).filter(question => question.q?.trim());
+      if (!pool.length) return fallback;
+
+      const choices = loadPreviewChoices();
+      const savedId = choices[cat.id];
+      const savedQuestion = pool.find(question => question.previewId === savedId);
+      if (savedQuestion) return savedQuestion;
+
+      const picked = pool[stableHash(cat.id || cat.name) % pool.length];
+      choices[cat.id] = picked.previewId;
+      savePreviewChoices(choices);
+      return picked;
+    }
+
+    function refreshBuiltinQuestions() {
+      builtinCategories.forEach(cat => {
+        cat.questions = buildQuestionSet(cat.id);
+      });
+    }
+
+    function showScreen(id, options = {}) {
+      if (!options.keepQuestion) clearQuestionView();
+      document.querySelectorAll(".screen, .game-screen").forEach(screen => screen.classList.remove("active"));
+      $("#" + id).classList.add("active");
+      if (id === "gameLibrary") renderGameLibrary();
+      if (id === "categories") renderCategories();
+      if (id === "setup") renderTeamSetup();
+      if (id === "customManager") renderCustomManager();
+    }
+
+    function resetScores() {
+      state.teams.forEach(team => { team.score = 0; });
+      state.used.clear();
+      state.activeTeam = 0;
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function imagePicker(currentImage, onChange, label = "اختر صورة") {
+      const picker = document.createElement("label");
+      picker.className = "image-picker";
+      picker.title = label;
+      picker.innerHTML = currentImage
+        ? `<img src="${currentImage}" alt="" />`
+        : `<span class="plus">+</span>`;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const dataUrl = await fileToDataUrl(file);
+        onChange(dataUrl);
+      });
+      picker.appendChild(input);
+      return picker;
+    }
+
+    function renderTeamSetup() {
+      const countWrap = $("#teamCount");
+      countWrap.innerHTML = "";
+      const stepper = document.createElement("div");
+      stepper.className = "team-stepper";
+      const plus = document.createElement("button");
+      plus.className = "stepper-btn";
+      plus.textContent = "+";
+      plus.disabled = state.teamCount >= 5;
+      plus.addEventListener("click", () => {
+        state.teamCount = Math.min(5, state.teamCount + 1);
+        saveGameSettings();
+        renderTeamSetup();
+      });
+      const number = document.createElement("div");
+      number.className = "team-number";
+      number.textContent = toArabicDigits(state.teamCount);
+      const minus = document.createElement("button");
+      minus.className = "stepper-btn";
+      minus.textContent = "−";
+      minus.disabled = state.teamCount <= 2;
+      minus.addEventListener("click", () => {
+        state.teamCount = Math.max(2, state.teamCount - 1);
+        saveGameSettings();
+        renderTeamSetup();
+      });
+      stepper.append(plus, number, minus);
+      countWrap.appendChild(stepper);
+
+      const fields = $("#teamFields");
+      fields.innerHTML = "";
+      for (let i = 0; i < state.teamCount; i++) {
+        const team = state.teams[i];
+        const card = document.createElement("div");
+        card.className = "team-card";
+        card.style.color = colors[i];
+        card.appendChild(imagePicker(team.image, image => {
+          team.image = image;
+          saveGameSettings();
+          renderTeamSetup();
+        }, "اختر صورة الفريق"));
+        const wrap = document.createElement("div");
+        wrap.innerHTML = `<span class="field-label">اسم الفريق</span>`;
+        const input = document.createElement("input");
+        input.value = team.name;
+        input.placeholder = "اكتب اسم الفريق";
+        input.setAttribute("aria-label", `اسم الفريق ${i + 1}`);
+        input.addEventListener("input", () => {
+          team.name = input.value.trim();
+          saveGameSettings();
+        });
+        wrap.appendChild(input);
+        card.appendChild(wrap);
+        fields.appendChild(card);
+      }
+    }
+
+    function renderCategories() {
+      const grid = $("#categoryGrid");
+      const gameNameInput = $("#gameNameInput");
+      if (gameNameInput) gameNameInput.value = state.currentGameName;
+      grid.innerHTML = "";
+      const visibleCategories = visibleCategoryGroup();
+      $("#gameCategoriesTab").classList.toggle("active", state.categoryMode === "game");
+      $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
+      $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
+      if (state.categoryMode === "community" && visibleCategories.length === 0) {
+        grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط زر إنشاء / تعديل فئات المجتمع لإضافة فئة.</div>`;
+      }
+      visibleCategories.forEach(cat => {
+        const card = document.createElement("div");
+        card.className = "category" + (state.selected.has(cat.id) ? " selected" : "");
+        const name = cat.name || "فئة بدون اسم";
+        card.innerHTML = `
+          <span class="check">✓</span>
+          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${name}">👁</button>
+          <button class="category-main" type="button">
+            <span>${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}</span>
+          </button>
+        `;
+        card.querySelector(".category-eye").addEventListener("click", event => {
+          event.stopPropagation();
+          openCategoryPreview(cat);
+        });
+        card.querySelector(".category-main").addEventListener("click", () => {
+          if (state.selected.has(cat.id)) state.selected.delete(cat.id);
+          else if (state.selected.size < 6) state.selected.add(cat.id);
+          else {
+            $("#categoryStatus").innerHTML = `الحد الأقصى للعبة الواحدة هو <span class="clean-number">6</span> فئات.`;
+            $("#categoryStatus").style.color = "var(--red)";
+            return;
+          }
+          saveGameSettings();
+          renderCategories();
+        });
+        grid.appendChild(card);
+      });
+      const count = state.selected.size;
+      $("#categoryStatus").innerHTML = count ? `تم اختيار <span class="clean-number">${toArabicDigits(count)}</span> ${count === 1 ? "فئة" : "فئات"} من <span class="clean-number">6</span>.` : "اختر فئة واحدة على الأقل.";
+      $("#categoryStatus").style.color = count > 6 ? "var(--red)" : "var(--dark)";
+      $("#goTeams").disabled = count === 0;
+    }
+
+    function renderGameLibrary() {
+      const list = $("#gameLibraryList");
+      const createButton = $("#createSavedGame");
+      list.innerHTML = "";
+      $("#yourGamesTab").classList.toggle("active", state.gameLibraryMode === "your");
+      $("#ourGamesTab").classList.toggle("active", state.gameLibraryMode === "our");
+      createButton.style.display = state.gameLibraryMode === "your" ? "" : "none";
+
+      if (state.gameLibraryMode === "our") {
+        $("#gameLibraryHint").textContent = "ألعابنا ستحتوي لاحقاً على فئات جاهزة من فريق التطوير.";
+        list.innerHTML = `<div class="panel library-empty">لا توجد ألعاب من فريق التطوير حالياً.</div>`;
+        return;
+      }
+
+      $("#gameLibraryHint").textContent = "كل مرة تبدأ فيها لعبة، يتم حفظ مجموعة الفئات هنا.";
+      if (!state.savedGames.length) {
+        list.innerHTML = `<div class="panel library-empty">لا توجد ألعاب محفوظة بعد. أنشئ لعبة جديدة واختر الفئات لتظهر هنا.</div>`;
+        return;
+      }
+
+      state.savedGames.forEach((game, index) => {
+        const categories = savedGameCategories(game);
+        const card = document.createElement("div");
+        card.className = "saved-game-card";
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", `تشغيل ${game.title || `لعبة ${toArabicDigits(index + 1)}`}`);
+        card.dataset.savedGameCard = game.id;
+        const title = document.createElement("div");
+        title.className = "saved-game-title";
+        title.textContent = game.title || `لعبة ${toArabicDigits(index + 1)}`;
+
+        const chips = document.createElement("div");
+        chips.className = "saved-game-cats";
+        if (categories.length) {
+          categories.forEach(cat => {
+            const tile = document.createElement("div");
+            tile.className = "saved-game-category";
+            const catColor = categoryColor(cat);
+            tile.style.setProperty("--cat-bg", rgba(catColor, .72));
+            tile.style.setProperty("--cat-border", catColor);
+            if (cat.image) {
+              tile.classList.add("bg-category");
+              tile.style.setProperty("--cat-image", `url("${cat.image}")`);
+            } else {
+              tile.innerHTML = iconSvg(cat.custom ? "custom" : cat.id);
+            }
+            const label = document.createElement("span");
+            label.textContent = cat.name || "فئة بدون اسم";
+            tile.appendChild(label);
+            chips.appendChild(tile);
+          });
+        } else {
+          const tile = document.createElement("div");
+          tile.className = "saved-game-category";
+          tile.textContent = "بعض الفئات غير موجودة";
+          chips.appendChild(tile);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "saved-game-actions";
+        actions.innerHTML = `
+          <button class="secondary" type="button" data-saved-settings="${game.id}">الإعدادات</button>
+          <button class="ghost" type="button" data-saved-delete="${game.id}">حذف اللعبة</button>
+        `;
+
+        card.append(title, chips, actions);
+        list.appendChild(card);
+      });
+    }
+
+    function openCategoryPreview(cat) {
+      $("#previewTitle").textContent = `أسئلة ${cat.name || "الفئة"}`;
+      const list = $("#previewList");
+      list.innerHTML = "";
+      [previewQuestionForCategory(cat)].forEach(question => {
+        const item = document.createElement("li");
+        item.textContent = question.q?.trim() || "لم يتم إدخال السؤال بعد.";
+        list.appendChild(item);
+      });
+      const backdrop = $("#categoryPreview");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+      $("#closePreview").focus();
+    }
+
+    function closeCategoryPreview() {
+      const backdrop = $("#categoryPreview");
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function openDeleteGameConfirm(gameId) {
+      state.pendingDeleteGameId = gameId;
+      const game = state.savedGames.find(item => item.id === gameId);
+      $("#deleteGameMessage").textContent = `سيتم حذف ${game?.title || "هذه اللعبة"} من ألعابك المحفوظة.`;
+      const backdrop = $("#deleteGameConfirm");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+      $("#cancelDeleteGame").focus();
+    }
+
+    function closeDeleteGameConfirm() {
+      state.pendingDeleteGameId = null;
+      const backdrop = $("#deleteGameConfirm");
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function confirmDeleteGame() {
+      if (!state.pendingDeleteGameId) return;
+      state.savedGames = state.savedGames.filter(game => game.id !== state.pendingDeleteGameId);
+      saveSavedGames();
+      closeDeleteGameConfirm();
+      renderGameLibrary();
+    }
+
+    function blankCustomCategory() {
+      return {
+        id: `custom-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+        name: "",
+        image: "",
+        custom: true,
+        questions: pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }))
+      };
+    }
+
+    function openCustomManager(returnScreen) {
+      state.customReturn = returnScreen;
+      renderCustomManager();
+      showScreen("customManager");
+    }
+
+    function renderCustomManager() {
+      const list = $("#customList");
+      list.innerHTML = "";
+      if (!state.customCategories.length) {
+        const empty = document.createElement("div");
+        empty.className = "panel";
+        empty.textContent = "لا توجد فئات مخصصة بعد.";
+        list.appendChild(empty);
+        return;
+      }
+      state.customCategories.forEach(cat => {
+        const row = document.createElement("div");
+        row.className = "custom-row";
+        row.innerHTML = `
+          <div>${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg("custom")}</div>
+          <div>
+            <div style="font-size:24px;color:var(--dark)">${cat.name || "بدون اسم"}</div>
+            <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(cat.questions.filter(q => q.q.trim()).length)}/5</span> أسئلة مكتملة</div>
+          </div>
+        `;
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        actions.style.margin = "0";
+        const edit = document.createElement("button");
+        edit.className = "secondary";
+        edit.textContent = "تعديل";
+        edit.addEventListener("click", () => editCustomCategory(cat));
+        const del = document.createElement("button");
+        del.className = "danger";
+        del.textContent = "حذف";
+        del.addEventListener("click", () => {
+          state.customCategories = state.customCategories.filter(item => item.id !== cat.id);
+          state.selected.delete(cat.id);
+          saveGameSettings();
+          renderCustomManager();
+        });
+        actions.append(edit, del);
+        row.appendChild(actions);
+        list.appendChild(row);
+      });
+    }
+
+    function editCustomCategory(cat) {
+      state.editingCategory = JSON.parse(JSON.stringify(cat));
+      renderCustomEditor();
+      showScreen("customEditor");
+    }
+
+    function renderCustomEditor() {
+      const cat = state.editingCategory;
+      const panel = $("#editorPanel");
+      panel.innerHTML = "";
+
+      const top = document.createElement("div");
+      top.style.display = "grid";
+      top.style.justifyItems = "center";
+      top.style.gap = "12px";
+      top.appendChild(imagePicker(cat.image, image => {
+        cat.image = image;
+        renderCustomEditor();
+      }, "اختر صورة الفئة"));
+      top.insertAdjacentHTML("beforeend", `<div class="file-note">صورة الفئة</div><label class="field-label">اسم الفئة</label>`);
+      const name = document.createElement("input");
+      name.value = cat.name;
+      name.placeholder = "مثال: عمانيات";
+      name.addEventListener("input", () => { cat.name = name.value; });
+      top.appendChild(name);
+      panel.appendChild(top);
+
+      cat.questions.forEach((q, idx) => {
+        const box = document.createElement("div");
+        box.className = "question-editor";
+        const media = document.createElement("div");
+        media.className = "question-media-stack";
+        const questionMedia = document.createElement("div");
+        questionMedia.className = "media-item";
+        questionMedia.insertAdjacentHTML("beforeend", `<div class="file-note">صورة السؤال</div>`);
+        questionMedia.appendChild(imagePicker(q.image, image => {
+          q.image = image;
+          renderCustomEditor();
+        }, "اختر صورة السؤال"));
+        const answerMedia = document.createElement("div");
+        answerMedia.className = "media-item";
+        answerMedia.insertAdjacentHTML("beforeend", `<div class="file-note">صورة الإجابة</div>`);
+        answerMedia.appendChild(imagePicker(q.answerImage, image => {
+          q.answerImage = image;
+          renderCustomEditor();
+        }, "اختر صورة الإجابة"));
+        media.append(questionMedia, answerMedia);
+        box.appendChild(media);
+        const fields = document.createElement("div");
+        fields.className = "question-fields";
+        fields.innerHTML = `<div class="field-label">سؤال بـ <span class="clean-number">${toArabicDigits(q.points)}</span> نقطة</div>`;
+        const qText = document.createElement("textarea");
+        qText.value = q.q;
+        qText.placeholder = "نص السؤال";
+        qText.addEventListener("input", () => { cat.questions[idx].q = qText.value; });
+        const answer = document.createElement("input");
+        answer.value = q.a;
+        answer.placeholder = "الإجابة";
+        answer.addEventListener("input", () => { cat.questions[idx].a = answer.value; });
+        fields.append(qText, answer);
+        box.appendChild(fields);
+        panel.appendChild(box);
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      const cancel = document.createElement("button");
+      cancel.className = "ghost";
+      cancel.textContent = "إلغاء";
+      cancel.addEventListener("click", () => showScreen("customManager"));
+      const save = document.createElement("button");
+      save.className = "primary";
+      save.textContent = "حفظ الفئة";
+      save.addEventListener("click", () => {
+        cat.name = cat.name.trim();
+        if (!cat.name) {
+          alert("يرجى إدخال اسم للفئة");
+          return;
+        }
+        const existing = state.customCategories.findIndex(item => item.id === cat.id);
+        if (existing >= 0) state.customCategories[existing] = cat;
+        else state.customCategories.push(cat);
+        state.selected.add(cat.id);
+        saveGameSettings();
+        showScreen("customManager");
+      });
+      actions.append(cancel, save);
+      panel.appendChild(actions);
+    }
+
+    function startGame() {
+      saveCurrentGameCategories();
+      refreshBuiltinQuestions();
+      state.used.clear();
+      state.activeTeam = 0;
+      state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
+      renderGame();
+      showScreen("game");
+    }
+
+    function beginHold(team, delta) {
+      stopHold();
+      adjustScore(team, delta);
+      state.holdDelay = setTimeout(() => {
+        state.holdTimer = setInterval(() => adjustScore(team, delta), 110);
+      }, 360);
+    }
+
+    function stopHold() {
+      clearTimeout(state.holdDelay);
+      clearInterval(state.holdTimer);
+      state.holdDelay = null;
+      state.holdTimer = null;
+    }
+
+    function adjustScore(team, delta) {
+      team.score = Math.min(maxTotalScore, Math.max(0, team.score + delta));
+      renderScores();
+    }
+
+    function bindHold(button, team, delta) {
+      button.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        button.setPointerCapture?.(event.pointerId);
+        beginHold(team, delta);
+      });
+      button.addEventListener("pointerup", stopHold);
+      button.addEventListener("pointercancel", stopHold);
+      button.addEventListener("pointerleave", stopHold);
+    }
+
+    function renderTurnBoxes() {
+      const activeTeams = state.teams.slice(0, state.teamCount);
+      const team = activeTeams[state.activeTeam] || activeTeams[0] || {};
+      const displayName = teamDisplayName(team, state.activeTeam || 0);
+      document.querySelectorAll("[data-turn-box]").forEach(box => {
+        box.innerHTML = `
+          <button class="turn-switch" data-turn-switch title="تبديل الدور" aria-label="تبديل الدور">⇄</button>
+          ${team.image ? `<img class="turn-photo" src="${team.image}" alt="">` : defaultAvatarHtml("turn-photo default-avatar")}
+          <span class="turn-label"><small>دور الفريق</small><strong>${displayName}</strong></span>
+        `;
+      });
+    }
+
+    function renderScores() {
+      const row = $("#scoreRow");
+      row.style.setProperty("--team-count", state.teamCount);
+      row.innerHTML = "";
+      const activeTeams = state.teams.slice(0, state.teamCount);
+      renderTurnBoxes();
+      const turnTeam = $("#turnTeam");
+      if (turnTeam) {
+        turnTeam.textContent = teamDisplayName(activeTeams[state.activeTeam] || activeTeams[0] || {}, state.activeTeam || 0);
+      }
+      activeTeams.forEach((team, i) => {
+        const displayName = teamDisplayName(team, i);
+        const box = document.createElement("div");
+        box.className = "score-box" + (i === state.activeTeam ? " active-team" : "");
+        box.style.color = colors[i];
+        box.innerHTML = `
+          <div class="score-head">
+            ${team.image ? `<img class="score-photo" src="${team.image}" alt="">` : defaultAvatarHtml()}
+            <span class="score-name">${displayName}</span>
+          </div>
+          <span class="score-value">${toArabicDigits(team.score)}</span>
+        `;
+        const tools = document.createElement("div");
+        tools.className = "score-tools";
+        const minus = document.createElement("button");
+        minus.textContent = "−";
+        bindHold(minus, team, -50);
+        const plus = document.createElement("button");
+        plus.textContent = "+";
+        bindHold(plus, team, 50);
+        tools.append(minus, plus);
+        box.appendChild(tools);
+        row.appendChild(box);
+      });
+    }
+
+    function renderGame() {
+      renderScores();
+      const cats = activeCategories();
+      const board = $("#board");
+      board.style.setProperty("--cat-count", cats.length);
+      board.innerHTML = "";
+      cats.forEach(cat => {
+        const head = document.createElement("div");
+        head.className = "board-head";
+        const catColor = categoryColor(cat);
+        head.style.setProperty("--cat-bg", rgba(catColor, .72));
+        head.style.setProperty("--cat-border", catColor);
+        if (cat.image) {
+          head.classList.add("bg-category");
+          head.style.setProperty("--cat-image", `url("${cat.image}")`);
+          head.innerHTML = `<span>${cat.name}</span>`;
+        } else {
+          head.innerHTML = `${iconSvg(cat.custom ? "custom" : cat.id)}<span>${cat.name}</span>`;
+        }
+        board.appendChild(head);
+      });
+      [...pointValues].reverse().forEach(points => {
+        cats.forEach(cat => {
+          const q = cat.questions.find(item => item.points === points);
+          const key = `${cat.id}-${q.points}`;
+          const used = state.used.has(key);
+          const cell = document.createElement("button");
+          cell.className = "cell" + (used ? " used" : "");
+          cell.style.setProperty("--cell-bg", rgba(categoryColor(cat), .78));
+          cell.textContent = used ? "✓" : toArabicDigits(q.points);
+          cell.disabled = used;
+          cell.addEventListener("click", () => openQuestion(cat, q, key));
+          board.appendChild(cell);
+        });
+      });
+      const total = cats.length * pointValues.length;
+      $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
+    }
+
+    function openQuestion(cat, q, key) {
+      if (state.used.has(key)) return;
+      state.used.add(key);
+      state.activeQuestion = { cat, q, key };
+      $("#modalCategory").textContent = toArabicDigits(cat.name);
+      $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
+      $("#answerCategory").textContent = toArabicDigits(cat.name);
+      $("#answerPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
+      $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
+      $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
+      const image = $("#modalQuestionImage");
+      if (q.image) {
+        image.src = q.image;
+        image.classList.add("visible");
+      } else {
+        image.removeAttribute("src");
+        image.classList.remove("visible");
+      }
+      const answerImage = $("#modalAnswerImage");
+      if (q.answerImage) {
+        answerImage.src = q.answerImage;
+        answerImage.classList.add("visible");
+      } else {
+        answerImage.removeAttribute("src");
+        answerImage.classList.remove("visible");
+      }
+      renderTurnBoxes();
+      $("#questionActions").style.display = "flex";
+      $("#awardRow").innerHTML = "";
+      $("#awardRow").classList.remove("visible");
+      showScreen("questionPage", { keepQuestion: true });
+    }
+
+    function revealAnswer() {
+      const active = state.activeQuestion;
+      if (!active) return;
+      const award = $("#awardRow");
+      award.innerHTML = "";
+      state.pendingWinner = null;
+      const continueButton = $("#continueAnswer");
+      continueButton.disabled = true;
+      const title = document.createElement("div");
+      title.className = "award-title";
+      title.textContent = "اختيار الفريق";
+      award.appendChild(title);
+      state.teams.slice(0, state.teamCount).forEach((team, i) => {
+        const displayName = teamDisplayName(team, i);
+        const button = document.createElement("button");
+        button.className = "team-award";
+        button.style.background = colors[i];
+        button.innerHTML = `${team.image ? `<img src="${team.image}" alt="">` : defaultAvatarHtml()}<span>${displayName}</span>`;
+        button.addEventListener("click", () => {
+          state.pendingWinner = i;
+          award.querySelectorAll(".team-award").forEach(item => item.classList.remove("selected"));
+          button.classList.add("selected");
+          continueButton.disabled = false;
+        });
+        award.appendChild(button);
+      });
+      const skip = document.createElement("button");
+      skip.className = "ghost";
+      skip.textContent = "لا أحد";
+      skip.addEventListener("click", () => {
+        state.pendingWinner = null;
+        award.querySelectorAll(".team-award").forEach(item => item.classList.remove("selected"));
+        continueButton.disabled = false;
+      });
+      award.appendChild(skip);
+      award.classList.add("visible");
+      renderTurnBoxes();
+      showScreen("answerPage", { keepQuestion: true });
+    }
+
+    function finishQuestion(winnerIndex) {
+      const active = state.activeQuestion;
+      if (!active) return;
+      if (typeof winnerIndex === "number") {
+        state.teams[winnerIndex].score = Math.min(maxTotalScore, state.teams[winnerIndex].score + active.q.points);
+        state.activeTeam = (winnerIndex + 1) % state.teamCount;
+      } else {
+        state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+      }
+      closeQuestion(false);
+      renderGame();
+    }
+
+    function clearQuestionView() {
+      $("#awardRow").innerHTML = "";
+      $("#awardRow").classList.remove("visible");
+      $("#questionActions").style.display = "flex";
+      $("#continueAnswer").disabled = true;
+      state.pendingWinner = null;
+      state.activeQuestion = null;
+    }
+
+    function closeQuestion(advanceTurn = true) {
+      const hadQuestion = Boolean(state.activeQuestion);
+      if (hadQuestion && advanceTurn) {
+        state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+      }
+      clearQuestionView();
+      renderGame();
+      showScreen("game", { keepQuestion: true });
+    }
+
+    function renderResults() {
+      const ranked = state.teams.slice(0, state.teamCount)
+        .map((team, index) => ({ ...team, index }))
+        .sort((a, b) => b.score - a.score);
+      const maxScore = Math.max(1, ...ranked.map(team => team.score));
+      const topScore = ranked[0]?.score ?? 0;
+      const topTeams = ranked.filter(team => team.score === topScore);
+      const isDraw = topTeams.length > 1;
+      const winner = isDraw ? null : ranked[0];
+      $("#winnerPhrase").innerHTML = isDraw
+        ? `تعادل بين ${topTeams.map(team => teamDisplayName(team, team.index)).join(" و ")} بنتيجة <span class="clean-number">${toArabicDigits(topScore)}</span> نقطة`
+        : (winner ? `🏆 مبروك ${teamDisplayName(winner, winner.index)}! الفوز لكم اليوم 🎉` : "انتهت اللعبة!");
+      $("#winnerSpot").innerHTML = isDraw
+        ? `<div class="draw-spot">${topTeams.map(team => `
+            <div class="draw-team">
+              ${team.image ? `<img class="winner-portrait" src="${team.image}" alt="">` : defaultAvatarHtml("winner-portrait default-avatar")}
+              <span>${teamDisplayName(team, team.index)}</span>
+            </div>
+          `).join("")}</div>`
+        : (winner
+          ? (winner.image
+            ? `<img class="winner-portrait" src="${winner.image}" alt="">`
+            : defaultAvatarHtml("winner-portrait default-avatar"))
+          : "");
+      const chart = $("#resultsChart");
+      chart.innerHTML = "";
+      chart.parentElement.querySelectorAll(".confetti").forEach(piece => piece.remove());
+      ranked.forEach((team, place) => {
+        const wrap = document.createElement("div");
+        wrap.className = "bar-wrap";
+        wrap.style.setProperty("--bar-color", colors[team.index]);
+        const photo = team.image ? `<img class="result-photo" src="${team.image}" alt="">` : defaultAvatarHtml("result-photo default-avatar");
+        wrap.innerHTML = `
+          <div class="bar ${!isDraw && place === 0 ? "winner" : ""}" data-height="${Math.max(9, Math.round((team.score / maxScore) * 100))}%">
+            <span class="bar-score">${toArabicDigits(team.score)}</span>
+          </div>
+          ${photo}
+          <div class="result-name"><span class="clean-number">${toArabicDigits(place + 1)}.</span> ${teamDisplayName(team, team.index)}</div>
+        `;
+        chart.appendChild(wrap);
+      });
+      showScreen("results");
+      const confettiColors = ["#DB161B", "#C9974A", "#1B6A8F", "#5B7A6B", "#FAF7F0"];
+      for (let i = 0; i < 28; i++) {
+        const piece = document.createElement("span");
+        piece.className = "confetti";
+        piece.style.setProperty("--confetti-color", confettiColors[i % confettiColors.length]);
+        piece.style.setProperty("--confetti-left", `${8 + Math.random() * 84}%`);
+        piece.style.setProperty("--confetti-rotate", `${Math.round(Math.random() * 180)}deg`);
+        piece.style.setProperty("--confetti-duration", `${1.8 + Math.random() * 1.4}s`);
+        piece.style.setProperty("--confetti-delay", `${Math.random() * .75}s`);
+        chart.parentElement.appendChild(piece);
+      }
+      requestAnimationFrame(() => {
+        document.querySelectorAll(".bar").forEach((bar, index) => {
+          setTimeout(() => {
+            bar.style.height = bar.dataset.height;
+          }, index * 180);
+        });
+      });
+      resetScores();
+    }
+
+    document.querySelectorAll("[data-screen]").forEach(button => {
+      button.addEventListener("click", () => {
+        showScreen(button.dataset.screen);
+      });
+    });
+    document.addEventListener("click", event => {
+      if (!event.target.closest("[data-turn-switch]")) return;
+      state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+      renderScores();
+      renderTurnBoxes();
+    });
+    $("#goTeams").addEventListener("click", () => showScreen("setup"));
+    $("#startGame").addEventListener("click", startGame);
+    $("#exitGame").addEventListener("click", () => {
+      resetScores();
+      showScreen("menu");
+    });
+    $("#endGameEarly").addEventListener("click", renderResults);
+    $("#questionBackTop").addEventListener("click", closeQuestion);
+    $("#answerBackTop").addEventListener("click", closeQuestion);
+    $("#revealAnswer").addEventListener("click", revealAnswer);
+    $("#backToQuestion").addEventListener("click", () => {
+      $("#questionActions").style.display = "flex";
+      showScreen("questionPage", { keepQuestion: true });
+    });
+    $("#continueAnswer").addEventListener("click", () => finishQuestion(state.pendingWinner));
+    $("#showResults").addEventListener("click", renderResults);
+    $("#newGame").addEventListener("click", () => {
+      resetScores();
+      openGameLibrary("your");
+    });
+    $("#resultsMenu").addEventListener("click", () => {
+      resetScores();
+      showScreen("menu");
+    });
+    $("#yourGamesTab").addEventListener("click", () => {
+      state.gameLibraryMode = "your";
+      renderGameLibrary();
+    });
+    $("#ourGamesTab").addEventListener("click", () => {
+      state.gameLibraryMode = "our";
+      renderGameLibrary();
+    });
+    $("#createSavedGame").addEventListener("click", openNewGameCategories);
+    $("#gameLibraryList").addEventListener("click", event => {
+      const settingsButton = event.target.closest("[data-saved-settings]");
+      const deleteButton = event.target.closest("[data-saved-delete]");
+      if (settingsButton) {
+        openSavedGameSettings(settingsButton.dataset.savedSettings);
+        return;
+      }
+      if (deleteButton) {
+        openDeleteGameConfirm(deleteButton.dataset.savedDelete);
+        return;
+      }
+      const gameCard = event.target.closest("[data-saved-game-card]");
+      if (gameCard) {
+        playSavedGame(gameCard.dataset.savedGameCard);
+      }
+    });
+    $("#gameLibraryList").addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest("button")) return;
+      const gameCard = event.target.closest("[data-saved-game-card]");
+      if (!gameCard) return;
+      event.preventDefault();
+      playSavedGame(gameCard.dataset.savedGameCard);
+    });
+    $("#gameNameInput").addEventListener("input", event => {
+      state.currentGameName = event.target.value;
+    });
+    $("#confirmDeleteGame").addEventListener("click", confirmDeleteGame);
+    $("#cancelDeleteGame").addEventListener("click", closeDeleteGameConfirm);
+    $("#deleteGameConfirm").addEventListener("click", event => {
+      if (event.target.id === "deleteGameConfirm") closeDeleteGameConfirm();
+    });
+    $("#gameCategoriesTab").addEventListener("click", () => setCategoryMode("game"));
+    $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
+    $("#manageCustomFromCategories").addEventListener("click", () => openCustomManager("categories"));
+    $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
+    $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
+    $("#closePreview").addEventListener("click", closeCategoryPreview);
+    $("#categoryPreview").addEventListener("click", event => {
+      if (event.target.id === "categoryPreview") closeCategoryPreview();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && $("#categoryPreview").classList.contains("open")) {
+        closeCategoryPreview();
+      }
+      if (event.key === "Escape" && $("#deleteGameConfirm").classList.contains("open")) {
+        closeDeleteGameConfirm();
+      }
+    });
+    window.addEventListener("pointerup", stopHold);
+    window.addEventListener("blur", stopHold);
+
+    loadGameSettings();
+    loadSavedGames();
+    renderTeamSetup();
+    renderGameLibrary();
+    renderCategories();
+  </script>
+</body>
+</html>
