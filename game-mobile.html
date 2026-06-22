@@ -1911,9 +1911,15 @@
       .custom-row .actions { grid-column: 1 / -1; }
       .question-editor { grid-template-columns: 1fr; justify-items: center; }
       .score-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .game-screen { overflow-x: auto; }
+      .game-screen {
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-behavior: smooth;
+        justify-content: flex-start;
+      }
       .board {
         min-width: 820px;
+        flex: 0 0 auto;
       }
       .question-meta { flex-direction: column; }
       .topbar { align-items: flex-start; }
@@ -1944,6 +1950,116 @@
       }
       .category {
         min-height: 206px;
+      }
+    }
+
+    @media (orientation: landscape) and (max-height: 520px) {
+      .app { padding: 8px; }
+      .game-screen {
+        width: 100%;
+        max-width: 100%;
+        height: calc(100svh - 16px);
+        overflow: hidden;
+        gap: 7px;
+        padding: 8px;
+      }
+      .topbar {
+        min-height: 54px;
+        margin: -8px -8px 6px;
+        padding: 6px 10px;
+        gap: 8px;
+      }
+      .mini-brand-logo {
+        width: 40px;
+        height: 40px;
+      }
+      .mini-brand-name {
+        font-size: 22px;
+      }
+      .turn-box,
+      .turn-pill,
+      .question-page .topbar .turn-box {
+        min-width: 0;
+        padding: 6px 9px;
+        font-size: 17px;
+      }
+      .turn-photo,
+      .question-page .topbar .turn-photo,
+      .question-page .topbar .default-avatar {
+        width: 32px;
+        height: 32px;
+      }
+      .score-row {
+        gap: 7px;
+        width: 100%;
+        grid-template-columns: repeat(var(--team-count), minmax(0, 1fr));
+      }
+      .score-box {
+        padding: 4px 5px;
+        border-width: 2px;
+      }
+      .score-photo,
+      .default-avatar {
+        width: 28px;
+        height: 28px;
+        border-width: 2px;
+      }
+      .score-name {
+        font-size: clamp(13px, 2vw, 17px);
+      }
+      .score-value {
+        font-size: clamp(24px, 4vw, 34px);
+      }
+      .score-tools {
+        margin-top: 2px;
+      }
+      .score-tools button {
+        width: 27px;
+        height: 27px;
+        border-width: 2px;
+        font-size: 20px;
+      }
+      .board {
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        flex: 1 1 auto;
+        grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
+        grid-template-rows: minmax(52px, .9fr) repeat(5, minmax(38px, 1fr));
+        gap: 5px;
+      }
+      .board-head {
+        padding: 4px;
+        border-width: 2px;
+        font-size: clamp(12px, 1.9vw, 18px);
+        line-height: 1.02;
+      }
+      .board-head span {
+        padding: 3px 5px;
+        border-radius: 7px;
+      }
+      .cell {
+        font-size: clamp(22px, 4.5vw, 36px);
+        border-width: 2px;
+      }
+      .question-page .topbar .ghost {
+        min-height: 34px;
+        padding: 5px 8px;
+        font-size: 15px;
+      }
+      .qa-card {
+        width: 100%;
+        padding: 14px;
+        gap: 10px;
+      }
+      .question-text,
+      .answer-text {
+        min-height: 92px;
+        font-size: clamp(24px, 4.2vw, 40px);
+      }
+      .question-actions,
+      .answer-actions {
+        margin-top: 0;
       }
     }
   </style>
@@ -2819,6 +2935,18 @@
       if (id === "categories") renderCategories();
       if (id === "setup") renderTeamSetup();
       if (id === "customManager") renderCustomManager();
+      if (id === "game") centerBoardScroll();
+    }
+
+    function centerBoardScroll() {
+      const game = $("#game");
+      if (!game) return;
+      requestAnimationFrame(() => {
+        const extra = game.scrollWidth - game.clientWidth;
+        if (extra > 2 && window.matchMedia("(orientation: portrait)").matches) {
+          game.scrollLeft = extra / 2;
+        }
+      });
     }
 
     function resetScores() {
@@ -3351,6 +3479,7 @@
       });
       const total = cats.length * pointValues.length;
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
+      centerBoardScroll();
     }
 
     function openQuestion(cat, q, key) {
