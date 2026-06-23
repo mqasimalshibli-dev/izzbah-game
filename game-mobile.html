@@ -2259,22 +2259,22 @@
         touch-action: none;
       }
       #answerPage .answer-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 132px;
+        display: block;
+        position: relative;
         width: 100%;
         flex: 0 0 142px;
-        gap: 8px;
+        height: 142px;
         min-height: 0;
-        overflow: hidden;
-        align-items: stretch;
+        overflow: visible;
         align-self: stretch;
         margin-top: 18px;
         direction: ltr;
       }
       #answerPage .answer-card {
-        grid-column: 1;
-        width: 100%;
-        flex: 1 1 auto;
+        position: absolute;
+        inset: 0 140px 0 0;
+        width: auto;
+        flex: none;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2313,10 +2313,11 @@
         left: 20px;
       }
       #answerPage .award-row.visible {
-        grid-column: 2;
+        position: absolute;
+        inset: 0 0 0 auto;
         display: flex;
         flex-direction: column;
-        width: 100%;
+        width: 132px;
         height: 100%;
         align-self: stretch;
         justify-content: center;
