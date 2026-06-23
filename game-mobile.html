@@ -2262,14 +2262,14 @@
         margin-inline: 0;
         flex: 1 1 auto;
         grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(32px, .72fr) repeat(5, minmax(0, 1fr));
+        grid-template-rows: minmax(58px, 1.45fr) repeat(5, minmax(0, .74fr));
         gap: 2px;
       }
       .board-head {
-        padding: 2px;
+        padding: 3px 2px;
         border-width: 1px;
         border-radius: 5px;
-        font-size: clamp(10px, 1.35vw, 14px);
+        font-size: clamp(12px, 1.7vw, 17px);
         line-height: 1;
       }
       .board-head span {
@@ -2277,7 +2277,7 @@
         border-radius: 5px;
       }
       .cell {
-        font-size: clamp(16px, 3.1vw, 28px);
+        font-size: clamp(13px, 2.35vw, 22px);
         border-width: 1px;
         border-radius: 5px;
       }
@@ -2305,6 +2305,7 @@
         display: grid;
         grid-template-rows: 54px minmax(0, 1fr) auto;
         align-items: stretch;
+        row-gap: 8px;
       }
       .qa-card {
         width: 100%;
@@ -2312,7 +2313,7 @@
         min-height: 0;
         max-height: 100%;
         overflow: hidden;
-        padding: 8px;
+        padding: 10px 8px 8px;
         gap: 6px;
       }
       .question-card {
@@ -2338,12 +2339,12 @@
         min-height: 0;
         overflow: visible;
         align-self: stretch;
-        margin-top: 18px;
+        margin-top: 10px;
         direction: ltr;
       }
       #answerPage .answer-card {
         position: absolute;
-        inset: 0 150px 16px 8px;
+        inset: 0 172px 16px 8px;
         width: auto;
         flex: none;
         display: flex;
@@ -2388,7 +2389,7 @@
         inset: 0 0 auto auto;
         display: flex;
         flex-direction: column;
-        width: 136px;
+        width: 158px;
         height: calc(100% - 10px);
         align-self: stretch;
         justify-content: space-between;
@@ -2406,19 +2407,28 @@
         line-height: 1;
       }
       #answerPage .team-award {
-        min-height: 34px;
-        padding: 4px 6px;
+        min-height: 46px;
+        padding: 5px 8px;
         border-width: 1px;
         border-radius: 5px;
-        gap: 4px;
-        font-size: 11px;
+        gap: 6px;
+        font-size: 14px;
         line-height: 1.05;
       }
       #answerPage .team-award .default-avatar,
       #answerPage .team-award img {
-        width: 20px;
-        height: 20px;
+        width: 26px;
+        height: 26px;
         border-width: 1px;
+      }
+      #answerPage .award-row.visible > .ghost {
+        align-self: center;
+        width: 120px;
+        min-width: 120px;
+        min-height: 30px;
+        padding: 4px 9px;
+        font-size: 13px;
+        line-height: 1;
       }
       .question-text,
       .answer-text {
@@ -2432,7 +2442,7 @@
       .answer-bottom-actions {
         position: absolute;
         left: 14px;
-        right: 150px;
+        right: 172px;
         bottom: 6px;
         gap: 8px;
         margin-top: 0;
