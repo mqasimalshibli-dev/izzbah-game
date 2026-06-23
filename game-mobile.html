@@ -2115,7 +2115,7 @@
         grid-column: 3;
         grid-row: 1;
         min-width: 0;
-        max-width: 150px;
+        max-width: 164px;
         height: 42px;
         padding: 2px 5px;
         font-size: 9px;
@@ -2124,13 +2124,14 @@
         gap: 2px 4px;
         transform: translateY(-5px);
         display: grid;
-        grid-template-columns: auto auto 1fr;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         grid-template-rows: auto auto;
         align-items: center;
         justify-content: end;
+        direction: ltr;
       }
       .turn-switch {
-        grid-column: 1;
+        grid-column: 3;
         grid-row: 2;
         width: 22px;
         height: 22px;
@@ -2146,22 +2147,35 @@
         height: 17px;
       }
       .turn-label {
-        grid-column: 1 / -1;
+        grid-column: 1;
         grid-row: 1 / 3;
         display: grid;
         grid-template-rows: auto auto;
         justify-items: end;
-        padding-left: 58px;
+        padding-left: 0;
+        direction: rtl;
         min-width: 0;
       }
       .turn-label small {
         font-size: 8px;
         line-height: 1;
       }
+      .question-page .topbar .turn-label small {
+        font-size: 8px;
+        line-height: 1;
+      }
       .turn-label strong {
-        font-size: 10px;
+        font-size: 9px;
         line-height: 1.05;
-        max-width: 78px;
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .question-page .topbar .turn-label strong {
+        font-size: 9px;
+        line-height: 1.05;
+        max-width: 72px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2398,6 +2412,110 @@
         min-width: 120px;
         padding: 4px 9px;
         font-size: 13px;
+      }
+      #results {
+        width: 100%;
+        max-width: 100%;
+        height: calc(100svh - 4px);
+        min-height: 0;
+        justify-content: flex-start;
+        gap: 2px;
+        overflow: hidden;
+        padding: 2px;
+      }
+      #results .wide-stack {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        gap: 3px;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        align-items: stretch;
+        justify-content: stretch;
+      }
+      #results .screen-title {
+        font-size: clamp(18px, 3.4vw, 26px);
+        line-height: 1;
+        margin: 0;
+      }
+      .results-stage {
+        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        align-content: stretch;
+        padding: 6px 8px 4px;
+        border-width: 2px;
+        box-shadow: none;
+        overflow: hidden;
+      }
+      .winner-phrase {
+        min-height: 0;
+        margin: 0 0 2px;
+        font-size: clamp(16px, 3vw, 24px);
+        line-height: 1.05;
+      }
+      .winner-spot {
+        min-height: 24px;
+        margin-bottom: 0;
+      }
+      .winner-portrait {
+        width: 26px;
+        height: 26px;
+        border-width: 2px;
+        box-shadow: 0 0 0 3px rgba(201, 151, 74, .25);
+      }
+      .result-watermark {
+        width: 46px;
+        right: 8px;
+        top: 6px;
+      }
+      .results-stage::after {
+        width: 42px;
+        left: 6px;
+        bottom: 6px;
+      }
+      .chart {
+        height: min(112px, 32svh);
+        min-height: 74px;
+        gap: 7px;
+        padding: 14px 6px 0;
+      }
+      .bar-wrap {
+        min-width: 46px;
+        width: min(76px, 24%);
+        gap: 3px;
+      }
+      .bar {
+        min-height: 10px;
+        border-width: 2px;
+        border-radius: 5px 5px 0 0;
+      }
+      .bar-score {
+        top: -19px;
+        font-size: 14px;
+      }
+      .result-photo {
+        width: 20px;
+        height: 20px;
+        border-width: 2px;
+      }
+      .result-name {
+        min-height: 16px;
+        font-size: 10px;
+        line-height: 1;
+      }
+      #results .actions {
+        margin-top: 0;
+        gap: 6px;
+      }
+      #results .actions button {
+        min-height: 24px;
+        padding: 3px 9px;
+        border-width: 1px;
+        font-size: 11px;
       }
     }
 
