@@ -2333,23 +2333,23 @@
         flex: 0 0 min(220px, calc(var(--game-vh, 100dvh) - 92px));
         height: min(220px, calc(var(--game-vh, 100dvh) - 92px));
         min-height: 0;
-        margin: 0 8px 8px;
-        padding: 26px 10px 38px;
+        margin: 0 172px 8px 8px;
+        padding: 34px 10px 38px;
         align-self: stretch;
       }
       .question-main-card .question-meta {
         inset: 0 0 auto 0;
       }
       .question-main-card .meta-box {
-        top: 0;
+        top: 8px;
         min-width: 118px;
         max-width: calc(50% - 18px);
         padding: 3px 8px;
         border-width: 2px;
-        border-radius: 0 0 6px 6px;
+        border-radius: 6px;
         font-size: clamp(14px, 2.1vw, 20px);
         line-height: 1.05;
-        box-shadow: 0 3px 0 rgba(120, 12, 15, .16);
+        box-shadow: 0 2px 0 rgba(120, 12, 15, .16);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2394,7 +2394,7 @@
         min-height: 0;
         height: 100%;
         overflow: hidden;
-        padding: 24px 10px 8px;
+        padding: 34px 10px 8px;
       }
       #answerPage .answer {
         width: 100%;
@@ -2406,15 +2406,15 @@
         line-height: 1.15;
       }
       #answerPage .answer-card .meta-box {
-        top: -2px;
+        top: 8px;
         min-width: 118px;
         max-width: calc(50% - 18px);
         padding: 3px 8px;
         border-width: 2px;
-        border-radius: 0 0 6px 6px;
+        border-radius: 6px;
         font-size: clamp(14px, 2.1vw, 20px);
         line-height: 1.05;
-        box-shadow: 0 3px 0 rgba(120, 12, 15, .16);
+        box-shadow: 0 2px 0 rgba(120, 12, 15, .16);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2464,8 +2464,8 @@
       }
       #answerPage .award-row.visible > .ghost {
         align-self: center;
-        width: 120px;
-        min-width: 120px;
+        width: 100%;
+        min-width: 0;
         min-height: 30px;
         padding: 4px 9px;
         font-size: 13px;
@@ -4123,7 +4123,7 @@
       continueButton.disabled = true;
       const title = document.createElement("div");
       title.className = "award-title";
-      title.textContent = "اختيار الفريق";
+      title.textContent = "من جاوب؟";
       award.appendChild(title);
       state.teams.slice(0, state.teamCount).forEach((team, i) => {
         const displayName = teamDisplayName(team, i);
