@@ -2016,11 +2016,15 @@
 
     @media (orientation: landscape) and (max-height: 520px) {
       body[data-screen="game"],
+      body[data-screen="questionPage"],
+      body[data-screen="answerPage"],
       body[data-screen="results"] {
         height: 100svh;
         overflow: hidden;
       }
       body[data-screen="game"] .app,
+      body[data-screen="questionPage"] .app,
+      body[data-screen="answerPage"] .app,
       body[data-screen="results"] .app {
         min-height: 100svh;
         height: 100svh;
@@ -2251,11 +2255,68 @@
         min-height: 0;
         padding: 12px 8px 8px;
       }
-      .answer-layout {
-        grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
-        gap: 8px;
+      #answerPage {
+        touch-action: none;
+      }
+      #answerPage .answer-layout {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        flex: 1 1 auto;
+        gap: 4px;
         min-height: 0;
-        overflow: auto;
+        overflow: hidden;
+      }
+      #answerPage .answer-card {
+        width: 100%;
+        flex: 1 1 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+        overflow: hidden;
+        padding: 18px 10px 8px;
+      }
+      #answerPage .answer {
+        width: 100%;
+        margin: 0 auto;
+        display: grid;
+        place-items: center;
+        min-height: 86px;
+        font-size: clamp(22px, 4.1vw, 34px);
+        line-height: 1.15;
+      }
+      #answerPage .award-row.visible {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        width: 100%;
+        align-self: stretch;
+        gap: 4px;
+        padding: 4px;
+        border-width: 2px;
+        border-radius: 6px;
+        box-shadow: none;
+        order: 2;
+      }
+      #answerPage .award-title {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-size: 11px;
+        line-height: 1;
+      }
+      #answerPage .team-award {
+        min-height: 30px;
+        padding: 3px 5px;
+        border-width: 1px;
+        border-radius: 5px;
+        gap: 4px;
+        font-size: 12px;
+      }
+      #answerPage .team-award .default-avatar,
+      #answerPage .team-award img {
+        width: 18px;
+        height: 18px;
+        border-width: 1px;
       }
       .question-text,
       .answer-text {
@@ -2269,6 +2330,7 @@
       .answer-bottom-actions {
         gap: 8px;
         margin-top: 2px;
+        width: 100%;
       }
       .answer-bottom-actions button,
       #revealAnswer {
