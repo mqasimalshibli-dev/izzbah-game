@@ -2305,7 +2305,7 @@
         display: grid;
         grid-template-rows: 54px minmax(0, 1fr) auto;
         align-items: stretch;
-        row-gap: 8px;
+        row-gap: 14px;
       }
       .qa-card {
         width: 100%;
@@ -2321,7 +2321,39 @@
         padding: 6px;
       }
       .question-main-card {
-        padding: 14px 8px 8px;
+        flex: 0 0 min(220px, calc(var(--game-vh, 100dvh) - 92px));
+        height: min(220px, calc(var(--game-vh, 100dvh) - 92px));
+        min-height: 0;
+        margin: 0 8px 8px;
+        padding: 26px 10px 38px;
+        align-self: stretch;
+      }
+      .question-main-card .question-meta {
+        inset: 0 0 auto 0;
+      }
+      .question-main-card .meta-box {
+        top: 0;
+        min-width: 118px;
+        max-width: calc(50% - 18px);
+        padding: 3px 8px;
+        border-width: 2px;
+        border-radius: 0 0 6px 6px;
+        font-size: clamp(14px, 2.1vw, 20px);
+        line-height: 1.05;
+        box-shadow: 0 3px 0 rgba(120, 12, 15, .16);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .question-main-card .meta-category {
+        right: 20px;
+      }
+      .question-main-card .meta-points {
+        left: 20px;
+      }
+      .question-main-card #questionActions {
+        left: 14px;
+        bottom: 6px;
       }
       .answer-card {
         min-height: 0;
@@ -2334,12 +2366,12 @@
         display: block;
         position: relative;
         width: 100%;
-        flex: 0 0 220px;
-        height: 220px;
+        flex: 0 0 min(220px, calc(var(--game-vh, 100dvh) - 92px));
+        height: min(220px, calc(var(--game-vh, 100dvh) - 92px));
         min-height: 0;
         overflow: visible;
         align-self: stretch;
-        margin-top: 10px;
+        margin-top: 0;
         direction: ltr;
       }
       #answerPage .answer-card {
@@ -2527,18 +2559,21 @@
         height: min(152px, 43svh);
         min-height: 96px;
         gap: 10px;
-        padding: 30px 6px 0;
+        padding: 42px 6px 0;
         align-self: center;
+        transform: translateY(8px);
       }
       .bar-wrap {
         min-width: 54px;
         width: min(92px, 25%);
         gap: 4px;
+        justify-content: end;
       }
       .bar {
         min-height: 14px;
         border-width: 2px;
         border-radius: 5px 5px 0 0;
+        flex: 0 0 auto;
       }
       .bar-score {
         top: -24px;
@@ -2548,11 +2583,13 @@
         width: 20px;
         height: 20px;
         border-width: 2px;
+        flex: 0 0 auto;
       }
       .result-name {
-        min-height: 16px;
+        height: 16px;
         font-size: 10px;
         line-height: 1;
+        overflow: hidden;
       }
       #results .actions {
         margin-top: 0;
