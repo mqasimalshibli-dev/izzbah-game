@@ -2792,6 +2792,68 @@
     body[data-screen="answerPage"] {
       background: #fbeee9 !important;
     }
+
+    /* ============================================================
+       UI POLISH LAYER — additive only (no layout or logic changes).
+       Accessibility, interaction feedback, and motion consistency.
+       ============================================================ */
+
+    /* Visible keyboard focus for every interactive control. Keyboard-only
+       (:focus-visible) so pointer users are unaffected, and outline-based
+       so it never shifts layout. */
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    .category:focus-visible,
+    .cell:focus-visible {
+      outline: 3px solid #1b6a8f;
+      outline-offset: 3px;
+    }
+
+    /* Consistent, premium-feeling transitions on interactive surfaces. */
+    .cell,
+    .category,
+    .board-category-card,
+    .meta-box {
+      transition: transform .18s cubic-bezier(.2, .8, .22, 1),
+                  box-shadow .2s ease,
+                  filter .18s ease;
+    }
+
+    /* Subtle elevation on hover — pointer devices only, so touch taps
+       don't leave a stuck hover state. */
+    @media (hover: hover) {
+      .cell:not(:disabled):hover {
+        box-shadow: 0 6px 16px rgba(145, 24, 28, .22),
+                    inset 0 -6px 0 rgba(140, 106, 46, .12);
+      }
+      .category:hover {
+        box-shadow: 0 10px 22px rgba(140, 106, 46, .22);
+      }
+    }
+
+    /* Refined tactile press for the main button family. */
+    .primary:active,
+    .secondary:active,
+    .ghost:active,
+    .danger:active,
+    .gold-btn:active,
+    .stepper-btn:active {
+      filter: brightness(.96);
+    }
+
+    /* Honor users who prefer reduced motion. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
