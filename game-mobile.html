@@ -2845,6 +2845,23 @@
       filter: brightness(.96);
     }
 
+    /* --- Board screen refinements (additive; layout unchanged) --- */
+    /* Point cells read as premium tappable chips: a soft top sheen over
+       the themed red, plus a shadow on the numerals for legibility. */
+    .board-card-points .cell:not(.used) {
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 52%);
+      text-shadow: 0 1px 2px rgba(80, 0, 0, .45);
+    }
+    /* Satisfying hover/press feedback on the cells (pointer hover only). */
+    @media (hover: hover) {
+      .board-card-points .cell:not(:disabled):hover {
+        transform: translateY(-2px) scale(1.02);
+      }
+    }
+    .board-card-points .cell:not(:disabled):active {
+      transform: translateY(1px) scale(.97);
+    }
+
     /* Honor users who prefer reduced motion. */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
