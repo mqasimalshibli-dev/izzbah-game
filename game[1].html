@@ -508,6 +508,43 @@
       box-shadow: 0 8px 0 rgba(219, 22, 27, .18);
     }
 
+    .category.full-image {
+      padding: 0;
+      background-color: #100101;
+      background-image: var(--cat-image);
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+    }
+
+    .category.full-image .category-main {
+      min-height: 100%;
+      align-self: stretch;
+      background: linear-gradient(180deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .34));
+      color: white;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, .72);
+    }
+
+    .category.full-image .category-main span {
+      align-self: end;
+      width: calc(100% - 22px);
+      margin: 0 auto 12px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: rgba(145, 24, 28, .72);
+      line-height: 1.05;
+    }
+
+    .category.full-image.selected {
+      background-color: #100101;
+      background-image:
+        linear-gradient(180deg, rgba(219, 22, 27, .06), rgba(219, 22, 27, .14)),
+        var(--cat-image);
+      background-position: center, center;
+      background-size: auto, cover;
+      background-repeat: no-repeat, no-repeat;
+    }
+
     .category svg {
       width: 54px;
       height: 54px;
@@ -769,8 +806,10 @@
       margin: -14px -18px 18px;
       padding: 12px 22px;
       min-height: 76px;
-      background: #9f1515;
-      box-shadow: 0 8px 18px rgba(140, 106, 46, .18);
+      background: linear-gradient(180deg, #fdf1ec 0%, #fbe7e1 100%);
+      border-top: 2px solid rgba(219, 22, 27, .30);
+      border-bottom: 2px solid rgba(219, 22, 27, .30);
+      box-shadow: 0 6px 16px rgba(140, 106, 46, .14);
     }
 
     .turn-box {
@@ -782,11 +821,11 @@
       gap: 10px;
       direction: rtl;
       padding: 8px 14px;
-      border: 3px solid rgba(255, 255, 255, .86);
+      border: 3px solid rgba(219, 22, 27, .45);
       border-radius: 999px;
-      color: white;
-      background: rgba(255, 255, 255, .1);
-      box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .12);
+      color: #7a1014;
+      background: rgba(219, 22, 27, .07);
+      box-shadow: inset 0 -4px 0 rgba(140, 106, 46, .12);
     }
 
     .turn-switch {
@@ -796,9 +835,9 @@
       display: grid;
       place-items: center;
       flex: 0 0 auto;
-      background: rgba(255, 255, 255, .18);
-      color: white;
-      border: 2px solid rgba(255, 255, 255, .78);
+      background: rgba(219, 22, 27, .12);
+      color: #7a1014;
+      border: 2px solid rgba(219, 22, 27, .45);
       box-shadow: none;
       padding: 0;
       min-height: 0;
@@ -811,7 +850,7 @@
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, .9);
+      border: 2px solid rgba(219, 22, 27, .5);
       background: white;
       overflow: hidden;
       flex: 0 0 auto;
@@ -850,14 +889,14 @@
       background: transparent;
       border-color: transparent;
       box-shadow: none;
-      color: white;
+      color: #7a1014;
     }
 
     .game-actions #exitGame {
       background: transparent;
       border-color: transparent;
       box-shadow: none;
-      color: white;
+      color: #7a1014;
     }
 
     .mini-brand {
@@ -884,7 +923,7 @@
     }
 
     .mini-brand-name {
-      color: white;
+      color: var(--red);
       font-size: 42px;
       line-height: .85;
     }
@@ -909,7 +948,7 @@
       background: transparent;
       border-color: transparent;
       box-shadow: none;
-      color: white;
+      color: #7a1014;
       min-height: 44px;
       padding: 8px 16px;
       font-size: clamp(18px, 1.9vw, 23px);
@@ -2407,9 +2446,9 @@
 
     const builtinCategoryMeta = [
       { id: "history", name: "تاريخ", image: "assets/category-history.png" },
-      { id: "science", name: "علوم", image: "assets/category-science.png" },
-      { id: "geo", name: "جغرافيا", image: "assets/category-geo.png" },
-      { id: "culture", name: "ثقافة عامة", image: "assets/category-culture.png" },
+      { id: "science", name: "علوم", image: "assets/category-science.png", fullImage: true },
+      { id: "geo", name: "جغرافيا", image: "assets/category-geo.png", fullImage: true },
+      { id: "culture", name: "ثقافة عامة", image: "assets/category-culture.png", fullImage: true },
       { id: "sports", name: "رياضة", image: "assets/category-sports.png" },
       { id: "art", name: "فنون", image: "assets/category-art.png" },
       { id: "foreignMovies", name: "أفلام ومسلسلات أجنبية", image: "assets/category-foreign-movies.png" }
@@ -2847,13 +2886,16 @@
       }
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
-        card.className = "category" + (state.selected.has(cat.id) ? " selected" : "");
+        card.className = "category" + (state.selected.has(cat.id) ? " selected" : "") + (cat.fullImage ? " full-image" : "");
         const name = cat.name || "فئة بدون اسم";
+        if (cat.fullImage && cat.image) {
+          card.style.setProperty("--cat-image", `url("${cat.image}")`);
+        }
         card.innerHTML = `
           <span class="check">✓</span>
           <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${name}">👁</button>
           <button class="category-main" type="button">
-            <span>${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}</span>
+            <span>${cat.image && cat.fullImage ? name : `${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}`}</span>
           </button>
         `;
         card.querySelector(".category-eye").addEventListener("click", event => {
@@ -3262,7 +3304,7 @@
           const used = state.used.has(key);
           const cell = document.createElement("button");
           cell.className = "cell" + (used ? " used" : "");
-          cell.style.setProperty("--cell-bg", rgba(categoryColor(cat), .78));
+          cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(q.points);
           cell.disabled = used;
           cell.addEventListener("click", () => openQuestion(cat, q, key));
