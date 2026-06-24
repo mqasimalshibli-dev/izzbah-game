@@ -1085,9 +1085,9 @@
     .board {
       flex: 1;
       display: grid;
-      grid-template-columns: repeat(var(--cat-count), minmax(132px, 1fr));
-      grid-template-rows: 116px repeat(5, minmax(70px, 1fr));
-      gap: 9px;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      grid-auto-rows: minmax(210px, 1fr);
+      gap: 14px;
       min-height: 500px;
       width: min(1220px, 100%);
       align-self: center;
@@ -1175,11 +1175,62 @@
       margin-bottom: 4px;
     }
 
+    .board-category-card {
+      min-width: 0;
+      min-height: 0;
+      border: 2px solid rgba(219, 22, 27, .95);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      background:
+        linear-gradient(180deg, rgba(16, 0, 0, .15), rgba(0, 0, 0, .72)),
+        var(--card-image, var(--cat-bg, rgba(27, 58, 47, .7)));
+      box-shadow: inset 0 0 34px rgba(0, 0, 0, .42), 0 4px 0 rgba(80, 0, 0, .34);
+    }
+
+    .board-category-card.bg-category {
+      background:
+        linear-gradient(180deg, rgba(24, 0, 0, .08), rgba(0, 0, 0, .72)),
+        var(--cat-image) center / cover no-repeat;
+    }
+
+    .board-card-title {
+      align-self: start;
+      justify-self: end;
+      margin: 18px 22px 0;
+      max-width: calc(100% - 44px);
+      padding: 6px 12px;
+      border-radius: 12px;
+      color: #fff8ee;
+      background: rgba(75, 0, 0, .42);
+      text-shadow: 0 2px 5px rgba(0, 0, 0, .75);
+      font-size: clamp(24px, 2.5vw, 40px);
+      font-weight: 800;
+      line-height: 1.05;
+      text-align: right;
+    }
+
+    .board-category-card.full-image .board-card-title {
+      visibility: hidden;
+    }
+
+    .board-card-points {
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 9px;
+      padding: 12px 14px 14px;
+      direction: ltr;
+    }
+
     .cell {
       background: var(--cell-bg, rgba(219, 22, 27, .6));
       color: var(--cream);
       border: 2px solid rgba(255, 255, 255, .38);
-      font-size: clamp(42px, 4.8vw, 66px);
+      font-size: clamp(20px, 2.15vw, 32px);
       display: grid;
       place-items: center;
       box-shadow: inset 0 -6px 0 rgba(140, 106, 46, .12);
@@ -2319,9 +2370,23 @@
         min-height: 0;
         margin-inline: 0;
         flex: 1 1 auto;
-        grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr));
-        grid-template-rows: minmax(58px, 1.45fr) repeat(5, minmax(0, .74fr));
-        gap: 2px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+        gap: 7px;
+      }
+      .board-category-card {
+        border-width: 1px;
+        border-radius: 8px;
+      }
+      .board-card-title {
+        margin: 8px 10px 0;
+        padding: 3px 7px;
+        border-radius: 7px;
+        font-size: clamp(14px, 2.2vw, 22px);
+      }
+      .board-card-points {
+        gap: 5px;
+        padding: 6px 7px 7px;
       }
       .board-head {
         padding: 3px 2px;
@@ -2335,7 +2400,8 @@
         border-radius: 5px;
       }
       .cell {
-        font-size: clamp(13px, 2.35vw, 22px);
+        min-height: 24px;
+        font-size: clamp(12px, 2vw, 19px);
         border-width: 1px;
         border-radius: 5px;
       }
@@ -4123,27 +4189,24 @@
       board.style.setProperty("--cat-count", cats.length);
       board.innerHTML = "";
       cats.forEach(cat => {
-        const head = document.createElement("div");
-        head.className = "board-head";
         const catColor = categoryColor(cat);
-        head.style.setProperty("--cat-bg", rgba(catColor, .72));
-        head.style.setProperty("--cat-border", catColor);
+        const card = document.createElement("div");
+        card.className = "board-category-card" + (cat.fullImage ? " full-image" : "");
+        card.style.setProperty("--cat-bg", rgba(catColor, .72));
+        card.style.setProperty("--cat-border", catColor);
         if (cat.image) {
-          head.classList.add("bg-category");
-          head.style.setProperty("--cat-image", `url("${cat.image}")`);
-          if (cat.fullImage) {
-            head.classList.add("full-image");
-            head.setAttribute("aria-label", cat.name);
-          } else {
-            head.innerHTML = `<span>${cat.name}</span>`;
-          }
+          card.classList.add("bg-category");
+          card.style.setProperty("--cat-image", `url("${cat.image}")`);
+          card.setAttribute("aria-label", cat.name);
         } else {
-          head.innerHTML = `${iconSvg(cat.custom ? "custom" : cat.id)}<span>${cat.name}</span>`;
+          card.style.setProperty("--card-image", rgba(catColor, .72));
         }
-        board.appendChild(head);
-      });
-      [...pointValues].reverse().forEach(points => {
-        cats.forEach(cat => {
+        const title = document.createElement("div");
+        title.className = "board-card-title";
+        title.textContent = cat.name;
+        const pointsRow = document.createElement("div");
+        pointsRow.className = "board-card-points";
+        pointValues.forEach(points => {
           const q = cat.questions.find(item => item.points === points);
           const key = `${cat.id}-${q.points}`;
           const used = state.used.has(key);
@@ -4153,8 +4216,10 @@
           cell.textContent = used ? "✓" : toArabicDigits(q.points);
           cell.disabled = used;
           cell.addEventListener("click", () => openQuestion(cat, q, key));
-          board.appendChild(cell);
+          pointsRow.appendChild(cell);
         });
+        card.append(title, pointsRow);
+        board.appendChild(card);
       });
       const total = cats.length * pointValues.length;
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
