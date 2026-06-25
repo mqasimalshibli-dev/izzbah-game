@@ -3569,7 +3569,6 @@
     @keyframes wlcSpin { to { transform: rotate(360deg) } }
 
     /* ===================== In-game board — Ezbah design ===================== */
-    /* Header bar */
     #game .topbar {
       background: linear-gradient(180deg, #c8202c, #9e1620) !important;
       border-bottom: 2px solid #e7c373 !important;
@@ -3582,9 +3581,10 @@
       color: #fff !important;
       box-shadow: none !important;
     }
-    #game .game-actions #exitGame:hover,
-    #game .game-actions #endGameEarly:hover { background: rgba(255, 255, 255, .26) !important; }
-    /* عِزْبة logo (diamond + Reem Kufi text) */
+    @media (hover: hover) {
+      #game .game-actions #exitGame:hover,
+      #game .game-actions #endGameEarly:hover { background: rgba(255, 255, 255, .26) !important; }
+    }
     #game .mini-brand { flex-direction: row; gap: 11px; padding: 0; margin: 0; }
     #game .mini-brand .mini-brand-logo,
     #game .mini-brand .mini-brand-name { display: none !important; }
@@ -3601,11 +3601,8 @@
     #game .turn-box {
       background: rgba(255, 255, 255, .13) !important;
       border: 1px solid rgba(255, 255, 255, .36) !important;
-      color: #fff !important;
-      border-radius: 999px !important;
+      color: #fff !important; border-radius: 999px !important;
     }
-
-    /* Scoreboard team cards */
     #game .score-box {
       position: relative;
       background: linear-gradient(180deg, #fffdf7, #f7efdc) !important;
@@ -3613,83 +3610,75 @@
       border-radius: 24px !important;
       box-shadow: 0 2px 0 #fff inset, 0 20px 32px -22px rgba(60, 40, 15, .5) !important;
     }
-    #game .score-box.active-team {
-      box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .28), 0 20px 32px -20px rgba(60, 40, 15, .5) !important;
-      animation: ezglow 2.6s ease-in-out infinite;
-    }
+    #game .score-box.active-team { outline: none !important; animation: ezglow 2.6s ease-in-out infinite; }
     #game .score-box.active-team::before {
       content: "دورهم الآن"; position: absolute; top: -13px; right: 18px; z-index: 3;
       background: linear-gradient(180deg, #e0444a, #bb1d27); color: #fff;
       font: 800 12px 'Tajawal', sans-serif; padding: 5px 15px; border-radius: 999px;
       border: 1px solid #eac877; box-shadow: 0 6px 12px -5px rgba(0, 0, 0, .5); white-space: nowrap;
     }
-    #game .score-name { font-family: 'Tajawal', sans-serif !important; font-weight: 800 !important; color: #234a3b !important; }
-    #game .score-value {
-      font-family: 'Cairo', sans-serif !important; font-weight: 900 !important;
-      color: #23463a !important; font-variant-numeric: tabular-nums;
-    }
-    #game .score-tools button {
-      font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; border-radius: 13px !important;
-    }
+    #game .score-name { font-family: 'Tajawal', sans-serif !important; font-weight: 800 !important; color: currentColor !important; }
+    #game .score-value { font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; color: #23463a !important; font-variant-numeric: tabular-nums; }
+    #game .score-tools button { font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; border-radius: 13px !important; }
 
-    /* Category cards: artwork + label badge + point pills */
     #game .board-category-card {
-      display: flex !important;
-      flex-direction: column;
-      justify-content: flex-end;
-      border-radius: 24px !important;
-      border: 2px solid #c89a4e !important;
-      overflow: hidden !important;
+      position: relative !important; isolation: isolate;
+      display: flex !important; flex-direction: column; justify-content: flex-end;
+      border-radius: 24px !important; border: 2px solid #c89a4e !important; overflow: hidden !important;
       box-shadow: 0 2px 0 rgba(255, 255, 255, .12) inset, 0 24px 40px -22px rgba(40, 20, 10, .6) !important;
+      background-color: var(--cat-bg, #1a0306);
+    }
+    #game .board-category-card.bg-category {
+      background-image: var(--cat-image) !important;
+      background-position: center !important; background-size: cover !important; background-repeat: no-repeat !important;
       background-color: #1a0306;
     }
+    #game .board-category-card.full-image:not(.bg-category) { background-image: linear-gradient(160deg, #3a0a0d, #1a0306) !important; }
     #game .board-category-card::after {
       content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background:
-        radial-gradient(120% 80% at 70% 20%, rgba(150, 22, 26, .42), transparent 55%),
-        linear-gradient(180deg, rgba(18, 5, 7, .12) 0%, rgba(40, 8, 10, .4) 48%, rgba(16, 3, 5, .9) 100%);
+        radial-gradient(120% 80% at 70% 20%, rgba(150, 22, 26, .38), transparent 55%),
+        linear-gradient(180deg, rgba(18, 5, 7, .06) 0%, rgba(40, 8, 10, .28) 48%, rgba(16, 3, 5, .78) 100%);
     }
-    /* category label badge (top-right) */
     #game .board-card-title {
       position: absolute !important; top: 14px; right: 14px; left: auto !important; bottom: auto !important;
       z-index: 2; width: auto !important; min-width: 0 !important; margin: 0 !important;
       background: linear-gradient(180deg, rgba(42, 9, 11, .92), rgba(20, 4, 6, .92)) !important;
-      border: 1px solid #e7c373 !important; border-radius: 14px !important;
-      padding: 7px 16px !important; color: #f7e3b0 !important;
-      font: 800 clamp(15px, 2.4vw, 21px) 'Cairo', sans-serif !important;
+      border: 1px solid #e7c373 !important; border-radius: 14px !important; padding: 7px 16px !important;
+      color: #f7e3b0 !important; font: 800 clamp(15px, 2.4vw, 21px) 'Cairo', sans-serif !important;
       box-shadow: 0 8px 16px -8px rgba(0, 0, 0, .6) !important;
-      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
-      text-shadow: none !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important; text-shadow: none !important;
     }
-    /* point pills row at the bottom, over the artwork */
     #game .board-card-points {
-      position: relative; z-index: 2;
-      padding: 14px !important; gap: 8px !important;
+      display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important; direction: ltr;
+      position: relative; z-index: 2; padding: 14px !important; gap: 8px !important;
     }
-    #game .board-card-points .cell:not(.used) {
-      height: clamp(42px, 7vw, 56px) !important;
-      min-height: 0 !important;
-      border-radius: 13px !important;
-      border: 1px solid #e7c373 !important;
-      font: 900 clamp(15px, 2.4vw, 19px) 'Cairo', sans-serif !important;
-      color: #ffe6b0 !important;
-      background:
-        radial-gradient(120% 130% at 50% 16%, #ef565a 0%, #c11f2a 52%, #8c1419 100%) !important;
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, .4) inset,
-        0 -4px 7px rgba(80, 6, 10, .6) inset,
-        0 8px 14px -6px rgba(0, 0, 0, .55) !important;
+    #game .board-card-points .cell {
+      height: 56px !important; min-height: 0 !important; border-radius: 13px !important; border: 1px solid #e7c373 !important;
+      font: 900 clamp(15px, 2.4vw, 19px) 'Cairo', sans-serif !important; color: #ffe6b0 !important;
       text-shadow: 0 1px 2px rgba(80, 6, 10, .7) !important;
     }
-    #game .board-card-points .cell:not(:disabled):hover { transform: translateY(-2px) scale(1.03); }
-    #game .board-card-points .cell.used {
-      border: 1px solid rgba(231, 195, 115, .4) !important;
-      background: rgba(20, 4, 6, .55) !important;
-      color: #e7c373 !important;
-      box-shadow: inset 0 2px 6px rgba(0, 0, 0, .45) !important;
-      text-shadow: none !important;
+    #game .board-card-points .cell:not(.used) {
+      background: radial-gradient(120% 130% at 50% 16%, #ef565a 0%, #c11f2a 52%, #8c1419 100%) !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -4px 7px rgba(80, 6, 10, .6) inset, 0 8px 14px -6px rgba(0, 0, 0, .55) !important;
     }
-
+    #game .board-card-points .cell.used {
+      background: radial-gradient(120% 130% at 50% 16%, #ef565a 0%, #c11f2a 52%, #8c1419 100%) !important;
+      opacity: .34 !important; filter: grayscale(.6) !important; box-shadow: none !important; text-shadow: none !important;
+    }
+    @media (hover: hover) {
+      #game .board-card-points .cell:not(:disabled):hover { transform: translateY(-2px) scale(1.03); }
+    }
+    @media (orientation: landscape) and (max-height: 520px) {
+      #game .mini-brand::before { width: clamp(18px, 3vw, 26px); height: clamp(18px, 3vw, 26px); }
+      #game .mini-brand::after { font-size: clamp(15px, 3vw, 20px); }
+      #game .score-box { border-radius: 10px !important; box-shadow: 0 2px 0 #fff inset, 0 8px 14px -10px rgba(60, 40, 15, .5) !important; }
+      #game .score-box.active-team::before { font-size: 7px !important; padding: 1px 6px !important; top: -7px !important; right: 6px !important; }
+      #game .board-category-card { border-radius: 12px !important; }
+      #game .board-card-title { top: 6px; right: 6px; padding: 2px 8px !important; font-size: clamp(11px, 2.2vw, 16px) !important; border-radius: 8px !important; }
+      #game .board-card-points { padding: clamp(5px, 1.3vh, 9px) !important; gap: 5px !important; }
+      #game .board-card-points .cell { height: clamp(20px, 5vh, 38px) !important; border-radius: 7px !important; font-size: clamp(12px, 2vw, 16px) !important; }
+    }
     @keyframes ezglow {
       0%, 100% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .22), 0 20px 32px -20px rgba(60, 40, 15, .5); }
       50% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 7px rgba(231, 195, 115, .42), 0 20px 36px -18px rgba(60, 40, 15, .55); }
