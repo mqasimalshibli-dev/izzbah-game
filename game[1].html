@@ -2402,6 +2402,155 @@
     @keyframes wlcHalo { 0%,100% { opacity: .55; transform: translate(-50%,-50%) scale(1) } 50% { opacity: .9; transform: translate(-50%,-50%) scale(1.07) } }
     @keyframes wlcEmber { 0% { transform: translateY(0) scale(.5); opacity: 0 } 14% { opacity: .85 } 86% { opacity: .7 } 100% { transform: translateY(-86vh) scale(1.25); opacity: 0 } }
     @keyframes wlcSpin { to { transform: rotate(360deg) } }
+    /* ===================== In-game board — Ezbah design (game[1]) ===================== */
+    /* Header bar (board + question + answer screens) */
+    #game .topbar, #questionPage .topbar, #answerPage .topbar {
+      background: linear-gradient(180deg, #c8202c, #9e1620) !important;
+      border-bottom: 2px solid #e7c373 !important;
+      box-shadow: 0 12px 26px -14px rgba(120, 10, 16, .6) !important;
+    }
+    #game .turn-box, #questionPage .turn-box, #answerPage .turn-box {
+      border-color: rgba(231, 195, 115, .6) !important;
+      background: rgba(255, 255, 255, .13) !important;
+    }
+
+    /* Scoreboard team cards */
+    #game .score-box {
+      position: relative;
+      background: linear-gradient(180deg, #fffdf7, #f7efdc) !important;
+      border: 2px solid currentColor !important;
+      border-radius: 18px !important;
+      box-shadow: 0 2px 0 #fff inset, 0 18px 30px -22px rgba(60, 40, 15, .5) !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+    }
+    #game .score-box.active-team {
+      outline: none !important;
+      box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .28), 0 18px 30px -20px rgba(60, 40, 15, .5) !important;
+      animation: ez1Glow 2.6s ease-in-out infinite;
+    }
+    #game .score-box.active-team::before {
+      content: "\062f\0648\0631\0647\0645 \0627\0644\0622\0646"; /* دورهم الآن */
+      position: absolute; top: -13px; right: 18px; z-index: 3;
+      background: linear-gradient(180deg, #e0444a, #bb1d27); color: #fff;
+      font: 800 12px 'Tajawal', sans-serif; padding: 5px 15px; border-radius: 999px;
+      border: 1px solid #eac877; box-shadow: 0 6px 12px -5px rgba(0, 0, 0, .5); white-space: nowrap;
+    }
+    #game .score-name { font-family: 'Tajawal', sans-serif !important; font-weight: 800 !important; color: #234a3b !important; }
+    #game .score-value {
+      font-family: 'Cairo', sans-serif !important; font-weight: 900 !important;
+      color: #23463a !important; font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .5) !important;
+    }
+    #game .score-tools button {
+      font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; border-radius: 11px !important;
+    }
+
+    /* Category artwork tile + gold label badge */
+    #game .board-head {
+      border: 2px solid #c89a4e !important;
+      border-radius: 18px !important;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, .12) inset, 0 18px 30px -20px rgba(40, 20, 10, .6) !important;
+      background-color: #1a0306 !important;
+    }
+    #game .board-head.bg-category {
+      background: #1a0306 !important;
+    }
+    #game .board-head.bg-category::before {
+      background: var(--cat-image) center / cover no-repeat !important;
+      opacity: 1 !important;
+      filter: saturate(1.04) contrast(1) !important;
+    }
+    #game .board-head.bg-category::after {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(120% 80% at 70% 20%, rgba(150, 22, 26, .35), transparent 55%),
+        linear-gradient(180deg, rgba(18, 5, 7, .14) 0%, rgba(40, 8, 10, .34) 48%, rgba(16, 3, 5, .7) 100%);
+    }
+    #game .board-head span {
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(42, 9, 11, .92), rgba(20, 4, 6, .92)) !important;
+      border: 1px solid #e7c373 !important; border-radius: 14px !important;
+      padding: 7px 16px !important; color: #f7e3b0 !important;
+      font: 800 clamp(15px, 2.2vw, 22px) 'Cairo', sans-serif !important;
+      box-shadow: 0 8px 16px -8px rgba(0, 0, 0, .6) !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      text-shadow: none !important;
+    }
+
+    /* Point cells: red Ezbah pills (gold border, gold number) */
+    #game .cell:not(.used) {
+      border: 1px solid #e7c373 !important;
+      border-radius: 13px !important;
+      font: 900 clamp(30px, 4.4vw, 56px) 'Cairo', sans-serif !important;
+      color: #ffe6b0 !important;
+      background:
+        radial-gradient(120% 130% at 50% 16%, #ef565a 0%, #c11f2a 52%, #8c1419 100%) !important;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, .4) inset,
+        0 -4px 7px rgba(80, 6, 10, .6) inset,
+        0 8px 14px -6px rgba(0, 0, 0, .55) !important;
+      text-shadow: 0 1px 2px rgba(80, 6, 10, .7) !important;
+    }
+    /* ... with the category picture showing through (pictures in the point-cells) */
+    #game .cell.has-art:not(.used) {
+      background:
+        radial-gradient(120% 130% at 50% 16%, rgba(235, 74, 78, .7) 0%, rgba(193, 31, 42, .85) 52%, rgba(120, 16, 21, .95) 100%),
+        var(--cat-image) center / cover no-repeat !important;
+      text-shadow: 0 1px 2px rgba(40, 3, 5, .95), 0 0 6px rgba(40, 3, 5, .7) !important;
+    }
+    #game .cell.used {
+      border: 1px solid rgba(231, 195, 115, .4) !important;
+      border-radius: 13px !important;
+      background: rgba(20, 4, 6, .55) !important;
+      color: #e7c373 !important;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, .45) !important;
+      text-shadow: none !important;
+    }
+    #game .cell.used.has-art {
+      background:
+        linear-gradient(180deg, rgba(18, 3, 5, .8), rgba(18, 3, 5, .84)),
+        var(--cat-image) center / cover no-repeat !important;
+    }
+    @media (hover: hover) {
+      #game .cell:not(:disabled):hover { transform: translateY(-2px) scale(1.03); filter: brightness(1.05); }
+    }
+    #game .cell:not(:disabled):active { transform: translateY(1px) scale(.97); filter: brightness(.95); }
+
+    @keyframes ez1Glow {
+      0%, 100% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .22), 0 18px 30px -20px rgba(60, 40, 15, .5); }
+      50% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 7px rgba(231, 195, 115, .42), 0 18px 34px -18px rgba(60, 40, 15, .55); }
+    }
+
+    /* Forced-landscape phone view: keep the whole board on one screen */
+    @media (orientation: landscape) and (max-height: 520px) {
+      /* width: drop the 132px column floor and the 820px min-width pin so the board fits */
+      #game .board {
+        grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr)) !important;
+        grid-template-rows: clamp(50px, 15vh, 86px) repeat(5, minmax(30px, 1fr)) !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        gap: 5px !important;
+      }
+      #game.game-screen { overflow-x: hidden !important; }
+      #game .cell { font-size: clamp(20px, 5vh, 38px) !important; }
+      #game .board-head span { padding: 3px 9px !important; font-size: clamp(12px, 3vh, 18px) !important; }
+      /* height: shrink the fixed chrome so the board never clips */
+      #game .topbar { min-height: 0 !important; padding: 5px 12px !important; margin-bottom: 8px !important; }
+      #game .mini-brand .mini-brand-logo { width: 40px !important; height: 40px !important; }
+      #game .turn-photo, #game .turn-box .default-avatar { width: 30px !important; height: 30px !important; }
+      #game .turn-box { padding: 4px 10px !important; min-width: 0 !important; }
+      #game .turn-label small { font-size: 11px !important; }
+      #game .turn-label strong { font-size: 16px !important; }
+      #game .score-row { gap: 8px !important; }
+      #game .score-box { padding: 5px 8px !important; }
+      #game .score-photo, #game .score-box .default-avatar { width: 26px !important; height: 26px !important; }
+      #game .score-tools { margin-top: 3px !important; }
+      #game .score-tools button { width: 28px !important; height: 28px !important; font-size: 20px !important; }
+      #game .score-value { font-size: clamp(22px, 6.5vh, 40px) !important; }
+      #game .score-name { font-size: clamp(12px, 2.8vh, 17px) !important; }
+      #game .score-box.active-team::before { top: -10px; font-size: 10px; padding: 3px 11px; }
+    }
   </style>
   <script>
     /* =====================================================================
@@ -2423,6 +2572,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <main class="app">
@@ -3866,8 +4016,9 @@
           const key = `${cat.id}-${q.points}`;
           const used = state.used.has(key);
           const cell = document.createElement("button");
-          cell.className = "cell" + (used ? " used" : "");
+          cell.className = "cell" + (used ? " used" : "") + (cat.image ? " has-art" : "");
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
+          if (cat.image) cell.style.setProperty("--cat-image", `url("${cat.image}")`);
           cell.textContent = used ? "✓" : toArabicDigits(q.points);
           cell.disabled = used;
           cell.addEventListener("click", () => openQuestion(cat, q, key));
