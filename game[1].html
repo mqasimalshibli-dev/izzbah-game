@@ -508,6 +508,43 @@
       box-shadow: 0 8px 0 rgba(219, 22, 27, .18);
     }
 
+    .category.full-image {
+      padding: 0;
+      background-color: #100101;
+      background-image: var(--cat-image);
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+    }
+
+    .category.full-image .category-main {
+      min-height: 100%;
+      align-self: stretch;
+      background: linear-gradient(180deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .34));
+      color: white;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, .72);
+    }
+
+    .category.full-image .category-main span {
+      align-self: end;
+      width: calc(100% - 22px);
+      margin: 0 auto 12px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: rgba(145, 24, 28, .72);
+      line-height: 1.05;
+    }
+
+    .category.full-image.selected {
+      background-color: #100101;
+      background-image:
+        linear-gradient(180deg, rgba(219, 22, 27, .06), rgba(219, 22, 27, .14)),
+        var(--cat-image);
+      background-position: center, center;
+      background-size: auto, cover;
+      background-repeat: no-repeat, no-repeat;
+    }
+
     .category svg {
       width: 54px;
       height: 54px;
@@ -1866,7 +1903,452 @@
       .chart { gap: 12px; }
       .bar-wrap { min-width: 72px; }
     }
+
+    /* ============================================================
+       UI POLISH LAYER — additive only (no layout or logic changes).
+       Accessibility, interaction feedback, and motion consistency.
+       ============================================================ */
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    .category:focus-visible,
+    .cell:focus-visible {
+      outline: 3px solid #1b6a8f;
+      outline-offset: 3px;
+    }
+    .cell,
+    .category,
+    .board-head,
+    .meta-box {
+      transition: transform .18s cubic-bezier(.2, .8, .22, 1),
+                  box-shadow .2s ease,
+                  filter .18s ease;
+    }
+    @media (hover: hover) {
+      .cell:not(:disabled):hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 6px 16px rgba(145, 24, 28, .22),
+                    inset 0 -6px 0 rgba(140, 106, 46, .12);
+      }
+      .category:hover {
+        box-shadow: 0 10px 22px rgba(140, 106, 46, .22);
+      }
+    }
+    .primary:active,
+    .secondary:active,
+    .ghost:active,
+    .danger:active,
+    .gold-btn:active,
+    .stepper-btn:active {
+      filter: brightness(.96);
+    }
+    /* Board point cells as premium chips + clear completed state. */
+    .cell:not(.used) {
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 52%);
+      text-shadow: 0 1px 2px rgba(80, 0, 0, .45);
+    }
+    .cell:not(:disabled):active {
+      transform: translateY(1px) scale(.97);
+    }
+    .board-head span {
+      backdrop-filter: blur(3px) saturate(1.05);
+      -webkit-backdrop-filter: blur(3px) saturate(1.05);
+    }
+    .cell.used {
+      background-image: none;
+      box-shadow: inset 0 2px 7px rgba(0, 0, 0, .28);
+      border-color: rgba(255, 255, 255, .22);
+      text-shadow: none;
+    }
+
+    /* ===== Creative "podium" final-score columns (replaces the bar chart) ===== */
+    .podium {
+      width: 100%;
+      align-self: stretch;
+      min-height: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(8px, 2.4vw, 30px);
+      direction: rtl;
+      padding: clamp(20px, 4vw, 44px) clamp(4px, 1.5vw, 16px) 0;
+    }
+    .pod-col {
+      height: 100%;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: clamp(86px, 22%, 152px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: clamp(5px, 1vw, 10px);
+    }
+    .pod-track {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .pod-bar {
+      position: relative;
+      width: clamp(48px, 84%, 118px);
+      height: 0;
+      min-height: clamp(16px, 4vh, 36px);
+      border-radius: 16px 16px 7px 7px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .42) 0%, rgba(255, 255, 255, .10) 22%, rgba(255, 255, 255, 0) 46%),
+        var(--col-color, var(--gold));
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, .20),
+        inset 0 -10px 0 rgba(0, 0, 0, .16),
+        0 8px 18px rgba(27, 58, 47, .22);
+      transition: height .85s cubic-bezier(.2, .85, .2, 1);
+      transition-delay: var(--enter-delay, 0s);
+    }
+    .podium.revealed .pod-bar { height: var(--col-h, 30%); }
+    .pod-col.champion .pod-bar {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .12) 24%, rgba(255, 255, 255, 0) 48%),
+        linear-gradient(180deg, #ecc06d, #c9974a);
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, .35),
+        inset 0 -10px 0 rgba(120, 80, 20, .22),
+        0 0 0 3px rgba(201, 151, 74, .40),
+        0 0 26px rgba(201, 151, 74, .55);
+      animation: championGlow 1.8s ease-in-out 1s infinite;
+    }
+    .pod-score {
+      position: absolute;
+      bottom: calc(100% + clamp(3px, 1vw, 8px));
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fffdf8;
+      color: var(--dark);
+      border: 2px solid var(--col-color, var(--gold));
+      border-radius: 999px;
+      padding: 1px clamp(7px, 1.3vw, 13px);
+      font-size: clamp(14px, 2vw, 26px);
+      font-weight: 900;
+      line-height: 1.25;
+      white-space: nowrap;
+      box-shadow: 0 3px 9px rgba(27, 58, 47, .18);
+      font-variant-numeric: tabular-nums;
+    }
+    .pod-col.champion .pod-score {
+      border-color: var(--gold);
+      color: var(--gold-dark);
+    }
+    .pod-badge {
+      position: absolute;
+      top: clamp(4px, 1vw, 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(16px, 2.3vw, 30px);
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .28));
+    }
+    .pod-avatar {
+      width: clamp(34px, 5vw, 54px);
+      height: clamp(34px, 5vw, 54px);
+      border-radius: 50%;
+      border: 3px solid var(--col-color, var(--gold));
+      object-fit: cover;
+      background: white;
+      flex: 0 0 auto;
+      box-shadow: 0 4px 10px rgba(27, 58, 47, .20);
+    }
+    .pod-col.champion .pod-avatar {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 151, 74, .35), 0 4px 12px rgba(201, 151, 74, .40);
+    }
+    .pod-name {
+      flex: 0 0 auto;
+      height: clamp(30px, 5.5vh, 50px);
+      width: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      overflow: hidden;
+      line-height: 1.05;
+      font-size: clamp(12px, 1.8vw, 22px);
+      font-weight: 800;
+      color: var(--dark);
+      overflow-wrap: anywhere;
+    }
+    @keyframes podGrow { from { height: 0; min-height: 0; } }
+    @keyframes championGlow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.08); }
+    }
+
+    .results-intro {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(255, 246, 229, .98), rgba(239, 214, 186, .99) 58%, #e9c7aa);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity .55s ease;
+    }
+    .results-intro.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .results-intro.sliding { opacity: 0; }
+    .results-intro-logo {
+      height: min(56vh, 340px);
+      width: auto;
+      max-width: 86vw;
+      filter: drop-shadow(0 14px 34px rgba(140, 106, 46, .42));
+      transform: scale(.6);
+      opacity: 0;
+    }
+    .results-intro.active .results-intro-logo {
+      animation: introLogoIn .7s cubic-bezier(.2, .9, .25, 1.3) forwards;
+    }
+    .results-intro.sliding .results-intro-logo {
+      animation: introLogoOut .6s cubic-bezier(.6, 0, .35, 1) forwards;
+    }
+    @keyframes introLogoIn {
+      0% { transform: scale(.6) translateY(12px); opacity: 0; }
+      55% { opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    @keyframes introLogoOut {
+      0% { transform: scale(1) translateX(0) rotate(0); opacity: 1; }
+      100% { transform: scale(.82) translateX(-155%) rotate(-9deg); opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* =====================================================================
+       Redesigned final score screen (dark trophy layout)
+       ===================================================================== */
+    body[data-screen="results"] {
+      background:
+        radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
+        radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
+        linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%) !important;
+    }
+    #results.screen { color: #fff; }
+    .results-screen {
+      position: relative; width: 100%; max-width: 1180px; height: 100%;
+      margin: 0 auto; display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; gap: clamp(8px, 1.8vh, 20px);
+      padding: clamp(10px, 2vw, 26px); direction: rtl; overflow: hidden;
+    }
+    .rs-top { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; min-height: clamp(46px, 8vh, 96px); flex: 0 0 auto; }
+    .results-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: clamp(40px, 8vh, 96px); width: auto; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .55)); }
+    .rs-headline {
+      margin: 0;
+      text-align: center;
+      font-weight: 900;
+      font-size: clamp(24px, 5vw, 56px);
+      line-height: 1.05;
+      color: #f2cd6a;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+    }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .rs-headline {
+        background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+      }
+    }
+    .rs-share-top {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 8px; direction: ltr;
+      background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(201, 151, 74, .6); color: #f3d9a0; border-radius: 999px;
+      padding: clamp(5px, .9vw, 9px) clamp(11px, 1.7vw, 20px); font-size: clamp(12px, 1.6vw, 18px); font-weight: 800; cursor: pointer;
+      transition: transform .15s ease, filter .15s ease, background .15s ease;
+    }
+    .rs-share-top svg { width: clamp(15px, 1.8vw, 21px); height: auto; }
+    .rs-share-top span { direction: rtl; }
+    .rs-share-top:hover { filter: brightness(1.1); background: rgba(255, 255, 255, .12); transform: translateY(-50%) scale(1.03); }
+    .rs-congrats {
+      flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: clamp(8px, 1.5vw, 16px); max-width: 94%;
+      padding: clamp(5px, 1vw, 10px) clamp(14px, 2.6vw, 30px); border-radius: 999px;
+      background: linear-gradient(180deg, #f7e7c1, #ecd29a); border: 2px solid #c9974a; color: #6e1414; font-weight: 800;
+      font-size: clamp(12px, 1.9vw, 22px); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); text-align: center;
+    }
+    .rs-congrats strong { color: #b3151b; }
+    .cong-orn { color: #c9974a; flex: 0 0 auto; }
+    .rs-stage { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: clamp(10px, 2.4vw, 30px); flex-wrap: wrap; }
+    .rs-card {
+      position: relative; flex: 0 1 auto; width: clamp(150px, 24%, 320px); align-self: stretch; max-height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(6px, 1.4vh, 16px);
+      padding: clamp(14px, 2vw, 28px) clamp(10px, 1.6vw, 22px); border-radius: clamp(14px, 1.8vw, 24px);
+      background: linear-gradient(180deg, #3c4046, #23262b); border: 2px solid rgba(255, 255, 255, .10);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, .45); color: #fff; opacity: 0; transform: translateY(18px) scale(.96);
+    }
+    .rs-stage.revealed .rs-card { animation: rsCardIn .55s cubic-bezier(.2, .9, .25, 1.15) forwards; animation-delay: var(--enter-delay, 0s); }
+    .rs-card.winner { background: linear-gradient(180deg, #71161b, #490b0f); border: 3px solid var(--gold); box-shadow: 0 0 0 2px rgba(201, 151, 74, .40), 0 18px 44px rgba(120, 20, 22, .55); }
+    .rs-title { font-size: clamp(15px, 2vw, 28px); font-weight: 800; color: #ece3d2; text-align: center; }
+    .rs-card.winner .rs-title { color: #fbe9a8; }
+    .rs-avatar-wrap { position: relative; display: grid; place-items: center; margin: clamp(4px, 1vh, 12px) 0; }
+    .rs-avatar { width: clamp(58px, 10vw, 120px); height: clamp(58px, 10vw, 120px); border-radius: 50%; object-fit: cover; border: 4px solid var(--gold); background: #d7d7d7; box-shadow: 0 6px 16px rgba(0, 0, 0, .45); }
+    .rs-card:not(.winner) .rs-avatar { border-color: #b9c0c8; }
+    .rs-crown { position: absolute; top: clamp(-22px, -2.2vw, -12px); left: 50%; transform: translateX(-50%); font-size: clamp(26px, 4.2vw, 50px); filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .45)); z-index: 3; }
+    .rs-medal { position: absolute; bottom: clamp(-12px, -1.6vw, -7px); left: 50%; transform: translateX(-50%); width: clamp(26px, 4vw, 42px); height: clamp(26px, 4vw, 42px); border-radius: 50%; display: grid; place-items: center; font-weight: 900; color: #3a3a3a; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); z-index: 3; font-size: clamp(13px, 1.8vw, 20px); }
+    .rs-medal-silver { background: linear-gradient(180deg, #eef1f5, #aeb6bf); }
+    .rs-medal-bronze { background: linear-gradient(180deg, #e7b684, #bd7e49); color: #fff; }
+    .rs-score { font-size: clamp(34px, 6.4vw, 78px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+    .rs-score-gold { color: #f7cf5a; text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 20px rgba(247, 207, 90, .45); }
+    .rs-score-silver { color: #e8edf2; text-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+    .rs-score-bronze { color: #e7b684; text-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+    .rs-score-plain { color: #f0e6d6; }
+    .rs-winner-banner { margin-top: clamp(2px, 1vh, 8px); background: linear-gradient(180deg, #ecc163, #b5822f); color: #3a0a0c; font-weight: 900; padding: clamp(3px, .7vw, 8px) clamp(16px, 2.6vw, 34px); border-radius: 9px; font-size: clamp(13px, 1.8vw, 22px); box-shadow: 0 4px 0 rgba(120, 80, 20, .5); }
+    .rs-trophy-stage { position: relative; flex: 0 0 auto; align-self: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 1.6vh, 18px); padding: 0 clamp(2px, 1vw, 14px); opacity: 0; }
+    .rs-stage.revealed .rs-trophy-stage { animation: rsTrophyIn .7s cubic-bezier(.2, .9, .25, 1.3) .12s forwards; }
+    .rs-trophy-glow { position: absolute; top: 36%; left: 50%; transform: translate(-50%, -50%); width: clamp(170px, 32vw, 340px); height: clamp(170px, 32vw, 340px); background: radial-gradient(circle, rgba(247, 207, 90, .55), rgba(247, 207, 90, 0) 64%); pointer-events: none; z-index: 0; }
+    .rs-trophy-svg { position: relative; z-index: 1; width: clamp(108px, 19vw, 210px); height: auto; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .5)); }
+    .rs-trophy-badge { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); width: clamp(30px, 5.6vw, 60px); height: auto; z-index: 2; border-radius: 50%; pointer-events: none; }
+    .rs-pointdiff { position: relative; z-index: 1; text-align: center; background: linear-gradient(180deg, #5c1115, #3a0a0c); border: 1.5px solid rgba(201, 151, 74, .55); color: #f3d9a0; border-radius: 12px; padding: clamp(4px, .8vw, 9px) clamp(12px, 2vw, 24px); font-size: clamp(11px, 1.5vw, 17px); font-weight: 800; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+    .rs-pointdiff .clean-number { display: block; font-size: clamp(16px, 2.5vw, 30px); color: #f7cf5a; }
+    .rs-actions { flex: 0 0 auto; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 1.5vw, 16px); }
+    .rs-btn { display: inline-flex; align-items: center; justify-content: center; gap: clamp(6px, 1vw, 10px); direction: ltr; min-height: clamp(38px, 6vh, 58px); padding: clamp(7px, 1.1vw, 14px) clamp(14px, 2.4vw, 30px); border: 0; border-radius: 14px; cursor: pointer; color: #fff; font-size: clamp(12px, 1.7vw, 22px); font-weight: 800; box-shadow: 0 6px 0 rgba(0, 0, 0, .28), 0 8px 18px rgba(0, 0, 0, .3); transition: transform .15s ease, filter .15s ease, box-shadow .15s ease; }
+    .rs-btn svg { width: clamp(17px, 2.1vw, 26px); height: auto; flex: 0 0 auto; }
+    .rs-btn span { direction: rtl; }
+    .rs-btn:hover { filter: brightness(1.07); transform: translateY(-2px); }
+    .rs-btn:active { transform: translateY(1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .28), 0 4px 10px rgba(0, 0, 0, .3); }
+    .rs-btn-new { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
+    .rs-btn-review { background: linear-gradient(180deg, #2f80d8, #1d5fad); }
+    .rs-btn-share { background: linear-gradient(180deg, #7d3fa2, #5d2c85); }
+    .rs-btn-home { background: linear-gradient(180deg, #cb792f, #a85a1e); }
+    .review-list .rev-q { font-weight: 800; color: var(--dark); }
+    .review-list .rev-a { color: #1b6a8f; margin-top: 2px; }
+    .review-list .rev-meta { color: #8c6a2e; font-size: 14px; margin-top: 2px; }
+    .review-list .rev-empty { list-style: none; text-align: center; color: #8c6a2e; }
+    .app-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: rgba(20, 5, 6, .96); color: #f3d9a0; border: 1px solid rgba(201, 151, 74, .5); padding: 10px 22px; border-radius: 10px; font-weight: 800; font-size: 16px; z-index: 10000; opacity: 0; pointer-events: none; max-width: 86vw; text-align: center; transition: opacity .25s ease, transform .25s ease; }
+    .app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @keyframes rsCardIn { to { opacity: 1; transform: none; } }
+    @keyframes rsTrophyIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+
+
+    /* =====================================================================
+       AAA in-game board polish (additive, visual only)
+       ===================================================================== */
+    #game .topbar, #questionPage .topbar, #answerPage .topbar {
+      border-bottom: 2px solid rgba(201, 151, 74, .55);
+      box-shadow: 0 6px 16px rgba(80, 0, 0, .28);
+    }
+    .score-box {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(247, 238, 222, .82)) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 5px 0 rgba(140, 106, 46, .16), 0 10px 22px rgba(27, 58, 47, .14) !important;
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+    }
+    .score-box.active-team {
+      box-shadow: 0 0 0 3px rgba(201, 151, 74, .55), 0 8px 24px rgba(201, 151, 74, .35) !important;
+    }
+    .score-value { text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+    .board-head {
+      border-radius: 14px !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 6px 16px rgba(0, 0, 0, .3) !important;
+    }
+    .cell:not(.used) {
+      border: 2px solid rgba(201, 151, 74, .6) !important;
+      border-radius: 11px !important;
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, .25), rgba(255, 255, 255, 0) 55%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .4),
+        inset 0 -7px 0 rgba(0, 0, 0, .24),
+        0 3px 9px rgba(0, 0, 0, .3) !important;
+      text-shadow: 0 1px 3px rgba(80, 0, 0, .6);
+    }
+    .cell.used {
+      border-radius: 11px !important;
+      border: 2px solid rgba(255, 255, 255, .18) !important;
+    }
+    /* Premium pill action buttons (labeled, game[1] layout) */
+    .game-actions #endGameEarly {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(180deg, #e2342b, #9c0f12) !important;
+      border: 2px solid rgba(255, 222, 150, .9) !important;
+      color: #fff !important;
+      border-radius: 999px !important;
+      box-shadow: 0 4px 0 rgba(120, 8, 10, .5), 0 6px 16px rgba(219, 22, 27, .4) !important;
+      transition: transform .15s ease, filter .15s ease;
+    }
+    .game-actions #endGameEarly:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .game-actions #endGameEarly:active { transform: translateY(1px); }
+    .game-actions #endGameEarly svg { width: 1.15em; height: 1.15em; flex: 0 0 auto; }
+    .game-actions #exitGame {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, .18) !important;
+      border: 2px solid rgba(255, 255, 255, .6) !important;
+      color: #fff !important;
+      border-radius: 999px !important;
+      transition: transform .15s ease, filter .15s ease, background .15s ease;
+    }
+    .game-actions #exitGame:hover { transform: translateY(-1px); background: rgba(0, 0, 0, .3) !important; }
+    .game-actions #exitGame svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+    .done-banner {
+      background: linear-gradient(180deg, #2a0709, #1a0406) !important;
+      border: 2px solid var(--gold) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .45) !important;
+      color: #f3d9a0 !important;
+    }
+
+    /* ===== Cloud sign-in button ===== */
+    .auth-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      direction: rtl; min-height: 48px; padding: 10px 22px; border-radius: 999px; cursor: pointer;
+      background: #fff; color: #3c4043; border: 1px solid rgba(0, 0, 0, .15);
+      font-size: clamp(15px, 1.8vw, 19px); font-weight: 800; box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    .auth-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, .18); }
+    .auth-btn:active { transform: translateY(0); }
+    .auth-btn.signed-in { background: #f3eee2; color: #7a1014; border-color: rgba(201, 151, 74, .5); }
+    .auth-g { width: 22px; height: 22px; flex: 0 0 auto; }
+    .auth-btn.signed-in .auth-g { display: none; }
+    .auth-status { margin-top: 6px; font-size: 14px; color: var(--gold-dark); min-height: 18px; }
   </style>
+  <script>
+    /* =====================================================================
+       Cloud sign-in / progress sync.  Paste your Firebase web-app config
+       below (Firebase Console > Project settings > Your apps > Web app).
+       Until it is filled in, the game keeps working with on-device saving
+       and the sign-in button stays hidden.  Setup steps: FIREBASE_SETUP.md
+       ===================================================================== */
+    window.IZZBAH_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyDRcH7DlI-CDRTKh0_a5svL9UutNRmIH2I",
+      authDomain: "izzbahgame.firebaseapp.com",
+      projectId: "izzbahgame",
+      storageBucket: "izzbahgame.firebasestorage.app",
+      messagingSenderId: "993216176317",
+      appId: "1:993216176317:web:06cbb2e2d69cc360f217d4",
+      measurementId: "G-FBSCK70M8C"
+    };
+  </script>
 </head>
 <body>
   <main class="app">
@@ -1875,6 +2357,16 @@
         <img class="brand-mark" src="assets/izzbah-official-logo-transparent.png" alt="عِزبه">
         <p class="subtitle">لعبة تريفيا جماعية</p>
         <button class="primary" data-screen="gameLibrary">ابدأ لعبة جديدة</button>
+        <button class="auth-btn" id="authBtn" type="button" style="display:none">
+          <svg class="auth-g" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.9 2.6 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.2 13.3 17.6 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-3.9 6.8-9.7 6.8-17.4z"/>
+            <path fill="#FBBC05" d="M10.4 28.3c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3l-7.8-6.1C.9 16.7 0 20.2 0 24s.9 7.3 2.6 10.4l7.8-6.1z"/>
+            <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.8-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.5 2.3-6.4 0-11.8-3.8-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+          </svg>
+          <span class="auth-label">تسجيل الدخول بحساب Google</span>
+        </button>
+        <div class="auth-status" id="authStatus" aria-live="polite"></div>
       </div>
       <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
@@ -1983,8 +2475,8 @@
     <section id="game" class="game-screen">
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
-          <button class="ghost" id="exitGame"><span aria-hidden="true">×</span> خروج</button>
-          <button class="gold-btn" id="endGameEarly"><span aria-hidden="true">←</span> إنهاء وعرض النتائج</button>
+          <button class="ghost" id="exitGame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg> <span>خروج</span></button>
+          <button class="gold-btn" id="endGameEarly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg> <span>إنهاء اللعبة</span></button>
         </div>
         <div class="mini-brand">
           <img class="mini-brand-logo" src="assets/izzbah-white-logo.png" alt="عِزبه">
@@ -2049,22 +2541,54 @@
       <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
 
-    <section id="results" class="screen center">
-      <div class="stack wide-stack">
-        <h2 class="screen-title">النتائج النهائية</h2>
-        <div class="results-stage">
-          <img class="result-watermark" src="assets/izzbah-white-logo.png" alt="" aria-hidden="true">
-          <p class="winner-phrase" id="winnerPhrase"></p>
-          <div class="winner-spot" id="winnerSpot"></div>
-          <div class="chart" id="resultsChart"></div>
-        </div>
-        <div class="actions">
-          <button class="primary" id="newGame">لعبة جديدة</button>
-          <button class="secondary" id="resultsMenu">القائمة الرئيسية</button>
+        <section id="results" class="screen center">
+      <div class="results-screen">
+        <header class="rs-top">
+          <img class="results-logo" id="resultsLogo" src="" alt="عزبة">
+          <h2 class="rs-headline">النتائج النهائية</h2>
+          <button class="rs-share-top" id="shareTop" type="button" aria-label="مشاركة">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5l7 7-7 7v-4.1C9 13.9 5.5 15.5 3 19c1-5 4-9.4 11-9.9z" fill="currentColor"/></svg>
+            <span>مشاركة</span>
+          </button>
+        </header>
+        <div class="rs-congrats" id="resultsCongrats"></div>
+        <div class="rs-stage" id="resultsStage"></div>
+        <div class="rs-actions">
+          <button class="rs-btn rs-btn-new" id="newGame" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 7l5 5V8a4 4 0 1 1-4 4H6a6 6 0 1 0 6-7z" fill="currentColor"/></svg>
+            <span>لعبة جديدة</span>
+          </button>
+          <button class="rs-btn rs-btn-review" id="reviewQuestions" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>مراجعة الأسئلة</span>
+          </button>
+          <button class="rs-btn rs-btn-share" id="shareResult" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>مشاركة النتيجة</span>
+          </button>
+          <button class="rs-btn rs-btn-home" id="resultsMenu" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 10v9h12v-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>الصفحة الرئيسية</span>
+          </button>
         </div>
       </div>
-      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
+
+    <div class="modal-backdrop" id="reviewModal" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+        <h3 class="preview-title" id="reviewTitle">مراجعة الأسئلة</h3>
+        <ol class="preview-list review-list" id="reviewList"></ol>
+        <div class="actions">
+          <button class="primary" id="closeReview" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-toast" id="appToast" role="status" aria-live="polite"></div>
+
+    <div class="results-intro" id="resultsIntro" aria-hidden="true">
+      <img class="results-intro-logo" id="resultsIntroLogo" src="" alt="عزبة">
+    </div>
   </main>
 
   <script>
@@ -2407,9 +2931,9 @@
 
     const builtinCategoryMeta = [
       { id: "history", name: "تاريخ", image: "assets/category-history.png" },
-      { id: "science", name: "علوم", image: "assets/category-science.png" },
-      { id: "geo", name: "جغرافيا", image: "assets/category-geo.png" },
-      { id: "culture", name: "ثقافة عامة", image: "assets/category-culture.png" },
+      { id: "science", name: "علوم", image: "assets/category-science.png", fullImage: true },
+      { id: "geo", name: "جغرافيا", image: "assets/category-geo.png", fullImage: true },
+      { id: "culture", name: "ثقافة عامة", image: "assets/category-culture.png", fullImage: true },
       { id: "sports", name: "رياضة", image: "assets/category-sports.png" },
       { id: "art", name: "فنون", image: "assets/category-art.png" },
       { id: "foreignMovies", name: "أفلام ومسلسلات أجنبية", image: "assets/category-foreign-movies.png" }
@@ -2438,6 +2962,7 @@
       customCategories: [],
       savedGames: [],
       used: new Set(),
+      history: [],
       activeTeam: 0,
       activeQuestion: null,
       gameLibraryMode: "your",
@@ -2847,13 +3372,16 @@
       }
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
-        card.className = "category" + (state.selected.has(cat.id) ? " selected" : "");
+        card.className = "category" + (state.selected.has(cat.id) ? " selected" : "") + (cat.fullImage ? " full-image" : "");
         const name = cat.name || "فئة بدون اسم";
+        if (cat.fullImage && cat.image) {
+          card.style.setProperty("--cat-image", `url("${cat.image}")`);
+        }
         card.innerHTML = `
           <span class="check">✓</span>
           <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${name}">👁</button>
           <button class="category-main" type="button">
-            <span>${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}</span>
+            <span>${cat.image && cat.fullImage ? name : `${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}`}</span>
           </button>
         `;
         card.querySelector(".category-eye").addEventListener("click", event => {
@@ -3148,6 +3676,7 @@
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
       state.used.clear();
+      state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
       renderGame();
@@ -3262,7 +3791,7 @@
           const used = state.used.has(key);
           const cell = document.createElement("button");
           cell.className = "cell" + (used ? " used" : "");
-          cell.style.setProperty("--cell-bg", rgba(categoryColor(cat), .78));
+          cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(q.points);
           cell.disabled = used;
           cell.addEventListener("click", () => openQuestion(cat, q, key));
@@ -3349,6 +3878,14 @@
     function finishQuestion(winnerIndex) {
       const active = state.activeQuestion;
       if (!active) return;
+      if (!state.history) state.history = [];
+      state.history.push({
+        category: active.cat && active.cat.name ? active.cat.name : "",
+        points: active.q ? active.q.points : 0,
+        question: active.q && active.q.q ? active.q.q : "",
+        answer: active.q && active.q.a ? active.q.a : "",
+        winnerIndex: (typeof winnerIndex === "number") ? winnerIndex : null
+      });
       if (typeof winnerIndex === "number") {
         state.teams[winnerIndex].score = Math.min(maxTotalScore, state.teams[winnerIndex].score + active.q.points);
         state.activeTeam = (winnerIndex + 1) % state.teamCount;
@@ -3378,48 +3915,146 @@
       showScreen("game", { keepQuestion: true });
     }
 
+    function trophySvg() {
+      return `
+      <svg class="rs-trophy-svg" viewBox="0 0 200 210" aria-hidden="true">
+        <defs>
+          <linearGradient id="tGoldA" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fcefb4"/><stop offset=".5" stop-color="#e7b54b"/><stop offset="1" stop-color="#a9762a"/>
+          </linearGradient>
+          <linearGradient id="tGoldB" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f3d27a"/><stop offset="1" stop-color="#a9762a"/>
+          </linearGradient>
+        </defs>
+        <path d="M52 46 C14 46 14 104 60 102" fill="none" stroke="url(#tGoldA)" stroke-width="10" stroke-linecap="round"/>
+        <path d="M148 46 C186 46 186 104 140 102" fill="none" stroke="url(#tGoldA)" stroke-width="10" stroke-linecap="round"/>
+        <path d="M48 40 H152 C152 96 128 132 100 132 C72 132 48 96 48 40 Z" fill="url(#tGoldA)"/>
+        <ellipse cx="100" cy="40" rx="54" ry="11" fill="#fcefb4"/>
+        <rect x="92" y="130" width="16" height="26" fill="url(#tGoldB)"/>
+        <rect x="74" y="156" width="52" height="12" rx="3" fill="url(#tGoldB)"/>
+        <rect x="58" y="168" width="84" height="16" rx="4" fill="url(#tGoldA)"/>
+        <rect x="48" y="184" width="104" height="14" rx="5" fill="url(#tGoldB)"/>
+      </svg>`;
+    }
+
     function renderResults() {
       const ranked = state.teams.slice(0, state.teamCount)
         .map((team, index) => ({ ...team, index }))
         .sort((a, b) => b.score - a.score);
-      const maxScore = Math.max(1, ...ranked.map(team => team.score));
-      const topScore = ranked[0]?.score ?? 0;
+      const topScore = ranked[0] ? ranked[0].score : 0;
+      const secondScore = ranked[1] ? ranked[1].score : 0;
       const topTeams = ranked.filter(team => team.score === topScore);
       const isDraw = topTeams.length > 1;
       const winner = isDraw ? null : ranked[0];
-      $("#winnerPhrase").innerHTML = isDraw
-        ? `تعادل بين ${topTeams.map(team => teamDisplayName(team, team.index)).join(" و ")} بنتيجة <span class="clean-number">${toArabicDigits(topScore)}</span> نقطة`
-        : (winner ? `🏆 مبروك ${teamDisplayName(winner, winner.index)}! الفوز لكم اليوم 🎉` : "انتهت اللعبة!");
-      $("#winnerSpot").innerHTML = isDraw
-        ? `<div class="draw-spot">${topTeams.map(team => `
-            <div class="draw-team">
-              ${team.image ? `<img class="winner-portrait" src="${team.image}" alt="">` : defaultAvatarHtml("winner-portrait default-avatar")}
-              <span>${teamDisplayName(team, team.index)}</span>
-            </div>
-          `).join("")}</div>`
+      const gap = Math.max(0, topScore - secondScore);
+      state.resultSnapshot = ranked.map(t => ({ name: teamDisplayName(t, t.index), score: t.score }));
+
+      $("#resultsCongrats").innerHTML = isDraw
+        ? `<span class="cong-orn">\u2756</span><span>تعادل بنتيجة <span class="clean-number">${toArabicDigits(topScore)}</span></span><span class="cong-orn">\u2756</span>`
         : (winner
-          ? (winner.image
-            ? `<img class="winner-portrait" src="${winner.image}" alt="">`
-            : defaultAvatarHtml("winner-portrait default-avatar"))
-          : "");
-      const chart = $("#resultsChart");
-      chart.innerHTML = "";
-      chart.parentElement.querySelectorAll(".confetti").forEach(piece => piece.remove());
-      ranked.forEach((team, place) => {
-        const wrap = document.createElement("div");
-        wrap.className = "bar-wrap";
-        wrap.style.setProperty("--bar-color", colors[team.index]);
-        const photo = team.image ? `<img class="result-photo" src="${team.image}" alt="">` : defaultAvatarHtml("result-photo default-avatar");
-        wrap.innerHTML = `
-          <div class="bar ${!isDraw && place === 0 ? "winner" : ""}" data-height="${Math.max(9, Math.round((team.score / maxScore) * 100))}%">
-            <span class="bar-score">${toArabicDigits(team.score)}</span>
-          </div>
-          ${photo}
-          <div class="result-name"><span class="clean-number">${toArabicDigits(place + 1)}.</span> ${teamDisplayName(team, team.index)}</div>
+          ? `<span class="cong-orn">\u2756</span><span>مبروك <strong>${teamDisplayName(winner, winner.index)}</strong> الفوز لكم اليوم !</span><span class="cong-orn">\u2756</span>`
+          : `<span>انتهت اللعبة</span>`);
+
+      const introSrc = document.querySelector(".mini-brand-logo");
+      const logoEl = $("#resultsLogo");
+      if (logoEl && introSrc && introSrc.src) logoEl.src = introSrc.src;
+
+      const stage = $("#resultsStage");
+      stage.classList.remove("revealed");
+      stage.innerHTML = "";
+      const screen = stage.parentElement;
+      screen.querySelectorAll(".confetti").forEach(p => p.remove());
+
+      const medalNames = ["gold", "silver", "bronze"];
+      function buildCard(team, place) {
+        const isWin = !isDraw && place === 0;
+        const card = document.createElement("div");
+        card.className = "rs-card" + (isWin ? " winner" : "");
+        card.style.setProperty("--enter-delay", `${(place * 0.12).toFixed(2)}s`);
+        const avatar = team.image
+          ? `<img class="rs-avatar" src="${team.image}" alt="">`
+          : defaultAvatarHtml("rs-avatar default-avatar");
+        const crown = isWin ? `<span class="rs-crown" aria-hidden="true">\ud83d\udc51</span>` : "";
+        const medal = (!isWin && place < 3)
+          ? `<span class="rs-medal rs-medal-${medalNames[place]}"><span class="clean-number">${toArabicDigits(place + 1)}</span></span>`
+          : "";
+        const banner = isWin ? `<div class="rs-winner-banner">الفائز</div>` : "";
+        const sClass = place === 0 ? "gold" : place === 1 ? "silver" : place === 2 ? "bronze" : "plain";
+        card.innerHTML = `
+          <div class="rs-title">${teamDisplayName(team, team.index)}</div>
+          <div class="rs-avatar-wrap">${crown}${avatar}${medal}</div>
+          <div class="rs-score rs-score-${sClass}"><span class="clean-number">${toArabicDigits(team.score)}</span></div>
+          ${banner}
         `;
-        chart.appendChild(wrap);
-      });
+        return card;
+      }
+
+      if (ranked[0]) stage.appendChild(buildCard(ranked[0], 0));
+      const trophy = document.createElement("div");
+      trophy.className = "rs-trophy-stage";
+      trophy.innerHTML = `
+        <div class="rs-trophy-glow"></div>
+        ${trophySvg()}
+        <img class="rs-trophy-badge" alt="">
+        <div class="rs-pointdiff">فارق النقاط<span class="clean-number">+${toArabicDigits(gap)}</span></div>
+      `;
+      const badge = trophy.querySelector(".rs-trophy-badge");
+      if (badge && introSrc && introSrc.src) badge.src = introSrc.src;
+      stage.appendChild(trophy);
+      ranked.slice(1).forEach((team, i) => stage.appendChild(buildCard(team, i + 1)));
+
       showScreen("results");
+      playResultsIntro(() => {
+        stage.classList.add("revealed");
+        spawnConfetti(screen);
+      });
+      resetScores();
+    }
+
+    function resultsSummaryText() {
+      const snap = state.resultSnapshot || [];
+      const lines = snap.map((t, i) => `${toArabicDigits(i + 1)}. ${t.name}: ${toArabicDigits(t.score)}`);
+      return `عزبة \u2014 النتائج النهائية\n${lines.join("\n")}`;
+    }
+
+    function shareResults() {
+      const text = resultsSummaryText();
+      if (navigator.share) {
+        navigator.share({ title: "عزبة", text }).catch(() => {});
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast("تم نسخ النتيجة")).catch(() => showToast("تعذّر النسخ"));
+      } else {
+        showToast("المشاركة غير مدعومة");
+      }
+    }
+
+    function openReview() {
+      const list = $("#reviewList");
+      const hist = state.history || [];
+      list.innerHTML = hist.length
+        ? hist.map(h => `<li><div class="rev-q">${h.question || "\u2014"}</div><div class="rev-a">الإجابة: ${h.answer || "\u2014"}</div><div class="rev-meta">${h.category || ""} \u00b7 <span class="clean-number">${toArabicDigits(h.points || 0)}</span></div></li>`).join("")
+        : `<li class="rev-empty">لا توجد أسئلة للعرض</li>`;
+      const modal = $("#reviewModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeReview() {
+      const modal = $("#reviewModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function showToast(message) {
+      const el = $("#appToast");
+      if (!el) return;
+      el.textContent = message;
+      el.classList.add("show");
+      window.clearTimeout(state.toastTimer);
+      state.toastTimer = window.setTimeout(() => el.classList.remove("show"), 2200);
+    }
+
+    function spawnConfetti(stage) {
       const confettiColors = ["#DB161B", "#C9974A", "#1B6A8F", "#5B7A6B", "#FAF7F0"];
       for (let i = 0; i < 28; i++) {
         const piece = document.createElement("span");
@@ -3429,16 +4064,25 @@
         piece.style.setProperty("--confetti-rotate", `${Math.round(Math.random() * 180)}deg`);
         piece.style.setProperty("--confetti-duration", `${1.8 + Math.random() * 1.4}s`);
         piece.style.setProperty("--confetti-delay", `${Math.random() * .75}s`);
-        chart.parentElement.appendChild(piece);
+        stage.appendChild(piece);
       }
-      requestAnimationFrame(() => {
-        document.querySelectorAll(".bar").forEach((bar, index) => {
-          setTimeout(() => {
-            bar.style.height = bar.dataset.height;
-          }, index * 180);
-        });
-      });
-      resetScores();
+    }
+
+    function playResultsIntro(done) {
+      const intro = $("#resultsIntro");
+      if (!intro) { if (done) done(); return; }
+      const logo = $("#resultsIntroLogo");
+      const srcEl = document.querySelector(".mini-brand-logo");
+      if (logo && srcEl && srcEl.src) logo.src = srcEl.src;
+      intro.classList.remove("sliding");
+      intro.classList.add("active");
+      window.setTimeout(() => {
+        intro.classList.add("sliding");
+        window.setTimeout(() => {
+          intro.classList.remove("active", "sliding");
+          if (done) done();
+        }, 700);
+      }, 2000);
     }
 
     document.querySelectorAll("[data-screen]").forEach(button => {
@@ -3475,6 +4119,13 @@
     $("#resultsMenu").addEventListener("click", () => {
       resetScores();
       showScreen("menu");
+    });
+    $("#shareTop").addEventListener("click", shareResults);
+    $("#shareResult").addEventListener("click", shareResults);
+    $("#reviewQuestions").addEventListener("click", openReview);
+    $("#closeReview").addEventListener("click", closeReview);
+    $("#reviewModal").addEventListener("click", event => {
+      if (event.target.id === "reviewModal") closeReview();
     });
     $("#yourGamesTab").addEventListener("click", () => {
       state.gameLibraryMode = "your";
@@ -3542,6 +4193,112 @@
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
+
+    /* ===== Cloud sync (Firebase) — see FIREBASE_SETUP.md ===== */
+    (function setupCloudSync() {
+      const cfg = window.IZZBAH_FIREBASE_CONFIG;
+      const authBtn = $("#authBtn");
+      const authStatus = $("#authStatus");
+      const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
+      if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
+      const SDK = "10.12.2";
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1"];
+      const origSet = localStorage.setItem.bind(localStorage);
+      let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
+
+      function loadScript(src) {
+        return new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = src; s.onload = res; s.onerror = () => rej(new Error("load " + src));
+          document.head.appendChild(s);
+        });
+      }
+      function reloadFromStorage() {
+        loadGameSettings(); loadSavedGames();
+        renderTeamSetup(); renderGameLibrary(); renderCategories();
+      }
+      function cloudBlob() {
+        const o = {};
+        KEYS.forEach(k => { const v = localStorage.getItem(k); if (v != null) o[k] = v; });
+        return o;
+      }
+      function schedulePush() {
+        if (!currentUser || !db || applying) return;
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(() => {
+          db.collection("users").doc(currentUser.uid).set({
+            email: currentUser.email || "",
+            data: cloudBlob(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(e => console.warn("cloud push failed", e));
+        }, 900);
+      }
+      localStorage.setItem = function (k, v) {
+        origSet(k, v);
+        if (KEYS.indexOf(k) !== -1) schedulePush();
+      };
+      function setAuthUI(user) {
+        if (!authBtn) return;
+        const label = authBtn.querySelector(".auth-label");
+        if (user) {
+          if (label) label.textContent = "تسجيل الخروج";
+          authBtn.classList.add("signed-in");
+          if (authStatus) authStatus.textContent = "مسجّل الدخول: " + (user.email || "");
+        } else {
+          if (label) label.textContent = "تسجيل الدخول بحساب Google";
+          authBtn.classList.remove("signed-in");
+          if (authStatus) authStatus.textContent = "";
+        }
+      }
+      loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
+        .then(() => {
+          firebase.initializeApp(cfg);
+          auth = firebase.auth();
+          db = firebase.firestore();
+          try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
+          const provider = new firebase.auth.GoogleAuthProvider();
+          if (authBtn) {
+            authBtn.style.display = "";
+            authBtn.addEventListener("click", () => {
+              if (currentUser) { auth.signOut(); return; }
+              const onErr = (err) => {
+                console.warn("sign-in error", err);
+                if (typeof showToast === "function") showToast("تعذّر تسجيل الدخول: " + ((err && err.code) || "خطأ"));
+              };
+              auth.signInWithPopup(provider).catch((err) => {
+                const code = err && err.code;
+                if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+                  auth.signInWithRedirect(provider).catch(onErr);
+                } else {
+                  onErr(err);
+                }
+              });
+            });
+          }
+          auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            setAuthUI(user);
+            if (!user) return;
+            try {
+              const snap = await db.collection("users").doc(user.uid).get();
+              const data = snap.exists ? snap.data().data : null;
+              if (data) {
+                applying = true;
+                KEYS.forEach(k => { if (data[k] != null) origSet(k, data[k]); });
+                reloadFromStorage();
+                applying = false;
+                if (typeof showToast === "function") showToast("تم استرجاع تقدّمك");
+              } else {
+                schedulePush();
+                if (typeof showToast === "function") showToast("تم تفعيل الحفظ السحابي");
+              }
+            } catch (e) { console.warn("cloud pull failed", e); }
+          });
+        })
+        .catch((e) => { console.warn("Firebase SDK failed to load", e); if (authBtn) authBtn.style.display = "none"; });
+    })();
   </script>
 </body>
 </html>
