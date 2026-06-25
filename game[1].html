@@ -2160,10 +2160,22 @@
     .rs-top { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; min-height: clamp(46px, 8vh, 96px); flex: 0 0 auto; }
     .results-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: clamp(40px, 8vh, 96px); width: auto; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .55)); }
     .rs-headline {
-      margin: 0; text-align: center; font-weight: 900; font-size: clamp(24px, 5vw, 56px); line-height: 1.05;
-      background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
-      -webkit-background-clip: text; background-clip: text; color: #f2cd6a; -webkit-text-fill-color: transparent;
+      margin: 0;
+      text-align: center;
+      font-weight: 900;
+      font-size: clamp(24px, 5vw, 56px);
+      line-height: 1.05;
+      color: #f2cd6a;
       text-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+    }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .rs-headline {
+        background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+      }
     }
     .rs-share-top {
       position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 8px; direction: ltr;

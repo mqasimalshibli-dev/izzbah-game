@@ -3102,12 +3102,17 @@
       font-weight: 900;
       font-size: clamp(24px, 5vw, 56px);
       line-height: 1.05;
-      background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
       color: #f2cd6a;
-      -webkit-text-fill-color: transparent;
       text-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+    }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .rs-headline {
+        background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+      }
     }
     .rs-share-top {
       position: absolute;
