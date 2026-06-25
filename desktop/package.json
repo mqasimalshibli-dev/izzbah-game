@@ -1,0 +1,46 @@
+{
+  "name": "izzbah-desktop",
+  "productName": "Izzbah",
+  "version": "1.0.0",
+  "description": "عزبة — لعبة تريفيا (desktop build)",
+  "main": "electron-main.js",
+  "author": "Izzbah",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.izzbah.game",
+    "productName": "Izzbah",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron-main.js",
+      "game-mobile.html",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "Izzbah-Portable-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Izzbah-Setup-${version}.exe",
+      "shortcutName": "Izzbah"
+    }
+  }
+}
