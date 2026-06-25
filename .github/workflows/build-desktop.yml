@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci
 
       - name: Build portable + installer
         working-directory: desktop

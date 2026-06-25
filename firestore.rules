@@ -1,10 +1,27 @@
 rules_version = '2';
 
-// Izzbah trivia — each signed-in user can read/write ONLY their own document.
+// Izzbah trivia — each signed-in user can read/write ONLY their own document,
+// and the document is constrained to the exact shape the app writes:
+//   { email: string, data: map, updatedAt: timestamp }   (written with merge:true)
+// Everything else is denied by default.
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['email', 'data', 'updatedAt'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.data is map
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    // Deny all other paths explicitly.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
