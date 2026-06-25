@@ -2317,7 +2317,37 @@
       color: #f3d9a0 !important;
     }
 
+    /* ===== Cloud sign-in button ===== */
+    .auth-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      direction: rtl; min-height: 48px; padding: 10px 22px; border-radius: 999px; cursor: pointer;
+      background: #fff; color: #3c4043; border: 1px solid rgba(0, 0, 0, .15);
+      font-size: clamp(15px, 1.8vw, 19px); font-weight: 800; box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    .auth-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, .18); }
+    .auth-btn:active { transform: translateY(0); }
+    .auth-btn.signed-in { background: #f3eee2; color: #7a1014; border-color: rgba(201, 151, 74, .5); }
+    .auth-g { width: 22px; height: 22px; flex: 0 0 auto; }
+    .auth-btn.signed-in .auth-g { display: none; }
+    .auth-status { margin-top: 6px; font-size: 14px; color: var(--gold-dark); min-height: 18px; }
   </style>
+  <script>
+    /* =====================================================================
+       Cloud sign-in / progress sync.  Paste your Firebase web-app config
+       below (Firebase Console > Project settings > Your apps > Web app).
+       Until it is filled in, the game keeps working with on-device saving
+       and the sign-in button stays hidden.  Setup steps: FIREBASE_SETUP.md
+       ===================================================================== */
+    window.IZZBAH_FIREBASE_CONFIG = {
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+      projectId: "PASTE_YOUR_PROJECT_ID",
+      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_YOUR_SENDER_ID",
+      appId: "PASTE_YOUR_APP_ID"
+    };
+  </script>
 </head>
 <body>
   <main class="app">
@@ -2326,6 +2356,16 @@
         <img class="brand-mark" src="assets/izzbah-official-logo-transparent.png" alt="عِزبه">
         <p class="subtitle">لعبة تريفيا جماعية</p>
         <button class="primary" data-screen="gameLibrary">ابدأ لعبة جديدة</button>
+        <button class="auth-btn" id="authBtn" type="button" style="display:none">
+          <svg class="auth-g" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.9 2.6 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.2 13.3 17.6 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-3.9 6.8-9.7 6.8-17.4z"/>
+            <path fill="#FBBC05" d="M10.4 28.3c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3l-7.8-6.1C.9 16.7 0 20.2 0 24s.9 7.3 2.6 10.4l7.8-6.1z"/>
+            <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.8-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.5 2.3-6.4 0-11.8-3.8-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+          </svg>
+          <span class="auth-label">تسجيل الدخول بحساب Google</span>
+        </button>
+        <div class="auth-status" id="authStatus" aria-live="polite"></div>
       </div>
       <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
@@ -4152,6 +4192,101 @@
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
+
+    /* ===== Cloud sync (Firebase) — see FIREBASE_SETUP.md ===== */
+    (function setupCloudSync() {
+      const cfg = window.IZZBAH_FIREBASE_CONFIG;
+      const authBtn = $("#authBtn");
+      const authStatus = $("#authStatus");
+      const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
+      if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
+      const SDK = "10.12.2";
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1"];
+      const origSet = localStorage.setItem.bind(localStorage);
+      let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
+
+      function loadScript(src) {
+        return new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = src; s.onload = res; s.onerror = () => rej(new Error("load " + src));
+          document.head.appendChild(s);
+        });
+      }
+      function reloadFromStorage() {
+        loadGameSettings(); loadSavedGames();
+        renderTeamSetup(); renderGameLibrary(); renderCategories();
+      }
+      function cloudBlob() {
+        const o = {};
+        KEYS.forEach(k => { const v = localStorage.getItem(k); if (v != null) o[k] = v; });
+        return o;
+      }
+      function schedulePush() {
+        if (!currentUser || !db || applying) return;
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(() => {
+          db.collection("users").doc(currentUser.uid).set({
+            email: currentUser.email || "",
+            data: cloudBlob(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(e => console.warn("cloud push failed", e));
+        }, 900);
+      }
+      localStorage.setItem = function (k, v) {
+        origSet(k, v);
+        if (KEYS.indexOf(k) !== -1) schedulePush();
+      };
+      function setAuthUI(user) {
+        if (!authBtn) return;
+        const label = authBtn.querySelector(".auth-label");
+        if (user) {
+          if (label) label.textContent = "تسجيل الخروج";
+          authBtn.classList.add("signed-in");
+          if (authStatus) authStatus.textContent = "مسجّل الدخول: " + (user.email || "");
+        } else {
+          if (label) label.textContent = "تسجيل الدخول بحساب Google";
+          authBtn.classList.remove("signed-in");
+          if (authStatus) authStatus.textContent = "";
+        }
+      }
+      loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
+        .then(() => {
+          firebase.initializeApp(cfg);
+          auth = firebase.auth();
+          db = firebase.firestore();
+          try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
+          const provider = new firebase.auth.GoogleAuthProvider();
+          if (authBtn) {
+            authBtn.style.display = "";
+            authBtn.addEventListener("click", () => {
+              if (currentUser) { auth.signOut(); return; }
+              auth.signInWithPopup(provider).catch(() => auth.signInWithRedirect(provider));
+            });
+          }
+          auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            setAuthUI(user);
+            if (!user) return;
+            try {
+              const snap = await db.collection("users").doc(user.uid).get();
+              const data = snap.exists ? snap.data().data : null;
+              if (data) {
+                applying = true;
+                KEYS.forEach(k => { if (data[k] != null) origSet(k, data[k]); });
+                reloadFromStorage();
+                applying = false;
+                if (typeof showToast === "function") showToast("تم استرجاع تقدّمك");
+              } else {
+                schedulePush();
+                if (typeof showToast === "function") showToast("تم تفعيل الحفظ السحابي");
+              }
+            } catch (e) { console.warn("cloud pull failed", e); }
+          });
+        })
+        .catch((e) => { console.warn("Firebase SDK failed to load", e); if (authBtn) authBtn.style.display = "none"; });
+    })();
   </script>
 </body>
 </html>
