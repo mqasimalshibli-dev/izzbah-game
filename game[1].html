@@ -1903,6 +1903,200 @@
       .chart { gap: 12px; }
       .bar-wrap { min-width: 72px; }
     }
+
+    /* ============================================================
+       UI POLISH LAYER — additive only (no layout or logic changes).
+       Accessibility, interaction feedback, and motion consistency.
+       ============================================================ */
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    .category:focus-visible,
+    .cell:focus-visible {
+      outline: 3px solid #1b6a8f;
+      outline-offset: 3px;
+    }
+    .cell,
+    .category,
+    .board-head,
+    .meta-box {
+      transition: transform .18s cubic-bezier(.2, .8, .22, 1),
+                  box-shadow .2s ease,
+                  filter .18s ease;
+    }
+    @media (hover: hover) {
+      .cell:not(:disabled):hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 6px 16px rgba(145, 24, 28, .22),
+                    inset 0 -6px 0 rgba(140, 106, 46, .12);
+      }
+      .category:hover {
+        box-shadow: 0 10px 22px rgba(140, 106, 46, .22);
+      }
+    }
+    .primary:active,
+    .secondary:active,
+    .ghost:active,
+    .danger:active,
+    .gold-btn:active,
+    .stepper-btn:active {
+      filter: brightness(.96);
+    }
+    /* Board point cells as premium chips + clear completed state. */
+    .cell:not(.used) {
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 52%);
+      text-shadow: 0 1px 2px rgba(80, 0, 0, .45);
+    }
+    .cell:not(:disabled):active {
+      transform: translateY(1px) scale(.97);
+    }
+    .board-head span {
+      backdrop-filter: blur(3px) saturate(1.05);
+      -webkit-backdrop-filter: blur(3px) saturate(1.05);
+    }
+    .cell.used {
+      background-image: none;
+      box-shadow: inset 0 2px 7px rgba(0, 0, 0, .28);
+      border-color: rgba(255, 255, 255, .22);
+      text-shadow: none;
+    }
+
+    /* ===== Creative "podium" final-score columns (replaces the bar chart) ===== */
+    .podium {
+      width: 100%;
+      align-self: stretch;
+      min-height: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(8px, 2.4vw, 30px);
+      direction: rtl;
+      padding: clamp(20px, 4vw, 44px) clamp(4px, 1.5vw, 16px) 0;
+    }
+    .pod-col {
+      height: 100%;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: clamp(86px, 22%, 152px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: clamp(5px, 1vw, 10px);
+    }
+    .pod-track {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .pod-bar {
+      position: relative;
+      width: clamp(48px, 84%, 118px);
+      height: var(--col-h, 30%);
+      min-height: clamp(38px, 11vh, 88px);
+      border-radius: 16px 16px 7px 7px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .42) 0%, rgba(255, 255, 255, .10) 22%, rgba(255, 255, 255, 0) 46%),
+        var(--col-color, var(--gold));
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, .20),
+        inset 0 -10px 0 rgba(0, 0, 0, .16),
+        0 8px 18px rgba(27, 58, 47, .22);
+      animation: podGrow .9s cubic-bezier(.2, .85, .2, 1) backwards;
+      animation-delay: var(--enter-delay, 0s);
+    }
+    .pod-col.champion .pod-bar {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .12) 24%, rgba(255, 255, 255, 0) 48%),
+        linear-gradient(180deg, #ecc06d, #c9974a);
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, .35),
+        inset 0 -10px 0 rgba(120, 80, 20, .22),
+        0 0 0 3px rgba(201, 151, 74, .40),
+        0 0 26px rgba(201, 151, 74, .55);
+      animation: podGrow .9s cubic-bezier(.2, .85, .2, 1) backwards,
+                 championGlow 1.8s ease-in-out 1s infinite;
+    }
+    .pod-score {
+      position: absolute;
+      bottom: calc(100% + clamp(3px, 1vw, 8px));
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fffdf8;
+      color: var(--dark);
+      border: 2px solid var(--col-color, var(--gold));
+      border-radius: 999px;
+      padding: 1px clamp(7px, 1.3vw, 13px);
+      font-size: clamp(14px, 2vw, 26px);
+      font-weight: 900;
+      line-height: 1.25;
+      white-space: nowrap;
+      box-shadow: 0 3px 9px rgba(27, 58, 47, .18);
+      font-variant-numeric: tabular-nums;
+    }
+    .pod-col.champion .pod-score {
+      border-color: var(--gold);
+      color: var(--gold-dark);
+    }
+    .pod-badge {
+      position: absolute;
+      top: clamp(4px, 1vw, 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(16px, 2.3vw, 30px);
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .28));
+    }
+    .pod-avatar {
+      width: clamp(34px, 5vw, 54px);
+      height: clamp(34px, 5vw, 54px);
+      border-radius: 50%;
+      border: 3px solid var(--col-color, var(--gold));
+      object-fit: cover;
+      background: white;
+      flex: 0 0 auto;
+      box-shadow: 0 4px 10px rgba(27, 58, 47, .20);
+    }
+    .pod-col.champion .pod-avatar {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 151, 74, .35), 0 4px 12px rgba(201, 151, 74, .40);
+    }
+    .pod-name {
+      flex: 0 0 auto;
+      height: clamp(30px, 5.5vh, 50px);
+      width: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      overflow: hidden;
+      line-height: 1.05;
+      font-size: clamp(12px, 1.8vw, 22px);
+      font-weight: 800;
+      color: var(--dark);
+      overflow-wrap: anywhere;
+    }
+    @keyframes podGrow { from { height: 0; min-height: 0; } }
+    @keyframes championGlow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.08); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -2093,7 +2287,7 @@
           <img class="result-watermark" src="assets/izzbah-white-logo.png" alt="" aria-hidden="true">
           <p class="winner-phrase" id="winnerPhrase"></p>
           <div class="winner-spot" id="winnerSpot"></div>
-          <div class="chart" id="resultsChart"></div>
+          <div class="podium" id="resultsChart"></div>
         </div>
         <div class="actions">
           <button class="primary" id="newGame">لعبة جديدة</button>
@@ -3445,19 +3639,32 @@
       const chart = $("#resultsChart");
       chart.innerHTML = "";
       chart.parentElement.querySelectorAll(".confetti").forEach(piece => piece.remove());
+      const medals = ["🥇", "🥈", "🥉"];
       ranked.forEach((team, place) => {
-        const wrap = document.createElement("div");
-        wrap.className = "bar-wrap";
-        wrap.style.setProperty("--bar-color", colors[team.index]);
-        const photo = team.image ? `<img class="result-photo" src="${team.image}" alt="">` : defaultAvatarHtml("result-photo default-avatar");
-        wrap.innerHTML = `
-          <div class="bar ${!isDraw && place === 0 ? "winner" : ""}" data-height="${Math.max(9, Math.round((team.score / maxScore) * 100))}%">
-            <span class="bar-score">${toArabicDigits(team.score)}</span>
+        const pct = 26 + Math.round((team.score / maxScore) * 52);
+        const isWin = !isDraw && place === 0;
+        const col = document.createElement("div");
+        col.className = "pod-col" + (isWin ? " champion" : "");
+        col.style.setProperty("--col-color", colors[team.index]);
+        col.style.setProperty("--col-h", `${pct}%`);
+        col.style.setProperty("--enter-delay", `${(place * 0.1).toFixed(2)}s`);
+        const avatar = team.image
+          ? `<img class="pod-avatar" src="${team.image}" alt="">`
+          : defaultAvatarHtml("pod-avatar default-avatar");
+        const badge = isWin
+          ? "👑"
+          : (place < 3 ? medals[place] : `<span class="clean-number">${toArabicDigits(place + 1)}</span>`);
+        col.innerHTML = `
+          <div class="pod-track">
+            <div class="pod-bar">
+              <span class="pod-score"><span class="clean-number">${toArabicDigits(team.score)}</span></span>
+              <span class="pod-badge" aria-hidden="true">${badge}</span>
+            </div>
           </div>
-          ${photo}
-          <div class="result-name"><span class="clean-number">${toArabicDigits(place + 1)}.</span> ${teamDisplayName(team, team.index)}</div>
+          ${avatar}
+          <div class="pod-name"><span class="clean-number">${toArabicDigits(place + 1)}.</span> ${teamDisplayName(team, team.index)}</div>
         `;
-        chart.appendChild(wrap);
+        chart.appendChild(col);
       });
       showScreen("results");
       const confettiColors = ["#DB161B", "#C9974A", "#1B6A8F", "#5B7A6B", "#FAF7F0"];
@@ -3471,13 +3678,6 @@
         piece.style.setProperty("--confetti-delay", `${Math.random() * .75}s`);
         chart.parentElement.appendChild(piece);
       }
-      requestAnimationFrame(() => {
-        document.querySelectorAll(".bar").forEach((bar, index) => {
-          setTimeout(() => {
-            bar.style.height = bar.dataset.height;
-          }, index * 180);
-        });
-      });
       resetScores();
     }
 
