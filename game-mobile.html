@@ -3683,6 +3683,114 @@
       0%, 100% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .22), 0 20px 32px -20px rgba(60, 40, 15, .5); }
       50% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 7px rgba(231, 195, 115, .42), 0 20px 36px -18px rgba(60, 40, 15, .55); }
     }
+
+    /* ===================== Teams setup — Ezbah design ===================== */
+    #setup {
+      width: 100% !important; max-width: 100% !important; padding: 0 !important;
+      background:
+        radial-gradient(135% 95% at 50% -22%, #fcefd4 0%, rgba(252, 239, 212, 0) 56%),
+        repeating-linear-gradient(45deg, rgba(168, 118, 52, .05) 0 1.5px, transparent 1.5px 26px),
+        repeating-linear-gradient(-45deg, rgba(168, 118, 52, .05) 0 1.5px, transparent 1.5px 26px),
+        linear-gradient(180deg, #f5e7cb, #ecd6b2) !important;
+    }
+    #setup.center { justify-content: flex-start !important; align-items: stretch !important; gap: 0 !important; overflow-y: auto !important; text-align: right !important; }
+    #setup .setup-shell { width: 100%; max-width: 1080px; margin: 0 auto; padding: 30px 22px 64px; direction: rtl; font-family: 'Tajawal', sans-serif; }
+    /* nav */
+    #setup .setup-nav {
+      position: static !important; inset: auto !important; direction: rtl !important; width: auto !important; z-index: auto !important;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0;
+    }
+    #setup .setup-nav button { min-width: 0 !important; }
+    #setup .setup-nav .ghost {
+      display: inline-flex; align-items: center; gap: 8px; font: 700 16px 'Tajawal', sans-serif !important; color: #9e1620 !important;
+      background: linear-gradient(180deg, #fff8ea, #f5e6c6) !important; border: 1px solid rgba(196, 30, 42, .28) !important; border-radius: 14px !important;
+      padding: 12px 24px !important; cursor: pointer; min-height: 0 !important;
+      box-shadow: 0 1px 0 #fff inset, 0 8px 18px -10px rgba(120, 40, 20, .4) !important; transition: transform .14s, box-shadow .14s;
+    }
+    #setup .setup-nav .ghost:hover { transform: translateY(-2px); box-shadow: 0 1px 0 #fff inset, 0 12px 22px -10px rgba(120, 40, 20, .5) !important; }
+    #setup .setup-nav .primary {
+      display: inline-flex; align-items: center; gap: 10px; font: 800 17px 'Tajawal', sans-serif !important; color: #fff7e6 !important;
+      background: linear-gradient(180deg, #e0444a, #bb1d27 60%, #a3151f) !important; border: 1px solid #eac877 !important; border-radius: 16px !important;
+      padding: 14px 32px !important; cursor: pointer; min-height: 0 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 12px 26px -8px rgba(160, 20, 28, .5) !important;
+      transition: transform .14s, box-shadow .14s;
+    }
+    #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .6) !important; }
+    /* head */
+    #setup .setup-head { text-align: center; margin-top: 34px; }
+    #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Tajawal', sans-serif; letter-spacing: .14em; }
+    #setup .setup-eyebrow span { width: 34px; height: 1px; display: inline-block; }
+    #setup .setup-eyebrow span:first-child { background: linear-gradient(90deg, transparent, #c89a4e); }
+    #setup .setup-eyebrow span:last-child { background: linear-gradient(90deg, #c89a4e, transparent); }
+    #setup .setup-head .screen-title {
+      margin: 10px 0 0 !important; font: 900 clamp(42px, 6.4vw, 68px) 'Cairo', sans-serif !important; color: #c01f2a !important;
+      letter-spacing: -.01em; line-height: 1; text-shadow: 0 2px 0 rgba(255, 255, 255, .5);
+    }
+    #setup .setup-underline { margin: 14px auto 0; width: 74px; height: 5px; border-radius: 99px; background: linear-gradient(90deg, #e3c785, #c89a4e, #e3c785); }
+    #setup .setup-head .hint {
+      margin: 20px auto 0 !important; max-width: 560px; font: 500 18px/1.7 'Tajawal', sans-serif !important; color: #3d6a55 !important;
+    }
+    /* count stepper card */
+    #setup .team-count { display: flex; justify-content: center; margin: 32px 0 30px; }
+    #setup .team-stepper {
+      width: auto !important; display: flex !important; flex-direction: column !important; align-items: center; gap: 14px;
+      grid-template-rows: none !important; overflow: visible !important;
+      background: linear-gradient(180deg, #fffaf0, #f7eed9) !important; border: 1px solid rgba(201, 168, 95, .6) !important;
+      border-radius: 26px !important; padding: 18px 30px 22px !important;
+      box-shadow: 0 2px 0 #fff inset, 0 26px 40px -26px rgba(70, 45, 15, .55) !important;
+    }
+    #setup .team-stepper .step-label { font: 700 13px 'Tajawal', sans-serif; letter-spacing: .1em; color: #8a6a2e; }
+    #setup .team-stepper .step-row { display: flex; align-items: center; gap: 26px; }
+    #setup .team-stepper .stepper-btn {
+      width: 62px !important; height: 62px !important; border-radius: 50% !important; font: 900 30px 'Cairo', sans-serif !important;
+      color: #fff !important; border: 1px solid #eac877 !important; display: grid; place-items: center; cursor: pointer; min-height: 0 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 7px rgba(120, 10, 16, .5) inset, 0 8px 16px -6px rgba(160, 20, 28, .45) !important;
+      transition: transform .12s;
+    }
+    #setup .team-stepper .stepper-btn.step-plus {
+      background: linear-gradient(180deg, #46a08a, #1f7a68) !important; border-color: #b9e3d8 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 7px rgba(10, 70, 58, .5) inset, 0 8px 16px -6px rgba(20, 90, 75, .4) !important;
+    }
+    #setup .team-stepper .stepper-btn.step-minus { background: linear-gradient(180deg, #e0444a, #bb1d27) !important; }
+    #setup .team-stepper .stepper-btn:hover:not(:disabled) { transform: translateY(-2px); }
+    #setup .team-stepper .stepper-btn:disabled { opacity: .4 !important; cursor: default; transform: none; }
+    #setup .team-stepper .team-number {
+      min-width: 92px !important; text-align: center; font: 900 60px 'Cairo', sans-serif !important; color: #23463a !important;
+      background: none !important; border: none !important; line-height: 1;
+    }
+    /* team cards */
+    #setup .team-fields {
+      display: grid !important; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)) !important; gap: 22px !important; margin: 0 !important;
+    }
+    #setup .team-card {
+      display: block !important; grid-template-columns: none !important; position: relative; color: inherit !important; align-items: initial !important;
+      background: linear-gradient(180deg, #fffdf6, #fbf2df) !important; border-radius: 24px !important;
+      border: 1px solid rgba(201, 168, 95, .5) !important; padding: 0 18px 22px !important;
+      box-shadow: 0 2px 0 #fff inset, 0 24px 36px -24px rgba(60, 40, 15, .5) !important;
+    }
+    #setup .team-card .team-bar { height: 11px; margin: 0 -18px; border-radius: 24px 24px 0 0; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); }
+    #setup .team-card .avatar-wrap { display: flex; justify-content: center; }
+    #setup .team-card .avatar-inner { position: relative; margin-top: 18px; }
+    #setup .team-card .image-picker {
+      width: 94px !important; height: 94px !important; border-radius: 50% !important; border: 3px solid var(--accent) !important;
+      background: var(--accent-soft) !important; color: var(--accent-deep) !important; box-shadow: 0 10px 20px -10px rgba(0, 0, 0, .45) !important;
+    }
+    #setup .team-card .image-picker .plus { font-size: 40px !important; color: var(--accent-deep) !important; }
+    #setup .team-card .team-badge {
+      position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff;
+      font: 800 11px 'Tajawal', sans-serif; padding: 3px 13px; border-radius: 999px; border: 2px solid #fffdf6;
+      box-shadow: 0 5px 9px -4px rgba(0, 0, 0, .4); white-space: nowrap;
+    }
+    #setup .team-card .field-label {
+      display: block; margin: 20px 0 0 !important; font: 600 12px 'Tajawal', sans-serif !important; letter-spacing: .05em;
+      color: var(--accent-deep) !important; text-align: center !important;
+    }
+    #setup .team-card input.team-name-input {
+      margin-top: 8px !important; width: 100%; text-align: center !important; font: 700 18px 'Tajawal', sans-serif !important; color: #234a3b !important;
+      background: #fffdf7 !important; border: 1px solid rgba(201, 168, 95, .5) !important; border-bottom: 2.5px solid var(--accent) !important;
+      border-radius: 13px !important; padding: 12px 14px !important; outline: none;
+    }
+    #setup .team-card input.team-name-input:focus { box-shadow: 0 0 0 3px rgba(201, 168, 95, .25) !important; }
   </style>
   <script>
     /* =====================================================================
@@ -3748,17 +3856,19 @@
     </section>
 
     <section id="setup" class="screen center">
-      <div class="setup-nav">
-        <button class="ghost" data-screen="categories">رجوع</button>
-        <button class="primary" id="startGame">ابدأ اللعبة</button>
-      </div>
-      <div class="stack">
-        <h2 class="screen-title">الفرق</h2>
-        <p class="hint">اختر عدد الفرق واكتب أسماءهم، ويمكنك إضافة صورة لكل فريق.</p>
-        <div class="panel">
-          <div class="team-count" id="teamCount"></div>
-          <div class="team-fields" id="teamFields"></div>
+      <div class="setup-shell">
+        <div class="setup-nav">
+          <button class="ghost" data-screen="categories">رجوع</button>
+          <button class="primary" id="startGame">ابدأ اللعبة</button>
         </div>
+        <div class="setup-head">
+          <div class="setup-eyebrow"><span></span>إعداد الجولة<span></span></div>
+          <h2 class="screen-title">الفِرَق</h2>
+          <div class="setup-underline"></div>
+          <p class="hint">اختر عدد الفرق واكتب أسماءهم، ويمكنك إضافة صورة لكل فريق قبل بدء المنافسة.</p>
+        </div>
+        <div class="team-count" id="teamCount"></div>
+        <div class="team-fields" id="teamFields"></div>
       </div>
     </section>
 
@@ -4716,25 +4826,27 @@
       return picker;
     }
 
+    const teamAccentTones = [
+      { soft: "#e7f0f5", deep: "#134e69" },
+      { soft: "#eaf1ed", deep: "#3f5a4d" },
+      { soft: "#f0e8f3", deep: "#59295f" },
+      { soft: "#f7eed6", deep: "#8a6118" },
+      { soft: "#e6f0f0", deep: "#1d4f52" },
+    ];
+
     function renderTeamSetup() {
       const countWrap = $("#teamCount");
       countWrap.innerHTML = "";
       const stepper = document.createElement("div");
       stepper.className = "team-stepper";
-      const plus = document.createElement("button");
-      plus.className = "stepper-btn";
-      plus.textContent = "+";
-      plus.disabled = state.teamCount >= 5;
-      plus.addEventListener("click", () => {
-        state.teamCount = Math.min(5, state.teamCount + 1);
-        saveGameSettings();
-        renderTeamSetup();
-      });
-      const number = document.createElement("div");
-      number.className = "team-number";
-      number.textContent = toArabicDigits(state.teamCount);
+      const stepLabel = document.createElement("span");
+      stepLabel.className = "step-label";
+      stepLabel.textContent = "عدد الفِرَق";
+      const stepRow = document.createElement("div");
+      stepRow.className = "step-row";
       const minus = document.createElement("button");
-      minus.className = "stepper-btn";
+      minus.className = "stepper-btn step-minus";
+      minus.type = "button";
       minus.textContent = "−";
       minus.disabled = state.teamCount <= 2;
       minus.addEventListener("click", () => {
@@ -4742,33 +4854,68 @@
         saveGameSettings();
         renderTeamSetup();
       });
-      stepper.append(plus, number, minus);
+      const number = document.createElement("div");
+      number.className = "team-number";
+      number.textContent = toArabicDigits(state.teamCount);
+      const plus = document.createElement("button");
+      plus.className = "stepper-btn step-plus";
+      plus.type = "button";
+      plus.textContent = "+";
+      plus.disabled = state.teamCount >= 5;
+      plus.addEventListener("click", () => {
+        state.teamCount = Math.min(5, state.teamCount + 1);
+        saveGameSettings();
+        renderTeamSetup();
+      });
+      stepRow.append(minus, number, plus);
+      stepper.append(stepLabel, stepRow);
       countWrap.appendChild(stepper);
 
       const fields = $("#teamFields");
       fields.innerHTML = "";
       for (let i = 0; i < state.teamCount; i++) {
         const team = state.teams[i];
+        const accent = colors[i];
+        const tone = teamAccentTones[i] || teamAccentTones[0];
         const card = document.createElement("div");
         card.className = "team-card";
-        card.style.color = colors[i];
-        card.appendChild(imagePicker(team.image, image => {
+        card.style.setProperty("--accent", accent);
+        card.style.setProperty("--accent-soft", tone.soft);
+        card.style.setProperty("--accent-deep", tone.deep);
+
+        const bar = document.createElement("div");
+        bar.className = "team-bar";
+
+        const avatarWrap = document.createElement("div");
+        avatarWrap.className = "avatar-wrap";
+        const avatarInner = document.createElement("div");
+        avatarInner.className = "avatar-inner";
+        avatarInner.appendChild(imagePicker(team.image, image => {
           team.image = image;
           saveGameSettings();
           renderTeamSetup();
         }, "اختر صورة الفريق"));
-        const wrap = document.createElement("div");
-        wrap.innerHTML = `<span class="field-label">اسم الفريق</span>`;
+        const badge = document.createElement("div");
+        badge.className = "team-badge";
+        badge.textContent = `فريق ${toArabicDigits(i + 1)}`;
+        avatarInner.appendChild(badge);
+        avatarWrap.appendChild(avatarInner);
+
+        const fieldLabel = document.createElement("span");
+        fieldLabel.className = "field-label";
+        fieldLabel.textContent = "اسم الفريق";
+
         const input = document.createElement("input");
+        input.className = "team-name-input";
         input.value = team.name;
-        input.placeholder = "اكتب اسم الفريق";
+        input.placeholder = `اسم الفريق ${toArabicDigits(i + 1)}`;
         input.setAttribute("aria-label", `اسم الفريق ${i + 1}`);
         input.addEventListener("input", () => {
           team.name = input.value.trim();
           saveGameSettings();
         });
-        wrap.appendChild(input);
-        card.appendChild(wrap);
+
+        card.append(bar, avatarWrap, fieldLabel, input);
         fields.appendChild(card);
       }
     }
