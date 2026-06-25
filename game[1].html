@@ -2245,6 +2245,78 @@
     @keyframes rsCardIn { to { opacity: 1; transform: none; } }
     @keyframes rsTrophyIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
 
+
+    /* =====================================================================
+       AAA in-game board polish (additive, visual only)
+       ===================================================================== */
+    #game .topbar, #questionPage .topbar, #answerPage .topbar {
+      border-bottom: 2px solid rgba(201, 151, 74, .55);
+      box-shadow: 0 6px 16px rgba(80, 0, 0, .28);
+    }
+    .score-box {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(247, 238, 222, .82)) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 5px 0 rgba(140, 106, 46, .16), 0 10px 22px rgba(27, 58, 47, .14) !important;
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+    }
+    .score-box.active-team {
+      box-shadow: 0 0 0 3px rgba(201, 151, 74, .55), 0 8px 24px rgba(201, 151, 74, .35) !important;
+    }
+    .score-value { text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+    .board-head {
+      border-radius: 14px !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 6px 16px rgba(0, 0, 0, .3) !important;
+    }
+    .cell:not(.used) {
+      border: 2px solid rgba(201, 151, 74, .6) !important;
+      border-radius: 11px !important;
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, .25), rgba(255, 255, 255, 0) 55%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .4),
+        inset 0 -7px 0 rgba(0, 0, 0, .24),
+        0 3px 9px rgba(0, 0, 0, .3) !important;
+      text-shadow: 0 1px 3px rgba(80, 0, 0, .6);
+    }
+    .cell.used {
+      border-radius: 11px !important;
+      border: 2px solid rgba(255, 255, 255, .18) !important;
+    }
+    /* Premium pill action buttons (labeled, game[1] layout) */
+    .game-actions #endGameEarly {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(180deg, #e2342b, #9c0f12) !important;
+      border: 2px solid rgba(255, 222, 150, .9) !important;
+      color: #fff !important;
+      border-radius: 999px !important;
+      box-shadow: 0 4px 0 rgba(120, 8, 10, .5), 0 6px 16px rgba(219, 22, 27, .4) !important;
+      transition: transform .15s ease, filter .15s ease;
+    }
+    .game-actions #endGameEarly:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .game-actions #endGameEarly:active { transform: translateY(1px); }
+    .game-actions #endGameEarly svg { width: 1.15em; height: 1.15em; flex: 0 0 auto; }
+    .game-actions #exitGame {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, .18) !important;
+      border: 2px solid rgba(255, 255, 255, .6) !important;
+      color: #fff !important;
+      border-radius: 999px !important;
+      transition: transform .15s ease, filter .15s ease, background .15s ease;
+    }
+    .game-actions #exitGame:hover { transform: translateY(-1px); background: rgba(0, 0, 0, .3) !important; }
+    .game-actions #exitGame svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+    .done-banner {
+      background: linear-gradient(180deg, #2a0709, #1a0406) !important;
+      border: 2px solid var(--gold) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .45) !important;
+      color: #f3d9a0 !important;
+    }
+
   </style>
 </head>
 <body>
@@ -2362,8 +2434,8 @@
     <section id="game" class="game-screen">
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
-          <button class="ghost" id="exitGame"><span aria-hidden="true">×</span> خروج</button>
-          <button class="gold-btn" id="endGameEarly"><span aria-hidden="true">←</span> إنهاء وعرض النتائج</button>
+          <button class="ghost" id="exitGame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg> <span>خروج</span></button>
+          <button class="gold-btn" id="endGameEarly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg> <span>إنهاء اللعبة</span></button>
         </div>
         <div class="mini-brand">
           <img class="mini-brand-logo" src="assets/izzbah-white-logo.png" alt="عِزبه">
