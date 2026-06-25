@@ -4826,6 +4826,15 @@
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     function defaultAvatarHtml(className = "default-avatar") {
       return `
         <span class="${className}" aria-hidden="true">
@@ -5094,7 +5103,7 @@
       picker.className = "image-picker";
       picker.title = label;
       picker.innerHTML = currentImage
-        ? `<img src="${currentImage}" alt="" />`
+        ? `<img src="${escapeHtml(currentImage)}" alt="" />`
         : `<span class="plus">+</span>`;
       const input = document.createElement("input");
       input.type = "file";
@@ -5229,9 +5238,9 @@
         }
         card.innerHTML = `
           <span class="check">✓</span>
-          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${name}">👁</button>
+          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${escapeHtml(name)}">👁</button>
           <button class="category-main" type="button" ${unavailable ? 'disabled title="لم تتم إضافة الأسئلة بعد"' : ""}>
-            <span>${cat.image && cat.fullImage ? name : `${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${name}`}</span>
+            <span>${cat.image && cat.fullImage ? escapeHtml(name) : `${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${escapeHtml(name)}`}</span>
           </button>
         `;
         card.querySelector(".category-eye").addEventListener("click", event => {
@@ -5419,9 +5428,9 @@
         const row = document.createElement("div");
         row.className = "custom-row";
         row.innerHTML = `
-          <div>${cat.image ? `<img class="category-thumb" src="${cat.image}" alt="">` : iconSvg("custom")}</div>
+          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
           <div>
-            <div style="font-size:24px;color:var(--dark)">${cat.name || "بدون اسم"}</div>
+            <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
             <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(cat.questions.filter(q => q.q.trim()).length)}/5</span> أسئلة مكتملة</div>
           </div>
         `;
@@ -5586,8 +5595,8 @@
       document.querySelectorAll("[data-turn-box]").forEach(box => {
         box.innerHTML = `
           <button class="turn-switch" data-turn-switch title="تبديل الدور" aria-label="تبديل الدور">⇄</button>
-          ${team.image ? `<img class="turn-photo" src="${team.image}" alt="">` : defaultAvatarHtml("turn-photo default-avatar")}
-          <span class="turn-label"><small>دور الفريق</small><strong>${displayName}</strong></span>
+          ${team.image ? `<img class="turn-photo" src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml("turn-photo default-avatar")}
+          <span class="turn-label"><small>دور الفريق</small><strong>${escapeHtml(displayName)}</strong></span>
         `;
       });
     }
@@ -5609,8 +5618,8 @@
         box.style.color = colors[i];
         box.innerHTML = `
           <div class="score-head">
-            ${team.image ? `<img class="score-photo" src="${team.image}" alt="">` : defaultAvatarHtml()}
-            <span class="score-name">${displayName}</span>
+            ${team.image ? `<img class="score-photo" src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}
+            <span class="score-name">${escapeHtml(displayName)}</span>
           </div>
           <span class="score-value">${toArabicDigits(team.score)}</span>
         `;
@@ -5722,7 +5731,7 @@
         const button = document.createElement("button");
         button.className = "team-award";
         button.style.background = colors[i];
-        button.innerHTML = `${team.image ? `<img src="${team.image}" alt="">` : defaultAvatarHtml()}<span>${displayName}</span>`;
+        button.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(displayName)}</span>`;
         button.addEventListener("click", () => {
           state.pendingWinner = i;
           award.querySelectorAll(".team-award").forEach(item => item.classList.remove("selected"));
@@ -5842,7 +5851,7 @@
         card.className = "rs-card" + (isWin ? " winner" : "");
         card.style.setProperty("--enter-delay", `${(place * 0.12).toFixed(2)}s`);
         const avatar = team.image
-          ? `<img class="rs-avatar" src="${team.image}" alt="">`
+          ? `<img class="rs-avatar" src="${escapeHtml(team.image)}" alt="">`
           : defaultAvatarHtml("rs-avatar default-avatar");
         const crown = isWin ? `<span class="rs-crown" aria-hidden="true">\ud83d\udc51</span>` : "";
         const medal = (!isWin && place < 3)
