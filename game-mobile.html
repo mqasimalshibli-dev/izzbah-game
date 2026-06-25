@@ -5513,7 +5513,18 @@
             authBtn.style.display = "";
             authBtn.addEventListener("click", () => {
               if (currentUser) { auth.signOut(); return; }
-              auth.signInWithPopup(provider).catch(() => auth.signInWithRedirect(provider));
+              const onErr = (err) => {
+                console.warn("sign-in error", err);
+                if (typeof showToast === "function") showToast("تعذّر تسجيل الدخول: " + ((err && err.code) || "خطأ"));
+              };
+              auth.signInWithPopup(provider).catch((err) => {
+                const code = err && err.code;
+                if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+                  auth.signInWithRedirect(provider).catch(onErr);
+                } else {
+                  onErr(err);
+                }
+              });
             });
           }
           auth.onAuthStateChanged(async (user) => {
