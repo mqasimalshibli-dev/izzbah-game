@@ -2140,6 +2140,99 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* =====================================================================
+       Redesigned final score screen (dark trophy layout)
+       ===================================================================== */
+    body[data-screen="results"] {
+      background:
+        radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
+        radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
+        linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%) !important;
+    }
+    #results.screen { color: #fff; }
+    .results-screen {
+      position: relative; width: 100%; max-width: 1180px; height: 100%;
+      margin: 0 auto; display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; gap: clamp(8px, 1.8vh, 20px);
+      padding: clamp(10px, 2vw, 26px); direction: rtl; overflow: hidden;
+    }
+    .rs-top { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; min-height: clamp(46px, 8vh, 96px); flex: 0 0 auto; }
+    .results-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: clamp(40px, 8vh, 96px); width: auto; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .55)); }
+    .rs-headline {
+      margin: 0; text-align: center; font-weight: 900; font-size: clamp(24px, 5vw, 56px); line-height: 1.05;
+      background: linear-gradient(180deg, #fce7a6 0%, #ecc163 48%, #c1932f 100%);
+      -webkit-background-clip: text; background-clip: text; color: #f2cd6a; -webkit-text-fill-color: transparent;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+    }
+    .rs-share-top {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 8px; direction: ltr;
+      background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(201, 151, 74, .6); color: #f3d9a0; border-radius: 999px;
+      padding: clamp(5px, .9vw, 9px) clamp(11px, 1.7vw, 20px); font-size: clamp(12px, 1.6vw, 18px); font-weight: 800; cursor: pointer;
+      transition: transform .15s ease, filter .15s ease, background .15s ease;
+    }
+    .rs-share-top svg { width: clamp(15px, 1.8vw, 21px); height: auto; }
+    .rs-share-top span { direction: rtl; }
+    .rs-share-top:hover { filter: brightness(1.1); background: rgba(255, 255, 255, .12); transform: translateY(-50%) scale(1.03); }
+    .rs-congrats {
+      flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: clamp(8px, 1.5vw, 16px); max-width: 94%;
+      padding: clamp(5px, 1vw, 10px) clamp(14px, 2.6vw, 30px); border-radius: 999px;
+      background: linear-gradient(180deg, #f7e7c1, #ecd29a); border: 2px solid #c9974a; color: #6e1414; font-weight: 800;
+      font-size: clamp(12px, 1.9vw, 22px); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); text-align: center;
+    }
+    .rs-congrats strong { color: #b3151b; }
+    .cong-orn { color: #c9974a; flex: 0 0 auto; }
+    .rs-stage { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: clamp(10px, 2.4vw, 30px); flex-wrap: wrap; }
+    .rs-card {
+      position: relative; flex: 0 1 auto; width: clamp(150px, 24%, 320px); align-self: stretch; max-height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(6px, 1.4vh, 16px);
+      padding: clamp(14px, 2vw, 28px) clamp(10px, 1.6vw, 22px); border-radius: clamp(14px, 1.8vw, 24px);
+      background: linear-gradient(180deg, #3c4046, #23262b); border: 2px solid rgba(255, 255, 255, .10);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, .45); color: #fff; opacity: 0; transform: translateY(18px) scale(.96);
+    }
+    .rs-stage.revealed .rs-card { animation: rsCardIn .55s cubic-bezier(.2, .9, .25, 1.15) forwards; animation-delay: var(--enter-delay, 0s); }
+    .rs-card.winner { background: linear-gradient(180deg, #71161b, #490b0f); border: 3px solid var(--gold); box-shadow: 0 0 0 2px rgba(201, 151, 74, .40), 0 18px 44px rgba(120, 20, 22, .55); }
+    .rs-title { font-size: clamp(15px, 2vw, 28px); font-weight: 800; color: #ece3d2; text-align: center; }
+    .rs-card.winner .rs-title { color: #fbe9a8; }
+    .rs-avatar-wrap { position: relative; display: grid; place-items: center; margin: clamp(4px, 1vh, 12px) 0; }
+    .rs-avatar { width: clamp(58px, 10vw, 120px); height: clamp(58px, 10vw, 120px); border-radius: 50%; object-fit: cover; border: 4px solid var(--gold); background: #d7d7d7; box-shadow: 0 6px 16px rgba(0, 0, 0, .45); }
+    .rs-card:not(.winner) .rs-avatar { border-color: #b9c0c8; }
+    .rs-crown { position: absolute; top: clamp(-22px, -2.2vw, -12px); left: 50%; transform: translateX(-50%); font-size: clamp(26px, 4.2vw, 50px); filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .45)); z-index: 3; }
+    .rs-medal { position: absolute; bottom: clamp(-12px, -1.6vw, -7px); left: 50%; transform: translateX(-50%); width: clamp(26px, 4vw, 42px); height: clamp(26px, 4vw, 42px); border-radius: 50%; display: grid; place-items: center; font-weight: 900; color: #3a3a3a; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); z-index: 3; font-size: clamp(13px, 1.8vw, 20px); }
+    .rs-medal-silver { background: linear-gradient(180deg, #eef1f5, #aeb6bf); }
+    .rs-medal-bronze { background: linear-gradient(180deg, #e7b684, #bd7e49); color: #fff; }
+    .rs-score { font-size: clamp(34px, 6.4vw, 78px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+    .rs-score-gold { color: #f7cf5a; text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 20px rgba(247, 207, 90, .45); }
+    .rs-score-silver { color: #e8edf2; text-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+    .rs-score-bronze { color: #e7b684; text-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+    .rs-score-plain { color: #f0e6d6; }
+    .rs-winner-banner { margin-top: clamp(2px, 1vh, 8px); background: linear-gradient(180deg, #ecc163, #b5822f); color: #3a0a0c; font-weight: 900; padding: clamp(3px, .7vw, 8px) clamp(16px, 2.6vw, 34px); border-radius: 9px; font-size: clamp(13px, 1.8vw, 22px); box-shadow: 0 4px 0 rgba(120, 80, 20, .5); }
+    .rs-trophy-stage { position: relative; flex: 0 0 auto; align-self: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 1.6vh, 18px); padding: 0 clamp(2px, 1vw, 14px); opacity: 0; }
+    .rs-stage.revealed .rs-trophy-stage { animation: rsTrophyIn .7s cubic-bezier(.2, .9, .25, 1.3) .12s forwards; }
+    .rs-trophy-glow { position: absolute; top: 36%; left: 50%; transform: translate(-50%, -50%); width: clamp(170px, 32vw, 340px); height: clamp(170px, 32vw, 340px); background: radial-gradient(circle, rgba(247, 207, 90, .55), rgba(247, 207, 90, 0) 64%); pointer-events: none; z-index: 0; }
+    .rs-trophy-svg { position: relative; z-index: 1; width: clamp(108px, 19vw, 210px); height: auto; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .5)); }
+    .rs-trophy-badge { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); width: clamp(30px, 5.6vw, 60px); height: auto; z-index: 2; border-radius: 50%; pointer-events: none; }
+    .rs-pointdiff { position: relative; z-index: 1; text-align: center; background: linear-gradient(180deg, #5c1115, #3a0a0c); border: 1.5px solid rgba(201, 151, 74, .55); color: #f3d9a0; border-radius: 12px; padding: clamp(4px, .8vw, 9px) clamp(12px, 2vw, 24px); font-size: clamp(11px, 1.5vw, 17px); font-weight: 800; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+    .rs-pointdiff .clean-number { display: block; font-size: clamp(16px, 2.5vw, 30px); color: #f7cf5a; }
+    .rs-actions { flex: 0 0 auto; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 1.5vw, 16px); }
+    .rs-btn { display: inline-flex; align-items: center; justify-content: center; gap: clamp(6px, 1vw, 10px); direction: ltr; min-height: clamp(38px, 6vh, 58px); padding: clamp(7px, 1.1vw, 14px) clamp(14px, 2.4vw, 30px); border: 0; border-radius: 14px; cursor: pointer; color: #fff; font-size: clamp(12px, 1.7vw, 22px); font-weight: 800; box-shadow: 0 6px 0 rgba(0, 0, 0, .28), 0 8px 18px rgba(0, 0, 0, .3); transition: transform .15s ease, filter .15s ease, box-shadow .15s ease; }
+    .rs-btn svg { width: clamp(17px, 2.1vw, 26px); height: auto; flex: 0 0 auto; }
+    .rs-btn span { direction: rtl; }
+    .rs-btn:hover { filter: brightness(1.07); transform: translateY(-2px); }
+    .rs-btn:active { transform: translateY(1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .28), 0 4px 10px rgba(0, 0, 0, .3); }
+    .rs-btn-new { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
+    .rs-btn-review { background: linear-gradient(180deg, #2f80d8, #1d5fad); }
+    .rs-btn-share { background: linear-gradient(180deg, #7d3fa2, #5d2c85); }
+    .rs-btn-home { background: linear-gradient(180deg, #cb792f, #a85a1e); }
+    .review-list .rev-q { font-weight: 800; color: var(--dark); }
+    .review-list .rev-a { color: #1b6a8f; margin-top: 2px; }
+    .review-list .rev-meta { color: #8c6a2e; font-size: 14px; margin-top: 2px; }
+    .review-list .rev-empty { list-style: none; text-align: center; color: #8c6a2e; }
+    .app-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: rgba(20, 5, 6, .96); color: #f3d9a0; border: 1px solid rgba(201, 151, 74, .5); padding: 10px 22px; border-radius: 10px; font-weight: 800; font-size: 16px; z-index: 10000; opacity: 0; pointer-events: none; max-width: 86vw; text-align: center; transition: opacity .25s ease, transform .25s ease; }
+    .app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @keyframes rsCardIn { to { opacity: 1; transform: none; } }
+    @keyframes rsTrophyIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+
   </style>
 </head>
 <body>
@@ -2323,20 +2416,50 @@
       <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
 
-    <section id="results" class="screen center">
-      <div class="stack wide-stack">
-        <div class="results-stage">
-          <img class="result-watermark" src="assets/izzbah-white-logo.png" alt="" aria-hidden="true">
-          <div class="winner-spot" id="winnerSpot"></div>
-          <div class="podium" id="resultsChart"></div>
-        </div>
-        <div class="actions">
-          <button class="primary" id="newGame">لعبة جديدة</button>
-          <button class="secondary" id="resultsMenu">القائمة الرئيسية</button>
+        <section id="results" class="screen center">
+      <div class="results-screen">
+        <header class="rs-top">
+          <img class="results-logo" id="resultsLogo" src="" alt="عزبة">
+          <h2 class="rs-headline">النتائج النهائية</h2>
+          <button class="rs-share-top" id="shareTop" type="button" aria-label="مشاركة">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5l7 7-7 7v-4.1C9 13.9 5.5 15.5 3 19c1-5 4-9.4 11-9.9z" fill="currentColor"/></svg>
+            <span>مشاركة</span>
+          </button>
+        </header>
+        <div class="rs-congrats" id="resultsCongrats"></div>
+        <div class="rs-stage" id="resultsStage"></div>
+        <div class="rs-actions">
+          <button class="rs-btn rs-btn-new" id="newGame" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 7l5 5V8a4 4 0 1 1-4 4H6a6 6 0 1 0 6-7z" fill="currentColor"/></svg>
+            <span>لعبة جديدة</span>
+          </button>
+          <button class="rs-btn rs-btn-review" id="reviewQuestions" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>مراجعة الأسئلة</span>
+          </button>
+          <button class="rs-btn rs-btn-share" id="shareResult" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>مشاركة النتيجة</span>
+          </button>
+          <button class="rs-btn rs-btn-home" id="resultsMenu" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 10v9h12v-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>الصفحة الرئيسية</span>
+          </button>
         </div>
       </div>
-      <div class="ad-space" aria-label="مساحة إعلانية مستقبلية"></div>
     </section>
+
+    <div class="modal-backdrop" id="reviewModal" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+        <h3 class="preview-title" id="reviewTitle">مراجعة الأسئلة</h3>
+        <ol class="preview-list review-list" id="reviewList"></ol>
+        <div class="actions">
+          <button class="primary" id="closeReview" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-toast" id="appToast" role="status" aria-live="polite"></div>
 
     <div class="results-intro" id="resultsIntro" aria-hidden="true">
       <img class="results-intro-logo" id="resultsIntroLogo" src="" alt="عزبة">
@@ -2714,6 +2837,7 @@
       customCategories: [],
       savedGames: [],
       used: new Set(),
+      history: [],
       activeTeam: 0,
       activeQuestion: null,
       gameLibraryMode: "your",
@@ -3427,6 +3551,7 @@
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
       state.used.clear();
+      state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
       renderGame();
@@ -3628,6 +3753,14 @@
     function finishQuestion(winnerIndex) {
       const active = state.activeQuestion;
       if (!active) return;
+      if (!state.history) state.history = [];
+      state.history.push({
+        category: active.cat && active.cat.name ? active.cat.name : "",
+        points: active.q ? active.q.points : 0,
+        question: active.q && active.q.q ? active.q.q : "",
+        answer: active.q && active.q.a ? active.q.a : "",
+        winnerIndex: (typeof winnerIndex === "number") ? winnerIndex : null
+      });
       if (typeof winnerIndex === "number") {
         state.teams[winnerIndex].score = Math.min(maxTotalScore, state.teams[winnerIndex].score + active.q.points);
         state.activeTeam = (winnerIndex + 1) % state.teamCount;
@@ -3657,65 +3790,143 @@
       showScreen("game", { keepQuestion: true });
     }
 
+    function trophySvg() {
+      return `
+      <svg class="rs-trophy-svg" viewBox="0 0 200 210" aria-hidden="true">
+        <defs>
+          <linearGradient id="tGoldA" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fcefb4"/><stop offset=".5" stop-color="#e7b54b"/><stop offset="1" stop-color="#a9762a"/>
+          </linearGradient>
+          <linearGradient id="tGoldB" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f3d27a"/><stop offset="1" stop-color="#a9762a"/>
+          </linearGradient>
+        </defs>
+        <path d="M52 46 C14 46 14 104 60 102" fill="none" stroke="url(#tGoldA)" stroke-width="10" stroke-linecap="round"/>
+        <path d="M148 46 C186 46 186 104 140 102" fill="none" stroke="url(#tGoldA)" stroke-width="10" stroke-linecap="round"/>
+        <path d="M48 40 H152 C152 96 128 132 100 132 C72 132 48 96 48 40 Z" fill="url(#tGoldA)"/>
+        <ellipse cx="100" cy="40" rx="54" ry="11" fill="#fcefb4"/>
+        <rect x="92" y="130" width="16" height="26" fill="url(#tGoldB)"/>
+        <rect x="74" y="156" width="52" height="12" rx="3" fill="url(#tGoldB)"/>
+        <rect x="58" y="168" width="84" height="16" rx="4" fill="url(#tGoldA)"/>
+        <rect x="48" y="184" width="104" height="14" rx="5" fill="url(#tGoldB)"/>
+      </svg>`;
+    }
+
     function renderResults() {
       const ranked = state.teams.slice(0, state.teamCount)
         .map((team, index) => ({ ...team, index }))
         .sort((a, b) => b.score - a.score);
-      const maxScore = Math.max(1, ...ranked.map(team => team.score));
-      const topScore = ranked[0]?.score ?? 0;
+      const topScore = ranked[0] ? ranked[0].score : 0;
+      const secondScore = ranked[1] ? ranked[1].score : 0;
       const topTeams = ranked.filter(team => team.score === topScore);
       const isDraw = topTeams.length > 1;
       const winner = isDraw ? null : ranked[0];
-      $("#winnerSpot").innerHTML = isDraw
-        ? `<div class="draw-spot">${topTeams.map(team => `
-            <div class="draw-team">
-              ${team.image ? `<img class="winner-portrait" src="${team.image}" alt="">` : defaultAvatarHtml("winner-portrait default-avatar")}
-              <span>${teamDisplayName(team, team.index)}</span>
-            </div>
-          `).join("")}</div>`
+      const gap = Math.max(0, topScore - secondScore);
+      state.resultSnapshot = ranked.map(t => ({ name: teamDisplayName(t, t.index), score: t.score }));
+
+      $("#resultsCongrats").innerHTML = isDraw
+        ? `<span class="cong-orn">\u2756</span><span>تعادل بنتيجة <span class="clean-number">${toArabicDigits(topScore)}</span></span><span class="cong-orn">\u2756</span>`
         : (winner
-          ? (winner.image
-            ? `<img class="winner-portrait" src="${winner.image}" alt="">`
-            : defaultAvatarHtml("winner-portrait default-avatar"))
-          : "");
-      const chart = $("#resultsChart");
-      chart.classList.remove("revealed");
-      chart.innerHTML = "";
-      chart.parentElement.querySelectorAll(".confetti").forEach(piece => piece.remove());
-      const denom = maxScore || 1;
-      const medals = ["🥇", "🥈", "🥉"];
-      ranked.forEach((team, place) => {
+          ? `<span class="cong-orn">\u2756</span><span>مبروك <strong>${teamDisplayName(winner, winner.index)}</strong> الفوز لكم اليوم !</span><span class="cong-orn">\u2756</span>`
+          : `<span>انتهت اللعبة</span>`);
+
+      const introSrc = document.querySelector(".mini-brand-logo");
+      const logoEl = $("#resultsLogo");
+      if (logoEl && introSrc && introSrc.src) logoEl.src = introSrc.src;
+
+      const stage = $("#resultsStage");
+      stage.classList.remove("revealed");
+      stage.innerHTML = "";
+      const screen = stage.parentElement;
+      screen.querySelectorAll(".confetti").forEach(p => p.remove());
+
+      const medalNames = ["gold", "silver", "bronze"];
+      function buildCard(team, place) {
         const isWin = !isDraw && place === 0;
-        const pct = isWin ? 90 : (30 + Math.round((team.score / denom) * 46));
-        const col = document.createElement("div");
-        col.className = "pod-col" + (isWin ? " champion" : "");
-        col.style.setProperty("--col-color", colors[team.index]);
-        col.style.setProperty("--col-h", `${pct}%`);
-        col.style.setProperty("--enter-delay", `${(place * 0.1).toFixed(2)}s`);
+        const card = document.createElement("div");
+        card.className = "rs-card" + (isWin ? " winner" : "");
+        card.style.setProperty("--enter-delay", `${(place * 0.12).toFixed(2)}s`);
         const avatar = team.image
-          ? `<img class="pod-avatar" src="${team.image}" alt="">`
-          : defaultAvatarHtml("pod-avatar default-avatar");
-        const badge = isWin
-          ? "👑"
-          : (place < 3 ? medals[place] : `<span class="clean-number">${toArabicDigits(place + 1)}</span>`);
-        col.innerHTML = `
-          <div class="pod-track">
-            <div class="pod-bar">
-              <span class="pod-score"><span class="clean-number">${toArabicDigits(team.score)}</span></span>
-              <span class="pod-badge" aria-hidden="true">${badge}</span>
-            </div>
-          </div>
-          ${avatar}
-          <div class="pod-name"><span class="clean-number">${toArabicDigits(place + 1)}.</span> ${teamDisplayName(team, team.index)}</div>
+          ? `<img class="rs-avatar" src="${team.image}" alt="">`
+          : defaultAvatarHtml("rs-avatar default-avatar");
+        const crown = isWin ? `<span class="rs-crown" aria-hidden="true">\ud83d\udc51</span>` : "";
+        const medal = (!isWin && place < 3)
+          ? `<span class="rs-medal rs-medal-${medalNames[place]}"><span class="clean-number">${toArabicDigits(place + 1)}</span></span>`
+          : "";
+        const banner = isWin ? `<div class="rs-winner-banner">الفائز</div>` : "";
+        const sClass = place === 0 ? "gold" : place === 1 ? "silver" : place === 2 ? "bronze" : "plain";
+        card.innerHTML = `
+          <div class="rs-title">${teamDisplayName(team, team.index)}</div>
+          <div class="rs-avatar-wrap">${crown}${avatar}${medal}</div>
+          <div class="rs-score rs-score-${sClass}"><span class="clean-number">${toArabicDigits(team.score)}</span></div>
+          ${banner}
         `;
-        chart.appendChild(col);
-      });
+        return card;
+      }
+
+      if (ranked[0]) stage.appendChild(buildCard(ranked[0], 0));
+      const trophy = document.createElement("div");
+      trophy.className = "rs-trophy-stage";
+      trophy.innerHTML = `
+        <div class="rs-trophy-glow"></div>
+        ${trophySvg()}
+        <img class="rs-trophy-badge" alt="">
+        <div class="rs-pointdiff">فارق النقاط<span class="clean-number">+${toArabicDigits(gap)}</span></div>
+      `;
+      const badge = trophy.querySelector(".rs-trophy-badge");
+      if (badge && introSrc && introSrc.src) badge.src = introSrc.src;
+      stage.appendChild(trophy);
+      ranked.slice(1).forEach((team, i) => stage.appendChild(buildCard(team, i + 1)));
+
       showScreen("results");
       playResultsIntro(() => {
-        chart.classList.add("revealed");
-        spawnConfetti(chart.parentElement);
+        stage.classList.add("revealed");
+        spawnConfetti(screen);
       });
       resetScores();
+    }
+
+    function resultsSummaryText() {
+      const snap = state.resultSnapshot || [];
+      const lines = snap.map((t, i) => `${toArabicDigits(i + 1)}. ${t.name}: ${toArabicDigits(t.score)}`);
+      return `عزبة \u2014 النتائج النهائية\n${lines.join("\n")}`;
+    }
+
+    function shareResults() {
+      const text = resultsSummaryText();
+      if (navigator.share) {
+        navigator.share({ title: "عزبة", text }).catch(() => {});
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast("تم نسخ النتيجة")).catch(() => showToast("تعذّر النسخ"));
+      } else {
+        showToast("المشاركة غير مدعومة");
+      }
+    }
+
+    function openReview() {
+      const list = $("#reviewList");
+      const hist = state.history || [];
+      list.innerHTML = hist.length
+        ? hist.map(h => `<li><div class="rev-q">${h.question || "\u2014"}</div><div class="rev-a">الإجابة: ${h.answer || "\u2014"}</div><div class="rev-meta">${h.category || ""} \u00b7 <span class="clean-number">${toArabicDigits(h.points || 0)}</span></div></li>`).join("")
+        : `<li class="rev-empty">لا توجد أسئلة للعرض</li>`;
+      const modal = $("#reviewModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeReview() {
+      const modal = $("#reviewModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function showToast(message) {
+      const el = $("#appToast");
+      if (!el) return;
+      el.textContent = message;
+      el.classList.add("show");
+      window.clearTimeout(state.toastTimer);
+      state.toastTimer = window.setTimeout(() => el.classList.remove("show"), 2200);
     }
 
     function spawnConfetti(stage) {
@@ -3783,6 +3994,13 @@
     $("#resultsMenu").addEventListener("click", () => {
       resetScores();
       showScreen("menu");
+    });
+    $("#shareTop").addEventListener("click", shareResults);
+    $("#shareResult").addEventListener("click", shareResults);
+    $("#reviewQuestions").addEventListener("click", openReview);
+    $("#closeReview").addEventListener("click", closeReview);
+    $("#reviewModal").addEventListener("click", event => {
+      if (event.target.id === "reviewModal") closeReview();
     });
     $("#yourGamesTab").addEventListener("click", () => {
       state.gameLibraryMode = "your";
