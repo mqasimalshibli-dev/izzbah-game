@@ -2494,9 +2494,9 @@
     /* ... with the category picture showing through (pictures in the point-cells) */
     #game .cell.has-art:not(.used) {
       background:
-        radial-gradient(120% 130% at 50% 16%, rgba(239, 86, 90, .5) 0%, rgba(193, 31, 42, .72) 52%, rgba(140, 20, 25, .88) 100%),
+        radial-gradient(120% 130% at 50% 16%, rgba(235, 74, 78, .7) 0%, rgba(193, 31, 42, .85) 52%, rgba(120, 16, 21, .95) 100%),
         var(--cat-image) center / cover no-repeat !important;
-      text-shadow: 0 1px 3px rgba(60, 4, 6, .85) !important;
+      text-shadow: 0 1px 2px rgba(40, 3, 5, .95), 0 0 6px rgba(40, 3, 5, .7) !important;
     }
     #game .cell.used {
       border: 1px solid rgba(231, 195, 115, .4) !important;
@@ -2512,8 +2512,9 @@
         var(--cat-image) center / cover no-repeat !important;
     }
     @media (hover: hover) {
-      #game .cell:not(:disabled):hover { transform: translateY(-2px) scale(1.03); }
+      #game .cell:not(:disabled):hover { transform: translateY(-2px) scale(1.03); filter: brightness(1.05); }
     }
+    #game .cell:not(:disabled):active { transform: translateY(1px) scale(.97); filter: brightness(.95); }
 
     @keyframes ez1Glow {
       0%, 100% { box-shadow: 0 0 0 2px #e7c373, 0 0 0 5px rgba(231, 195, 115, .22), 0 18px 30px -20px rgba(60, 40, 15, .5); }
@@ -2522,15 +2523,32 @@
 
     /* Forced-landscape phone view: keep the whole board on one screen */
     @media (orientation: landscape) and (max-height: 520px) {
+      /* width: drop the 132px column floor and the 820px min-width pin so the board fits */
       #game .board {
-        grid-template-rows: clamp(54px, 16vh, 92px) repeat(5, minmax(38px, 1fr)) !important;
+        grid-template-columns: repeat(var(--cat-count), minmax(0, 1fr)) !important;
+        grid-template-rows: clamp(50px, 15vh, 86px) repeat(5, minmax(30px, 1fr)) !important;
+        min-width: 0 !important;
+        width: 100% !important;
         min-height: 0 !important;
-        gap: 6px !important;
+        gap: 5px !important;
       }
-      #game .cell { font-size: clamp(22px, 5.4vh, 40px) !important; }
-      #game .board-head span { padding: 3px 10px !important; font-size: clamp(13px, 3.2vh, 19px) !important; }
-      #game .score-value { font-size: clamp(24px, 7vh, 42px) !important; }
-      #game .score-name { font-size: clamp(13px, 3vh, 18px) !important; }
+      #game.game-screen { overflow-x: hidden !important; }
+      #game .cell { font-size: clamp(20px, 5vh, 38px) !important; }
+      #game .board-head span { padding: 3px 9px !important; font-size: clamp(12px, 3vh, 18px) !important; }
+      /* height: shrink the fixed chrome so the board never clips */
+      #game .topbar { min-height: 0 !important; padding: 5px 12px !important; margin-bottom: 8px !important; }
+      #game .mini-brand .mini-brand-logo { width: 40px !important; height: 40px !important; }
+      #game .turn-photo, #game .turn-box .default-avatar { width: 30px !important; height: 30px !important; }
+      #game .turn-box { padding: 4px 10px !important; min-width: 0 !important; }
+      #game .turn-label small { font-size: 11px !important; }
+      #game .turn-label strong { font-size: 16px !important; }
+      #game .score-row { gap: 8px !important; }
+      #game .score-box { padding: 5px 8px !important; }
+      #game .score-photo, #game .score-box .default-avatar { width: 26px !important; height: 26px !important; }
+      #game .score-tools { margin-top: 3px !important; }
+      #game .score-tools button { width: 28px !important; height: 28px !important; font-size: 20px !important; }
+      #game .score-value { font-size: clamp(22px, 6.5vh, 40px) !important; }
+      #game .score-name { font-size: clamp(12px, 2.8vh, 17px) !important; }
       #game .score-box.active-team::before { top: -10px; font-size: 10px; padding: 3px 11px; }
     }
   </style>
