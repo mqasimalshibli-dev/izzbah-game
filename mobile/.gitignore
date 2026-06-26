@@ -1,0 +1,6 @@
+# Build / generated — regenerated locally on your Mac / Android Studio machine
+node_modules/
+www/
+ios/
+android/
+.DS_Store
