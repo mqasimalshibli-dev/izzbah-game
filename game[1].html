@@ -4,6 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <script>
+    /* Clickjacking guard — GitHub Pages can't send X-Frame-Options /
+       CSP frame-ancestors headers, so break out of any foreign frame here. */
+    (function () {
+      if (window.top !== window.self) {
+        try { window.top.location = window.self.location.href; }
+        catch (e) { if (document.documentElement) document.documentElement.style.display = "none"; }
+      }
+    })();
+  </script>
   <title>عِزبه — لعبة تريفيا</title>
   <style>
     :root {
@@ -3515,10 +3525,40 @@
     }
 
     function fileToDataUrl(file) {
+      // Downscale + recompress so stored images stay small: protects
+      // localStorage and keeps the synced Firestore user doc well under its
+      // 1 MiB limit. Falls back to the original on any error.
+      const MAX_DIM = 800;            // longest side, px
+      const TARGET_BYTES = 320 * 1024;
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
+        reader.onload = () => {
+          const src = reader.result;
+          if (typeof src !== "string" || !/^data:image\//.test(src)) { resolve(src); return; }
+          const img = new Image();
+          img.onerror = () => resolve(src);
+          img.onload = () => {
+            try {
+              let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+              const scale = Math.min(1, MAX_DIM / Math.max(w, h));
+              w = Math.max(1, Math.round(w * scale));
+              h = Math.max(1, Math.round(h * scale));
+              const canvas = document.createElement("canvas");
+              canvas.width = w; canvas.height = h;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              let q = 0.82, out = canvas.toDataURL("image/jpeg", q);
+              while (out.length > TARGET_BYTES * 1.37 && q > 0.4) {
+                q -= 0.12; out = canvas.toDataURL("image/jpeg", q);
+              }
+              resolve(out.length < src.length ? out : src);
+            } catch (e) { resolve(src); }
+          };
+          img.src = src;
+        };
         reader.readAsDataURL(file);
       });
     }
@@ -4444,7 +4484,7 @@
       const authStatus = $("#authStatus");
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
-      const SDK = "10.12.2";
+      const SDK = "12.15.0";
       const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
