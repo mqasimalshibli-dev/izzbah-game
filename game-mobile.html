@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <title>عِزبه — لعبة تريفيا</title>
   <style>
     :root {
@@ -4080,6 +4080,12 @@
        Until it is filled in, the game keeps working with on-device saving
        and the sign-in button stays hidden.  Setup steps: FIREBASE_SETUP.md
        ===================================================================== */
+    /* App Check (reCAPTCHA v3): register this web app in Firebase Console ->
+       App Check, pick reCAPTCHA v3, and paste the SITE key below. Until it is
+       set, App Check stays OFF and the app behaves exactly as before. Keep
+       App Check in "Monitoring" mode in the console until traffic looks clean,
+       THEN switch it to "Enforce". */
+    window.IZZBAH_APPCHECK_SITE_KEY = "PASTE_RECAPTCHA_V3_SITE_KEY";
     window.IZZBAH_FIREBASE_CONFIG = {
       apiKey: "AIzaSyDRcH7DlI-CDRTKh0_a5svL9UutNRmIH2I",
       authDomain: "izzbahgame.firebaseapp.com",
@@ -6151,7 +6157,17 @@
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
         .then(() => {
+          const acKey = window.IZZBAH_APPCHECK_SITE_KEY;
+          return (acKey && acKey.indexOf("PASTE_") !== 0)
+            ? loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-check-compat.js").then(() => acKey)
+            : null;
+        })
+        .then((acKey) => {
           firebase.initializeApp(cfg);
+          if (acKey) {
+            try { firebase.appCheck().activate(acKey, true); }
+            catch (e) { console.warn("App Check activation failed", e); }
+          }
           auth = firebase.auth();
           db = firebase.firestore();
           try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
