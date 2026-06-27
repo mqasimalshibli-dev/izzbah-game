@@ -4863,11 +4863,23 @@
       return pointValues.map(points => randomQuestion(categoryId, points));
     }
 
-    const builtinCategories = builtinCategoryMeta.map(category => ({
-      ...category,
-      custom: false,
-      questions: category.empty ? [] : buildQuestionSet(category.id)
-    }));
+    // A built-in category is "available" automatically whenever it has a
+    // question bank — so adding questions to any category lights it up
+    // (no manual "empty" flag needed); categories without a bank stay "soon".
+    function builtinHasBank(categoryId) {
+      const bank = builtinQuestionBanks[categoryId];
+      return !!bank && pointValues.some(points => (bank[points] || []).length > 0);
+    }
+
+    const builtinCategories = builtinCategoryMeta.map(category => {
+      const hasBank = builtinHasBank(category.id);
+      return {
+        ...category,
+        custom: false,
+        empty: !hasBank,
+        questions: hasBank ? buildQuestionSet(category.id) : []
+      };
+    });
 
     const state = {
       teamCount: 2,
