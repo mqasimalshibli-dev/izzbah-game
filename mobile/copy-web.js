@@ -14,11 +14,8 @@ fs.copyFileSync(path.join(root, 'game-mobile.html'), path.join(outDir, 'index.ht
 // 2) copy the assets/ folder too (harmless; covers any future local references)
 const assetsSrc = path.join(root, 'assets');
 if (fs.existsSync(assetsSrc)) {
-  const assetsOut = path.join(outDir, 'assets');
-  fs.mkdirSync(assetsOut, { recursive: true });
-  for (const f of fs.readdirSync(assetsSrc)) {
-    fs.copyFileSync(path.join(assetsSrc, f), path.join(assetsOut, f));
-  }
+  // recursive: assets/ now contains subdirectories (e.g. assets/brand/)
+  fs.cpSync(assetsSrc, path.join(outDir, 'assets'), { recursive: true });
 }
 
 console.log('Copied game-mobile.html -> mobile/www/index.html (+ assets/)');

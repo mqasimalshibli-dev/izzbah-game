@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="250" viewBox="0 0 360 250" overflow="visible" role="img" aria-label="عَزْبَة">
+<defs>
+<linearGradient id="flameM" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#C8431B"/><stop offset="52%" stop-color="#E8A93B"/><stop offset="100%" stop-color="#F6D27A"/></linearGradient>
+<clipPath id="tentM"><polygon points="44,214 60,168 130,96 180,116 230,96 300,168 316,214"/></clipPath>
+</defs>
+<g stroke="#F3E1C0" stroke-width="1.8" stroke-linecap="round"><line x1="64" y1="172" x2="24" y2="212"/><line x1="300" y1="172" x2="340" y2="212"/></g>
+<g fill="#F3E1C0"><polygon points="20,208 30,208 25,216"/><polygon points="330,208 340,208 335,216"/></g>
+<g clip-path="url(#tentM)"><rect x="0" y="0" width="360" height="250" fill="#F3E1C0"/><rect x="0" y="176" width="360" height="4.5" fill="#9E1C1C"/><rect x="0" y="185" width="360" height="2.5" fill="#9E1C1C"/><rect x="0" y="193" width="360" height="5.5" fill="#9E1C1C"/><rect x="0" y="203" width="360" height="2.5" fill="#9E1C1C"/></g>
+<polyline points="60,168 130,96 180,116 230,96 300,168" fill="none" stroke="#7A1414" stroke-width="2.6" stroke-linejoin="round"/>
+<circle cx="130" cy="95" r="3.4" fill="#7A1414"/><circle cx="230" cy="95" r="3.4" fill="#7A1414"/>
+<polygon points="160,214 160,178 180,166 200,178 200,214" fill="#2E0707"/>
+<g stroke-linecap="round"><line x1="160" y1="212" x2="200" y2="219" stroke="#6E2A12" stroke-width="9"/><line x1="200" y1="212" x2="160" y2="219" stroke="#7A1414" stroke-width="9"/></g>
+<g opacity="0.62" transform="translate(180 218) scale(0.74) translate(-180 -218)"><path d="M180,150 Q206,178 197,201 Q191,217 180,217 Q169,217 163,201 Q155,181 174,170 Q171,187 181,189 Q189,174 180,150 Z" fill="url(#flameM)" stroke="#C8431B" stroke-width="1.4"/><path d="M181,173 Q193,191 187,205 Q183,214 178,212 Q172,210 174,199 Q176,187 181,173 Z" fill="#F8DC93"/></g>
+</svg>
