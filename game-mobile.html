@@ -4043,6 +4043,42 @@
     }
     #questionPage .qhelp-slot:hover { background: rgba(255, 255, 255, .24); transform: scale(1.06); }
     #questionPage .qhelp-slot:active { transform: scale(.96); }
+    #questionPage .qhelp-slot svg { width: 24px; height: 24px; }
+    #questionPage .qhelp-slot:disabled,
+    #questionPage .qhelp-slot.used {
+      cursor: default; opacity: .4; filter: grayscale(.5);
+      background: rgba(0, 0, 0, .18); transform: none;
+    }
+    #questionPage .qhelp-slot.used { position: relative; }
+    #questionPage .qhelp-slot.used::after {
+      content: ""; position: absolute; left: 6px; right: 6px; top: 50%;
+      height: 3px; background: #fff; border-radius: 2px;
+      transform: rotate(-32deg); box-shadow: 0 0 0 1px rgba(120,20,20,.5);
+    }
+    /* multiple-choice options shown under the question (four-choices help) */
+    #questionPage .qchoices { display: none; }
+    #questionPage .qchoices.visible {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 18px; width: min(760px, 100%);
+      margin: 30px auto 0; padding-inline-end: 86px;
+    }
+    #questionPage .qchoice {
+      display: flex; align-items: center; gap: 12px;
+      background: #fff; border: 2px solid #d7b85f; border-radius: 14px;
+      padding: 14px 18px; min-height: 30px;
+      font: 800 clamp(17px, 2vw, 26px) 'Cairo', sans-serif; color: #1f5237;
+      box-shadow: 0 4px 12px rgba(120, 40, 30, .1); text-align: start;
+      animation: qchoice-in .28s ease both;
+    }
+    #questionPage .qchoice::before {
+      content: counter(qopt); counter-increment: qopt;
+      flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+      display: grid; place-items: center;
+      background: linear-gradient(180deg, #c8232f, #9e1322); color: #fff;
+      font-family: 'Lalezar', cursive; font-size: 20px;
+    }
+    #questionPage .qchoices.visible { counter-reset: qopt; }
+    @keyframes qchoice-in { from { opacity: 0; transform: translateY(8px); } }
     /* answer text + eyebrow + underline */
     #answerPage #modalAnswer {
       font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(42px, 6vw, 72px) !important;
@@ -4315,10 +4351,13 @@
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
         <p class="question-text" id="modalQuestion"></p>
+        <div class="qchoices" id="modalChoices" aria-label="خيارات متعددة"></div>
         <div class="qhelp-bar" id="questionHelpBar" role="group" aria-label="وسائل المساعدة">
-          <button class="qhelp-slot" type="button" aria-label="مساعدة 1"></button>
-          <button class="qhelp-slot" type="button" aria-label="مساعدة 2"></button>
-          <button class="qhelp-slot" type="button" aria-label="مساعدة 3"></button>
+          <button class="qhelp-slot" id="helpFourChoices" type="button" aria-label="أربعة خيارات" title="أربعة خيارات">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+          </button>
+          <button class="qhelp-slot" type="button" aria-label="مساعدة 2" disabled></button>
+          <button class="qhelp-slot" type="button" aria-label="مساعدة 3" disabled></button>
         </div>
         <div class="actions" id="questionActions">
           <button class="gold-btn" id="revealAnswer"><svg class="btn-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>إظهار الإجابة</button>
@@ -5233,6 +5272,7 @@
       history: [],
       activeTeam: 0,
       activeQuestion: null,
+      helpUsed: { fourChoices: false },
       gameLibraryMode: "your",
       categoryMode: "game",
       currentGameName: "",
@@ -5604,6 +5644,7 @@
     function resetScores() {
       state.teams.forEach(team => { team.score = 0; });
       state.used.clear();
+      state.helpUsed.fourChoices = false;
       state.activeTeam = 0;
     }
 
@@ -6098,6 +6139,7 @@
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
       state.used.clear();
+      state.helpUsed.fourChoices = false;
       state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
@@ -6229,10 +6271,150 @@
       centerBoardScroll();
     }
 
+    // ---- Help tool #1: four choices (multiple choice) ----
+    function shuffleInPlace(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    const normAnswer = value => String(value == null ? "" : value).trim().replace(/\s+/g, " ");
+    const isNumericAnswer = value => /^[\d٠-٩]+$/.test(normAnswer(value).replace(/\s/g, ""));
+
+    // Every answer in a category's pool (full built-in bank, or a custom
+    // category's own questions) — used as the source of plausible distractors.
+    function categoryAnswerPool(cat) {
+      const out = [];
+      const bank = cat && builtinQuestionBanks[cat.id];
+      if (bank) {
+        pointValues.forEach(points => (bank[points] || []).forEach(qa => { if (qa[1]) out.push(qa[1]); }));
+      } else if (cat && Array.isArray(cat.questions)) {
+        cat.questions.forEach(question => { if (question.a) out.push(question.a); });
+      }
+      return out;
+    }
+
+    function allBuiltinAnswers() {
+      const out = [];
+      Object.keys(builtinQuestionBanks).forEach(id => {
+        pointValues.forEach(points => (builtinQuestionBanks[id][points] || []).forEach(qa => { if (qa[1]) out.push(qa[1]); }));
+      });
+      return out;
+    }
+
+    // Numeric answers get numeric distractors (other same-length numbers from
+    // the category, plus near values) so a count/year never sits next to a name.
+    function numericChoiceOptions(correct, cat) {
+      const n = parseInt(normAnswer(correct).replace(/[^\d]/g, ""), 10);
+      if (!Number.isFinite(n)) return null;
+      const seen = new Set([n]);
+      const out = [];
+      const push = value => { if (value >= 0 && !seen.has(value)) { seen.add(value); out.push(value); } };
+      const digits = String(n).length;
+      categoryAnswerPool(cat).forEach(a => {
+        if (!isNumericAnswer(a)) return;
+        const value = parseInt(normAnswer(a).replace(/[^\d]/g, ""), 10);
+        if (Number.isFinite(value) && String(value).length === digits) push(value);
+      });
+      shuffleInPlace(out);
+      const deltas = n < 100 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 7, 10, 12];
+      const perturb = [];
+      deltas.forEach(d => { perturb.push(n + d); perturb.push(n - d); });
+      shuffleInPlace(perturb);
+      perturb.forEach(push);
+      if (out.length < 3) return null;
+      return shuffleInPlace(out.slice(0, 3).map(String).concat([normAnswer(correct)]));
+    }
+
+    // Build 4 options (1 correct + 3 wrong). Distractors are drawn from the
+    // same category, matched by type (numeric vs text) and answer length so
+    // they look similar to the real answer without being giveaways.
+    function buildChoiceOptions(cat, q) {
+      const correct = normAnswer(q && q.a);
+      if (!correct) return null;
+      const wantNumeric = isNumericAnswer(correct);
+      if (wantNumeric) {
+        const numeric = numericChoiceOptions(correct, cat);
+        if (numeric) return numeric;
+      }
+      const seen = new Set([correct]);
+      const addUnique = (target, value) => {
+        const n = normAnswer(value);
+        if (n && !seen.has(n)) { seen.add(n); target.push(n); }
+      };
+
+      const sameCat = [];
+      categoryAnswerPool(cat).forEach(a => addUnique(sameCat, a));
+      const byCloseness = list => list
+        .map(a => ({ a, d: Math.abs(a.length - correct.length) }))
+        .sort((x, y) => x.d - y.d)
+        .map(o => o.a);
+
+      const sameType = byCloseness(sameCat.filter(a => isNumericAnswer(a) === wantNumeric));
+      const otherType = byCloseness(sameCat.filter(a => isNumericAnswer(a) !== wantNumeric));
+
+      const picks = [];
+      const takeFrom = source => { for (const a of source) { if (picks.length >= 3) break; if (!picks.includes(a)) picks.push(a); } };
+      // closest same-type, lightly shuffled so it varies between uses
+      const window = sameType.slice(0, Math.max(7, 3));
+      shuffleInPlace(window);
+      takeFrom(window);
+      if (picks.length < 3) takeFrom(sameType);
+      if (picks.length < 3) takeFrom(otherType);
+      if (picks.length < 3) {
+        const global = [];
+        allBuiltinAnswers().forEach(a => addUnique(global, a));
+        const globalTyped = byCloseness(global.filter(a => isNumericAnswer(a) === wantNumeric));
+        shuffleInPlace(globalTyped);
+        takeFrom(globalTyped);
+        if (picks.length < 3) { shuffleInPlace(global); takeFrom(global); }
+      }
+      if (picks.length < 3) return null;
+
+      return shuffleInPlace(picks.slice(0, 3).concat([correct]));
+    }
+
+    function renderChoiceOptions(options) {
+      const box = $("#modalChoices");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!options || !options.length) { box.classList.remove("visible"); return; }
+      options.forEach(option => {
+        const item = document.createElement("div");
+        item.className = "qchoice";
+        item.textContent = toArabicDigits(option);
+        box.appendChild(item);
+      });
+      box.classList.add("visible");
+    }
+
+    function updateHelpBar() {
+      const button = $("#helpFourChoices");
+      if (!button) return;
+      const used = !!state.helpUsed.fourChoices;
+      button.classList.toggle("used", used);
+      button.disabled = used;
+    }
+
+    function useFourChoices() {
+      if (state.helpUsed.fourChoices) return;
+      const active = state.activeQuestion;
+      if (!active) return;
+      const options = buildChoiceOptions(active.cat, active.q);
+      if (!options) return; // couldn't build enough distractors — don't consume the help
+      state.helpUsed.fourChoices = true;
+      renderChoiceOptions(options);
+      updateHelpBar();
+    }
+
     function openQuestion(cat, q, key) {
       if (state.used.has(key)) return;
       state.used.add(key);
       state.activeQuestion = { cat, q, key };
+      renderChoiceOptions(null);
+      updateHelpBar();
       $("#modalCategory").textContent = toArabicDigits(cat.name);
       $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
       $("#answerCategory").textContent = toArabicDigits(cat.name);
@@ -6533,6 +6715,7 @@
     $("#questionBackTop").addEventListener("click", closeQuestion);
     $("#answerBackTop").addEventListener("click", closeQuestion);
     $("#revealAnswer").addEventListener("click", revealAnswer);
+    $("#helpFourChoices").addEventListener("click", useFourChoices);
     $("#backToQuestion").addEventListener("click", () => {
       $("#questionActions").style.display = "flex";
       showScreen("questionPage", { keepQuestion: true });
