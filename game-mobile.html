@@ -4025,6 +4025,24 @@
     }
     #questionPage #revealAnswer:hover { filter: brightness(1.08); }
     #questionPage .btn-i, #answerPage .btn-i { width: 18px; height: 18px; flex: 0 0 auto; }
+    /* helper / lifeline bar hanging off the right border of the question card */
+    #questionPage .qhelp-bar {
+      position: absolute !important; top: 50%; right: 0;
+      transform: translate(calc(100% + 12px), -50%);
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      padding: 14px 9px; z-index: 4;
+      background: linear-gradient(180deg, #c8232f, #9e1322);
+      border: 2px solid #e6c869; border-radius: 16px;
+      box-shadow: 0 10px 22px rgba(120, 20, 20, .3);
+    }
+    #questionPage .qhelp-slot {
+      width: 46px; height: 46px; border-radius: 50%; padding: 0;
+      border: 2px solid #e6c869; background: rgba(255, 255, 255, .12);
+      color: #fff; cursor: pointer; display: grid; place-items: center;
+      transition: background .15s ease, transform .15s ease;
+    }
+    #questionPage .qhelp-slot:hover { background: rgba(255, 255, 255, .24); transform: scale(1.06); }
+    #questionPage .qhelp-slot:active { transform: scale(.96); }
     /* answer text + eyebrow + underline */
     #answerPage #modalAnswer {
       font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(42px, 6vw, 72px) !important;
@@ -4297,6 +4315,11 @@
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
         <p class="question-text" id="modalQuestion"></p>
+        <div class="qhelp-bar" id="questionHelpBar" role="group" aria-label="وسائل المساعدة">
+          <button class="qhelp-slot" type="button" aria-label="مساعدة 1"></button>
+          <button class="qhelp-slot" type="button" aria-label="مساعدة 2"></button>
+          <button class="qhelp-slot" type="button" aria-label="مساعدة 3"></button>
+        </div>
         <div class="actions" id="questionActions">
           <button class="gold-btn" id="revealAnswer"><svg class="btn-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>إظهار الإجابة</button>
         </div>
