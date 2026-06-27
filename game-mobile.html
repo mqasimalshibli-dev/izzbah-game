@@ -3546,6 +3546,9 @@
       animation-name: wlcEmber; animation-timing-function: ease-in; animation-iteration-count: infinite;
     }
     .wlc-star { position: absolute; bottom: 46px; left: 46px; width: 24px; height: 24px; opacity: .22; z-index: 1; animation: wlcSpin 30s linear infinite reverse; }
+    /* hide the welcome overlay layer (halo/vignettes/embers/star) so the
+       background matches the clean final-score gradient */
+    .wlc-bg, .wlc-star { display: none !important; }
     .wlc-star i { position: absolute; inset: 0; background: #dcbd71; }
     .wlc-star i + i { transform: rotate(45deg); }
     .wlc-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.4vh, 30px); max-width: 560px; width: 100%; }
