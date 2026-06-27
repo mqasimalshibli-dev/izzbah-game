@@ -4122,6 +4122,19 @@
     }
     #questionPage .qchoices.visible { counter-reset: qopt; }
     @keyframes qchoice-in { from { opacity: 0; transform: translateY(8px); } }
+    /* first-letter hint (reveal-first-letter help) */
+    #questionPage .qhint { display: none; }
+    #questionPage .qhint.visible {
+      display: inline-flex; align-items: center; gap: 12px;
+      margin: 26px auto 0; padding: 8px 22px; padding-right: 96px;
+      animation: qchoice-in .28s ease both;
+    }
+    #questionPage .qhint-label { font: 700 15px 'Cairo', sans-serif; color: #3f7a57; letter-spacing: 1px; }
+    #questionPage .qhint-frag {
+      font-family: 'Lalezar', cursive; font-size: clamp(28px, 4.4vw, 50px); line-height: 1.1;
+      color: #1f5237; background: #fff; border: 2px solid #d7b85f; border-radius: 14px;
+      padding: 4px 22px; box-shadow: 0 4px 12px rgba(120, 40, 30, .1); min-width: 1.5em; text-align: center;
+    }
     /* answer text + eyebrow + underline */
     #answerPage #modalAnswer {
       font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(42px, 6vw, 72px) !important;
@@ -4222,6 +4235,14 @@
       #questionPage .qchoice::before {
         width: clamp(19px, 4.2vh, 25px) !important; height: clamp(19px, 4.2vh, 25px) !important;
         font-size: clamp(12px, 2.6vh, 15px) !important; border-radius: 7px !important;
+      }
+      #questionPage .qhint.visible {
+        margin-top: clamp(8px, 2.4vh, 16px) !important; gap: 9px !important;
+        padding: 5px 14px !important; padding-right: 70px !important;
+      }
+      #questionPage .qhint-label { font-size: clamp(11px, 2.8vh, 14px) !important; }
+      #questionPage .qhint-frag {
+        font-size: clamp(20px, 6vh, 38px) !important; padding: 2px 16px !important; border-radius: 10px !important;
       }
       #answerPage #modalAnswer { font-size: clamp(20px, 5.4vh, 40px) !important; }
       #answerPage #modalAnswer::before { font-size: 11px !important; margin-bottom: 6px !important; }
@@ -4425,11 +4446,14 @@
         <img id="modalQuestionImage" class="question-image" alt="" />
         <p class="question-text" id="modalQuestion"></p>
         <div class="qchoices" id="modalChoices" aria-label="خيارات متعددة"></div>
+        <div class="qhint" id="modalHint" aria-label="أول حرف"></div>
         <div class="qhelp-bar" id="questionHelpBar" role="group" aria-label="وسائل المساعدة">
           <button class="qhelp-slot" id="helpFourChoices" type="button" aria-label="أربعة خيارات" title="أربعة خيارات">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
           </button>
-          <button class="qhelp-slot" type="button" aria-label="مساعدة 2" disabled></button>
+          <button class="qhelp-slot" id="helpFirstLetter" type="button" aria-label="كشف أول حرف" title="كشف أول حرف">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 16 L7.5 7 L11 16 M5.2 13 H9.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 16 H20" stroke-linecap="round"/></svg>
+          </button>
           <button class="qhelp-slot" type="button" aria-label="مساعدة 3" disabled></button>
         </div>
         <div class="actions" id="questionActions">
@@ -5345,7 +5369,7 @@
       history: [],
       activeTeam: 0,
       activeQuestion: null,
-      helpUsed: { fourChoices: false },
+      helpUsed: { fourChoices: false, firstLetter: false },
       gameLibraryMode: "your",
       categoryMode: "game",
       currentGameName: "",
@@ -5718,6 +5742,7 @@
       state.teams.forEach(team => { team.score = 0; });
       state.used.clear();
       state.helpUsed.fourChoices = false;
+      state.helpUsed.firstLetter = false;
       state.activeTeam = 0;
     }
 
@@ -6213,6 +6238,7 @@
       refreshBuiltinQuestions();
       state.used.clear();
       state.helpUsed.fourChoices = false;
+      state.helpUsed.firstLetter = false;
       state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
@@ -6474,11 +6500,13 @@
     }
 
     function updateHelpBar() {
-      const button = $("#helpFourChoices");
-      if (!button) return;
-      const used = !!state.helpUsed.fourChoices;
-      button.classList.toggle("used", used);
-      button.disabled = used;
+      [["#helpFourChoices", "fourChoices"], ["#helpFirstLetter", "firstLetter"]].forEach(([sel, key]) => {
+        const button = $(sel);
+        if (!button) return;
+        const used = !!state.helpUsed[key];
+        button.classList.toggle("used", used);
+        button.disabled = used;
+      });
     }
 
     function useFourChoices() {
@@ -6492,11 +6520,64 @@
       updateHelpBar();
     }
 
+    // ---- Help tool #2: reveal the first letter of the answer ----
+    // English / numbers reveal from the left; Arabic reveals its first
+    // (right-most) letter; an Arabic answer that starts with "ال" reveals the
+    // first letter after the article instead.
+    function firstLetterHint(answer) {
+      const text = normAnswer(answer);
+      if (!text) return null;
+      const chars = [...text];
+      const isDigit = c => /[0-9٠-٩۰-۹]/.test(c);
+      const isLatin = c => /[A-Za-z]/.test(c);
+      const isArabic = c => /[؀-ۿ]/.test(c);
+      const first = chars[0];
+      let dir = "ltr";
+      let revealCount = 1;
+      if (isArabic(first)) {
+        dir = "rtl";
+        if (text.startsWith("ال") && chars.length > 2) revealCount = 3; // "ال" + first real letter
+      } else if (isDigit(first) || isLatin(first)) {
+        dir = "ltr";
+      }
+      const revealed = chars.slice(0, revealCount).join("");
+      return { revealed, dir };
+    }
+
+    function renderHint(hint) {
+      const box = $("#modalHint");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!hint) { box.classList.remove("visible"); return; }
+      const label = document.createElement("span");
+      label.className = "qhint-label";
+      label.textContent = "أول حرف";
+      const frag = document.createElement("span");
+      frag.className = "qhint-frag";
+      frag.dir = hint.dir;
+      frag.textContent = hint.revealed + "…";
+      box.appendChild(label);
+      box.appendChild(frag);
+      box.classList.add("visible");
+    }
+
+    function useFirstLetter() {
+      if (state.helpUsed.firstLetter) return;
+      const active = state.activeQuestion;
+      if (!active) return;
+      const hint = firstLetterHint(active.q && active.q.a);
+      if (!hint) return;
+      state.helpUsed.firstLetter = true;
+      renderHint(hint);
+      updateHelpBar();
+    }
+
     function openQuestion(cat, q, key) {
       if (state.used.has(key)) return;
       state.used.add(key);
       state.activeQuestion = { cat, q, key };
       renderChoiceOptions(null);
+      renderHint(null);
       updateHelpBar();
       $("#modalCategory").textContent = toArabicDigits(cat.name);
       $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
@@ -6799,6 +6880,7 @@
     $("#answerBackTop").addEventListener("click", closeQuestion);
     $("#revealAnswer").addEventListener("click", revealAnswer);
     $("#helpFourChoices").addEventListener("click", useFourChoices);
+    $("#helpFirstLetter").addEventListener("click", useFirstLetter);
     $("#backToQuestion").addEventListener("click", () => {
       $("#questionActions").style.display = "flex";
       showScreen("questionPage", { keepQuestion: true });
