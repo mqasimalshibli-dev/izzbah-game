@@ -4150,6 +4150,27 @@
       #questionPage .meta-category, #answerPage .answer-category { font-size: clamp(13px, 3.6vh, 22px) !important; padding: 4px 12px !important; }
       #questionPage .question-text { font-size: clamp(15px, 3.6vh, 26px) !important; line-height: 1.3 !important; }
       #questionPage #revealAnswer { padding: 6px 16px !important; font-size: 13px !important; }
+      /* four-choices options: shrink to fit the short landscape card */
+      #questionPage .question-main-card:has(.qchoices.visible) {
+        padding-top: clamp(14px, 5vh, 30px) !important;
+        padding-bottom: clamp(8px, 3vh, 16px) !important;
+        justify-content: center !important;
+      }
+      #questionPage .qchoices.visible {
+        margin-top: clamp(8px, 2.2vh, 15px) !important;
+        gap: clamp(5px, 1.4vh, 9px) clamp(7px, 1.4vw, 13px) !important;
+        width: min(620px, 100%) !important;
+        padding-inline-end: 70px !important;
+      }
+      #questionPage .qchoice {
+        padding: clamp(4px, 1.3vh, 8px) clamp(8px, 1.6vw, 13px) !important;
+        min-height: 0 !important; gap: 7px !important; border-radius: 10px !important;
+        font-size: clamp(11px, 2.7vh, 16px) !important;
+      }
+      #questionPage .qchoice::before {
+        width: clamp(19px, 4.2vh, 25px) !important; height: clamp(19px, 4.2vh, 25px) !important;
+        font-size: clamp(12px, 2.6vh, 15px) !important; border-radius: 7px !important;
+      }
       #answerPage #modalAnswer { font-size: clamp(20px, 5.4vh, 40px) !important; }
       #answerPage #modalAnswer::before { font-size: 11px !important; margin-bottom: 6px !important; }
       #answerPage #modalAnswer::after { margin-top: 8px !important; }
