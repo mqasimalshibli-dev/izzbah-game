@@ -3940,6 +3940,7 @@
     #gameLibrary .gl-empty svg { width: 46px; height: 46px; margin: 0 auto; display: block; }
     #gameLibrary .gl-empty-title { font-family: 'Lalezar', cursive; font-size: 27px; color: #f7e3b0; margin: 18px 0 6px; }
     #gameLibrary .gl-empty-sub { font: 500 15px 'Cairo', sans-serif; color: #d8c39a; margin: 0; }
+    .brand-word { font-family: 'Aref Ruqaa', serif; font-weight: 700; }
     /* back button (bottom of library) */
     #gameLibrary .actions { margin-top: 30px; }
 
@@ -5662,7 +5663,7 @@
 
       if (state.gameLibraryMode === "our") {
         $("#gameLibraryHint").textContent = "ألعابنا ستحتوي لاحقاً على فئات جاهزة من فريق التطوير.";
-        list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب مختارة بعد</p><p class="gl-empty-sub">ستظهر الألعاب الجاهزة من عِزْبَة هنا قريباً.</p></div>`;
+        list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب مختارة بعد</p><p class="gl-empty-sub">ستظهر الألعاب الجاهزة من <span class="brand-word">عِزْبَة</span> هنا قريباً.</p></div>`;
         return;
       }
 
