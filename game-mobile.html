@@ -4060,7 +4060,7 @@
     #questionPage .qchoices.visible {
       display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px 18px; width: min(760px, 100%);
-      margin: 30px auto 0; padding-inline-end: 86px;
+      margin: 30px auto 0; padding-right: 96px;
     }
     #questionPage .qchoice {
       display: flex; align-items: center; gap: 12px;
@@ -4160,8 +4160,17 @@
         margin-top: clamp(8px, 2.2vh, 15px) !important;
         gap: clamp(5px, 1.4vh, 9px) clamp(7px, 1.4vw, 13px) !important;
         width: min(620px, 100%) !important;
-        padding-inline-end: 70px !important;
+        padding-right: 62px !important;
       }
+      /* smaller help bar on phone */
+      #questionPage .qhelp-bar {
+        right: 12px !important; gap: 9px !important;
+        padding: 8px 6px !important; border-radius: 13px !important;
+      }
+      #questionPage .qhelp-slot {
+        width: 32px !important; height: 32px !important; border-width: 1.5px !important;
+      }
+      #questionPage .qhelp-slot svg { width: 17px !important; height: 17px !important; }
       #questionPage .qchoice {
         padding: clamp(4px, 1.3vh, 8px) clamp(8px, 1.6vw, 13px) !important;
         min-height: 0 !important; gap: 7px !important; border-radius: 10px !important;
