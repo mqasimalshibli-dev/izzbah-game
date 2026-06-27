@@ -3824,19 +3824,27 @@
         repeating-linear-gradient(45deg, rgba(150, 95, 35, .055) 0 1px, transparent 1px 16px),
         repeating-linear-gradient(-45deg, rgba(150, 95, 35, .055) 0 1px, transparent 1px 16px) !important;
     }
+    /* main screen (games library) — dark-red to match the final-score screen */
+    #gameLibrary {
+      background-color: #2a0709 !important;
+      background-image:
+        radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
+        radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
+        linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%) !important;
+    }
     /* let the red header bleed flush + let card badges hang (drop the old tan frame/clip) */
     #questionPage, #answerPage { overflow: visible !important; border: 0 !important; border-radius: 0 !important; }
 
     /* ============ SCREEN A — GAMES LIBRARY ============ */
     #gameLibrary.center { justify-content: flex-start !important; align-items: stretch !important; overflow-y: auto !important; text-align: center !important; }
     #gameLibrary .wide-stack { max-width: 1180px !important; width: 100% !important; margin: 0 auto !important; padding: 34px 28px 110px !important; gap: 0 !important; }
-    #gameLibrary .gl-eyebrow { display: inline-flex; align-items: center; justify-content: center; gap: 14px; margin: 0 auto 14px; font: 700 14px 'Cairo', sans-serif; letter-spacing: 3px; color: #3f7a57; }
+    #gameLibrary .gl-eyebrow { display: inline-flex; align-items: center; justify-content: center; gap: 14px; margin: 0 auto 14px; font: 700 14px 'Cairo', sans-serif; letter-spacing: 3px; color: #d9b67a; }
     #gameLibrary .gl-eyebrow span { width: 38px; height: 2px; display: inline-block; }
     #gameLibrary .gl-eyebrow span:first-child { background: linear-gradient(90deg, transparent, #cda23f); }
     #gameLibrary .gl-eyebrow span:last-child { background: linear-gradient(90deg, #cda23f, transparent); }
-    #gameLibrary .screen-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(58px, 8vw, 104px) !important; line-height: .95 !important; color: #b51f2b !important; margin: 0 !important; text-shadow: 0 3px 0 rgba(120, 15, 25, .08) !important; }
+    #gameLibrary .screen-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(58px, 8vw, 104px) !important; line-height: .95 !important; color: #f7e3b0 !important; margin: 0 !important; text-shadow: 0 2px 12px rgba(0, 0, 0, .45) !important; }
     #gameLibrary .gl-underline { width: 84px; height: 5px; border-radius: 3px; background: linear-gradient(90deg, #ecce72, #c79a35); margin: 20px auto 0; }
-    #gameLibrary .hint { font: 500 18px/1.7 'Cairo', sans-serif !important; color: #5a7a64 !important; max-width: 560px; margin: 22px auto 0 !important; }
+    #gameLibrary .hint { font: 500 18px/1.7 'Cairo', sans-serif !important; color: #e6d2a8 !important; max-width: 560px; margin: 22px auto 0 !important; }
     /* segmented tabs */
     #gameLibrary .category-tabs {
       width: auto !important; display: inline-flex !important; grid-template-columns: none !important; gap: 6px !important;
@@ -3927,8 +3935,8 @@
     /* empty state */
     #gameLibrary .gl-empty { grid-column: 1 / -1; text-align: center; margin-top: 24px; padding-bottom: 20px; background: none !important; border: 0 !important; }
     #gameLibrary .gl-empty svg { width: 46px; height: 46px; margin: 0 auto; display: block; }
-    #gameLibrary .gl-empty-title { font-family: 'Lalezar', cursive; font-size: 27px; color: #a8172a; margin: 18px 0 6px; }
-    #gameLibrary .gl-empty-sub { font: 500 15px 'Cairo', sans-serif; color: #7a6038; margin: 0; }
+    #gameLibrary .gl-empty-title { font-family: 'Lalezar', cursive; font-size: 27px; color: #f7e3b0; margin: 18px 0 6px; }
+    #gameLibrary .gl-empty-sub { font: 500 15px 'Cairo', sans-serif; color: #d8c39a; margin: 0; }
     /* back button (bottom of library) */
     #gameLibrary .actions { margin-top: 30px; }
 
