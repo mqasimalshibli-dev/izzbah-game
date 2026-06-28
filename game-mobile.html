@@ -3705,6 +3705,11 @@
       #game .board-card-title { top: 6px; right: 6px; padding: 2px 8px !important; font-size: clamp(11px, 2.2vw, 16px) !important; border-radius: 8px !important; }
       #game .board-card-points { padding: clamp(5px, 1.3vh, 9px) !important; gap: 5px !important; }
       #game .board-card-points .cell { height: clamp(20px, 5vh, 38px) !important; border-radius: 7px !important; font-size: clamp(12px, 2vw, 16px) !important; line-height: 1 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
+      #game .topbar .brand-row { gap: 8px !important; }
+      #game .qhelp-bar { gap: 6px !important; padding: 5px 7px !important; border-radius: 11px !important; }
+      #game .qhelp-slot { width: 30px !important; height: 30px !important; border-width: 1.5px !important; }
+      #game .qhelp-slot svg { width: 16px !important; height: 16px !important; }
+      #game .qhelp-x2 { font-size: 13px !important; }
     }
     /* forced-landscape phone: results screen — size by height (not width) so the
        title, cards, trophy and buttons stack without overlapping; scroll if tight */
@@ -4078,25 +4083,52 @@
       border: 2px solid #e6c869; border-radius: 16px;
       box-shadow: 0 10px 22px rgba(120, 20, 20, .3);
     }
-    #questionPage .qhelp-slot {
-      width: 46px; height: 46px; border-radius: 50%; padding: 0;
+    /* help-bar slots — shared by the question-card bar and the board topbar bar */
+    .qhelp-slot {
+      width: 46px; height: 46px; border-radius: 50%; padding: 0; position: relative;
       border: 2px solid #e6c869; background: rgba(255, 255, 255, .12);
       color: #fff; cursor: pointer; display: grid; place-items: center;
       transition: background .15s ease, transform .15s ease;
     }
-    #questionPage .qhelp-slot:hover { background: rgba(255, 255, 255, .24); transform: scale(1.06); }
-    #questionPage .qhelp-slot:active { transform: scale(.96); }
-    #questionPage .qhelp-slot svg { width: 24px; height: 24px; }
-    #questionPage .qhelp-slot:disabled,
-    #questionPage .qhelp-slot.used {
+    .qhelp-slot:hover:not(:disabled) { background: rgba(255, 255, 255, .24); transform: scale(1.06); }
+    .qhelp-slot:active:not(:disabled) { transform: scale(.96); }
+    .qhelp-slot svg { width: 24px; height: 24px; }
+    .qhelp-x2 { font: 900 19px 'Cairo', sans-serif; line-height: 1; }
+    .qhelp-slot:disabled {
       cursor: default; opacity: .4; filter: grayscale(.5);
       background: rgba(0, 0, 0, .18); transform: none;
     }
-    #questionPage .qhelp-slot.used { position: relative; }
-    #questionPage .qhelp-slot.used::after {
+    .qhelp-slot.used::after {
       content: ""; position: absolute; left: 6px; right: 6px; top: 50%;
       height: 3px; background: #fff; border-radius: 2px;
       transform: rotate(-32deg); box-shadow: 0 0 0 1px rgba(120,20,20,.5);
+    }
+    .qhelp-slot.armed {
+      opacity: 1 !important; filter: none !important; cursor: default;
+      background: linear-gradient(180deg, #ffdf7e, #e8a93b) !important; color: #5a0f0f;
+      border-color: #fff3c4; animation: armedPulse 1.4s ease-in-out infinite;
+    }
+    @keyframes armedPulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(247, 207, 90, .3), 0 5px 14px rgba(232, 169, 59, .45); }
+      50% { box-shadow: 0 0 0 6px rgba(247, 207, 90, .1), 0 8px 20px rgba(232, 169, 59, .7); }
+    }
+    /* board (in-game) help bar — horizontal, sitting next to the logo */
+    #game .topbar .brand-row { display: flex; align-items: center; gap: 12px; }
+    #game .qhelp-bar {
+      display: flex; flex-direction: row; align-items: center; gap: 9px;
+      padding: 7px 10px; border-radius: 14px;
+      background: linear-gradient(180deg, #c8232f, #9e1322);
+      border: 2px solid #e6c869; box-shadow: 0 6px 16px rgba(120, 20, 20, .3);
+    }
+    #game .qhelp-slot { width: 40px; height: 40px; }
+    #game .qhelp-slot svg { width: 21px; height: 21px; }
+    #game .qhelp-x2 { font-size: 16px; }
+    /* ×2 marker shown on the points badge while the doubler is armed */
+    .pts-x2 {
+      display: inline-block; margin-inline-start: 4px; padding: 1px 7px; border-radius: 8px;
+      background: linear-gradient(180deg, #ffdf7e, #e8a93b); color: #5a0f0f;
+      font: 900 .62em 'Cairo', sans-serif; vertical-align: middle;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
     }
     /* multiple-choice options shown under the question (four-choices help) */
     #questionPage .qchoices { display: none; }
@@ -4414,8 +4446,15 @@
           <button class="ghost" id="exitGame" aria-label="خروج" title="خروج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
           <button class="gold-btn" id="endGameEarly" aria-label="إنهاء وعرض النتائج" title="إنهاء وعرض النتائج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg></button>
         </div>
-        <div class="mini-brand">
+        <div class="brand-row">
+          <div class="mini-brand">
           <img class="mini-brand-logo" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22380%22%20height%3D%22300%22%20viewBox%3D%220%200%20380%20300%22%20role%3D%22img%22%20aria-label%3D%22%D8%B9%D9%8E%D8%B2%D9%92%D8%A8%D9%8E%D8%A9%22%3E%3Csvg%20x%3D%2264.00%22%20y%3D%2225.15%22%20width%3D%22252%22%20height%3D%22175%22%20viewBox%3D%220%200%20360%20250%22%20overflow%3D%22visible%22%3E%3Cdefs%3E%3CclipPath%20id%3D%22tentR%22%3E%3Cpolygon%20points%3D%2244%2C214%2060%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%20316%2C214%22%2F%3E%3C%2FclipPath%3E%3C%2Fdefs%3E%3Cg%20stroke%3D%22%23F3DFC0%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.8%22%3E%3Cline%20x1%3D%2264%22%20y1%3D%22172%22%20x2%3D%2224%22%20y2%3D%22212%22%2F%3E%3Cline%20x1%3D%22300%22%20y1%3D%22172%22%20x2%3D%22340%22%20y2%3D%22212%22%2F%3E%3C%2Fg%3E%3Cg%20clip-path%3D%22url%28%23tentR%29%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%22360%22%20height%3D%22250%22%20fill%3D%22%23FBF1DE%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22176%22%20width%3D%22360%22%20height%3D%224.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22185%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22193%22%20width%3D%22360%22%20height%3D%225.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22203%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3C%2Fg%3E%3Cpolyline%20points%3D%2260%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%22%20fill%3D%22none%22%20stroke%3D%22%23C99A6A%22%20stroke-width%3D%222.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpolygon%20points%3D%22160%2C214%20160%2C178%20180%2C166%20200%2C178%20200%2C214%22%20fill%3D%22%235A0F0F%22%2F%3E%3Cg%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%22160%22%20y1%3D%22212%22%20x2%3D%22200%22%20y2%3D%22219%22%20stroke%3D%22%237A1414%22%20stroke-width%3D%229%22%2F%3E%3Cline%20x1%3D%22200%22%20y1%3D%22212%22%20x2%3D%22160%22%20y2%3D%22219%22%20stroke%3D%22%235A0F0F%22%20stroke-width%3D%229%22%2F%3E%3C%2Fg%3E%3Cg%20opacity%3D%220.62%22%20transform%3D%22translate%28180%20218%29%20scale%280.74%29%20translate%28-180%20-218%29%22%3E%3Cpath%20d%3D%22M180%2C150%20Q206%2C178%20197%2C201%20Q191%2C217%20180%2C217%20Q169%2C217%20163%2C201%20Q155%2C181%20174%2C170%20Q171%2C187%20181%2C189%20Q189%2C174%20180%2C150%20Z%22%20fill%3D%22%23F2B441%22%20stroke%3D%22%23E8902B%22%20stroke-width%3D%221.4%22%2F%3E%3Cpath%20d%3D%22M181%2C173%20Q193%2C191%20187%2C205%20Q183%2C214%20178%2C212%20Q172%2C210%20174%2C199%20Q176%2C187%20181%2C173%20Z%22%20fill%3D%22%23FBE7A6%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E%3Cg%20transform%3D%22matrix%280.090328%2C0.0%2C0.0%2C-0.090328%2C131.2418%2C269.8971%29%22%3E%3Cpath%20d%3D%22M261.0%20599%20318.0%20712Q323.0%20720%20318.0%20725.5Q313.0%20731%20306.0%20729Q261.0%20720%20215.5%20711.5Q170.0%20703%20123.0%20695Q121.0%20694%20118.0%20692.5Q115.0%20691%20114.0%20689L58.0%20575Q54.0%20568%2058.5%20562.5Q63.0%20557%2070.0%20558Q116.0%20566%20161.5%20575.0Q207.0%20584%20253.0%20592Q259.0%20595%20261.0%20599ZM78.0%20130Q107.0%20130%20130.5%20142.0Q154.0%20154%20170.0%20168L181.0%2011Q182.0%203%20190.5%201.0Q199.0%20-1%20203.0%206L277.0%20142L259.0%20400Q257.0%20471%20215.0%20488Q206.0%20492%20193.0%20492Q158.0%20492%20120.0%20455V456Q117.0%20453%20112.5%20448.5Q108.0%20444%20103.0%20437Q70.0%20394%2040.5%20343.0Q11.0%20292%20-5.0%20232Q-9.0%20220%20-9.0%20204Q-9.0%20181%205.0%20164.5Q19.0%20148%2039.5%20139.0Q60.0%20130%2078.0%20130ZM156.0%20290Q156.0%20289%20156.0%20288.0Q156.0%20287%20156.0%20285Q156.0%20284%20155.5%20283.0Q155.0%20282%20155.0%20280Q150.0%20279%20145.0%20278.5Q140.0%20278%20135.0%20278Q121.0%20278%20110.0%20281Q89.0%20288%2079.0%20304Q76.0%20309%2076.0%20312Q76.0%20314%2079.0%20318Q84.0%20325%2091.0%20331.0Q98.0%20337%20106.0%20344Q116.0%20352%20125.0%20352Q129.0%20352%20131.0%20351.0Q133.0%20350%20137.0%20349Q149.0%20345%20152.5%20326.5Q156.0%20308%20156.0%20290ZM465.0%20-104%20399.0%20-41Q395.0%20-37%20389.5%20-38.0Q384.0%20-39%20381.0%20-43Q362.0%20-68%20342.5%20-92.0Q323.0%20-116%20303.0%20-141Q297.0%20-149%20304.0%20-156L371.0%20-219Q375.0%20-223%20380.0%20-222.5Q385.0%20-222%20388.0%20-218Q398.0%20-206%20402.5%20-199.5Q407.0%20-193%20412.0%20-187.0Q417.0%20-181%20427.0%20-169Q437.0%20-157%20447.0%20-145.0Q457.0%20-133%20467.0%20-120Q472.0%20-111%20465.0%20-104ZM375.0%2060Q395.0%2077%20411.0%2097.5Q427.0%20118%20441.0%20141Q471.0%20189%20473.0%20260Q474.0%20327%20450.0%20396Q448.0%20404%20441.0%20404.5Q434.0%20405%20429.0%20398L355.0%20289Q351.0%20285%20353.0%20279Q361.0%20252%20367.5%20229.5Q374.0%20207%20378.0%20184Q355.0%20170%20333.5%20163.5Q312.0%20157%20285.0%20153.5Q258.0%20150%20216.0%20145Q208.0%20143%20206.0%20134L184.0%2014Q183.0%208%20186.5%203.5Q190.0%20-1%20196.0%200Q252.0%205%20297.5%2018.5Q343.0%2032%20375.0%2060ZM904.0%20471%20838.0%20534Q834.0%20538%20828.5%20537.0Q823.0%20536%20820.0%20532Q801.0%20507%20781.5%20483.0Q762.0%20459%20742.0%20434Q736.0%20426%20743.0%20419L810.0%20356Q814.0%20352%20819.0%20352.5Q824.0%20353%20827.0%20357Q837.0%20369%20841.5%20375.5Q846.0%20382%20851.0%20388.0Q856.0%20394%20866.0%20406Q876.0%20418%20886.0%20430.0Q896.0%20442%20906.0%20455Q911.0%20464%20904.0%20471ZM876.0%20160Q882.0%20193%20853.0%20198Q835.0%20202%20824.0%20186Q809.0%20169%20787.0%20163Q718.0%20145%20643.0%20133Q604.0%20127%20568.0%20117.5Q532.0%20108%20498.0%2096Q470.0%2083%20491.0%2063Q501.0%2056%20523.0%2048.0Q545.0%2040%20571.0%2031.5Q597.0%2023%20619.0%2017.0Q641.0%2011%20651.0%209Q681.0%203%20704.0%203Q714.0%203%20723.5%204.0Q733.0%205%20742.0%207Q789.0%2019%20817.0%2073Q826.0%2090%20836.5%20107.0Q847.0%20124%20860.0%20136Q873.0%20143%20876.0%20160ZM1296.0%20414Q1295.0%20414%201294.5%20414.0Q1294.0%20414%201292.0%20414Q1289.0%20414%201287.0%20412Q1279.0%20409%201270.5%20405.5Q1262.0%20402%201254.0%20398Q1232.0%20388%201210.0%20378.0Q1188.0%20368%201156.0%20366Q1139.0%20382%201124.0%20402.5Q1109.0%20423%201102.0%20449Q1125.0%20446%201145.0%20442.0Q1165.0%20438%201185.0%20432Q1196.0%20429%201200.0%20439L1241.0%20564Q1246.0%20575%201234.5%20579.0Q1223.0%20583%201215.0%20584L1216.0%20583Q1196.0%20588%201177.5%20591.5Q1159.0%20595%201136.0%20596Q1100.0%20596%201070.0%20561Q1045.0%20530%201028.5%20487.0Q1012.0%20444%201011.0%20391Q1010.0%20388%201010.0%20383Q1010.0%20345%201021.0%20322Q1011.0%20319%201000.5%20317.5Q990.0%20316%20978.0%20314H979.0Q963.0%20310%20946.0%20304.5Q929.0%20299%20915.0%20293Q878.0%20276%20853.0%20245.0Q828.0%20214%20811.0%20176Q804.0%20168%20799.5%20159.5Q795.0%20151%20795.0%20139Q795.0%20126%20802.5%20115.0Q810.0%20104%20823.0%20104Q832.0%20104%20838.5%20110.5Q845.0%20117%20850.0%20123Q864.0%20135%20875.0%20142Q893.0%20153%20914.0%20160.0Q935.0%20167%20957.0%20173Q1040.0%20193%201115.0%20216.5Q1190.0%20240%201257.0%20275L1261.0%20281L1268.0%20295Q1278.0%20315%201289.0%20339.0Q1300.0%20363%201307.0%20384L1306.0%20383Q1310.0%20394%201310.0%20399Q1310.0%20414%201296.0%20414Z%22%20fill%3D%22%23FBF1DE%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" alt="عِزبه">
+        </div>
+          <div class="qhelp-bar qhelp-bar--board" data-context="board" role="group" aria-label="وسائل المساعدة">
+            <button class="qhelp-slot" data-help="fourChoices" type="button" aria-label="أربعة خيارات" title="أربعة خيارات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></button>
+            <button class="qhelp-slot" data-help="firstLetter" type="button" aria-label="كشف أول حرف" title="كشف أول حرف"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 16 L7.5 7 L11 16 M5.2 13 H9.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 16 H20" stroke-linecap="round"/></svg></button>
+            <button class="qhelp-slot" data-help="doublePoints" type="button" aria-label="مضاعفة نقاط السؤال التالي" title="مضاعفة النقاط"><span class="qhelp-x2">×2</span></button>
+          </div>
         </div>
         <div class="turn-box" data-turn-box></div>
       </div>
@@ -4447,14 +4486,16 @@
         <p class="question-text" id="modalQuestion"></p>
         <div class="qchoices" id="modalChoices" aria-label="خيارات متعددة"></div>
         <div class="qhint" id="modalHint" aria-label="أول حرف"></div>
-        <div class="qhelp-bar" id="questionHelpBar" role="group" aria-label="وسائل المساعدة">
-          <button class="qhelp-slot" id="helpFourChoices" type="button" aria-label="أربعة خيارات" title="أربعة خيارات">
+        <div class="qhelp-bar" id="questionHelpBar" data-context="question" role="group" aria-label="وسائل المساعدة">
+          <button class="qhelp-slot" data-help="fourChoices" type="button" aria-label="أربعة خيارات" title="أربعة خيارات">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
           </button>
-          <button class="qhelp-slot" id="helpFirstLetter" type="button" aria-label="كشف أول حرف" title="كشف أول حرف">
+          <button class="qhelp-slot" data-help="firstLetter" type="button" aria-label="كشف أول حرف" title="كشف أول حرف">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 16 L7.5 7 L11 16 M5.2 13 H9.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 16 H20" stroke-linecap="round"/></svg>
           </button>
-          <button class="qhelp-slot" type="button" aria-label="مساعدة 3" disabled></button>
+          <button class="qhelp-slot" data-help="doublePoints" type="button" aria-label="مضاعفة النقاط" title="مضاعفة النقاط">
+            <span class="qhelp-x2">×2</span>
+          </button>
         </div>
         <div class="actions" id="questionActions">
           <button class="gold-btn" id="revealAnswer"><svg class="btn-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>إظهار الإجابة</button>
@@ -5369,7 +5410,8 @@
       history: [],
       activeTeam: 0,
       activeQuestion: null,
-      helpUsed: { fourChoices: false, firstLetter: false },
+      helpUsed: { fourChoices: false, firstLetter: false, doublePoints: false },
+      doubleArmed: false,
       gameLibraryMode: "your",
       categoryMode: "game",
       currentGameName: "",
@@ -5743,6 +5785,8 @@
       state.used.clear();
       state.helpUsed.fourChoices = false;
       state.helpUsed.firstLetter = false;
+      state.helpUsed.doublePoints = false;
+      state.doubleArmed = false;
       state.activeTeam = 0;
     }
 
@@ -6239,6 +6283,8 @@
       state.used.clear();
       state.helpUsed.fourChoices = false;
       state.helpUsed.firstLetter = false;
+      state.helpUsed.doublePoints = false;
+      state.doubleArmed = false;
       state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
@@ -6328,6 +6374,7 @@
 
     function renderGame() {
       renderScores();
+      updateHelpBars();
       const cats = activeCategories();
       const board = $("#board");
       board.style.setProperty("--cat-count", cats.length);
@@ -6499,14 +6546,27 @@
       box.classList.add("visible");
     }
 
-    function updateHelpBar() {
-      [["#helpFourChoices", "fourChoices"], ["#helpFirstLetter", "firstLetter"]].forEach(([sel, key]) => {
-        const button = $(sel);
-        if (!button) return;
-        const used = !!state.helpUsed[key];
-        button.classList.toggle("used", used);
-        button.disabled = used;
+    // Which screen each helper may be pressed on. four-choices / first-letter
+    // act on an open question; double-points is armed on the board beforehand.
+    const HELP_CONTEXT = { fourChoices: "question", firstLetter: "question", doublePoints: "board" };
+
+    function updateHelpBars() {
+      document.querySelectorAll(".qhelp-slot[data-help]").forEach((btn) => {
+        const help = btn.dataset.help;
+        const used = !!state.helpUsed[help];
+        const inContext = HELP_CONTEXT[help] === btn.closest(".qhelp-bar")?.dataset.context;
+        const armed = help === "doublePoints" && state.doubleArmed;
+        btn.classList.toggle("armed", armed);
+        btn.classList.toggle("used", used && !armed);
+        btn.disabled = used || !inContext;
       });
+    }
+
+    function useDoublePoints() {
+      if (state.helpUsed.doublePoints) return;
+      state.helpUsed.doublePoints = true;
+      state.doubleArmed = true; // applies to the next question that gets answered
+      updateHelpBars();
     }
 
     function useFourChoices() {
@@ -6517,7 +6577,7 @@
       if (!options) return; // couldn't build enough distractors — don't consume the help
       state.helpUsed.fourChoices = true;
       renderChoiceOptions(options);
-      updateHelpBar();
+      updateHelpBars();
     }
 
     // ---- Help tool #2: reveal the first letter of the answer ----
@@ -6569,7 +6629,7 @@
       if (!hint) return;
       state.helpUsed.firstLetter = true;
       renderHint(hint);
-      updateHelpBar();
+      updateHelpBars();
     }
 
     function openQuestion(cat, q, key) {
@@ -6578,11 +6638,12 @@
       state.activeQuestion = { cat, q, key };
       renderChoiceOptions(null);
       renderHint(null);
-      updateHelpBar();
+      updateHelpBars();
+      const x2 = state.doubleArmed ? ` <span class="pts-x2">×2</span>` : "";
       $("#modalCategory").textContent = toArabicDigits(cat.name);
-      $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
+      $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة${x2}`;
       $("#answerCategory").textContent = toArabicDigits(cat.name);
-      $("#answerPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة`;
+      $("#answerPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة${x2}`;
       $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       const image = $("#modalQuestionImage");
@@ -6660,10 +6721,13 @@
         winnerIndex: (typeof winnerIndex === "number") ? winnerIndex : null
       });
       if (typeof winnerIndex === "number") {
-        state.teams[winnerIndex].score = Math.min(maxTotalScore, state.teams[winnerIndex].score + active.q.points);
+        const gained = active.q.points * (state.doubleArmed ? 2 : 1);
+        state.teams[winnerIndex].score = Math.min(maxTotalScore, state.teams[winnerIndex].score + gained);
         state.activeTeam = (winnerIndex + 1) % state.teamCount;
+        if (state.doubleArmed) state.doubleArmed = false; // consumed only when a question is actually answered
       } else {
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+        // unanswered question: the doubler stays armed for the next answered one
       }
       closeQuestion(false);
       renderGame();
@@ -6879,8 +6943,16 @@
     $("#questionBackTop").addEventListener("click", closeQuestion);
     $("#answerBackTop").addEventListener("click", closeQuestion);
     $("#revealAnswer").addEventListener("click", revealAnswer);
-    $("#helpFourChoices").addEventListener("click", useFourChoices);
-    $("#helpFirstLetter").addEventListener("click", useFirstLetter);
+    document.querySelectorAll(".qhelp-bar").forEach((bar) => {
+      bar.addEventListener("click", (e) => {
+        const btn = e.target.closest(".qhelp-slot[data-help]");
+        if (!btn || btn.disabled) return;
+        const help = btn.dataset.help;
+        if (help === "fourChoices") useFourChoices();
+        else if (help === "firstLetter") useFirstLetter();
+        else if (help === "doublePoints") useDoublePoints();
+      });
+    });
     $("#backToQuestion").addEventListener("click", () => {
       $("#questionActions").style.display = "flex";
       showScreen("questionPage", { keepQuestion: true });
