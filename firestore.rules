@@ -40,7 +40,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.questions is list
-        && request.resource.data.questions.size() <= 30;
+        && request.resource.data.questions.size() <= 200;
       allow delete: if isAdmin();
     }
 
