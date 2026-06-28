@@ -5522,7 +5522,7 @@
         omaniFootball: "#7b1014",
         whoAmI: "#251726"
       };
-      return colorsById[cat.id] || "#7a3d88";
+      return cat.color || colorsById[cat.id] || "#7a3d88";
     }
 
     function hexToRgb(hex) {
@@ -5564,8 +5564,20 @@
       return team.name || `الفريق ${toArabicDigits(index + 1)}`;
     }
 
+    // Built-in categories, with any admin-published doc of the SAME id applied
+    // as an override, plus brand-new published categories. Admins can thus edit
+    // existing categories (override) or add new ones — both for all players.
+    function mergedOfficialCategories() {
+      const overrides = new Map(state.publishedCategories.map(c => [c.id, c]));
+      const builtinIds = new Set(builtinCategories.map(c => c.id));
+      const builtins = builtinCategories.map(c => overrides.get(c.id) || c);
+      const extras = state.publishedCategories.filter(c => !builtinIds.has(c.id));
+      return { builtins, extras };
+    }
+
     function allCategories() {
-      return [...builtinCategories, ...state.publishedCategories, ...state.customCategories];
+      const { builtins, extras } = mergedOfficialCategories();
+      return [...builtins, ...extras, ...state.customCategories];
     }
 
     function categoryHasQuestions(cat) {
@@ -5642,9 +5654,9 @@
     }
 
     function visibleCategoryGroup() {
-      return state.categoryMode === "community"
-        ? state.customCategories
-        : [...state.publishedCategories, ...builtinCategories];
+      if (state.categoryMode === "community") return state.customCategories;
+      const { builtins, extras } = mergedOfficialCategories();
+      return [...extras, ...builtins];
     }
 
     function setCategoryMode(mode) {
@@ -6199,6 +6211,78 @@
         .catch(() => showToast("تعذّر الحذف"));
     }
 
+    // Build an editable question set from a built-in category's bank: one
+    // representative question per tier as a starting point for an admin edit.
+    function builtinEditableQuestions(catId) {
+      const bank = builtinQuestionBanks[catId];
+      return pointValues.map(points => {
+        const first = (bank && bank[points] && bank[points][0]) || ["", ""];
+        return { points, q: first[0] || "", a: first[1] || "", image: "", answerImage: "" };
+      });
+    }
+
+    // Open an existing official category in the editor. If it already has an
+    // admin override, edit that; otherwise seed an editable override from the
+    // built-in so saving customizes it for everyone.
+    function editOfficialCategory(id) {
+      const override = state.publishedCategories.find(c => c.id === id);
+      if (override) { editCustomCategory(override); return; }
+      const meta = builtinCategories.find(c => c.id === id);
+      const seed = {
+        id,
+        name: meta ? meta.name : "",
+        image: meta && meta.image ? meta.image : "",
+        color: categoryColor(meta || { id }),
+        custom: false,
+        published: true,
+        order: meta ? -1 : state.publishedCategories.length,
+        questions: builtinEditableQuestions(id)
+      };
+      editCustomCategory(seed);
+    }
+
+    function renderAdminCategoryList() {
+      const list = $("#customList");
+      list.innerHTML = "";
+      const overrideIds = new Set(state.publishedCategories.map(c => c.id));
+      const newOnes = state.publishedCategories.filter(c => !builtinCategories.some(b => b.id === c.id));
+      const rows = [
+        ...builtinCategories.map(b => ({ cat: state.publishedCategories.find(p => p.id === b.id) || b, base: b, edited: overrideIds.has(b.id), builtin: true })),
+        ...newOnes.map(c => ({ cat: c, base: c, edited: true, builtin: false }))
+      ];
+      rows.forEach(({ cat, edited, builtin }) => {
+        const done = (cat.questions || []).filter(q => (q.q || "").trim()).length;
+        const total = (cat.questions || []).length || pointValues.length;
+        const row = document.createElement("div");
+        row.className = "custom-row";
+        row.innerHTML = `
+          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg(builtin ? cat.id : "custom")}</div>
+          <div>
+            <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}${edited ? ' <span style="font-size:14px;color:#2fa15a">• معدّلة</span>' : (builtin ? ' <span style="font-size:14px;color:var(--gold-dark)">• أساسية</span>' : '')}</div>
+            <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(done)}/${toArabicDigits(total)}</span> أسئلة</div>
+          </div>`;
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        actions.style.margin = "0";
+        const edit = document.createElement("button");
+        edit.className = "secondary";
+        edit.textContent = "تعديل";
+        edit.addEventListener("click", () => editOfficialCategory(cat.id));
+        actions.appendChild(edit);
+        if (edited) {
+          const reset = document.createElement("button");
+          reset.className = "danger";
+          reset.textContent = builtin ? "إلغاء التعديل" : "حذف";
+          reset.addEventListener("click", () => {
+            if (window.confirm(builtin ? "إلغاء التعديلات والعودة للفئة الأساسية؟" : `حذف «${cat.name || ""}»؟`)) deletePublishedCategory(cat);
+          });
+          actions.appendChild(reset);
+        }
+        row.appendChild(actions);
+        list.appendChild(row);
+      });
+    }
+
     function renderCustomManager() {
       const published = state.editorTarget === "published";
       const source = published ? state.publishedCategories : state.customCategories;
@@ -6206,8 +6290,9 @@
       if (titleEl) titleEl.textContent = published ? "إدارة المحتوى — المشرف" : "فئاتك الخاصة";
       const hintEl = document.querySelector("#customManager .hint");
       if (hintEl) hintEl.textContent = published
-        ? "الفئات المنشورة تظهر لجميع اللاعبين في «ألعابنا»."
+        ? "عدّل الفئات الحالية أو أنشئ فئات جديدة — تظهر لجميع اللاعبين."
         : "أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.";
+      if (published) { renderAdminCategoryList(); return; }
       const list = $("#customList");
       list.innerHTML = "";
       if (!source.length) {
@@ -6278,6 +6363,17 @@
       name.placeholder = "مثال: عمانيات";
       name.addEventListener("input", () => { cat.name = name.value; });
       top.appendChild(name);
+      const colorWrap = document.createElement("label");
+      colorWrap.className = "field-label";
+      colorWrap.style.cssText = "display:inline-flex;align-items:center;gap:10px";
+      colorWrap.textContent = "لون الفئة";
+      const color = document.createElement("input");
+      color.type = "color";
+      color.value = /^#[0-9a-fA-F]{6}$/.test(cat.color || "") ? cat.color : categoryColor(cat);
+      color.style.cssText = "width:52px;height:36px;padding:0;cursor:pointer";
+      color.addEventListener("input", () => { cat.color = color.value; });
+      colorWrap.appendChild(color);
+      top.appendChild(colorWrap);
       panel.appendChild(top);
 
       cat.questions.forEach((q, idx) => {
@@ -6303,7 +6399,26 @@
         box.appendChild(media);
         const fields = document.createElement("div");
         fields.className = "question-fields";
-        fields.innerHTML = `<div class="field-label">سؤال بـ <span class="clean-number">${toArabicDigits(q.points)}</span> نقطة</div>`;
+        const headRow = document.createElement("div");
+        headRow.style.cssText = "display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap";
+        const ptsWrap = document.createElement("label");
+        ptsWrap.className = "field-label";
+        ptsWrap.style.cssText = "display:inline-flex;align-items:center;gap:8px;margin:0";
+        ptsWrap.textContent = "النقاط";
+        const pts = document.createElement("input");
+        pts.type = "number"; pts.min = "0"; pts.step = "50"; pts.value = q.points;
+        pts.style.cssText = "width:96px";
+        pts.addEventListener("input", () => { cat.questions[idx].points = parseInt(pts.value, 10) || 0; });
+        ptsWrap.appendChild(pts);
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "ghost"; removeBtn.type = "button"; removeBtn.textContent = "حذف السؤال";
+        removeBtn.addEventListener("click", () => {
+          if (cat.questions.length <= 1) { alert("يجب أن يبقى سؤال واحد على الأقل."); return; }
+          cat.questions.splice(idx, 1);
+          renderCustomEditor();
+        });
+        headRow.append(ptsWrap, removeBtn);
+        fields.appendChild(headRow);
         const qText = document.createElement("textarea");
         qText.value = q.q;
         qText.placeholder = "نص السؤال";
@@ -6316,6 +6431,16 @@
         box.appendChild(fields);
         panel.appendChild(box);
       });
+
+      const addQ = document.createElement("button");
+      addQ.className = "secondary"; addQ.type = "button"; addQ.textContent = "+ سؤال جديد";
+      addQ.style.cssText = "margin:4px auto";
+      addQ.addEventListener("click", () => {
+        const last = cat.questions[cat.questions.length - 1];
+        cat.questions.push({ points: (last ? (last.points || 0) : 0) + 100, q: "", a: "", image: "", answerImage: "" });
+        renderCustomEditor();
+      });
+      panel.appendChild(addQ);
 
       const actions = document.createElement("div");
       actions.className = "actions";
@@ -6467,9 +6592,10 @@
         title.textContent = cat.name;
         const pointsRow = document.createElement("div");
         pointsRow.className = "board-card-points";
-        pointValues.forEach(points => {
-          const q = cat.questions.find(item => item.points === points);
-          const key = `${cat.id}-${q.points}`;
+        const qs = (cat.questions || []).slice().sort((a, b) => (a.points || 0) - (b.points || 0));
+        pointsRow.style.setProperty("grid-template-columns", `repeat(${Math.max(1, qs.length)}, minmax(0, 1fr))`, "important");
+        qs.forEach((q, idx) => {
+          const key = `${cat.id}-${idx}`;
           const used = state.used.has(key);
           const cell = document.createElement("button");
           cell.className = "cell" + (used ? " used" : "");
@@ -6482,7 +6608,7 @@
         card.append(title, pointsRow);
         board.appendChild(card);
       });
-      const total = cats.length * pointValues.length;
+      const total = cats.reduce((n, c) => n + (c.questions || []).length, 0);
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
       centerBoardScroll();
     }
@@ -7095,7 +7221,7 @@
     // ---- Bridge to the Firebase layer (defined in the separate <script> below) ----
     function normalizePublishedCategory(c) {
       return {
-        id: c.id, name: c.name || "", image: c.image || "",
+        id: c.id, name: c.name || "", image: c.image || "", color: c.color || "",
         custom: false, published: true, order: c.order || 0,
         questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => ({
           points: q.points || pointValues[i] || 100,
@@ -7249,6 +7375,7 @@
             return db.collection("categories").doc(cat.id).set({
               name: cat.name || "",
               image: cat.image || "",
+              color: cat.color || "",
               order: cat.order || 0,
               questions: (cat.questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
