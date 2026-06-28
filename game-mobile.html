@@ -3597,6 +3597,56 @@
     .wlc-admin svg { width: 21px; height: 21px; }
     .wlc-admin:hover { background: rgba(231, 195, 115, .18); color: #fbe9a8; transform: rotate(35deg); }
     .wlc-admin:active { transform: rotate(35deg) scale(.92); }
+
+    /* ===== Admin content panel (tabbed table) ===== */
+    #adminPanel { background: #14110c; color: #ece3d2; }
+    #adminPanel.active { display: flex; }
+    .admin-wrap { width: min(1200px, 100%); height: 100%; margin: 0 auto; display: flex; flex-direction: column; padding: clamp(10px, 2vw, 22px); gap: 14px; min-height: 0; }
+    .admin-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .admin-top-title { font: 800 clamp(20px, 3vw, 30px) 'Cairo', sans-serif; color: #f3d9a0; }
+    .admin-top-sub { color: #9a8a66; font-size: .7em; font-weight: 600; }
+    .admin-tabs { display: flex; gap: 9px; overflow-x: auto; padding-bottom: 6px; flex: 0 0 auto; scrollbar-width: thin; }
+    .admin-tab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px;
+      border: 1.5px solid rgba(231,195,115,.28); background: rgba(255,255,255,.04); color: #d8c8a6; cursor: pointer;
+      font: 700 15px 'Cairo', sans-serif; white-space: nowrap; transition: background .15s, border-color .15s, color .15s; }
+    .admin-tab:hover { background: rgba(255,255,255,.09); }
+    .admin-tab.active { background: linear-gradient(180deg, #c8232f, #9e1322); border-color: #e6c869; color: #fff; }
+    .admin-tab .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, #e6c869); flex: 0 0 auto; }
+    .admin-tab.add { color: #6fd08b; border-color: rgba(111,208,139,.4); }
+    .admin-cathead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; flex: 0 0 auto;
+      background: rgba(255,255,255,.03); border: 1px solid rgba(231,195,115,.16); border-radius: 14px; padding: 12px 16px; }
+    .admin-cathead .ac-name { flex: 1 1 200px; min-width: 160px; font: 700 16px 'Cairo', sans-serif; padding: 9px 12px;
+      background: rgba(0,0,0,.3); border: 1px solid rgba(231,195,115,.25); border-radius: 10px; color: #fff; }
+    .admin-cathead label.field-label { color: #b6a47e; margin: 0; display: inline-flex; align-items: center; gap: 8px; }
+    .admin-cathead input[type=color] { width: 46px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+    .admin-cathead .ac-count { color: #9a8a66; font-size: 14px; }
+    .admin-cathead .ac-publish { margin-inline-start: auto; }
+    .admin-cathead .ac-publish.dirty { animation: armedPulse 1.4s ease-in-out infinite; }
+    .admin-table-wrap { flex: 1 1 auto; overflow: auto; border: 1px solid rgba(231,195,115,.16); border-radius: 14px; min-height: 0; }
+    .admin-table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
+    .admin-table thead th { position: sticky; top: 0; z-index: 1; background: #1d1812; color: #c9b790; font-size: 14px; font-weight: 800;
+      text-align: right; padding: 12px 14px; border-bottom: 1px solid rgba(231,195,115,.2); }
+    .admin-table td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; font-size: 14.5px; }
+    .admin-table tbody tr:hover { background: rgba(255,255,255,.03); }
+    .admin-table .col-q { width: 46%; }
+    .admin-table .col-pts, .admin-table .col-img, .admin-table .col-act { text-align: center; }
+    .admin-table td.col-q { color: #ece3d2; }
+    .admin-table td.col-a { color: #f0c45e; font-weight: 700; }
+    .admin-table .q-pts { display: inline-grid; place-items: center; min-width: 44px; padding: 4px 10px; border-radius: 999px;
+      background: linear-gradient(180deg, #c8232f, #9e1322); color: #fff; font-weight: 800; font-size: 13px; }
+    .admin-table .q-thumb { width: 38px; height: 30px; border-radius: 6px; object-fit: cover; }
+    .admin-table .q-noimg { color: #6b5f48; }
+    .admin-table .q-act { display: inline-flex; gap: 6px; }
+    .admin-table .q-act button { border: 0; cursor: pointer; border-radius: 9px; padding: 7px 13px; font: 700 13px 'Cairo', sans-serif; color: #fff; }
+    .admin-table .q-edit { background: linear-gradient(180deg, #2f80d8, #1d5fad); }
+    .admin-table .q-del { background: rgba(255,255,255,.08); color: #e8a3a3; }
+    .admin-empty { text-align: center; color: #8a7c5e; padding: 30px; }
+    .admin-foot { display: flex; justify-content: center; gap: 12px; flex: 0 0 auto; }
+    #adminAddQuestion { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
+    .admin-q-modal { max-width: 560px; width: 92%; }
+    .admin-q-grid { display: grid; gap: 8px; text-align: right; }
+    .admin-q-grid input, .admin-q-grid textarea { width: 100%; }
+    .admin-q-media { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
     .wlc-foot i { width: 5px; height: 5px; background: #dcbd71; transform: rotate(45deg); }
     .wlc-foot span { font-family: 'Aref Ruqaa', serif; font-size: 14px; color: #e9cfa0; }
@@ -4431,6 +4481,48 @@
         <div class="editor-panel" id="editorPanel"></div>
       </div>
     </section>
+
+    <section id="adminPanel" class="screen" dir="rtl">
+      <div class="admin-wrap">
+        <header class="admin-top">
+          <div class="admin-top-title">إدارة المحتوى <span class="admin-top-sub">— لوحة المشرف</span></div>
+          <button class="ghost" id="adminClose" type="button">رجوع</button>
+        </header>
+        <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
+        <div class="admin-cathead" id="adminCatHead"></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th><th class="col-act">إجراءات</th></tr></thead>
+            <tbody id="adminRows"></tbody>
+          </table>
+        </div>
+        <div class="admin-foot">
+          <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal-backdrop" id="adminQModal" aria-hidden="true">
+      <div class="question-modal admin-q-modal" role="dialog" aria-modal="true">
+        <h3 class="preview-title" id="adminQTitle">تعديل السؤال</h3>
+        <div class="admin-q-grid">
+          <label class="field-label">النقاط</label>
+          <input type="number" id="adminQPoints" min="0" step="50" />
+          <label class="field-label">نص السؤال</label>
+          <textarea id="adminQText" placeholder="نص السؤال"></textarea>
+          <label class="field-label">الإجابة الصحيحة</label>
+          <input type="text" id="adminQAnswer" placeholder="الإجابة" />
+          <div class="admin-q-media">
+            <div class="media-item"><div class="file-note">صورة السؤال</div><div id="adminQImage"></div></div>
+            <div class="media-item"><div class="file-note">صورة الإجابة</div><div id="adminQAnswerImage"></div></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="adminQCancel" type="button">إلغاء</button>
+          <button class="primary" id="adminQSave" type="button">حفظ السؤال</button>
+        </div>
+      </div>
+    </div>
 
     <div class="modal-backdrop" id="categoryPreview" aria-hidden="true">
       <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
@@ -5434,6 +5526,10 @@
       editorTarget: "custom",
       publishedCategories: [],
       isAdmin: false,
+      adminCat: null,
+      adminQIndex: -1,
+      adminQDraft: { image: "", answerImage: "" },
+      adminDirty: false,
       pendingWinner: null,
       pendingDeleteGameId: null,
       holdTimer: null,
@@ -6211,14 +6307,16 @@
         .catch(() => showToast("تعذّر الحذف"));
     }
 
-    // Build an editable question set from a built-in category's bank: one
-    // representative question per tier as a starting point for an admin edit.
+    // The full editable question pool of a built-in category (every question in
+    // its bank, across all point tiers) — so admins see/edit them all.
     function builtinEditableQuestions(catId) {
       const bank = builtinQuestionBanks[catId];
-      return pointValues.map(points => {
-        const first = (bank && bank[points] && bank[points][0]) || ["", ""];
-        return { points, q: first[0] || "", a: first[1] || "", image: "", answerImage: "" };
-      });
+      if (!bank) return pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }));
+      const out = [];
+      pointValues.forEach(points => (bank[points] || []).forEach(qa => {
+        out.push({ points, q: qa[0] || "", a: qa[1] || "", image: "", answerImage: "" });
+      }));
+      return out;
     }
 
     // Open an existing official category in the editor. If it already has an
@@ -6281,6 +6379,216 @@
         row.appendChild(actions);
         list.appendChild(row);
       });
+    }
+
+    // ===== Admin panel: tabbed table content manager =====
+    function adminOfficialList() {
+      const { builtins, extras } = mergedOfficialCategories();
+      return [...builtins, ...extras];
+    }
+
+    function adminCloneCategory(id) {
+      const override = state.publishedCategories.find(c => c.id === id);
+      if (override) return JSON.parse(JSON.stringify(override));
+      const meta = builtinCategories.find(c => c.id === id);
+      return {
+        id,
+        name: meta ? meta.name : "",
+        image: meta && meta.image ? meta.image : "",
+        color: categoryColor(meta || { id }),
+        custom: false, published: true,
+        order: meta ? -1 : state.publishedCategories.length,
+        questions: meta ? builtinEditableQuestions(id) : []
+      };
+    }
+
+    function confirmDiscard() {
+      return !state.adminDirty || window.confirm("لديك تعديلات غير منشورة. تجاهلها؟");
+    }
+
+    function openAdminPanel() {
+      if (!state.isAdmin) return;
+      const list = adminOfficialList();
+      showScreen("adminPanel");
+      if (list.length) selectAdminCategory(list[0].id);
+      else newAdminCategory();
+    }
+
+    function selectAdminCategory(id) {
+      state.adminCat = adminCloneCategory(id);
+      state.adminDirty = false;
+      renderAdminTabs();
+      renderAdminCatHead();
+      renderAdminTable();
+    }
+
+    function newAdminCategory() {
+      state.adminCat = {
+        id: `pub-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+        name: "", image: "", color: "#9e1322", custom: false, published: true,
+        order: state.publishedCategories.length,
+        questions: pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }))
+      };
+      state.adminDirty = true;
+      renderAdminTabs();
+      renderAdminCatHead();
+      renderAdminTable();
+    }
+
+    function adminTabChip(id, name, color, active) {
+      const b = document.createElement("button");
+      b.className = "admin-tab" + (active ? " active" : "");
+      b.type = "button";
+      b.innerHTML = `<span class="dot" style="--c:${escapeHtml(color || "#e6c869")}"></span><span>${escapeHtml(name || "بدون اسم")}</span>`;
+      b.addEventListener("click", () => {
+        if (id === (state.adminCat && state.adminCat.id)) return;
+        if (confirmDiscard()) selectAdminCategory(id);
+      });
+      return b;
+    }
+
+    function renderAdminTabs() {
+      const bar = $("#adminTabs");
+      if (!bar) return;
+      bar.innerHTML = "";
+      const list = adminOfficialList();
+      const curId = state.adminCat && state.adminCat.id;
+      const ids = new Set(list.map(c => c.id));
+      list.forEach(cat => bar.appendChild(adminTabChip(cat.id, cat.name, categoryColor(cat), cat.id === curId)));
+      if (curId && !ids.has(curId)) bar.appendChild(adminTabChip(curId, state.adminCat.name || "فئة جديدة", state.adminCat.color, true));
+      const add = document.createElement("button");
+      add.className = "admin-tab add";
+      add.type = "button";
+      add.textContent = "＋ فئة جديدة";
+      add.addEventListener("click", () => { if (confirmDiscard()) newAdminCategory(); });
+      bar.appendChild(add);
+    }
+
+    function markAdminDirty() {
+      const pub = $("#adminPublishBtn");
+      if (pub) pub.classList.toggle("dirty", !!state.adminDirty);
+    }
+
+    function renderAdminCatHead() {
+      const head = $("#adminCatHead");
+      const cat = state.adminCat;
+      if (!head || !cat) return;
+      head.innerHTML = "";
+      const name = document.createElement("input");
+      name.className = "ac-name";
+      name.value = cat.name;
+      name.placeholder = "اسم الفئة";
+      name.addEventListener("input", () => { cat.name = name.value; state.adminDirty = true; markAdminDirty(); });
+      const colorLbl = document.createElement("label");
+      colorLbl.className = "field-label";
+      colorLbl.textContent = "اللون";
+      const color = document.createElement("input");
+      color.type = "color";
+      color.value = /^#[0-9a-fA-F]{6}$/.test(cat.color || "") ? cat.color : categoryColor(cat);
+      color.addEventListener("input", () => { cat.color = color.value; state.adminDirty = true; markAdminDirty(); });
+      colorLbl.appendChild(color);
+      const imgLbl = document.createElement("label");
+      imgLbl.className = "field-label";
+      imgLbl.textContent = "الصورة";
+      imgLbl.appendChild(imagePicker(cat.image, image => { cat.image = image; state.adminDirty = true; renderAdminCatHead(); }, "صورة"));
+      const count = document.createElement("span");
+      count.className = "ac-count";
+      count.textContent = `${toArabicDigits(cat.questions.length)} سؤال`;
+      const pub = document.createElement("button");
+      pub.className = "primary ac-publish";
+      pub.id = "adminPublishBtn";
+      pub.textContent = "نشر التعديلات";
+      pub.addEventListener("click", publishAdminCategory);
+      head.append(name, colorLbl, imgLbl, count, pub);
+      markAdminDirty();
+    }
+
+    function renderAdminTable() {
+      const tbody = $("#adminRows");
+      const cat = state.adminCat;
+      if (!tbody || !cat) return;
+      tbody.innerHTML = "";
+      if (!cat.questions.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا توجد أسئلة بعد — اضغط «إضافة سؤال جديد».</td></tr>`;
+        return;
+      }
+      cat.questions
+        .map((q, i) => ({ q, i }))
+        .sort((a, b) => (a.q.points || 0) - (b.q.points || 0))
+        .forEach(({ q, i }) => {
+          const tr = document.createElement("tr");
+          const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
+          const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
+          const imgCell = document.createElement("td"); imgCell.className = "col-img";
+          imgCell.innerHTML = q.image ? `<img class="q-thumb" src="${escapeHtml(q.image)}" alt="">` : `<span class="q-noimg">—</span>`;
+          const ptsCell = document.createElement("td"); ptsCell.className = "col-pts";
+          ptsCell.innerHTML = `<span class="q-pts">${toArabicDigits(q.points)}</span>`;
+          const actCell = document.createElement("td"); actCell.className = "col-act";
+          const act = document.createElement("span"); act.className = "q-act";
+          const edit = document.createElement("button"); edit.className = "q-edit"; edit.textContent = "تعديل";
+          edit.addEventListener("click", () => openAdminQuestion(i));
+          const del = document.createElement("button"); del.className = "q-del"; del.textContent = "حذف";
+          del.addEventListener("click", () => {
+            if (window.confirm("حذف هذا السؤال؟")) {
+              state.adminCat.questions.splice(i, 1);
+              state.adminDirty = true;
+              renderAdminTable();
+              renderAdminCatHead();
+            }
+          });
+          act.append(edit, del); actCell.appendChild(act);
+          tr.append(qCell, aCell, imgCell, ptsCell, actCell);
+          tbody.appendChild(tr);
+        });
+    }
+
+    function renderAdminQImages() {
+      const qi = $("#adminQImage");
+      if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "صورة السؤال")); }
+      const ai = $("#adminQAnswerImage");
+      if (ai) { ai.innerHTML = ""; ai.appendChild(imagePicker(state.adminQDraft.answerImage, image => { state.adminQDraft.answerImage = image; renderAdminQImages(); }, "صورة الإجابة")); }
+    }
+
+    function openAdminQuestion(index) {
+      state.adminQIndex = index;
+      const q = index >= 0 ? state.adminCat.questions[index] : { points: 100, q: "", a: "", image: "", answerImage: "" };
+      $("#adminQTitle").textContent = index >= 0 ? "تعديل السؤال" : "سؤال جديد";
+      $("#adminQPoints").value = q.points;
+      $("#adminQText").value = q.q;
+      $("#adminQAnswer").value = q.a;
+      state.adminQDraft = { image: q.image || "", answerImage: q.answerImage || "" };
+      renderAdminQImages();
+      $("#adminQModal").classList.add("open");
+    }
+
+    function saveAdminQuestion() {
+      const points = parseInt($("#adminQPoints").value, 10) || 0;
+      const qText = $("#adminQText").value.trim();
+      const aText = $("#adminQAnswer").value.trim();
+      if (!qText && !aText) { alert("أدخل نص السؤال أو الإجابة."); return; }
+      const obj = { points, q: qText, a: aText, image: state.adminQDraft.image || "", answerImage: state.adminQDraft.answerImage || "" };
+      if (state.adminQIndex >= 0) state.adminCat.questions[state.adminQIndex] = obj;
+      else state.adminCat.questions.push(obj);
+      state.adminDirty = true;
+      $("#adminQModal").classList.remove("open");
+      renderAdminTable();
+      renderAdminCatHead();
+    }
+
+    function publishAdminCategory() {
+      const cat = state.adminCat;
+      cat.name = (cat.name || "").trim();
+      if (!cat.name) { showToast("أدخل اسم الفئة"); return; }
+      if (!cat.questions.length) { showToast("أضف سؤالاً واحداً على الأقل"); return; }
+      const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
+      if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
+      cloud(cat).then(() => {
+        upsertPublished(JSON.parse(JSON.stringify(cat)));
+        state.adminDirty = false;
+        showToast("تم نشر التعديلات للجميع");
+        renderAdminTabs();
+        renderAdminCatHead();
+      }).catch(() => showToast("تعذّر النشر — تحقّق من صلاحياتك"));
     }
 
     function renderCustomManager() {
@@ -6592,23 +6900,27 @@
         title.textContent = cat.name;
         const pointsRow = document.createElement("div");
         pointsRow.className = "board-card-points";
-        const qs = (cat.questions || []).slice().sort((a, b) => (a.points || 0) - (b.points || 0));
-        pointsRow.style.setProperty("grid-template-columns", `repeat(${Math.max(1, qs.length)}, minmax(0, 1fr))`, "important");
-        qs.forEach((q, idx) => {
-          const key = `${cat.id}-${idx}`;
+        // One cell per distinct point value; clicking draws a random question
+        // from that tier's pool (so categories can have many questions per tier).
+        const qs = cat.questions || [];
+        const tiers = [...new Set(qs.map(q => q.points))].sort((a, b) => a - b);
+        pointsRow.style.setProperty("grid-template-columns", `repeat(${Math.max(1, tiers.length)}, minmax(0, 1fr))`, "important");
+        tiers.forEach(points => {
+          const pool = qs.filter(q => q.points === points);
+          const key = `${cat.id}-${points}`;
           const used = state.used.has(key);
           const cell = document.createElement("button");
           cell.className = "cell" + (used ? " used" : "");
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
-          cell.textContent = used ? "✓" : toArabicDigits(q.points);
+          cell.textContent = used ? "✓" : toArabicDigits(points);
           cell.disabled = used;
-          cell.addEventListener("click", () => openQuestion(cat, q, key));
+          cell.addEventListener("click", () => openQuestion(cat, pool[Math.floor(Math.random() * pool.length)] || pool[0], key));
           pointsRow.appendChild(cell);
         });
         card.append(title, pointsRow);
         board.appendChild(card);
       });
-      const total = cats.reduce((n, c) => n + (c.questions || []).length, 0);
+      const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
       centerBoardScroll();
     }
@@ -7216,7 +7528,11 @@
     $("#manageCustomFromCategories").addEventListener("click", () => openCustomManager("categories"));
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
-    $("#adminEntry").addEventListener("click", openAdminCMS);
+    $("#adminEntry").addEventListener("click", openAdminPanel);
+    $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
+    $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
+    $("#adminQCancel").addEventListener("click", () => $("#adminQModal").classList.remove("open"));
+    $("#adminQSave").addEventListener("click", saveAdminQuestion);
 
     // ---- Bridge to the Firebase layer (defined in the separate <script> below) ----
     function normalizePublishedCategory(c) {
