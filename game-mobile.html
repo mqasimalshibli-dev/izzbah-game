@@ -4183,6 +4183,11 @@
       height: 3px; background: #fff; border-radius: 2px;
       transform: rotate(-32deg); box-shadow: 0 0 0 1px rgba(120,20,20,.5);
     }
+    .qhelp-bar.banned { position: relative; opacity: .85; }
+    .qhelp-bar.banned::after {
+      content: "🚫"; position: absolute; top: 2px; left: 2px; font-size: 13px;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); pointer-events: none;
+    }
     .qhelp-slot.armed {
       opacity: 1 !important; filter: none !important; cursor: default;
       background: linear-gradient(180deg, #ffdf7e, #e8a93b) !important; color: #5a0f0f;
@@ -4549,7 +4554,7 @@
 
     <div class="modal-backdrop" id="turnPickModal" aria-hidden="true">
       <div class="question-modal" role="dialog" aria-modal="true">
-        <h3 class="preview-title">اختر الفريق التالي</h3>
+        <h3 class="preview-title" id="turnPickTitle">اختر الفريق التالي</h3>
         <div class="turn-pick-list" id="turnPickList"></div>
         <div class="actions"><button class="ghost" id="turnPickCancel" type="button">إلغاء</button></div>
       </div>
@@ -5930,7 +5935,7 @@
     }
 
     function resetTeamHelpers() {
-      state.teams.forEach(team => { team.helpUsed = {}; team.doubleArmed = false; team.stealArmed = false; });
+      state.teams.forEach(team => { team.helpUsed = {}; team.doubleArmed = false; team.stealArmed = false; team.helpBanned = false; });
     }
 
     function resetScores() {
@@ -7132,12 +7137,14 @@
     const ICON_TWO = `<span class="qhelp-x2">٢</span>`;
     const ICON_STEAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 11V5a2 2 0 0 0-4 0v6"/><path d="M10 9V4a2 2 0 0 0-4 0v9"/><path d="M6 11l-1.5-1.5a1.6 1.6 0 0 0-2.3 2.3l3.6 4A6 6 0 0 0 11 21h2a6 6 0 0 0 6-6V8a2 2 0 0 0-4 0v3"/></svg>`;
     const ICON_TURN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a8 8 0 0 1 13.7-5.6L20 8"/><path d="M20 3v5h-5"/><path d="M21 13a8 8 0 0 1-13.7 5.6L4 16"/><path d="M4 21v-5h5"/></svg>`;
+    const ICON_BAN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>`;
     const HELPERS = {
       fourChoices:  { label: "أربعة خيارات", phase: "question", icon: ICON_GRID },
       firstLetter:  { label: "كشف أول حرف",  phase: "question", icon: ICON_ALINE },
       doublePoints: { label: "مضاعفة النقاط", phase: "board",    icon: ICON_X2 },
       steal:        { label: "سرقة الدور",    phase: "board",    icon: ICON_STEAL },
-      changeTurn:   { label: "سؤال عشوائي",   phase: "board",    icon: ICON_TURN, activeOnly: true }
+      changeTurn:   { label: "سؤال عشوائي",   phase: "board",    icon: ICON_TURN, activeOnly: true },
+      banHelp:      { label: "حظر المساعدات",  phase: "board",    icon: ICON_BAN }
     };
     const HELPER_IDS = Object.keys(HELPERS);
     const DEFAULT_LOADOUT = ["fourChoices", "firstLetter", "doublePoints"];
@@ -7166,12 +7173,14 @@
       container.innerHTML = "";
       container.style.setProperty("--team", colors[teamIndex] || "#9e1322");
       const team = state.teams[teamIndex];
+      const banned = !!team.helpBanned; // banned teams can't use any helper this turn
+      container.classList.toggle("banned", banned);
       teamLoadout(teamIndex).forEach(id => {
         const h = HELPERS[id];
         const used = !!teamHelpUsed(teamIndex)[id];
         const armed = (id === "doublePoints" && team.doubleArmed);
         const inPhase = h.phase === screenPhase;
-        const allowed = inPhase && (!h.activeOnly || teamIndex === state.activeTeam);
+        const allowed = !banned && inPhase && (!h.activeOnly || teamIndex === state.activeTeam);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "qhelp-slot" + (armed ? " armed" : (used ? " used" : ""));
@@ -7228,6 +7237,9 @@
       } else if (id === "changeTurn") {
         openTurnPicker(teamIndex); // consumes the helper only after a team is chosen
         return;
+      } else if (id === "banHelp") {
+        openBanPicker(teamIndex); // consumes the helper only after a team is chosen
+        return;
       }
       teamHelpUsed(teamIndex)[id] = true;
       updateHelpBars();
@@ -7251,34 +7263,54 @@
       return { cat: pick.cat, q: pool[Math.floor(Math.random() * pool.length)], key: pick.key };
     }
 
-    // "سؤال عشوائي": the active team skips its turn and locks a team it picks into
-    // a random question, opening that question for them immediately. Board-only.
-    function openTurnPicker(teamIndex) {
+    // Shared "choose another team" modal. Lists every team except excludeIndex;
+    // onPick(i) runs on selection (it is responsible for closing the modal).
+    function openTeamPicker(excludeIndex, title, onPick) {
       const list = $("#turnPickList");
       if (!list) return;
+      const titleEl = $("#turnPickTitle");
+      if (titleEl) titleEl.textContent = title;
       list.innerHTML = "";
       state.teams.slice(0, state.teamCount).forEach((team, i) => {
-        if (i === teamIndex) return; // can't aim the random question at yourself
+        if (i === excludeIndex) return; // never target yourself
         const btn = document.createElement("button");
         btn.className = "turn-pick-btn";
         btn.type = "button";
         btn.style.setProperty("--team", colors[i] || "#9e1322");
         btn.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(teamDisplayName(team, i))}</span>`;
-        btn.addEventListener("click", () => {
-          const picked = randomUnusedQuestion();
-          if (!picked) { showToast("لا توجد أسئلة متبقية"); return; }
-          teamHelpUsed(teamIndex).changeTurn = true;
-          state.activeTeam = i;
-          $("#turnPickModal").classList.remove("open");
-          renderScores();
-          renderTurnBoxes();
-          updateHelpBars();
-          showToast(`سؤال عشوائي لفريق ${teamDisplayName(team, i)}`);
-          openQuestion(picked.cat, picked.q, picked.key);
-        });
+        btn.addEventListener("click", () => onPick(i, team));
         list.appendChild(btn);
       });
       $("#turnPickModal").classList.add("open");
+    }
+
+    // "سؤال عشوائي": the active team skips its turn and locks a team it picks into
+    // a random question, opening that question for them immediately. Board-only.
+    function openTurnPicker(teamIndex) {
+      openTeamPicker(teamIndex, "اختر فريقاً لسؤال عشوائي", (i, team) => {
+        const picked = randomUnusedQuestion();
+        if (!picked) { showToast("لا توجد أسئلة متبقية"); return; }
+        teamHelpUsed(teamIndex).changeTurn = true;
+        state.activeTeam = i;
+        $("#turnPickModal").classList.remove("open");
+        renderScores();
+        renderTurnBoxes();
+        updateHelpBars();
+        showToast(`سؤال عشوائي لفريق ${teamDisplayName(team, i)}`);
+        openQuestion(picked.cat, picked.q, picked.key);
+      });
+    }
+
+    // "حظر المساعدات": pick a team and block it from using ANY helper for the next
+    // turn (until the next question is resolved). Board-only, once per game.
+    function openBanPicker(teamIndex) {
+      openTeamPicker(teamIndex, "اختر فريقاً لحظر مساعداته", (i, team) => {
+        teamHelpUsed(teamIndex).banHelp = true;
+        team.helpBanned = true;
+        $("#turnPickModal").classList.remove("open");
+        updateHelpBars();
+        showToast(`تم حظر مساعدات فريق ${teamDisplayName(team, i)} لجولة`);
+      });
     }
 
     // ---- Help tool #2: reveal the first letter of the answer ----
@@ -7432,6 +7464,8 @@
       if (hadQuestion && advanceTurn) {
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
       }
+      // a helper ban lasts one turn — clear it once that question is resolved
+      if (hadQuestion) state.teams.forEach(t => { t.helpBanned = false; });
       clearQuestionView();
       renderGame();
       showScreen("game", { keepQuestion: true });
