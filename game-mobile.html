@@ -4156,6 +4156,13 @@
     .helper-chip .hc-ico svg { width: 18px; height: 18px; }
     .helper-chip .hc-ico .qhelp-x2 { font-size: 14px; }
     .helper-chip.on { background: var(--accent, #9e1322); color: #fff; border-color: var(--accent, #9e1322); box-shadow: 0 5px 12px -4px var(--accent, #9e1322); }
+    /* turn-picker (تغيير الدور) */
+    .turn-pick-list { display: grid; gap: 10px; margin: 6px 0 14px; }
+    .turn-pick-btn { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; cursor: pointer;
+      border: 2px solid var(--team, #9e1322); background: color-mix(in srgb, var(--team, #9e1322) 14%, #fff 86%); color: #2a2118;
+      font: 800 17px 'Cairo', sans-serif; transition: transform .12s, background .15s; }
+    .turn-pick-btn:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--team, #9e1322) 24%, #fff 76%); }
+    .turn-pick-btn img, .turn-pick-btn .default-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
     /* help-bar slots — shared by the question-card bar and the board topbar bar */
     .qhelp-slot {
       width: 46px; height: 46px; border-radius: 50%; padding: 0; position: relative;
@@ -4410,7 +4417,7 @@
         <div class="wlc-center">
           <div class="wlc-logo"><img class="wlc-mark" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22360%22%20height%3D%22250%22%20viewBox%3D%220%200%20360%20250%22%20overflow%3D%22visible%22%20role%3D%22img%22%20aria-label%3D%22%D8%B9%D9%8E%D8%B2%D9%92%D8%A8%D9%8E%D8%A9%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22flameM%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23C8431B%22%2F%3E%3Cstop%20offset%3D%2252%25%22%20stop-color%3D%22%23E8A93B%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23F6D27A%22%2F%3E%3C%2FlinearGradient%3E%3CclipPath%20id%3D%22tentM%22%3E%3Cpolygon%20points%3D%2244%2C214%2060%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%20316%2C214%22%2F%3E%3C%2FclipPath%3E%3C%2Fdefs%3E%3Cg%20stroke%3D%22%23F3E1C0%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%2264%22%20y1%3D%22172%22%20x2%3D%2224%22%20y2%3D%22212%22%2F%3E%3Cline%20x1%3D%22300%22%20y1%3D%22172%22%20x2%3D%22340%22%20y2%3D%22212%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23F3E1C0%22%3E%3Cpolygon%20points%3D%2220%2C208%2030%2C208%2025%2C216%22%2F%3E%3Cpolygon%20points%3D%22330%2C208%20340%2C208%20335%2C216%22%2F%3E%3C%2Fg%3E%3Cg%20clip-path%3D%22url%28%23tentM%29%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%22360%22%20height%3D%22250%22%20fill%3D%22%23F3E1C0%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22176%22%20width%3D%22360%22%20height%3D%224.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22185%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22193%22%20width%3D%22360%22%20height%3D%225.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22203%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%239E1C1C%22%2F%3E%3C%2Fg%3E%3Cpolyline%20points%3D%2260%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%22%20fill%3D%22none%22%20stroke%3D%22%237A1414%22%20stroke-width%3D%222.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2295%22%20r%3D%223.4%22%20fill%3D%22%237A1414%22%2F%3E%3Ccircle%20cx%3D%22230%22%20cy%3D%2295%22%20r%3D%223.4%22%20fill%3D%22%237A1414%22%2F%3E%3Cpolygon%20points%3D%22160%2C214%20160%2C178%20180%2C166%20200%2C178%20200%2C214%22%20fill%3D%22%232E0707%22%2F%3E%3Cg%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%22160%22%20y1%3D%22212%22%20x2%3D%22200%22%20y2%3D%22219%22%20stroke%3D%22%236E2A12%22%20stroke-width%3D%229%22%2F%3E%3Cline%20x1%3D%22200%22%20y1%3D%22212%22%20x2%3D%22160%22%20y2%3D%22219%22%20stroke%3D%22%237A1414%22%20stroke-width%3D%229%22%2F%3E%3C%2Fg%3E%3Cg%20opacity%3D%220.62%22%20transform%3D%22translate%28180%20218%29%20scale%280.74%29%20translate%28-180%20-218%29%22%3E%3Cpath%20d%3D%22M180%2C150%20Q206%2C178%20197%2C201%20Q191%2C217%20180%2C217%20Q169%2C217%20163%2C201%20Q155%2C181%20174%2C170%20Q171%2C187%20181%2C189%20Q189%2C174%20180%2C150%20Z%22%20fill%3D%22url%28%23flameM%29%22%20stroke%3D%22%23C8431B%22%20stroke-width%3D%221.4%22%2F%3E%3Cpath%20d%3D%22M181%2C173%20Q193%2C191%20187%2C205%20Q183%2C214%20178%2C212%20Q172%2C210%20174%2C199%20Q176%2C187%20181%2C173%20Z%22%20fill%3D%22%23F8DC93%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" alt="" aria-hidden="true"><div class="wlc-logo-text">عزبة</div><div class="wlc-logo-sweep"></div></div>
           <div class="wlc-subtitle">لعبة تريفيا جماعية</div>
-          <button class="wlc-start" data-screen="gameLibrary" type="button"><span>ابدأ لعبة جديدة</span></button>
+          <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ لعبة جديدة</span></button>
           <div class="wlc-or"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
@@ -4537,6 +4544,14 @@
           <button class="ghost" id="adminQCancel" type="button">إلغاء</button>
           <button class="primary" id="adminQSave" type="button">حفظ السؤال</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="turnPickModal" aria-hidden="true">
+      <div class="question-modal" role="dialog" aria-modal="true">
+        <h3 class="preview-title">اختر الفريق التالي</h3>
+        <div class="turn-pick-list" id="turnPickList"></div>
+        <div class="actions"><button class="ghost" id="turnPickCancel" type="button">إلغاء</button></div>
       </div>
     </div>
 
@@ -5523,6 +5538,7 @@
       editorTarget: "custom",
       publishedCategories: [],
       isAdmin: false,
+      signedIn: false,
       adminCat: null,
       adminQIndex: -1,
       adminQDraft: { image: "", answerImage: "" },
@@ -6080,9 +6096,8 @@
 
     // Each team chooses 3 helpers (of 6) before the game.
     function renderTeamHelperPicker(card, team) {
-      if (!Array.isArray(team.helpers) || team.helpers.filter(id => HELPERS[id]).length !== 3) {
-        team.helpers = DEFAULT_LOADOUT.slice();
-      }
+      if (!Array.isArray(team.helpers)) team.helpers = DEFAULT_LOADOUT.slice();
+      team.helpers = team.helpers.filter(id => HELPERS[id]);
       const wrap = document.createElement("div");
       wrap.className = "team-helpers";
       const lbl = document.createElement("span");
@@ -6100,11 +6115,10 @@
         chip.innerHTML = `<span class="hc-ico">${h.icon}</span><span>${h.label}</span>`;
         chip.addEventListener("click", () => {
           if (team.helpers.includes(id)) {
+            if (team.helpers.length <= 1) return; // keep at least one
             team.helpers = team.helpers.filter(x => x !== id);
-          } else if (team.helpers.length >= 3) {
-            showToast("اختر ٣ وسائل فقط — أزِل واحدة أولاً");
-            return;
           } else {
+            if (team.helpers.length >= 3) team.helpers.shift(); // swap out the oldest pick
             team.helpers.push(id);
           }
           saveGameSettings();
@@ -7114,24 +7128,31 @@
     const ICON_GRID = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>`;
     const ICON_HALF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 3v18" stroke-linecap="round"/><path d="M5 8h3.5M5 12h3.5M5 16h3.5" stroke-linecap="round"/></svg>`;
     const ICON_ALINE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 16 L7.5 7 L11 16 M5.2 13 H9.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 16 H20" stroke-linecap="round"/></svg>`;
-    const ICON_SWAP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h13a4 4 0 0 1 4 4"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8a4 4 0 0 1-4-4"/></svg>`;
     const ICON_X2 = `<span class="qhelp-x2">×2</span>`;
+    const ICON_TWO = `<span class="qhelp-x2">٢</span>`;
     const ICON_STEAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 11V5a2 2 0 0 0-4 0v6"/><path d="M10 9V4a2 2 0 0 0-4 0v9"/><path d="M6 11l-1.5-1.5a1.6 1.6 0 0 0-2.3 2.3l3.6 4A6 6 0 0 0 11 21h2a6 6 0 0 0 6-6V8a2 2 0 0 0-4 0v3"/></svg>`;
+    const ICON_TURN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a8 8 0 0 1 13.7-5.6L20 8"/><path d="M20 3v5h-5"/><path d="M21 13a8 8 0 0 1-13.7 5.6L4 16"/><path d="M4 21v-5h5"/></svg>`;
     const HELPERS = {
       fourChoices:  { label: "أربعة خيارات", phase: "question", icon: ICON_GRID },
       fiftyFifty:   { label: "حذف خيارين",   phase: "question", icon: ICON_HALF },
       firstLetter:  { label: "كشف أول حرف",  phase: "question", icon: ICON_ALINE },
-      swap:         { label: "تبديل السؤال", phase: "question", icon: ICON_SWAP },
+      secondGuess:  { label: "إجابتان",      phase: "question", icon: ICON_TWO },
       doublePoints: { label: "مضاعفة النقاط", phase: "board",    icon: ICON_X2 },
-      steal:        { label: "سرقة النقاط",   phase: "board",    icon: ICON_STEAL }
+      steal:        { label: "سرقة النقاط",   phase: "board",    icon: ICON_STEAL },
+      changeTurn:   { label: "تغيير الدور",   phase: "board",    icon: ICON_TURN, activeOnly: true }
     };
     const HELPER_IDS = Object.keys(HELPERS);
     const DEFAULT_LOADOUT = ["fourChoices", "firstLetter", "doublePoints"];
 
     function teamLoadout(i) {
       const t = state.teams[i];
-      const list = t && Array.isArray(t.helpers) ? t.helpers.filter(id => HELPERS[id]).slice(0, 3) : [];
-      return list.length === 3 ? list : DEFAULT_LOADOUT.slice();
+      const list = t && Array.isArray(t.helpers) ? t.helpers.filter(id => HELPERS[id]) : [];
+      // always return exactly 3 — pad with sensible defaults if the team picked fewer
+      for (const d of DEFAULT_LOADOUT.concat(HELPER_IDS)) {
+        if (list.length >= 3) break;
+        if (!list.includes(d)) list.push(d);
+      }
+      return list.slice(0, 3);
     }
     function teamHelpUsed(i) {
       const t = state.teams[i];
@@ -7152,14 +7173,15 @@
         const used = !!teamHelpUsed(teamIndex)[id];
         const armed = (id === "doublePoints" && team.doubleArmed) || (id === "steal" && team.stealArmed);
         const inPhase = h.phase === screenPhase;
+        const allowed = inPhase && (!h.activeOnly || teamIndex === state.activeTeam);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "qhelp-slot" + (armed ? " armed" : (used ? " used" : ""));
         btn.title = h.label;
         btn.setAttribute("aria-label", h.label);
         btn.innerHTML = h.icon;
-        btn.disabled = used || !inPhase;
-        if (!used && inPhase) btn.addEventListener("click", () => useHelper(id, teamIndex));
+        btn.disabled = used || !allowed;
+        if (!used && allowed) btn.addEventListener("click", () => useHelper(id, teamIndex));
         container.appendChild(btn);
       });
     }
@@ -7204,15 +7226,45 @@
         const hint = firstLetterHint(active.q && active.q.a);
         if (!hint) return;
         renderHint(hint);
-      } else if (id === "swap") {
-        if (!swapQuestion()) { showToast("لا يوجد سؤال بديل"); return; }
+      } else if (id === "secondGuess") {
+        showToast("إجابتان: لهذا الفريق محاولتان للإجابة");
       } else if (id === "doublePoints") {
         team.doubleArmed = true;
       } else if (id === "steal") {
         team.stealArmed = true;
+      } else if (id === "changeTurn") {
+        openTurnPicker(teamIndex); // consumes the helper only after a team is chosen
+        return;
       }
       teamHelpUsed(teamIndex)[id] = true;
       updateHelpBars();
+    }
+
+    // "تغيير الدور": the active team skips its turn and hands the next turn to a
+    // team it picks. Board-only, once per game.
+    function openTurnPicker(teamIndex) {
+      const list = $("#turnPickList");
+      if (!list) return;
+      list.innerHTML = "";
+      state.teams.slice(0, state.teamCount).forEach((team, i) => {
+        if (i === teamIndex) return; // can't hand the turn back to yourself
+        const btn = document.createElement("button");
+        btn.className = "turn-pick-btn";
+        btn.type = "button";
+        btn.style.setProperty("--team", colors[i] || "#9e1322");
+        btn.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(teamDisplayName(team, i))}</span>`;
+        btn.addEventListener("click", () => {
+          teamHelpUsed(teamIndex).changeTurn = true;
+          state.activeTeam = i;
+          $("#turnPickModal").classList.remove("open");
+          renderScores();
+          renderTurnBoxes();
+          updateHelpBars();
+          showToast(`الدور الآن: ${teamDisplayName(team, i)}`);
+        });
+        list.appendChild(btn);
+      });
+      $("#turnPickModal").classList.add("open");
     }
 
     // ---- Help tool #2: reveal the first letter of the answer ----
@@ -7550,6 +7602,12 @@
 
     document.querySelectorAll("[data-screen]").forEach(button => {
       button.addEventListener("click", () => {
+        if (button.hasAttribute("data-requires-auth") && !state.signedIn) {
+          showToast("سجّل الدخول بحساب Google أولاً لبدء اللعب");
+          const authBtn = $("#authBtn");
+          if (authBtn && authBtn.style.display !== "none") authBtn.click();
+          return;
+        }
         showScreen(button.dataset.screen);
       });
     });
@@ -7640,6 +7698,7 @@
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminQCancel").addEventListener("click", () => $("#adminQModal").classList.remove("open"));
+    $("#turnPickCancel").addEventListener("click", () => $("#turnPickModal").classList.remove("open"));
     $("#adminQSave").addEventListener("click", saveAdminQuestion);
 
     // ---- Bridge to the Firebase layer (defined in the separate <script> below) ----
@@ -7658,6 +7717,10 @@
       state.isAdmin = !!isAdmin;
       const btn = $("#adminEntry");
       if (btn) btn.style.display = state.isAdmin ? "" : "none";
+    };
+    window.IZZBAH.applyAuth = function (signedIn) {
+      state.signedIn = !!signedIn;
+      document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
     };
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
@@ -7844,6 +7907,7 @@
           auth.onAuthStateChanged(async (user) => {
             currentUser = user;
             setAuthUI(user);
+            if (window.IZZBAH.applyAuth) window.IZZBAH.applyAuth(!!user);
             refreshAdminStatus(user);
             if (!user) return;
             try {
