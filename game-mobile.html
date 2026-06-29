@@ -410,32 +410,35 @@
     }
 
     .category-tabs {
-      width: min(680px, 100%);
+      width: fit-content;
+      max-width: 100%;
       margin: 0 auto 16px;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      padding: 8px;
-      border: 3px solid rgba(201, 151, 74, .55);
-      border-radius: 8px;
-      background: rgba(255, 246, 229, .58);
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      border: 2px solid #e0c97f;
+      border-radius: 16px;
+      background: #f1e2bd;
+      box-shadow: inset 0 1px 3px rgba(120, 80, 20, .12);
     }
 
     .category-tab {
-      min-height: 58px;
-      padding: 10px 18px;
-      border-color: var(--gold);
-      background: var(--cream);
-      color: var(--dark);
-      box-shadow: 0 5px 0 rgba(140, 106, 46, .18);
-      font-size: clamp(22px, 2.3vw, 30px);
+      min-height: 0;
+      min-width: 150px;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      color: #8a6a3a;
+      box-shadow: none;
+      font-weight: 800;
+      font-size: clamp(16px, 2.1vw, 19px);
     }
 
     .category-tab.active {
-      border-color: var(--red);
-      background: var(--red);
-      color: white;
-      box-shadow: 0 5px 0 var(--red-dark);
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      color: #fff;
+      box-shadow: 0 6px 14px rgba(150, 20, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .25);
     }
 
     .community-tools {
@@ -455,176 +458,152 @@
 
     .category-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 12px;
-      width: min(1120px, 100%);
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 18px;
+      width: min(1160px, 100%);
       margin: 0 auto;
     }
 
+    /* Category tile — dark art panel with gold frame, name pill and eye preview. */
     .category {
-      min-height: 184px;
-      background:
-        radial-gradient(circle at 50% 10%, rgba(255, 246, 229, .42), transparent 28%),
-        linear-gradient(180deg, rgba(239, 214, 186, .95), rgba(245, 222, 196, .88));
-      border: 4px solid var(--gold-dark);
-      border-radius: 8px;
-      color: var(--dark);
-      display: grid;
-      place-items: center;
-      padding: 12px 8px;
       position: relative;
-      box-shadow: 0 6px 0 rgba(140, 106, 46, .18);
-      text-align: center;
-      font-size: clamp(18px, 1.75vw, 24px);
+      height: 186px;
+      border: 2px solid #d9b24a;
+      border-radius: 16px;
       overflow: hidden;
-    }
-
-    .category.full-image {
+      cursor: pointer;
       padding: 0;
-      background-color: #100101;
-      background-image: var(--cat-image);
-      background-position: center;
-      background-size: cover;
-      background-repeat: no-repeat;
+      display: block;
+      color: #fff;
+      background-color: #2c0a0f;
+      background-image: var(--cat-image, none), var(--cat-grad, radial-gradient(130% 130% at 75% 12%, #7d1620, #2c0a0f));
+      background-size: cover, cover;
+      background-position: center, center;
+      background-repeat: no-repeat, no-repeat;
+      box-shadow: 0 6px 14px rgba(80, 20, 20, .22);
+      transition: transform .18s, box-shadow .18s, border-color .18s;
     }
 
-    .category-main {
-      width: 100%;
-      min-height: 154px;
-      display: grid;
-      place-items: center;
-      background: transparent;
-      color: inherit;
-      border: 0;
-      padding: 18px 4px 4px;
-      box-shadow: none;
+    .category:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px rgba(80, 20, 20, .3);
+    }
+
+    .cat-watermark {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
       text-align: center;
+      line-height: 1.1;
+      font-family: 'Lalezar', cursive;
+      font-weight: 400;
+      font-size: clamp(26px, 3.4vw, 38px);
+      color: rgba(255, 240, 220, .12);
+      pointer-events: none;
     }
 
-    .category.full-image .category-main {
-      min-height: 100%;
-      align-self: stretch;
-      background: linear-gradient(180deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .34));
-      color: white;
-      text-shadow: 0 2px 5px rgba(0, 0, 0, .72);
+    #categories .screen-title {
+      font-family: 'Lalezar', cursive;
+      font-weight: 400;
+      color: #b51f2b;
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1;
     }
 
-    .category.full-image .category-main span {
-      align-self: end;
-      width: calc(100% - 22px);
-      margin: 0 auto 12px;
-      padding: 5px 10px;
-      border-radius: 8px;
-      background: rgba(145, 24, 28, .72);
-      line-height: 1.05;
+    .cat-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, .5));
+      pointer-events: none;
     }
 
-    .category-main:hover,
-    .category-main:active {
-      transform: none;
-      filter: none;
+    .cat-name-pill {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 88%;
+      text-align: center;
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      border: 1px solid #e6c869;
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      line-height: 1.15;
+      padding: 6px 14px;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
+      pointer-events: none;
     }
 
     .category-eye {
       position: absolute;
-      top: 8px;
-      right: 8px;
+      top: 10px;
+      inset-inline-end: 10px;
+      inset-inline-start: auto;
       width: 30px;
       height: 30px;
       min-height: 0;
       display: grid;
       place-items: center;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, .95);
-      background: var(--red);
-      color: white;
-      box-shadow: 0 4px 0 rgba(120, 12, 15, .2);
-      font-size: 15px;
-      line-height: 1;
+      border: 1px solid rgba(255, 255, 255, .3);
+      background: rgba(0, 0, 0, .5);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+      padding: 0;
+      z-index: 3;
+      cursor: pointer;
+    }
+
+    .category-eye svg { width: 16px; height: 16px; }
+
+    .category.selected {
+      border-color: #e6c869;
+      box-shadow: 0 0 0 4px rgba(230, 200, 105, .30), 0 8px 18px rgba(80, 20, 20, .28);
+    }
+
+    .category.selected .category-eye {
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      border-color: #e6c869;
+    }
+
+    .cat-ring {
+      display: none;
+      position: absolute;
+      inset: 0;
+      border: 3px solid #e6c869;
+      border-radius: 14px;
+      box-shadow: inset 0 0 0 2px rgba(230, 200, 105, .4);
+      pointer-events: none;
+    }
+
+    .category.selected .cat-ring { display: block; }
+
+    .cat-soon {
+      position: absolute;
+      top: 10px;
+      inset-inline-start: 10px;
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, .55);
+      border: 1px solid rgba(255, 255, 255, .25);
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 4px 11px;
+      border-radius: 999px;
       z-index: 3;
     }
 
-    .category::after {
-      content: "◆";
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      color: rgba(145, 24, 28, .18);
-      font-size: 22px;
-    }
-
-    .category.selected {
-      border-color: var(--red);
-      background:
-        radial-gradient(circle at 50% 10%, rgba(255, 246, 229, .5), transparent 30%),
-        linear-gradient(180deg, #f3d2c5, #efd6ba);
-      color: var(--red);
-      box-shadow: 0 8px 0 rgba(219, 22, 27, .18);
-    }
-
-    .category.full-image.selected {
-      background-color: #100101;
-      background-image:
-        linear-gradient(180deg, rgba(219, 22, 27, .06), rgba(219, 22, 27, .14)),
-        var(--cat-image);
-      background-position: center, center;
-      background-size: auto, cover;
-      background-repeat: no-repeat, no-repeat;
-    }
-
-    .category svg {
-      width: 54px;
-      height: 54px;
-      margin-bottom: 8px;
-    }
-
-    .category-thumb {
-      width: 74px;
-      height: 74px;
-      border-radius: 0;
-      object-fit: contain;
-      margin: 0 auto 8px;
-      border: 0;
-      filter: drop-shadow(0 4px 5px rgba(120, 80, 45, .16));
-    }
-
-    .check {
-      position: absolute;
-      top: -12px;
-      right: -12px;
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      display: none;
-      place-items: center;
-      background: var(--red);
-      color: white;
-      border: 4px solid white;
-      font-size: 20px;
-    }
-
-    .category.selected .check { display: grid; }
-
     .category.empty-bank {
-      opacity: .78;
-    }
-
-    .category.empty-bank .category-main {
-      cursor: not-allowed;
-    }
-
-    .category.empty-bank::before {
-      content: "قريباً";
-      position: absolute;
-      left: 8px;
-      bottom: 8px;
-      z-index: 2;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(145, 24, 28, .88);
-      color: #fff8ee;
-      font-size: 14px;
-      line-height: 1;
+      opacity: .5;
+      filter: grayscale(.3);
+      cursor: default;
     }
 
     .custom-list {
@@ -761,20 +740,65 @@
     }
 
     .game-name-box {
-      width: min(680px, 100%);
-      margin: 0 auto 16px;
+      width: min(780px, 100%);
+      margin: 24px auto 0;
       display: grid;
-      gap: 8px;
-      background: rgba(255, 246, 229, .64);
-      border: 3px solid rgba(201, 151, 74, .62);
-      border-radius: 8px;
-      padding: 14px;
+      gap: 12px;
+      background: #fdf8ec;
+      border: 2px solid #e6d3a0;
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(120, 70, 20, .10);
+      padding: 20px 22px;
     }
 
     .game-name-box label {
-      color: var(--red);
-      font-size: clamp(22px, 2.4vw, 30px);
-      text-align: center;
+      color: #a8172a;
+      font-size: clamp(20px, 2.2vw, 24px);
+      text-align: right;
+    }
+
+    .game-name-box input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #3a2c12;
+      background: #fffdf6;
+      border: 2px solid #e6d3a0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+
+    .game-name-box input:focus {
+      border-color: #cc2531;
+      box-shadow: 0 0 0 3px rgba(204, 37, 49, .14);
+    }
+
+    /* "لعبة جديدة" eyebrow above the categories title */
+    .cat-eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 6px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: #3f7a57;
+    }
+
+    .cat-eyebrow i {
+      width: 34px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #cda23f);
+    }
+
+    .cat-eyebrow i:last-child {
+      background: linear-gradient(90deg, #cda23f, transparent);
     }
 
     .custom-list > .panel {
@@ -2042,34 +2066,13 @@
         max-width: 520px;
       }
       .category {
-        min-height: 214px;
-        padding: 12px 10px;
-        font-size: clamp(23px, 6.2vw, 30px);
-      }
-      .category-main {
-        min-height: 184px;
-        padding: 30px 8px 6px;
-      }
-      .category-thumb {
-        width: clamp(92px, 26vw, 124px);
-        height: clamp(92px, 26vw, 124px);
-        margin-bottom: 12px;
-      }
-      .category svg {
-        width: clamp(82px, 24vw, 110px);
-        height: clamp(82px, 24vw, 110px);
-        margin-bottom: 12px;
+        height: 168px;
       }
       .category-eye {
-        width: 42px;
-        height: 42px;
-        font-size: 20px;
+        width: 34px;
+        height: 34px;
       }
-      .check {
-        width: 40px;
-        height: 40px;
-        font-size: 24px;
-      }
+      .category-eye svg { width: 18px; height: 18px; }
       .custom-row { grid-template-columns: 70px 1fr; }
       .custom-row .actions { grid-column: 1 / -1; }
       .question-editor { grid-template-columns: 1fr; justify-items: center; }
@@ -2140,13 +2143,6 @@
         grid-template-columns: repeat(3, minmax(170px, 1fr));
         width: min(760px, 100%);
       }
-      .category {
-        min-height: 220px;
-      }
-      .category-thumb {
-        width: 92px;
-        height: 92px;
-      }
     }
 
     @media (max-width: 380px) {
@@ -2155,9 +2151,6 @@
         grid-template-columns: 1fr;
         width: 100%;
         max-width: 300px;
-      }
-      .category {
-        min-height: 206px;
       }
     }
 
@@ -4472,8 +4465,9 @@
 
     <section id="categories" class="screen center">
       <div class="stack wide-stack">
-        <h2 class="screen-title">اختر الفئات</h2>
-        <p class="hint" id="categoryStatus">اختر فئة واحدة على الأقل.</p>
+        <div class="cat-eyebrow"><i></i>لعبة جديدة<i></i></div>
+        <h2 class="screen-title">اختر فئاتك</h2>
+        <p class="hint" id="categoryStatus">اختر فئة واحدة على الأقل للبدء.</p>
         <div class="category-tabs" role="tablist" aria-label="Category type">
           <button class="category-tab active" id="gameCategoriesTab" type="button">فئات اللعبة</button>
           <button class="category-tab" id="communityCategoriesTab" type="button">فئات المجتمع</button>
@@ -6149,31 +6143,33 @@
       if (state.categoryMode === "community" && visibleCategories.length === 0) {
         grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط زر إنشاء / تعديل فئات المجتمع لإضافة فئة.</div>`;
       }
+      const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
         const unavailable = cat.empty === true;
         if (unavailable) state.selected.delete(cat.id);
         card.className = "category"
           + (state.selected.has(cat.id) ? " selected" : "")
-          + (unavailable ? " empty-bank" : "")
-          + (cat.fullImage ? " full-image" : "");
+          + (unavailable ? " empty-bank" : "");
         const name = cat.name || "فئة بدون اسم";
-        if (cat.fullImage && cat.image) {
+        if (cat.image) {
           card.style.setProperty("--cat-image", `url("${cat.image}")`);
+        } else {
+          card.style.setProperty("--cat-grad", `radial-gradient(130% 130% at 75% 12%, ${categoryColor(cat)}, #1c0608)`);
         }
         card.innerHTML = `
-          <span class="check">✓</span>
-          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${escapeHtml(name)}">👁</button>
-          <button class="category-main" type="button" ${unavailable ? 'disabled title="لم تتم إضافة الأسئلة بعد"' : ""}>
-            <span>${cat.image && cat.fullImage ? escapeHtml(name) : `${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg(cat.custom ? "custom" : cat.id)}<br>${escapeHtml(name)}`}</span>
-          </button>
+          ${cat.image ? "" : `<span class="cat-watermark">${escapeHtml(name)}</span>`}
+          <span class="cat-scrim"></span>
+          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${escapeHtml(name)}">${EYE_SVG}</button>
+          <span class="cat-name-pill">${escapeHtml(name)}</span>
+          ${unavailable ? `<span class="cat-soon">قريباً</span>` : ""}
+          <span class="cat-ring" aria-hidden="true"></span>
         `;
         card.querySelector(".category-eye").addEventListener("click", event => {
           event.stopPropagation();
           openCategoryPreview(cat);
         });
-        card.querySelector(".category-main").addEventListener("click", () => {
-          if (unavailable) return;
+        if (!unavailable) card.addEventListener("click", () => {
           if (state.selected.has(cat.id)) state.selected.delete(cat.id);
           else if (state.selected.size < 6) state.selected.add(cat.id);
           else {
