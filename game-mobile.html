@@ -6459,7 +6459,9 @@
         id,
         name: meta ? meta.name : "",
         image: meta && meta.image ? meta.image : "",
-        color: categoryColor(meta || { id }),
+        // No derived default color: the picker falls back to categoryColor() for
+        // display, and we only persist `color` once an admin actually changes it
+        // (so publishing stays compatible with rules that don't list 'color').
         custom: false, published: true,
         order: meta ? -1 : state.publishedCategories.length,
         questions: meta ? builtinEditableQuestions(id) : []
@@ -6639,6 +6641,16 @@
       renderAdminCatHead();
     }
 
+    // Turn a Firestore error into a short Arabic explanation for the toast.
+    function publishErrorReason(err) {
+      const code = (err && err.code) || "";
+      if (code === "permission-denied") return "صلاحيات Firestore — انشر قواعد الأمان المحدّثة (firestore.rules)";
+      if (code === "invalid-argument" || /longer than|bytes/i.test((err && err.message) || "")) return "حجم الفئة كبير جداً (تجاوز الحد) — قلّل عدد الصور";
+      if (code === "unavailable" || code === "deadline-exceeded") return "تعذّر الاتصال — حاول مرة أخرى";
+      if (code === "unauthenticated") return "سجّل الدخول أولاً";
+      return (err && (err.code || err.message)) || "خطأ غير معروف";
+    }
+
     function publishAdminCategory() {
       const cat = state.adminCat;
       cat.name = (cat.name || "").trim();
@@ -6646,13 +6658,19 @@
       if (!cat.questions.length) { showToast("أضف سؤالاً واحداً على الأقل"); return; }
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
+      const pubBtn = $("#adminPublishBtn");
+      if (pubBtn) { pubBtn.disabled = true; pubBtn.textContent = "جارٍ النشر…"; }
       cloud(cat).then(() => {
         upsertPublished(JSON.parse(JSON.stringify(cat)));
         state.adminDirty = false;
         showToast("تم نشر التعديلات للجميع");
         renderAdminTabs();
         renderAdminCatHead();
-      }).catch(() => showToast("تعذّر النشر — تحقّق من صلاحياتك"));
+      }).catch((err) => {
+        console.error("publish failed", err);
+        showToast("تعذّر النشر: " + publishErrorReason(err));
+        if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; }
+      });
     }
 
     function renderCustomManager() {
@@ -7901,17 +7919,21 @@
           }
           window.IZZBAH.cloudPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
-            return db.collection("categories").doc(cat.id).set({
+            // Only include optional fields when they carry a value, so the doc's
+            // key set stays a subset of whatever the deployed security rules allow
+            // (older rules may not list 'color'/'order' yet).
+            const doc = {
               name: cat.name || "",
               image: cat.image || "",
-              color: cat.color || "",
-              order: cat.order || 0,
               questions: (cat.questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
                 image: q.image || "", answerImage: q.answerImage || ""
               })),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(loadPublishedCategories);
+            };
+            if (cat.color) doc.color = cat.color;
+            if (cat.order) doc.order = cat.order;
+            return db.collection("categories").doc(cat.id).set(doc).then(loadPublishedCategories);
           };
           window.IZZBAH.cloudDelete = function (id) {
             return db.collection("categories").doc(id).delete().then(loadPublishedCategories);
