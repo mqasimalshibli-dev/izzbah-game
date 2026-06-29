@@ -7820,6 +7820,9 @@
         const picked = randomUnusedQuestion();
         if (!picked) { showToast("لا توجد أسئلة متبقية"); return; }
         teamHelpUsed(teamIndex).changeTurn = true;
+        // The activating team skips its own turn: after the chosen team answers
+        // the random question, play resumes with the team AFTER the activator.
+        const nextAfterActivator = (teamIndex + 1) % state.teamCount;
         state.activeTeam = i;
         $("#turnPickModal").classList.remove("open");
         renderScores();
@@ -7827,6 +7830,7 @@
         updateHelpBars();
         showToast(`سؤال عشوائي لفريق ${teamDisplayName(team, i)}`);
         openQuestion(picked.cat, picked.q, picked.key);
+        if (state.activeQuestion) state.activeQuestion.forcedNextTeam = nextAfterActivator;
       });
     }
 
@@ -7975,6 +7979,9 @@
       } else {
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
       }
+      // "سؤال عشوائي": the activator skipped its turn, so resume after it
+      // regardless of who answered the forced random question.
+      if (typeof active.forcedNextTeam === "number") state.activeTeam = active.forcedNextTeam;
       closeQuestion(false);
       renderGame();
     }
@@ -7991,8 +7998,9 @@
     function closeQuestion(advanceTurn = true) {
       const hadQuestion = Boolean(state.activeQuestion);
       const playedTeam = hadQuestion ? state.activeQuestion.team : null;
+      const forcedNext = hadQuestion ? state.activeQuestion.forcedNextTeam : null;
       if (hadQuestion && advanceTurn) {
-        state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+        state.activeTeam = (typeof forcedNext === "number") ? forcedNext : (state.activeTeam + 1) % state.teamCount;
       }
       // A helper ban covers the banned team's WHOLE turn — board (outside) and
       // their open question (inside). Lift it only once that team has finished
