@@ -7376,7 +7376,7 @@
     function openQuestion(cat, q, key) {
       if (state.used.has(key)) return;
       state.used.add(key);
-      state.activeQuestion = { cat, q, key };
+      state.activeQuestion = { cat, q, key, team: state.activeTeam };
       renderChoiceOptions(null);
       renderHint(null);
       updateHelpBars();
@@ -7463,11 +7463,14 @@
 
     function closeQuestion(advanceTurn = true) {
       const hadQuestion = Boolean(state.activeQuestion);
+      const playedTeam = hadQuestion ? state.activeQuestion.team : null;
       if (hadQuestion && advanceTurn) {
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
       }
-      // a helper ban lasts one turn — clear it once that question is resolved
-      if (hadQuestion) state.teams.forEach(t => { t.helpBanned = false; });
+      // A helper ban covers the banned team's WHOLE turn — board (outside) and
+      // their open question (inside). Lift it only once that team has finished
+      // playing its own question, so it isn't cleared early by another team's turn.
+      if (typeof playedTeam === "number" && state.teams[playedTeam]) state.teams[playedTeam].helpBanned = false;
       clearQuestionView();
       renderGame();
       showScreen("game", { keepQuestion: true });
