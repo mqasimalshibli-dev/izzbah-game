@@ -7134,12 +7134,10 @@
     const ICON_TURN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a8 8 0 0 1 13.7-5.6L20 8"/><path d="M20 3v5h-5"/><path d="M21 13a8 8 0 0 1-13.7 5.6L4 16"/><path d="M4 21v-5h5"/></svg>`;
     const HELPERS = {
       fourChoices:  { label: "أربعة خيارات", phase: "question", icon: ICON_GRID },
-      fiftyFifty:   { label: "حذف خيارين",   phase: "question", icon: ICON_HALF },
       firstLetter:  { label: "كشف أول حرف",  phase: "question", icon: ICON_ALINE },
-      secondGuess:  { label: "إجابتان",      phase: "question", icon: ICON_TWO },
       doublePoints: { label: "مضاعفة النقاط", phase: "board",    icon: ICON_X2 },
-      steal:        { label: "سرقة النقاط",   phase: "board",    icon: ICON_STEAL },
-      changeTurn:   { label: "تغيير الدور",   phase: "board",    icon: ICON_TURN, activeOnly: true }
+      steal:        { label: "سرقة الدور",    phase: "board",    icon: ICON_STEAL },
+      changeTurn:   { label: "سؤال عشوائي",   phase: "board",    icon: ICON_TURN, activeOnly: true }
     };
     const HELPER_IDS = Object.keys(HELPERS);
     const DEFAULT_LOADOUT = ["fourChoices", "firstLetter", "doublePoints"];
@@ -7171,7 +7169,7 @@
       teamLoadout(teamIndex).forEach(id => {
         const h = HELPERS[id];
         const used = !!teamHelpUsed(teamIndex)[id];
-        const armed = (id === "doublePoints" && team.doubleArmed) || (id === "steal" && team.stealArmed);
+        const armed = (id === "doublePoints" && team.doubleArmed);
         const inPhase = h.phase === screenPhase;
         const allowed = inPhase && (!h.activeOnly || teamIndex === state.activeTeam);
         const btn = document.createElement("button");
@@ -7194,13 +7192,6 @@
       if (qbar) renderTeamHelpBar(qbar, state.activeTeam, "question");
     }
 
-    function fiftyFiftyOptions(options, q) {
-      const correct = normAnswer(q && q.a);
-      const wrong = options.filter(o => normAnswer(o) !== correct);
-      const keep = wrong[Math.floor(Math.random() * wrong.length)];
-      return shuffleInPlace([correct, keep].filter(Boolean));
-    }
-
     function swapQuestion() {
       const active = state.activeQuestion;
       if (!active || !active.cat) return false;
@@ -7218,20 +7209,22 @@
       if (!team || teamHelpUsed(teamIndex)[id]) return;
       const active = state.activeQuestion;
       if (HELPERS[id].phase === "question" && !active) return;
-      if (id === "fourChoices" || id === "fiftyFifty") {
+      if (id === "fourChoices") {
         const options = buildChoiceOptions(active.cat, active.q);
         if (!options) return;
-        renderChoiceOptions(id === "fiftyFifty" ? fiftyFiftyOptions(options, active.q) : options);
+        renderChoiceOptions(options);
       } else if (id === "firstLetter") {
         const hint = firstLetterHint(active.q && active.q.a);
         if (!hint) return;
         renderHint(hint);
-      } else if (id === "secondGuess") {
-        showToast("إجابتان: لهذا الفريق محاولتان للإجابة");
       } else if (id === "doublePoints") {
         team.doubleArmed = true;
       } else if (id === "steal") {
-        team.stealArmed = true;
+        // "سرقة الدور": the team that uses it seizes the current turn.
+        state.activeTeam = teamIndex;
+        renderScores();
+        renderTurnBoxes();
+        showToast(`${teamDisplayName(team, teamIndex)} سرق الدور!`);
       } else if (id === "changeTurn") {
         openTurnPicker(teamIndex); // consumes the helper only after a team is chosen
         return;
@@ -7240,27 +7233,48 @@
       updateHelpBars();
     }
 
-    // "تغيير الدور": the active team skips its turn and hands the next turn to a
-    // team it picks. Board-only, once per game.
+    // Pick a random still-unanswered (category, tier) and a random question from
+    // that tier's pool. Returns { cat, q, key } or null if the board is empty.
+    function randomUnusedQuestion() {
+      const tiers = [];
+      activeCategories().forEach(cat => {
+        const qs = cat.questions || [];
+        [...new Set(qs.map(q => q.points))].forEach(points => {
+          const key = `${cat.id}-${points}`;
+          if (state.used.has(key)) return;
+          tiers.push({ cat, points, key });
+        });
+      });
+      if (!tiers.length) return null;
+      const pick = tiers[Math.floor(Math.random() * tiers.length)];
+      const pool = (pick.cat.questions || []).filter(q => q.points === pick.points);
+      return { cat: pick.cat, q: pool[Math.floor(Math.random() * pool.length)], key: pick.key };
+    }
+
+    // "سؤال عشوائي": the active team skips its turn and locks a team it picks into
+    // a random question, opening that question for them immediately. Board-only.
     function openTurnPicker(teamIndex) {
       const list = $("#turnPickList");
       if (!list) return;
       list.innerHTML = "";
       state.teams.slice(0, state.teamCount).forEach((team, i) => {
-        if (i === teamIndex) return; // can't hand the turn back to yourself
+        if (i === teamIndex) return; // can't aim the random question at yourself
         const btn = document.createElement("button");
         btn.className = "turn-pick-btn";
         btn.type = "button";
         btn.style.setProperty("--team", colors[i] || "#9e1322");
         btn.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(teamDisplayName(team, i))}</span>`;
         btn.addEventListener("click", () => {
+          const picked = randomUnusedQuestion();
+          if (!picked) { showToast("لا توجد أسئلة متبقية"); return; }
           teamHelpUsed(teamIndex).changeTurn = true;
           state.activeTeam = i;
           $("#turnPickModal").classList.remove("open");
           renderScores();
           renderTurnBoxes();
           updateHelpBars();
-          showToast(`الدور الآن: ${teamDisplayName(team, i)}`);
+          showToast(`سؤال عشوائي لفريق ${teamDisplayName(team, i)}`);
+          openQuestion(picked.cat, picked.q, picked.key);
         });
         list.appendChild(btn);
       });
@@ -7398,13 +7412,6 @@
         if (winnerTeam.doubleArmed) winnerTeam.doubleArmed = false; // consumed on an answered question
         state.activeTeam = (winnerIndex + 1) % state.teamCount;
       } else {
-        // no one answered: a team that armed "سرقة" grabs the points
-        const stealer = state.teams.slice(0, state.teamCount).findIndex(t => t.stealArmed);
-        if (stealer >= 0) {
-          state.teams[stealer].score = Math.min(maxTotalScore, state.teams[stealer].score + active.q.points);
-          state.teams[stealer].stealArmed = false;
-          showToast(`${teamDisplayName(state.teams[stealer], stealer)} سرق النقاط!`);
-        }
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
       }
       closeQuestion(false);
