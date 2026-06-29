@@ -4152,6 +4152,7 @@
       font: 700 13px 'Cairo', sans-serif; transition: background .15s, color .15s, border-color .15s, transform .12s; text-align: start;
     }
     .helper-chip:hover { transform: translateY(-1px); }
+    .helper-chip .hc-label { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; }
     .helper-chip .hc-ico { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto; }
     .helper-chip .hc-ico svg { width: 18px; height: 18px; }
     .helper-chip .hc-ico .qhelp-x2 { font-size: 14px; }
@@ -6117,7 +6118,7 @@
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "helper-chip" + (on ? " on" : "");
-        chip.innerHTML = `<span class="hc-ico">${h.icon}</span><span>${h.label}</span>`;
+        chip.innerHTML = `<span class="hc-ico">${h.icon}</span><span class="hc-label">${h.label}</span>`;
         chip.addEventListener("click", () => {
           if (team.helpers.includes(id)) {
             if (team.helpers.length <= 1) return; // keep at least one
