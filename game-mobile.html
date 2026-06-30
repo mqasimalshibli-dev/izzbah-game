@@ -3672,6 +3672,27 @@
     .admin-table td.col-a { color: #f0c45e; font-weight: 700; }
     .admin-table .q-pts { display: inline-grid; place-items: center; min-width: 44px; padding: 4px 10px; border-radius: 999px;
       background: linear-gradient(180deg, #c8232f, #9e1322); color: #fff; font-weight: 800; font-size: 13px; }
+    .admin-controls {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin: 0 0 12px; padding: 0 2px;
+    }
+    .admin-search {
+      display: flex; align-items: center; gap: 8px; flex: 1 1 240px; min-width: 200px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(230,200,120,.28);
+      border-radius: 12px; padding: 9px 13px; color: #e8d9b3;
+    }
+    .admin-search svg { width: 17px; height: 17px; flex: 0 0 auto; opacity: .8; }
+    .admin-search input {
+      flex: 1; background: transparent; border: none; outline: none; color: #f3e7c8;
+      font: 600 14px 'Cairo', sans-serif; min-width: 0;
+    }
+    .admin-search input::placeholder { color: rgba(230,210,160,.5); }
+    .admin-ctl { display: inline-flex; align-items: center; gap: 7px; color: #cdb98a; font: 700 13px 'Cairo', sans-serif; }
+    .admin-ctl select {
+      background: rgba(255,255,255,.06); color: #f3e7c8; border: 1px solid rgba(230,200,120,.28);
+      border-radius: 12px; padding: 9px 12px; font: 700 13px 'Cairo', sans-serif; cursor: pointer; outline: none;
+    }
+    .admin-ctl select option { color: #1c1208; }
     .admin-table .q-thumbs { display: inline-flex; gap: 7px; justify-content: center; }
     .admin-table .q-thumb-wrap { position: relative; display: inline-block; line-height: 0; }
     .admin-table .q-thumb { width: 40px; height: 32px; border-radius: 6px; object-fit: cover; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
@@ -4564,6 +4585,23 @@
         </header>
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
+        <div class="admin-controls">
+          <div class="admin-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+            <input id="adminSearch" type="search" placeholder="ابحث في الأسئلة أو الإجابات…" autocomplete="off" />
+          </div>
+          <label class="admin-ctl"><span>ترتيب</span>
+            <select id="adminSort">
+              <option value="points-asc">النقاط: تصاعدي</option>
+              <option value="points-desc">النقاط: تنازلي</option>
+              <option value="added-desc">الأحدث إضافة</option>
+              <option value="added-asc">الأقدم إضافة</option>
+            </select>
+          </label>
+          <label class="admin-ctl"><span>تصفية</span>
+            <select id="adminFilter"><option value="all">كل النقاط</option></select>
+          </label>
+        </div>
         <div class="admin-table-wrap">
           <table class="admin-table">
             <thead><tr><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th><th class="col-act">إجراءات</th></tr></thead>
@@ -7253,8 +7291,10 @@
     function selectAdminCategory(id) {
       state.adminCat = adminCloneCategory(id);
       state.adminDirty = false;
+      if ($("#adminSearch")) $("#adminSearch").value = "";
       renderAdminTabs();
       renderAdminCatHead();
+      populateAdminFilter();
       renderAdminTable();
     }
 
@@ -7266,8 +7306,10 @@
         questions: pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }))
       };
       state.adminDirty = true;
+      if ($("#adminSearch")) $("#adminSearch").value = "";
       renderAdminTabs();
       renderAdminCatHead();
+      populateAdminFilter();
       renderAdminTable();
     }
 
@@ -7339,6 +7381,19 @@
       markAdminDirty();
     }
 
+    // Rebuild the "filter by points" dropdown from the current category's tiers,
+    // preserving the current choice when still valid.
+    function populateAdminFilter() {
+      const sel = $("#adminFilter");
+      const cat = state.adminCat;
+      if (!sel || !cat) return;
+      const prev = sel.value || "all";
+      const tiers = [...new Set((cat.questions || []).map(q => q.points))].sort((a, b) => a - b);
+      sel.innerHTML = `<option value="all">كل النقاط</option>` +
+        tiers.map(p => `<option value="${p}">${toArabicDigits(p)} نقطة</option>`).join("");
+      sel.value = tiers.some(p => String(p) === prev) ? prev : "all";
+    }
+
     function renderAdminTable() {
       const tbody = $("#adminRows");
       const cat = state.adminCat;
@@ -7348,10 +7403,23 @@
         tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا توجد أسئلة بعد — اضغط «إضافة سؤال جديد».</td></tr>`;
         return;
       }
-      cat.questions
-        .map((q, i) => ({ q, i }))
-        .sort((a, b) => (a.q.points || 0) - (b.q.points || 0))
-        .forEach(({ q, i }) => {
+      const search = (($("#adminSearch") && $("#adminSearch").value) || "").trim().toLowerCase();
+      const sortBy = ($("#adminSort") && $("#adminSort").value) || "points-asc";
+      const filterBy = ($("#adminFilter") && $("#adminFilter").value) || "all";
+      let rows = cat.questions.map((q, i) => ({ q, i })); // i = order added
+      if (filterBy !== "all") rows = rows.filter(r => String(r.q.points) === filterBy);
+      if (search) rows = rows.filter(r => ((r.q.q || "") + " " + (r.q.a || "")).toLowerCase().includes(search));
+      const byAdded = (a, b) => a.i - b.i;
+      const byPoints = (a, b) => (a.q.points || 0) - (b.q.points || 0) || a.i - b.i;
+      if (sortBy === "points-asc") rows.sort(byPoints);
+      else if (sortBy === "points-desc") rows.sort((a, b) => byPoints(b, a));
+      else if (sortBy === "added-asc") rows.sort(byAdded);
+      else if (sortBy === "added-desc") rows.sort((a, b) => byAdded(b, a));
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا نتائج مطابقة.</td></tr>`;
+        return;
+      }
+      rows.forEach(({ q, i }) => {
           const tr = document.createElement("tr");
           const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
           const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
@@ -7372,6 +7440,7 @@
             if (window.confirm("حذف هذا السؤال؟")) {
               state.adminCat.questions.splice(i, 1);
               state.adminDirty = true;
+              populateAdminFilter();
               renderAdminTable();
               renderAdminCatHead();
             }
@@ -7411,6 +7480,7 @@
       else state.adminCat.questions.push(obj);
       state.adminDirty = true;
       $("#adminQModal").classList.remove("open");
+      populateAdminFilter();
       renderAdminTable();
       renderAdminCatHead();
     }
@@ -8549,6 +8619,9 @@
     $("#adminEntry").addEventListener("click", openAdminPanel);
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
+    if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
+    if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
+    if ($("#adminFilter")) $("#adminFilter").addEventListener("change", renderAdminTable);
     $("#adminQCancel").addEventListener("click", () => $("#adminQModal").classList.remove("open"));
     $("#turnPickCancel").addEventListener("click", () => $("#turnPickModal").classList.remove("open"));
     $("#adminQSave").addEventListener("click", saveAdminQuestion);
