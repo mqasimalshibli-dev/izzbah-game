@@ -6739,29 +6739,6 @@
       return size() <= budgetBytes;
     }
 
-    // Upload any embedded (base64) images in a category to Firebase Storage and
-    // replace them with their download URLs, so the Firestore doc stays tiny and
-    // images keep full quality. Best-effort: if Storage isn't set up or an upload
-    // fails, the base64 is left in place (and fitCategoryImages shrinks it).
-    async function uploadCategoryImages(cat) {
-      const up = window.IZZBAH && window.IZZBAH.cloudUploadImage;
-      const can = window.IZZBAH && window.IZZBAH.canUploadImages && window.IZZBAH.canUploadImages();
-      if (!up || !can) return false;
-      let uploadedAny = false;
-      const tryUp = async (val, path) => {
-        if (typeof val !== "string" || !/^data:image\//.test(val)) return val; // already a URL / empty
-        try { const url = await up(val, path); if (url && url !== val) uploadedAny = true; return url; }
-        catch (e) { console.warn("image upload failed", e); return val; }
-      };
-      cat.image = await tryUp(cat.image, `categories/${cat.id}/cover.jpg`);
-      const qs = cat.questions || [];
-      for (let i = 0; i < qs.length; i++) {
-        qs[i].image = await tryUp(qs[i].image, `categories/${cat.id}/q${i}-image.jpg`);
-        qs[i].answerImage = await tryUp(qs[i].answerImage, `categories/${cat.id}/q${i}-answer.jpg`);
-      }
-      return uploadedAny;
-    }
-
     function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
       const picker = document.createElement("label");
       picker.className = "image-picker";
@@ -7140,9 +7117,8 @@
     function publishCategory(cat) {
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
-      // Prefer uploading images to Storage (full quality, tiny doc); fall back to
-      // shrinking embedded base64 to fit Firestore's 1 MiB limit when Storage is off.
-      uploadCategoryImages(cat).then(() => fitCategoryImages(cat, 950000)).then(fits => {
+      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
+      fitCategoryImages(cat, 950000).then(fits => {
         if (!fits) { showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور"); return; }
         return cloud(cat)
           .then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); showToast("تم نشر الفئة للجميع"); renderCustomManager(); showScreen("customManager"); })
@@ -7450,9 +7426,8 @@
       const pubBtn = $("#adminPublishBtn");
       const restore = () => { if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; } };
       if (pubBtn) { pubBtn.disabled = true; pubBtn.textContent = "جارٍ النشر…"; }
-      // Prefer uploading images to Storage (full quality, tiny doc); fall back to
-      // shrinking embedded base64 to fit Firestore's 1 MiB limit when Storage is off.
-      uploadCategoryImages(cat).then(() => fitCategoryImages(cat, 950000)).then(fits => {
+      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
+      fitCategoryImages(cat, 950000).then(fits => {
         if (!fits) {
           showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور");
           renderAdminTable(); renderAdminCatHead(); restore();
@@ -8751,7 +8726,7 @@
       const SDK = "10.12.2";
       const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
-      let db = null, auth = null, storage = null, currentUser = null, pushTimer = null, applying = false;
+      let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
 
       function loadScript(src) {
         return new Promise((res, rej) => {
@@ -8800,7 +8775,6 @@
       loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
-        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-storage-compat.js").catch(() => {}))
         .then(() => {
           const acKey = window.IZZBAH_APPCHECK_SITE_KEY;
           return (acKey && acKey.indexOf("PASTE_") !== 0)
@@ -8815,7 +8789,6 @@
           }
           auth = firebase.auth();
           db = firebase.firestore();
-          try { if (firebase.storage) storage = firebase.storage(); } catch (e) { console.warn("storage init failed", e); }
 
           // ---- Admin CMS bridge (published content + admin gating) ----
           window.IZZBAH = window.IZZBAH || {};
@@ -8854,26 +8827,6 @@
           };
           window.IZZBAH.cloudDelete = function (id) {
             return db.collection("categories").doc(id).delete().then(loadPublishedCategories);
-          };
-          // Whether image uploads to Firebase Storage are possible right now.
-          window.IZZBAH.canUploadImages = function () { return !!(storage && currentUser); };
-          // Upload a base64 data-URL image to Storage and return its download URL.
-          // Anything that isn't a data: image (already a URL, or empty) passes through.
-          function dataUrlToBlob(dataUrl) {
-            const comma = dataUrl.indexOf(",");
-            const head = dataUrl.slice(0, comma), b64 = dataUrl.slice(comma + 1);
-            const mime = (head.match(/data:(.*?);base64/) || [])[1] || "image/jpeg";
-            const bin = atob(b64), arr = new Uint8Array(bin.length);
-            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-            return new Blob([arr], { type: mime });
-          }
-          window.IZZBAH.cloudUploadImage = function (dataUrl, path) {
-            if (typeof dataUrl !== "string" || !/^data:image\//.test(dataUrl)) return Promise.resolve(dataUrl);
-            if (!storage || !currentUser) return Promise.reject(new Error("storage unavailable"));
-            const blob = dataUrlToBlob(dataUrl);
-            const ref = storage.ref().child(path);
-            return ref.put(blob, { contentType: blob.type, cacheControl: "public,max-age=31536000" })
-              .then(snap => snap.ref.getDownloadURL());
           };
           loadPublishedCategories(); // available to everyone, even signed-out
 
