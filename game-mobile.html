@@ -397,6 +397,15 @@
       filter: brightness(1.04);
     }
     .image-picker.drag-over .plus { transform: scale(1.15); }
+    .image-picker .img-remove {
+      position: absolute; top: 3px; right: 3px; z-index: 4;
+      width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(158, 19, 34, .92); color: #fff;
+      font: 700 16px/1 'Cairo', sans-serif; display: grid; place-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .45); opacity: .9; transition: opacity .12s, transform .12s;
+    }
+    .image-picker .img-remove:hover { opacity: 1; transform: scale(1.12); background: #b71c2c; }
+    .image-picker:hover .img-remove, .image-picker:focus-within .img-remove { opacity: 1; }
 
     .image-picker .plus {
       font-size: 42px;
@@ -6795,8 +6804,14 @@
       picker.tabIndex = 0; // focusable so you can paste (Ctrl/⌘+V) into it
       picker.title = label + " — اضغط أو اسحب صورة أو الصقها";
       picker.innerHTML = currentImage
-        ? `<img src="${escapeHtml(currentImage)}" alt="" />`
+        ? `<img src="${escapeHtml(currentImage)}" alt="" /><button type="button" class="img-remove" title="حذف الصورة" aria-label="حذف الصورة">×</button>`
         : `<span class="plus">+</span>`;
+      const removeBtn = picker.querySelector(".img-remove");
+      if (removeBtn) {
+        // keep the click off the label so it doesn't reopen the file dialog
+        removeBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        removeBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); onChange(""); });
+      }
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
