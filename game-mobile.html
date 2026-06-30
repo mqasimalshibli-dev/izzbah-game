@@ -1652,6 +1652,46 @@
     }
 
     .question-image.visible { display: block; }
+    .question-image, .answer-image { cursor: zoom-in; }
+
+    /* Fullscreen image viewer with zoom + pan */
+    .img-lightbox {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(10, 6, 6, .93);
+      touch-action: none; user-select: none;
+      overscroll-behavior: contain;
+    }
+    .img-lightbox.open { display: block; }
+    .imgbox-stage {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      overflow: hidden; cursor: grab;
+    }
+    .imgbox-stage.panning { cursor: grabbing; }
+    #imgboxImg {
+      max-width: 96vw; max-height: 92vh;
+      will-change: transform; transform-origin: center center;
+      -webkit-user-drag: none; user-drag: none; pointer-events: none;
+      border-radius: 6px; box-shadow: 0 14px 50px rgba(0, 0, 0, .6);
+    }
+    .imgbox-close {
+      position: absolute; top: 14px; left: 16px; z-index: 2;
+      width: 46px; height: 46px; border-radius: 50%;
+      border: none; cursor: pointer;
+      background: rgba(255, 255, 255, .14); color: #fff;
+      font: 300 30px/1 'Cairo', sans-serif;
+      display: grid; place-items: center;
+      transition: background .15s;
+    }
+    .imgbox-close:hover { background: rgba(255, 255, 255, .26); }
+    .imgbox-hint {
+      position: absolute; left: 0; right: 0; bottom: 16px; z-index: 2;
+      text-align: center; color: rgba(255, 255, 255, .75);
+      font: 600 13px 'Cairo', sans-serif; pointer-events: none;
+      padding: 0 16px; transition: opacity .4s; text-shadow: 0 1px 4px rgba(0,0,0,.6);
+    }
+    .img-lightbox.zoomed .imgbox-hint { opacity: 0; }
 
     .answer-image {
       display: none;
@@ -4559,6 +4599,14 @@
         <div class="turn-pick-list" id="turnPickList"></div>
         <div class="actions"><button class="ghost" id="turnPickCancel" type="button">إلغاء</button></div>
       </div>
+    </div>
+
+    <div class="img-lightbox" id="imgLightbox" aria-hidden="true">
+      <button class="imgbox-close" id="imgboxClose" type="button" aria-label="إغلاق">×</button>
+      <div class="imgbox-stage" id="imgboxStage">
+        <img id="imgboxImg" alt="" draggable="false" />
+      </div>
+      <div class="imgbox-hint" id="imgboxHint">حرّك للتصفح • عجلة الفأرة أو القرص للتكبير • نقرة مزدوجة للتبديل</div>
     </div>
 
     <div class="modal-backdrop" id="categoryPreview" aria-hidden="true">
@@ -8492,6 +8540,113 @@
     $("#adminQCancel").addEventListener("click", () => $("#adminQModal").classList.remove("open"));
     $("#turnPickCancel").addEventListener("click", () => $("#turnPickModal").classList.remove("open"));
     $("#adminQSave").addEventListener("click", saveAdminQuestion);
+
+    // ---- Fullscreen image viewer (tap a question/answer image to zoom & pan) ----
+    (function setupImageLightbox() {
+      const box = $("#imgLightbox"), stage = $("#imgboxStage"), img = $("#imgboxImg");
+      if (!box || !stage || !img) return;
+      const MIN = 1, MAX = 6;
+      let scale = 1, tx = 0, ty = 0;
+      const pointers = new Map();
+      let pinchStartDist = 0, pinchStartScale = 1;
+      let lastTap = 0;
+
+      const apply = () => {
+        img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+        box.classList.toggle("zoomed", scale > 1.02);
+        stage.style.cursor = scale > 1.02 ? "grab" : "zoom-out";
+      };
+      const clampPan = () => {
+        // keep the (scaled) image from drifting completely off-screen
+        const r = stage.getBoundingClientRect();
+        const w = img.clientWidth * scale, h = img.clientHeight * scale;
+        const maxX = Math.max(0, (w - r.width) / 2 + 40);
+        const maxY = Math.max(0, (h - r.height) / 2 + 40);
+        tx = Math.max(-maxX, Math.min(maxX, tx));
+        ty = Math.max(-maxY, Math.min(maxY, ty));
+      };
+      const setScale = (next, cx, cy) => {
+        next = Math.max(MIN, Math.min(MAX, next));
+        const r = stage.getBoundingClientRect();
+        const ox = (cx == null ? r.width / 2 : cx - r.left) - r.width / 2;
+        const oy = (cy == null ? r.height / 2 : cy - r.top) - r.height / 2;
+        const k = next / scale;
+        // zoom toward the pointer
+        tx = ox - (ox - tx) * k;
+        ty = oy - (oy - ty) * k;
+        scale = next;
+        if (scale <= MIN + 0.001) { scale = 1; tx = 0; ty = 0; }
+        clampPan(); apply();
+      };
+
+      const open = (src) => {
+        if (!src) return;
+        img.src = src; scale = 1; tx = 0; ty = 0; apply();
+        box.classList.add("open"); box.setAttribute("aria-hidden", "false");
+      };
+      const close = () => { box.classList.remove("open"); box.setAttribute("aria-hidden", "true"); img.src = ""; };
+
+      // open from either image
+      ["#modalQuestionImage", "#modalAnswerImage"].forEach(sel => {
+        const el = $(sel);
+        if (el) el.addEventListener("click", () => { if (el.classList.contains("visible") && el.getAttribute("src")) open(el.getAttribute("src")); });
+      });
+
+      $("#imgboxClose").addEventListener("click", close);
+      // click the empty backdrop (not the image) closes
+      stage.addEventListener("click", (e) => { if (e.target === stage && scale <= 1.02) close(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && box.classList.contains("open")) close(); });
+
+      // wheel zoom (desktop)
+      stage.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        setScale(scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY);
+      }, { passive: false });
+
+      // pointer drag + pinch
+      const dist = () => { const p = [...pointers.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
+      stage.addEventListener("pointerdown", (e) => {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        stage.setPointerCapture(e.pointerId);
+        if (pointers.size === 2) { pinchStartDist = dist(); pinchStartScale = scale; }
+        stage.classList.add("panning");
+      });
+      stage.addEventListener("pointermove", (e) => {
+        const prev = pointers.get(e.pointerId);
+        if (!prev) return;
+        const nx = e.clientX, ny = e.clientY;
+        if (pointers.size === 2) {
+          pointers.set(e.pointerId, { x: nx, y: ny });
+          const mid = [...pointers.values()];
+          const cx = (mid[0].x + mid[1].x) / 2, cy = (mid[0].y + mid[1].y) / 2;
+          if (pinchStartDist > 0) setScale(pinchStartScale * (dist() / pinchStartDist), cx, cy);
+        } else if (scale > 1.02) {
+          tx += nx - prev.x; ty += ny - prev.y;
+          pointers.set(e.pointerId, { x: nx, y: ny });
+          clampPan(); apply();
+        } else {
+          pointers.set(e.pointerId, { x: nx, y: ny });
+        }
+      });
+      const endPointer = (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinchStartDist = 0;
+        if (pointers.size === 0) stage.classList.remove("panning");
+      };
+      stage.addEventListener("pointerup", endPointer);
+      stage.addEventListener("pointercancel", endPointer);
+
+      // double-click / double-tap to toggle zoom
+      const toggleZoom = (cx, cy) => { if (scale > 1.02) setScale(1); else setScale(2.6, cx, cy); };
+      stage.addEventListener("dblclick", (e) => { e.preventDefault(); toggleZoom(e.clientX, e.clientY); });
+      stage.addEventListener("pointerup", (e) => {
+        const now = e.timeStamp || (window.performance && performance.now()) || 0;
+        if (e.pointerType === "touch") {
+          if (now - lastTap < 300) { toggleZoom(e.clientX, e.clientY); lastTap = 0; }
+          else lastTap = now;
+        }
+      });
+    })();
 
     // ---- Bridge to the Firebase layer (defined in the separate <script> below) ----
     function normalizePublishedCategory(c) {
