@@ -6493,6 +6493,50 @@
       });
     }
 
+    // Re-encode an existing image data-URL smaller (used to fit a category under
+    // Firestore's 1 MiB/doc limit). Non-image / data-less strings pass through.
+    function recompressDataUrl(dataUrl, maxDim, quality) {
+      return new Promise(resolve => {
+        if (typeof dataUrl !== "string" || !/^data:image\//.test(dataUrl)) { resolve(dataUrl); return; }
+        const img = new Image();
+        img.onerror = () => resolve(dataUrl);
+        img.onload = () => {
+          try {
+            let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            const scale = Math.min(1, maxDim / Math.max(w, h));
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const ctx = c.getContext("2d");
+            ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            const out = c.toDataURL("image/jpeg", quality);
+            resolve(out.length < dataUrl.length ? out : dataUrl);
+          } catch (e) { resolve(dataUrl); }
+        };
+        img.src = dataUrl;
+      });
+    }
+
+    // Shrink all images in a category (cover + every question image/answer image)
+    // in progressively harder passes until the serialized doc fits the budget.
+    // Returns true if it fits, false if even the hardest pass is still too big.
+    async function fitCategoryImages(cat, budgetBytes) {
+      const size = () => JSON.stringify(cat).length;
+      if (size() <= budgetBytes) return true;
+      const passes = [[760, 0.72], [600, 0.64], [480, 0.56], [380, 0.5], [300, 0.44], [240, 0.4]];
+      for (const [dim, q] of passes) {
+        if (cat.image) cat.image = await recompressDataUrl(cat.image, dim, q);
+        for (const ques of (cat.questions || [])) {
+          if (ques.image) ques.image = await recompressDataUrl(ques.image, dim, q);
+          if (ques.answerImage) ques.answerImage = await recompressDataUrl(ques.answerImage, dim, q);
+        }
+        if (size() <= budgetBytes) return true;
+      }
+      return size() <= budgetBytes;
+    }
+
     function imagePicker(currentImage, onChange, label = "اختر صورة") {
       const picker = document.createElement("label");
       picker.className = "image-picker";
@@ -6871,9 +6915,13 @@
     function publishCategory(cat) {
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
-      cloud(cat)
-        .then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); showToast("تم نشر الفئة للجميع"); renderCustomManager(); showScreen("customManager"); })
-        .catch(() => showToast("تعذّر النشر — تحقّق من صلاحياتك"));
+      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
+      fitCategoryImages(cat, 950000).then(fits => {
+        if (!fits) { showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور"); return; }
+        return cloud(cat)
+          .then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); showToast("تم نشر الفئة للجميع"); renderCustomManager(); showScreen("customManager"); })
+          .catch((err) => showToast("تعذّر النشر: " + publishErrorReason(err)));
+      });
     }
 
     function deletePublishedCategory(cat) {
@@ -7174,17 +7222,27 @@
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
       const pubBtn = $("#adminPublishBtn");
+      const restore = () => { if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; } };
       if (pubBtn) { pubBtn.disabled = true; pubBtn.textContent = "جارٍ النشر…"; }
-      cloud(cat).then(() => {
-        upsertPublished(JSON.parse(JSON.stringify(cat)));
-        state.adminDirty = false;
-        showToast("تم نشر التعديلات للجميع");
-        renderAdminTabs();
-        renderAdminCatHead();
-      }).catch((err) => {
-        console.error("publish failed", err);
-        showToast("تعذّر النشر: " + publishErrorReason(err));
-        if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; }
+      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
+      fitCategoryImages(cat, 950000).then(fits => {
+        if (!fits) {
+          showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور");
+          renderAdminTable(); renderAdminCatHead(); restore();
+          return;
+        }
+        renderAdminTable(); // reflect any re-compressed thumbnails
+        return cloud(cat).then(() => {
+          upsertPublished(JSON.parse(JSON.stringify(cat)));
+          state.adminDirty = false;
+          showToast("تم نشر التعديلات للجميع");
+          renderAdminTabs();
+          renderAdminCatHead();
+        }).catch((err) => {
+          console.error("publish failed", err);
+          showToast("تعذّر النشر: " + publishErrorReason(err));
+          restore();
+        });
       });
     }
 
