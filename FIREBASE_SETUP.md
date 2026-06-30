@@ -31,7 +31,7 @@ on any device.
 - Copy the `firebaseConfig` object it shows you.
 
 ### 6. Paste the config into the game
-- Open `game-mobile.html` (and `game[1].html` if you use it).
+- Open `game-mobile.html`.
 - Near the top, inside `<head>`, find `window.IZZBAH_FIREBASE_CONFIG = { ... }`
   and replace the `PASTE_YOUR_*` values with the ones from step 5.
 
