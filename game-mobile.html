@@ -3688,6 +3688,12 @@
     .admin-table td.col-a { color: #f0c45e; font-weight: 700; }
     .admin-table .q-pts { display: inline-grid; place-items: center; min-width: 44px; padding: 4px 10px; border-radius: 999px;
       background: linear-gradient(180deg, #c8232f, #9e1322); color: #fff; font-weight: 800; font-size: 13px; }
+    .note-pop { max-width: 420px; text-align: center; padding: 26px 24px 22px; }
+    .note-pop-icon { font-size: 46px; line-height: 1; margin-bottom: 10px; }
+    .note-pop-title { font: 800 22px 'Cairo', sans-serif; color: #b51f2b; margin: 0 0 8px; }
+    .note-pop-msg { font: 600 16px 'Cairo', sans-serif; color: #5a4a2c; line-height: 1.6; margin: 0 0 18px; }
+    .note-pop .actions { justify-content: center; }
+    .note-pop #notePopOk { min-width: 120px; }
     .admin-controls {
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       margin: 0 0 12px; padding: 0 2px;
@@ -4649,6 +4655,15 @@
           <button class="ghost" id="adminQCancel" type="button">إلغاء</button>
           <button class="primary" id="adminQSave" type="button">حفظ السؤال</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="notePop" aria-hidden="true">
+      <div class="question-modal note-pop" role="alertdialog" aria-modal="true">
+        <div class="note-pop-icon" id="notePopIcon">⚠️</div>
+        <h3 class="note-pop-title" id="notePopTitle"></h3>
+        <p class="note-pop-msg" id="notePopMsg"></p>
+        <div class="actions"><button class="primary" id="notePopOk" type="button">حسناً</button></div>
       </div>
     </div>
 
@@ -7417,7 +7432,7 @@
       const imgLbl = document.createElement("label");
       imgLbl.className = "field-label";
       imgLbl.textContent = "الصورة";
-      imgLbl.appendChild(imagePicker(cat.image, image => { cat.image = image; state.adminDirty = true; renderAdminCatHead(); }, "صورة"));
+      imgLbl.appendChild(imagePicker(cat.image, image => { cat.image = image; state.adminDirty = true; renderAdminCatHead(); autoPublishAdmin(); }, "صورة"));
       const count = document.createElement("span");
       count.className = "ac-count";
       count.textContent = `${toArabicDigits(cat.questions.length)} سؤال`;
@@ -7492,6 +7507,7 @@
               populateAdminFilter();
               renderAdminTable();
               renderAdminCatHead();
+              autoPublishAdmin(); // publish the deletion directly
             }
           });
           act.append(edit, del); actCell.appendChild(act);
@@ -7532,6 +7548,7 @@
       populateAdminFilter();
       renderAdminTable();
       renderAdminCatHead();
+      autoPublishAdmin(); // publish the new/edited question directly
     }
 
     // Turn a Firestore error into a short Arabic explanation for the toast.
@@ -7544,34 +7561,60 @@
       return (err && (err.code || err.message)) || "خطأ غير معروف";
     }
 
-    function publishAdminCategory() {
+    // Prominent pop-out note (for "too big" / blocked-publish warnings).
+    function popNote(title, message) {
+      const m = $("#notePop");
+      if (!m) { showToast(message || title); return; }
+      $("#notePopTitle").textContent = title || "";
+      $("#notePopMsg").textContent = message || "";
+      m.classList.add("open");
+    }
+
+    // Auto-publish: called after every add/edit/delete so changes go live without
+    // pressing the button. Silently skips until the category is publishable.
+    let adminPublishing = false, adminPublishPending = false;
+    function autoPublishAdmin() {
       const cat = state.adminCat;
+      if (!cat || !(cat.name || "").trim() || !cat.questions.length) return;
+      if (!(window.IZZBAH && window.IZZBAH.cloudPublish)) return; // not signed in / offline
+      publishAdminCategory({ auto: true });
+    }
+
+    function publishAdminCategory(opts) {
+      const auto = !!(opts && opts.auto);
+      const cat = state.adminCat;
+      if (!cat) return;
       cat.name = (cat.name || "").trim();
-      if (!cat.name) { showToast("أدخل اسم الفئة"); return; }
-      if (!cat.questions.length) { showToast("أضف سؤالاً واحداً على الأقل"); return; }
+      if (!cat.name) { if (!auto) showToast("أدخل اسم الفئة"); return; }
+      if (!cat.questions.length) { if (!auto) showToast("أضف سؤالاً واحداً على الأقل"); return; }
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
-      if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
+      if (!cloud) { if (!auto) showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
+      if (adminPublishing) { adminPublishPending = true; return; } // coalesce rapid edits
+      adminPublishing = true;
       const pubBtn = $("#adminPublishBtn");
       const restore = () => { if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; } };
+      const done = () => { adminPublishing = false; if (adminPublishPending) { adminPublishPending = false; autoPublishAdmin(); } };
       if (pubBtn) { pubBtn.disabled = true; pubBtn.textContent = "جارٍ النشر…"; }
       // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
       fitCategoryImages(cat, 950000).then(fits => {
         if (!fits) {
-          showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور");
-          renderAdminTable(); renderAdminCatHead(); restore();
+          popNote("⚠️ الفئة كبيرة جداً", "تجاوزت الصور الحد المسموح به (١ ميجابايت للفئة). احذف بعض الصور أو وزّعها على فئتين حتى يُحفَظ المحتوى للجميع.");
+          renderAdminTable(); renderAdminCatHead(); restore(); done();
           return;
         }
         renderAdminTable(); // reflect any re-compressed thumbnails
         return cloud(cat).then(() => {
           upsertPublished(JSON.parse(JSON.stringify(cat)));
           state.adminDirty = false;
-          showToast("تم نشر التعديلات للجميع");
+          showToast(auto ? "تم الحفظ والنشر ✓" : "تم نشر التعديلات للجميع");
           renderAdminTabs();
           renderAdminCatHead();
+          done();
         }).catch((err) => {
           console.error("publish failed", err);
-          showToast("تعذّر النشر: " + publishErrorReason(err));
-          restore();
+          if (err && err.code === "permission-denied") popNote("تعذّر النشر", publishErrorReason(err));
+          else showToast("تعذّر النشر: " + publishErrorReason(err));
+          restore(); done();
         });
       });
     }
@@ -8668,6 +8711,7 @@
     $("#adminEntry").addEventListener("click", openAdminPanel);
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
+    if ($("#notePopOk")) $("#notePopOk").addEventListener("click", () => $("#notePop").classList.remove("open"));
     if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
     if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
     if ($("#adminFilter")) $("#adminFilter").addEventListener("change", renderAdminTable);
