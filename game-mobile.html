@@ -6813,6 +6813,37 @@
       return size() <= budgetBytes;
     }
 
+    // Shrink one question's images so its OWN document fits under ~1 MiB. With the
+    // per-question storage model each question gets its own 1 MiB budget, so a
+    // category can hold many full-quality images.
+    const QUESTION_BUDGET = 950000;
+    async function fitQuestionForDoc(q, budget = QUESTION_BUDGET) {
+      const size = () => JSON.stringify({ p: q.points, q: q.q, a: q.a, i: q.image || "", ai: q.answerImage || "" }).length;
+      if (size() <= budget) return true;
+      const passes = [[1280, 0.86], [1040, 0.8], [840, 0.72], [660, 0.64], [520, 0.56], [400, 0.48], [320, 0.42]];
+      for (const [dim, ql] of passes) {
+        if (q.image) q.image = await recompressDataUrl(q.image, dim, ql);
+        if (q.answerImage) q.answerImage = await recompressDataUrl(q.answerImage, dim, ql);
+        if (size() <= budget) return true;
+      }
+      return size() <= budget;
+    }
+
+    // Prepare a category for publishing under the per-question model: keep the
+    // cover image modest (it rides in the parent doc) and fit each question to
+    // its own 1 MiB. Returns false only if a SINGLE question still can't fit.
+    async function fitCategoryForPublish(cat) {
+      if (cat.image) {
+        const csize = () => JSON.stringify({ i: cat.image }).length;
+        const cpasses = [[1024, 0.82], [760, 0.72], [560, 0.6], [420, 0.5], [320, 0.42]];
+        for (const [dim, ql] of cpasses) { if (csize() <= 600000) break; cat.image = await recompressDataUrl(cat.image, dim, ql); }
+      }
+      for (const q of (cat.questions || [])) {
+        if (!(await fitQuestionForDoc(q))) return false;
+      }
+      return true;
+    }
+
     function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
       const picker = document.createElement("label");
       picker.className = "image-picker";
@@ -7224,9 +7255,9 @@
     function publishCategory(cat) {
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
-      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
-      fitCategoryImages(cat, 950000).then(fits => {
-        if (!fits) { showToast("تعذّر النشر: حجم الفئة كبير جداً حتى بعد الضغط — احذف بعض الصور"); return; }
+      // Shrink each question's images so its own document fits under 1 MiB.
+      fitCategoryForPublish(cat).then(fits => {
+        if (!fits) { showToast("تعذّر النشر: أحد الأسئلة يحتوي صوراً أكبر من الحد — قلّل صور هذا السؤال"); return; }
         return cloud(cat)
           .then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); showToast("تم نشر الفئة للجميع"); renderCustomManager(); showScreen("customManager"); })
           .catch((err) => showToast("تعذّر النشر: " + publishErrorReason(err)));
@@ -7595,10 +7626,10 @@
       const restore = () => { if (pubBtn) { pubBtn.disabled = false; pubBtn.textContent = "نشر التعديلات"; } };
       const done = () => { adminPublishing = false; if (adminPublishPending) { adminPublishPending = false; autoPublishAdmin(); } };
       if (pubBtn) { pubBtn.disabled = true; pubBtn.textContent = "جارٍ النشر…"; }
-      // Auto-shrink embedded images so the category fits Firestore's 1 MiB limit.
-      fitCategoryImages(cat, 950000).then(fits => {
+      // Shrink each question's images so its own document fits under 1 MiB.
+      fitCategoryForPublish(cat).then(fits => {
         if (!fits) {
-          popNote("⚠️ الفئة كبيرة جداً", "تجاوزت الصور الحد المسموح به (١ ميجابايت للفئة). احذف بعض الصور أو وزّعها على فئتين حتى يُحفَظ المحتوى للجميع.");
+          popNote("⚠️ صورة كبيرة جداً", "أحد الأسئلة يحتوي صوراً أكبر من الحد المسموح (١ ميجابايت للسؤال). قلّل حجم أو عدد صور هذا السؤال.");
           renderAdminTable(); renderAdminCatHead(); restore(); done();
           return;
         }
@@ -8967,11 +8998,28 @@
 
           // ---- Admin CMS bridge (published content + admin gating) ----
           window.IZZBAH = window.IZZBAH || {};
+          // Read a category's questions from its /questions subcollection (new
+          // model: each question is its own doc, so each gets the full 1 MiB).
+          // Falls back to the inline `questions` array for old-format docs.
+          function loadCategoryDoc(d) {
+            const data = d.data() || {};
+            const inline = Array.isArray(data.questions) ? data.questions : [];
+            return d.ref.collection("questions").get()
+              .then(qsnap => {
+                const questions = qsnap.empty
+                  ? inline
+                  : qsnap.docs.map(q => q.data())
+                      .sort((a, b) => (a.idx || 0) - (b.idx || 0))
+                      .map(q => ({ points: q.points || 0, q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || "" }));
+                return Object.assign({ id: d.id }, data, { questions });
+              })
+              .catch(() => Object.assign({ id: d.id }, data, { questions: inline }));
+          }
           function loadPublishedCategories() {
             return db.collection("categories").get()
-              .then(snap => {
-                const cats = snap.docs.map(d => Object.assign({ id: d.id }, d.data()))
-                  .sort((a, b) => (a.order || 0) - (b.order || 0));
+              .then(snap => Promise.all(snap.docs.map(loadCategoryDoc)))
+              .then(cats => {
+                cats.sort((a, b) => (a.order || 0) - (b.order || 0));
                 if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
               })
               .catch(e => console.warn("load categories failed", e));
@@ -8984,24 +9032,45 @@
           }
           window.IZZBAH.cloudPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
-            // Only include optional fields when they carry a value, so the doc's
-            // key set stays a subset of whatever the deployed security rules allow
-            // (older rules may not list 'color'/'order' yet).
-            const doc = {
+            const catRef = db.collection("categories").doc(cat.id);
+            const qcol = catRef.collection("questions");
+            const list = cat.questions || [];
+            // Parent doc = metadata + cover image + a TEXT-ONLY copy of the
+            // questions (no images). It stays tiny, satisfies the existing rules,
+            // and lets an older app version still show the Q&A if we ever roll back.
+            const meta = {
               name: cat.name || "",
               image: cat.image || "",
-              questions: (cat.questions || []).map(q => ({
-                points: q.points || 0, q: q.q || "", a: q.a || "",
-                image: q.image || "", answerImage: q.answerImage || ""
-              })),
+              questions: list.map(q => ({ points: q.points || 0, q: q.q || "", a: q.a || "" })),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            if (cat.color) doc.color = cat.color;
-            if (cat.order) doc.order = cat.order;
-            return db.collection("categories").doc(cat.id).set(doc).then(loadPublishedCategories);
+            if (cat.color) meta.color = cat.color;
+            if (cat.order) meta.order = cat.order;
+            // Read existing question docs (so we can delete removed ones), then
+            // write metadata + every question atomically in one batch.
+            return qcol.get().then(existing => {
+              const batch = db.batch();
+              batch.set(catRef, meta);
+              const keep = new Set();
+              list.forEach((q, i) => {
+                const id = "q" + i; keep.add(id);
+                batch.set(qcol.doc(id), {
+                  points: q.points || 0, q: q.q || "", a: q.a || "",
+                  image: q.image || "", answerImage: q.answerImage || "", idx: i
+                });
+              });
+              existing.forEach(d => { if (!keep.has(d.id)) batch.delete(d.ref); });
+              return batch.commit();
+            }).then(loadPublishedCategories);
           };
           window.IZZBAH.cloudDelete = function (id) {
-            return db.collection("categories").doc(id).delete().then(loadPublishedCategories);
+            const catRef = db.collection("categories").doc(id);
+            return catRef.collection("questions").get().then(qsnap => {
+              const batch = db.batch();
+              qsnap.forEach(d => batch.delete(d.ref));
+              batch.delete(catRef);
+              return batch.commit();
+            }).then(loadPublishedCategories);
           };
           loadPublishedCategories(); // available to everyone, even signed-out
 
