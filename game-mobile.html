@@ -6653,12 +6653,15 @@
       state.activeTeam = 0;
     }
 
-    function fileToDataUrl(file) {
+    function fileToDataUrl(file, opts) {
       // Downscale + recompress so stored images stay small: protects
       // localStorage and keeps the synced Firestore user doc well under its
       // 1 MiB limit. Falls back to the original on any error.
-      const MAX_DIM = 800;            // longest side, px
-      const TARGET_BYTES = 320 * 1024;
+      // Content images (question/answer/category) keep high resolution; small
+      // avatars use a lighter preset (passed via opts).
+      const MAX_DIM = (opts && opts.maxDim) || 1600;     // longest side, px
+      const TARGET_BYTES = ((opts && opts.targetKB) || 700) * 1024;
+      const MIN_Q = (opts && opts.minQ) || 0.6;
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = reject;
@@ -6679,9 +6682,9 @@
               ctx.fillStyle = "#ffffff";
               ctx.fillRect(0, 0, w, h);
               ctx.drawImage(img, 0, 0, w, h);
-              let q = 0.82, out = canvas.toDataURL("image/jpeg", q);
-              while (out.length > TARGET_BYTES * 1.37 && q > 0.4) {
-                q -= 0.12; out = canvas.toDataURL("image/jpeg", q);
+              let q = 0.9, out = canvas.toDataURL("image/jpeg", q);
+              while (out.length > TARGET_BYTES * 1.37 && q > MIN_Q) {
+                q -= 0.08; out = canvas.toDataURL("image/jpeg", q);
               }
               resolve(out.length < src.length ? out : src);
             } catch (e) { resolve(src); }
@@ -6724,7 +6727,7 @@
     async function fitCategoryImages(cat, budgetBytes) {
       const size = () => JSON.stringify(cat).length;
       if (size() <= budgetBytes) return true;
-      const passes = [[760, 0.72], [600, 0.64], [480, 0.56], [380, 0.5], [300, 0.44], [240, 0.4]];
+      const passes = [[1280, 0.86], [1040, 0.8], [840, 0.72], [660, 0.64], [520, 0.56], [400, 0.48]];
       for (const [dim, q] of passes) {
         if (cat.image) cat.image = await recompressDataUrl(cat.image, dim, q);
         for (const ques of (cat.questions || [])) {
@@ -6736,7 +6739,7 @@
       return size() <= budgetBytes;
     }
 
-    function imagePicker(currentImage, onChange, label = "اختر صورة") {
+    function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
       const picker = document.createElement("label");
       picker.className = "image-picker";
       picker.title = label;
@@ -6749,7 +6752,7 @@
       input.addEventListener("change", async () => {
         const file = input.files && input.files[0];
         if (!file) return;
-        const dataUrl = await fileToDataUrl(file);
+        const dataUrl = await fileToDataUrl(file, opts);
         onChange(dataUrl);
       });
       picker.appendChild(input);
@@ -6824,7 +6827,7 @@
           team.image = image;
           saveGameSettings();
           renderTeamSetup();
-        }, "اختر صورة الفريق"));
+        }, "اختر صورة الفريق", { maxDim: 640, targetKB: 180, minQ: 0.55 }));
         const badge = document.createElement("div");
         badge.className = "team-badge";
         badge.textContent = `فريق ${toArabicDigits(i + 1)}`;
