@@ -6907,7 +6907,9 @@
         id,
         name: meta ? meta.name : "",
         image: meta && meta.image ? meta.image : "",
-        color: categoryColor(meta || { id }),
+        // No derived default color (the picker falls back to categoryColor() for
+        // display); only persist color once it's actually changed, so publishing
+        // stays compatible with security rules that don't list 'color'.
         custom: false,
         published: true,
         order: meta ? -1 : state.publishedCategories.length,
