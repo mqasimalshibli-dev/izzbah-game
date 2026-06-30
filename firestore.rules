@@ -33,6 +33,9 @@ service cloud.firestore {
 
     // Published game content (admin CMS). Readable by everyone so all players
     // get the official categories; writable ONLY by admins, and shape-checked.
+    // The parent doc holds metadata + a text-only copy of the questions; the
+    // full questions (with images) live one-per-document in /questions so each
+    // gets its own 1 MiB budget.
     match /categories/{catId} {
       allow read: if true;
       allow write: if isAdmin()
@@ -42,6 +45,13 @@ service cloud.firestore {
         && request.resource.data.questions is list
         && request.resource.data.questions.size() <= 200;
       allow delete: if isAdmin();
+
+      // One document per question (text + its images). Public read; admin write.
+      match /questions/{questionId} {
+        allow read: if true;
+        allow write: if isAdmin();
+        allow delete: if isAdmin();
+      }
     }
 
     // Deny everything else.
