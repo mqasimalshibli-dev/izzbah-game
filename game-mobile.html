@@ -8782,6 +8782,9 @@
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       const image = $("#modalQuestionImage");
       const qImg = q.image || ruleImageForQuestion(q); // keyword-rule image, question screen only
+      // If a rule/external image fails to load (e.g. a site that blocks
+      // hotlinking), hide it gracefully instead of showing a broken icon.
+      image.onerror = () => { image.removeAttribute("src"); image.classList.remove("visible"); };
       if (qImg) { image.src = qImg; image.classList.add("visible"); }
       else { image.removeAttribute("src"); image.classList.remove("visible"); }
       const answerImage = $("#modalAnswerImage");
