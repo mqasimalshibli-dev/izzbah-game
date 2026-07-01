@@ -6454,7 +6454,8 @@
       pendingDeleteGameId: null,
       holdTimer: null,
       holdDelay: null,
-      gameActive: false
+      gameActive: false,
+      randomizedCats: new Set()
     };
 
     const $ = selector => document.querySelector(selector);
@@ -6600,12 +6601,20 @@
       return true;
     }
 
-    // ===== Category randomizer (fills the remaining slots up to 6) =====
+    // ===== Category randomizer =====
+    // Each press RE-SHUFFLES the auto-picked slots with a fresh random draw,
+    // while any categories the host picked manually stay locked in place.
     function randomizeCategories() {
+      if (!state.randomizedCats) state.randomizedCats = new Set();
+      // Drop last round's random picks; keep the manual ones.
+      state.randomizedCats.forEach(id => state.selected.delete(id));
+      state.randomizedCats = new Set();
       const pool = allCategories().filter(cat => categoryHasQuestions(cat) && !state.selected.has(cat.id));
       shuffleInPlace(pool);
       while (state.selected.size < 6 && pool.length) {
-        state.selected.add(pool.shift().id);
+        const id = pool.shift().id;
+        state.selected.add(id);
+        state.randomizedCats.add(id);
       }
       saveGameSettings();
       renderCategories();
@@ -7372,6 +7381,7 @@
           openCategoryPreview(cat);
         });
         if (!unavailable) card.addEventListener("click", () => {
+          if (!state.randomizedCats) state.randomizedCats = new Set();
           if (state.selected.has(cat.id)) state.selected.delete(cat.id);
           else if (state.selected.size < 6) state.selected.add(cat.id);
           else {
@@ -7379,6 +7389,8 @@
             $("#categoryStatus").style.color = "var(--red)";
             return;
           }
+          // A manual click makes this a locked pick — never touched by reshuffle.
+          state.randomizedCats.delete(cat.id);
           saveGameSettings();
           renderCategories();
         });
@@ -9402,22 +9414,36 @@
             };
             if (cat.color) meta.color = cat.color;
             if (cat.order) meta.order = cat.order;
-            // Read existing question docs (so we can delete removed ones), then
-            // write metadata + every question atomically in one batch.
+            // Read existing question docs, then write ONLY what changed. Re-writing
+            // every question (each up to ~1 MiB of image) on every publish is what
+            // made publishing slow — with the diff below, editing one question in a
+            // big category uploads one small doc instead of the whole set.
             return qcol.get().then(existing => {
               const batch = db.batch();
               batch.set(catRef, meta);
               const keep = new Set();
+              const prevById = new Map();
+              existing.forEach(d => prevById.set(d.id, d.data() || {}));
+              let changed = 0;
               list.forEach((q, i) => {
                 const id = "q" + i; keep.add(id);
-                batch.set(qcol.doc(id), {
+                const data = {
                   points: q.points || 0, q: q.q || "", a: q.a || "",
                   image: q.image || "", answerImage: q.answerImage || "", idx: i
-                });
+                };
+                const prev = prevById.get(id);
+                if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
+                    || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {
+                  batch.set(qcol.doc(id), data);
+                  changed++;
+                }
               });
-              existing.forEach(d => { if (!keep.has(d.id)) batch.delete(d.ref); });
+              existing.forEach(d => { if (!keep.has(d.id)) { batch.delete(d.ref); changed++; } });
               return batch.commit();
-            }).then(loadPublishedCategories);
+            });
+            // NOTE: no full re-download here — both callers already update the
+            // local publishedCategories via upsertPublished, so re-reading every
+            // category's images from the server after each publish is wasted work.
           };
           window.IZZBAH.cloudDelete = function (id) {
             const catRef = db.collection("categories").doc(id);
