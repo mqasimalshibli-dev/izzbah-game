@@ -1679,6 +1679,22 @@
     .question-image.visible { display: block; }
     .question-image, .answer-image { cursor: zoom-in; }
 
+    /* video / audio players shown in place of a question or answer image */
+    .q-media, .a-media { display: block; margin: 0 auto 14px; border-radius: 12px; }
+    video.q-media { max-width: min(580px, 94%); max-height: 48vh; width: auto; height: auto; object-fit: contain; box-shadow: 0 10px 26px rgba(0, 0, 0, .18); background: #000; }
+    video.a-media { max-width: min(520px, 90%); max-height: 42vh; width: auto; height: auto; object-fit: contain; box-shadow: 0 10px 26px rgba(0, 0, 0, .18); background: #000; }
+    audio.q-media, audio.a-media { width: min(520px, 92%); }
+    /* picker preview + audio placeholder */
+    .image-picker video.ip-media { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+    .image-picker .ip-audio { display: grid; place-items: center; gap: 2px; width: 100%; height: 100%; font: 800 20px 'Cairo', sans-serif; color: #7a1414; }
+    .image-picker .ip-audio small { font-size: 11px; font-weight: 700; opacity: .8; }
+    .admin-table video.q-thumb { object-fit: cover; }
+    .admin-table .q-thumb--media { display: inline-grid; place-items: center; background: #2b2233; color: #f0d49a; font-size: 16px; }
+    /* forced-landscape phone: let a video shrink to fit the card like an image */
+    @media (orientation: landscape) and (max-height: 600px) {
+      #questionPage .q-media, #answerPage .a-media { flex: 1 1 auto; min-height: 0; max-height: none !important; max-width: 100% !important; margin: 0 !important; }
+    }
+
     /* Fullscreen image viewer with zoom + pan */
     .img-lightbox {
       display: none;
@@ -7191,13 +7207,61 @@
       return true;
     }
 
+    // Non-image media (audio/video) is stored as-is — no canvas compression.
+    // Keep clips short: each question document still has only ~1 MiB of storage.
+    function fileToRawDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error || new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+    }
+    function mediaKind(src) {
+      if (!src) return "none";
+      const m = /^data:(image|video|audio)\//i.exec(src);
+      if (m) return m[1].toLowerCase();
+      const u = String(src).split("?")[0].toLowerCase();
+      if (/\.(mp4|webm|ogv|mov|m4v)$/.test(u)) return "video";
+      if (/\.(mp3|wav|ogg|oga|m4a|aac|flac)$/.test(u)) return "audio";
+      return "image";
+    }
+    // Show an image on the given <img>, or swap in a <video>/<audio> sibling for
+    // other media. variant = "question" | "answer" (used only for sizing).
+    function showMedia(imgEl, src, variant) {
+      if (!imgEl) return;
+      const parent = imgEl.parentElement;
+      const old = parent && parent.querySelector('[data-media-alt="' + imgEl.id + '"]');
+      if (old) { try { old.pause && old.pause(); } catch (e) {} old.remove(); }
+      const kind = mediaKind(src);
+      if (kind === "image") { imgEl.src = src; imgEl.classList.add("visible"); return; }
+      imgEl.removeAttribute("src"); imgEl.classList.remove("visible");
+      if (kind === "none" || !parent) return;
+      const el = document.createElement(kind === "video" ? "video" : "audio");
+      el.setAttribute("data-media-alt", imgEl.id);
+      el.src = src; el.controls = true; el.preload = "metadata"; el.playsInline = true;
+      el.className = (variant === "answer" ? "a-media" : "q-media") + " media-" + kind + " visible";
+      imgEl.insertAdjacentElement("afterend", el);
+    }
+    function stopQuestionMedia() {
+      document.querySelectorAll("[data-media-alt]").forEach(el => { try { el.pause && el.pause(); } catch (e) {} });
+    }
+    function mediaPreviewHtml(src) {
+      const kind = mediaKind(src);
+      if (kind === "video") return `<video src="${escapeHtml(src)}" muted playsinline preload="metadata" class="ip-media"></video>`;
+      if (kind === "audio") return `<span class="ip-audio">🔊<small>صوت</small></span>`;
+      return `<img src="${escapeHtml(src)}" alt="" />`;
+    }
+
     function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
+      const allowMedia = !!(opts && opts.media);
       const picker = document.createElement("label");
       picker.className = "image-picker";
       picker.tabIndex = 0; // focusable so you can paste (Ctrl/⌘+V) into it
-      picker.title = label + " — اضغط أو اسحب صورة أو الصقها";
+      picker.title = label + (allowMedia ? " — اضغط أو اسحب صورة/فيديو/صوت أو الصقها" : " — اضغط أو اسحب صورة أو الصقها");
+      const removeBtnHtml = `<button type="button" class="img-remove" title="حذف" aria-label="حذف">×</button>`;
       picker.innerHTML = currentImage
-        ? `<img src="${escapeHtml(currentImage)}" alt="" /><button type="button" class="img-remove" title="حذف الصورة" aria-label="حذف الصورة">×</button>`
+        ? mediaPreviewHtml(currentImage) + removeBtnHtml
         : `<span class="plus">+</span>`;
       const removeBtn = picker.querySelector(".img-remove");
       if (removeBtn) {
@@ -7207,16 +7271,26 @@
       }
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = "image/*";
+      input.accept = allowMedia ? "image/*,audio/*,video/*" : "image/*";
 
-      // shared: take a File/Blob, compress, and report back
+      // shared: take a File/Blob → data URL (images compressed; audio/video kept
+      // as-is) and report back.
       const handleFile = async (file) => {
-        if (!file || !/^image\//.test(file.type || "")) return;
-        const dataUrl = await fileToDataUrl(file, opts);
-        onChange(dataUrl);
+        if (!file) return;
+        const t = file.type || "";
+        if (/^image\//.test(t)) { onChange(await fileToDataUrl(file, opts)); return; }
+        if (allowMedia && /^(audio|video)\//.test(t)) {
+          const dataUrl = await fileToRawDataUrl(file);
+          if (dataUrl && dataUrl.length > 950000 && typeof popNote === "function") {
+            popNote("⚠️ الملف كبير", "قد يكون مقطع الصوت/الفيديو أكبر من الحد المسموح لتخزينه في السحابة (١ ميجابايت للسؤال). إن تعذّر النشر فاستخدم مقطعاً أقصر.");
+          }
+          onChange(dataUrl);
+          return;
+        }
       };
 
       input.addEventListener("change", () => { handleFile(input.files && input.files[0]); });
+      const accepts = (t) => /^image\//.test(t) || (allowMedia && /^(audio|video)\//.test(t));
 
       // drag & drop
       const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
@@ -7232,7 +7306,7 @@
       picker.addEventListener("paste", (e) => {
         const items = (e.clipboardData && e.clipboardData.items) || [];
         for (const it of items) {
-          if (it.kind === "file" && /^image\//.test(it.type)) {
+          if (it.kind === "file" && accepts(it.type)) {
             e.preventDefault();
             handleFile(it.getAsFile());
             return;
@@ -7922,7 +7996,13 @@
           const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
           const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
           const imgCell = document.createElement("td"); imgCell.className = "col-img";
-          const thumb = (src, tag, cls) => `<span class="q-thumb-wrap"><img class="q-thumb" src="${escapeHtml(src)}" alt=""><span class="q-thumb-tag ${cls}">${tag}</span></span>`;
+          const thumb = (src, tag, cls) => {
+            const kind = mediaKind(src);
+            const inner = kind === "video" ? `<video class="q-thumb" src="${escapeHtml(src)}" muted preload="metadata"></video>`
+              : kind === "audio" ? `<span class="q-thumb q-thumb--media">🔊</span>`
+              : `<img class="q-thumb" src="${escapeHtml(src)}" alt="">`;
+            return `<span class="q-thumb-wrap">${inner}<span class="q-thumb-tag ${cls}">${tag}</span></span>`;
+          };
           const thumbs = [];
           if (q.image) thumbs.push(thumb(q.image, "س", "q-thumb-tag--q"));
           if (q.answerImage) thumbs.push(thumb(q.answerImage, "ج", "q-thumb-tag--a"));
@@ -7952,9 +8032,9 @@
 
     function renderAdminQImages() {
       const qi = $("#adminQImage");
-      if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "صورة السؤال")); }
+      if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "وسائط السؤال", { media: true })); }
       const ai = $("#adminQAnswerImage");
-      if (ai) { ai.innerHTML = ""; ai.appendChild(imagePicker(state.adminQDraft.answerImage, image => { state.adminQDraft.answerImage = image; renderAdminQImages(); }, "صورة الإجابة")); }
+      if (ai) { ai.innerHTML = ""; ai.appendChild(imagePicker(state.adminQDraft.answerImage, image => { state.adminQDraft.answerImage = image; renderAdminQImages(); }, "وسائط الإجابة", { media: true })); }
     }
 
     function openAdminQuestion(index) {
@@ -8157,14 +8237,14 @@
         questionMedia.appendChild(imagePicker(q.image, image => {
           q.image = image;
           renderCustomEditor();
-        }, "اختر صورة السؤال"));
+        }, "وسائط السؤال", { media: true }));
         const answerMedia = document.createElement("div");
         answerMedia.className = "media-item";
-        answerMedia.insertAdjacentHTML("beforeend", `<div class="file-note">صورة الإجابة</div>`);
+        answerMedia.insertAdjacentHTML("beforeend", `<div class="file-note">وسائط الإجابة</div>`);
         answerMedia.appendChild(imagePicker(q.answerImage, image => {
           q.answerImage = image;
           renderCustomEditor();
-        }, "اختر صورة الإجابة"));
+        }, "وسائط الإجابة", { media: true }));
         media.append(questionMedia, answerMedia);
         box.appendChild(media);
         const fields = document.createElement("div");
@@ -8767,12 +8847,8 @@
       $("#answerPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة${x2}`;
       $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
-      const image = $("#modalQuestionImage");
-      if (q.image) { image.src = q.image; image.classList.add("visible"); }
-      else { image.removeAttribute("src"); image.classList.remove("visible"); }
-      const answerImage = $("#modalAnswerImage");
-      if (q.answerImage) { answerImage.src = q.answerImage; answerImage.classList.add("visible"); }
-      else { answerImage.removeAttribute("src"); answerImage.classList.remove("visible"); }
+      showMedia($("#modalQuestionImage"), q.image || "", "question");
+      showMedia($("#modalAnswerImage"), q.answerImage || "", "answer");
     }
 
     function openQuestion(cat, q, key) {
@@ -8859,6 +8935,7 @@
     }
 
     function clearQuestionView() {
+      stopQuestionMedia();
       $("#awardRow").innerHTML = "";
       $("#awardRow").classList.remove("visible");
       $("#questionActions").style.display = "flex";
