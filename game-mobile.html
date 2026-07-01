@@ -8758,6 +8758,19 @@
       box.classList.add("visible");
     }
 
+    // Keyword → image rules. Any question whose TEXT matches gets this image on
+    // the QUESTION screen automatically (never the answer) — defined once and
+    // applied to every matching question, built-in or published, with no manual
+    // upload. A question's own uploaded image always takes priority.
+    const questionImageRules = [
+      { re: /هاري\s*بوتر|harry\s*potter/i, image: "https://variety.com/wp-content/uploads/2024/04/Harry-Potter-Audiobooks-Audible.png" }
+    ];
+    function ruleImageForQuestion(q) {
+      const text = (q && q.q) || "";
+      const hit = questionImageRules.find(rule => rule.re.test(text));
+      return hit ? hit.image : "";
+    }
+
     function fillQuestionContent(cat, q) {
       const at = state.teams[state.activeTeam];
       const x2 = at && at.doubleArmed ? ` <span class="pts-x2">×2</span>` : "";
@@ -8768,7 +8781,8 @@
       $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       const image = $("#modalQuestionImage");
-      if (q.image) { image.src = q.image; image.classList.add("visible"); }
+      const qImg = q.image || ruleImageForQuestion(q); // keyword-rule image, question screen only
+      if (qImg) { image.src = qImg; image.classList.add("visible"); }
       else { image.removeAttribute("src"); image.classList.remove("visible"); }
       const answerImage = $("#modalAnswerImage");
       if (q.answerImage) { answerImage.src = q.answerImage; answerImage.classList.add("visible"); }
