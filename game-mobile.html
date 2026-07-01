@@ -3696,6 +3696,34 @@
     .wlc-admin:hover { background: rgba(231, 195, 115, .18); color: #fbe9a8; transform: rotate(35deg); }
     .wlc-admin:active { transform: rotate(35deg) scale(.92); }
 
+    /* menu day/night toggle — mirrors the admin gear on the opposite corner */
+    .wlc-theme {
+      position: absolute; z-index: 6; top: 16px; inset-inline-start: 16px;
+      width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(231, 195, 115, .5);
+      color: #e7c373; cursor: pointer; transition: transform .2s ease, background .2s ease, color .2s ease;
+      backdrop-filter: blur(4px);
+    }
+    .wlc-theme:hover { background: rgba(231, 195, 115, .18); color: #fbe9a8; }
+    .wlc-theme:active { transform: scale(.92); }
+    .wlc-theme .theme-ico { width: 21px; height: 21px; grid-area: 1 / 1; }
+    .wlc-theme .theme-sun { display: none; }
+    html[data-theme="dark"] .wlc-theme .theme-moon { display: none; }
+    html[data-theme="dark"] .wlc-theme .theme-sun { display: block; }
+
+    /* 🎲 randomizer buttons (categories + helpers) */
+    .rand-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+    .rand-btn .rand-die { font-size: 1.1em; line-height: 1; filter: saturate(1.1); }
+    .rand-btn:active .rand-die { animation: randRoll .5s ease; }
+    @keyframes randRoll { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+    .helpers-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+    .rand-btn--sm {
+      min-height: 0; padding: 4px 10px; font-size: 12px; border-radius: 999px; gap: 5px;
+      background: var(--accent-soft, #f5dec4); color: var(--accent-deep, #7a1414);
+      border: 1.5px solid var(--accent, #9e1322); box-shadow: none; flex: 0 0 auto;
+    }
+    .rand-btn--sm:hover { filter: brightness(.97); }
+
     /* ===== Admin content panel (tabbed table) ===== */
     #adminPanel { background: #14110c; color: #ece3d2; }
     #adminPanel.active { display: flex; }
@@ -4550,6 +4578,53 @@
       #answerPage .answer-bottom-actions { gap: 6px !important; }
       #answerPage #backToQuestion, #answerPage #continueAnswer { padding: 7px 14px !important; font-size: 13px !important; }
     }
+
+    /* ===================== DARK MODE (night) =====================
+       A deep warm night that keeps the red/gold identity. The immersive menu
+       and the results screen are already dark; this recolors the light
+       setup / category / library surfaces and flips body text to warm cream. */
+    html[data-theme="dark"] { --dark: #f0dcbf; --ink: #f0dcbf; }
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at 12% 10%, rgba(150, 30, 32, .30), transparent 30%),
+        radial-gradient(circle at 88% 6%, rgba(201, 151, 74, .12), transparent 26%),
+        linear-gradient(150deg, #1c1010 0%, #241514 52%, #170c0c 100%) !important;
+      color: #f0dcbf;
+    }
+    html[data-theme="dark"] .panel {
+      background: rgba(44, 26, 24, .92) !important; border-color: #7a5a2a !important;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .45) !important;
+    }
+    html[data-theme="dark"] .team-card { background: linear-gradient(180deg, #2c1a19, #241413) !important; }
+    html[data-theme="dark"] input,
+    html[data-theme="dark"] textarea { background: #1f1211 !important; color: #f3e3c9 !important; border-color: #8a6a2e !important; }
+    html[data-theme="dark"] input::placeholder,
+    html[data-theme="dark"] textarea::placeholder { color: #b09a7d !important; }
+    html[data-theme="dark"] .game-name-box { background: #241514 !important; border-color: #6f4f24 !important; }
+    html[data-theme="dark"] .game-name-box label { color: #f0b8a0 !important; }
+    html[data-theme="dark"] .game-name-box input { background: #1f1211 !important; color: #f3e3c9 !important; border-color: #6f4f24 !important; }
+    html[data-theme="dark"] #game .score-box { background: linear-gradient(180deg, #2c1a19, #221312) !important; box-shadow: 0 2px 0 rgba(255, 255, 255, .04) inset, 0 18px 30px -22px rgba(0, 0, 0, .7) !important; }
+    html[data-theme="dark"] #game .score-value { color: #f3e3c9 !important; text-shadow: none !important; }
+    html[data-theme="dark"] .helper-chip { background: rgba(60, 36, 32, .72) !important; color: #ecd9bd !important; border-color: rgba(230, 200, 120, .22) !important; }
+    html[data-theme="dark"] .category-tab { color: #d9b98a; }
+    html[data-theme="dark"] .done-banner { background: #2a1512 !important; }
+    html[data-theme="dark"] .rand-btn--sm { background: #2e2016; color: #f0d49a; border-color: #7a5a2a; }
+    html[data-theme="dark"] #gameLibrary .saved-game-actions .secondary { background: #2e2016 !important; border-color: #7a5a2a !important; color: #f0d49a !important; }
+    html[data-theme="dark"] #gameLibrary .saved-game-actions .ghost { background: #331a1a !important; border-color: #7a3a3a !important; color: #f0a9a9 !important; }
+    html[data-theme="dark"] .category.empty-bank { filter: grayscale(.3) brightness(.7); }
+    /* setup screen: its light surfaces are #id-scoped with !important, so the
+       dark overrides must be #id-scoped too to win the cascade */
+    html[data-theme="dark"] #setup {
+      background:
+        radial-gradient(135% 95% at 50% -22%, rgba(150, 30, 32, .22) 0%, transparent 56%),
+        linear-gradient(180deg, #211312, #170c0c) !important;
+    }
+    html[data-theme="dark"] #setup .team-stepper { background: linear-gradient(180deg, #2c1a19, #241413) !important; border-color: #6f4f24 !important; box-shadow: 0 20px 34px -22px rgba(0, 0, 0, .7) !important; }
+    html[data-theme="dark"] #setup .team-stepper .step-label { color: #d9b98a !important; }
+    html[data-theme="dark"] #setup .team-stepper .team-number { color: #f3e3c9 !important; }
+    html[data-theme="dark"] #setup .team-card { background: linear-gradient(180deg, #2c1a19, #241413) !important; border-color: rgba(230, 200, 120, .3) !important; box-shadow: 0 2px 0 rgba(255, 255, 255, .04) inset, 0 24px 36px -24px rgba(0, 0, 0, .7) !important; }
+    html[data-theme="dark"] #setup .team-card input.team-name-input { background: #1f1211 !important; color: #f3e3c9 !important; border-color: rgba(230, 200, 120, .3) !important; }
+    html[data-theme="dark"] .category-tabs { background: #2a1a17 !important; border-color: #6f4f24 !important; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4) !important; }
   </style>
   <script>
     /* =====================================================================
@@ -4591,6 +4666,10 @@
           <div class="wlc-vig2"></div>
         </div>
         <div class="wlc-star"><i></i><i></i></div>
+        <button class="wlc-theme" data-theme-toggle type="button" aria-label="تبديل الوضع الليلي" aria-pressed="false" title="الوضع الليلي / النهاري">
+          <svg class="theme-ico theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="theme-ico theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2 12h2.4M19.6 12H22M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
+        </button>
         <button class="wlc-admin" id="adminEntry" type="button" aria-label="لوحة المشرف" title="لوحة المشرف" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -4658,6 +4737,7 @@
         </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
+          <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
@@ -6429,7 +6509,8 @@
       pendingWinner: null,
       pendingDeleteGameId: null,
       holdTimer: null,
-      holdDelay: null
+      holdDelay: null,
+      gameActive: false
     };
 
     const $ = selector => document.querySelector(selector);
@@ -6490,6 +6571,122 @@
       } catch (error) {
         console.warn("تعذر استرجاع إعدادات اللعبة.", error);
       }
+    }
+
+    // ===== Auto-save & resume of an in-progress game =====
+    // A game is persisted while it's being played; on next launch it resumes
+    // exactly where it left off. It's cleared ONLY when the game truly ends —
+    // reaching the results screen, or the host leaving via the ✕ button.
+    const liveGameKey = "izzbah-trivia-live-game-v1";
+    let liveGameSaveTimer = null;
+    function saveLiveGame() {
+      if (!state.gameActive) return;
+      try {
+        localStorage.setItem(liveGameKey, JSON.stringify({
+          v: 1,
+          teamCount: state.teamCount,
+          teams: state.teams.slice(0, state.teamCount).map(t => ({
+            name: t.name, image: t.image, score: t.score,
+            helpers: t.helpers, helpUsed: t.helpUsed,
+            doubleArmed: t.doubleArmed, stealArmed: t.stealArmed, helpBanned: t.helpBanned
+          })),
+          selected: [...state.selected],
+          used: [...state.used],
+          activeTeam: state.activeTeam,
+          history: state.history,
+          currentGameName: state.currentGameName
+        }));
+      } catch (error) { /* quota / private mode — resume just won't be available */ }
+    }
+    function saveLiveGameSoon() {
+      clearTimeout(liveGameSaveTimer);
+      liveGameSaveTimer = setTimeout(saveLiveGame, 250);
+    }
+    function clearLiveGame() {
+      state.gameActive = false;
+      clearTimeout(liveGameSaveTimer);
+      try { localStorage.removeItem(liveGameKey); } catch (error) { /* ignore */ }
+    }
+    function resumeLiveGame() {
+      let saved;
+      try {
+        const raw = localStorage.getItem(liveGameKey);
+        if (!raw) return false;
+        saved = JSON.parse(raw);
+      } catch (error) { return false; }
+      if (!saved || !Array.isArray(saved.selected) || !saved.selected.length) return false;
+      if (saved.teamCount >= 2 && saved.teamCount <= 5) state.teamCount = saved.teamCount;
+      if (Array.isArray(saved.teams)) {
+        saved.teams.forEach((t, i) => {
+          if (!state.teams[i]) return;
+          const helpers = Array.isArray(t.helpers) && t.helpers.filter(id => HELPERS[id]).length
+            ? t.helpers.filter(id => HELPERS[id]) : state.teams[i].helpers;
+          Object.assign(state.teams[i], {
+            name: (t.name != null) ? t.name : state.teams[i].name,
+            image: (t.image != null) ? t.image : state.teams[i].image,
+            score: t.score || 0,
+            helpers,
+            helpUsed: t.helpUsed || {},
+            doubleArmed: !!t.doubleArmed,
+            stealArmed: !!t.stealArmed,
+            helpBanned: !!t.helpBanned
+          });
+        });
+      }
+      // Keep every selected id (published categories may still be loading from
+      // the cloud; the board fills them in once they arrive — see applyPublished).
+      state.selected = new Set(saved.selected);
+      state.used = new Set(Array.isArray(saved.used) ? saved.used : []);
+      state.activeTeam = (typeof saved.activeTeam === "number") ? saved.activeTeam : 0;
+      state.history = Array.isArray(saved.history) ? saved.history : [];
+      if (typeof saved.currentGameName === "string") state.currentGameName = saved.currentGameName;
+      state.gameActive = true;
+      refreshBuiltinQuestions();
+      renderGame();
+      showScreen("game");
+      return true;
+    }
+
+    // ===== Category randomizer (fills the remaining slots up to 6) =====
+    function randomizeCategories() {
+      const pool = allCategories().filter(cat => categoryHasQuestions(cat) && !state.selected.has(cat.id));
+      shuffleInPlace(pool);
+      while (state.selected.size < 6 && pool.length) {
+        state.selected.add(pool.shift().id);
+      }
+      saveGameSettings();
+      renderCategories();
+    }
+
+    // ===== Helper randomizer (3 random helpers for a team) =====
+    function randomizeTeamHelpers(team) {
+      const ids = HELPER_IDS.slice();
+      shuffleInPlace(ids);
+      team.helpers = ids.slice(0, 3);
+      saveGameSettings();
+      renderTeamSetup();
+    }
+    function randomizeAllHelpers() {
+      state.teams.slice(0, state.teamCount).forEach(randomizeTeamHelpers);
+    }
+
+    // ===== Dark mode (keeps the red/gold identity) =====
+    const themeKey = "izzbah-trivia-theme-v1";
+    function applyTheme(theme) {
+      const dark = theme === "dark";
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      try { localStorage.setItem(themeKey, dark ? "dark" : "light"); } catch (error) { /* ignore */ }
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", dark ? "#160b0b" : "#9E1C1C");
+      document.querySelectorAll("[data-theme-toggle]").forEach(btn => btn.setAttribute("aria-pressed", String(dark)));
+    }
+    function toggleTheme() {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    }
+    function loadTheme() {
+      let t = "light";
+      try { t = localStorage.getItem(themeKey) || "light"; } catch (error) { /* ignore */ }
+      applyTheme(t === "dark" ? "dark" : "light");
     }
 
     function iconSvg(id) {
@@ -7162,10 +7359,19 @@
       team.helpers = team.helpers.filter(id => HELPERS[id]);
       const wrap = document.createElement("div");
       wrap.className = "team-helpers";
+      const head = document.createElement("div");
+      head.className = "helpers-head";
       const lbl = document.createElement("span");
       lbl.className = "field-label";
       lbl.textContent = "وسائل المساعدة (اختر ٣)";
-      wrap.appendChild(lbl);
+      const rand = document.createElement("button");
+      rand.type = "button";
+      rand.className = "rand-btn rand-btn--sm";
+      rand.innerHTML = `<span class="rand-die" aria-hidden="true">🎲</span> عشوائي`;
+      rand.setAttribute("aria-label", "اختيار وسائل مساعدة عشوائية");
+      rand.addEventListener("click", () => randomizeTeamHelpers(team));
+      head.append(lbl, rand);
+      wrap.appendChild(head);
       const chips = document.createElement("div");
       chips.className = "helper-chips";
       HELPER_IDS.forEach(id => {
@@ -8011,8 +8217,10 @@
       state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
+      state.gameActive = true;
       renderGame();
       showScreen("game");
+      saveLiveGame();
     }
 
     function beginHold(team, delta) {
@@ -8103,6 +8311,7 @@
         else cell.append(box, bar);
         row.appendChild(cell);
       });
+      saveLiveGameSoon();
     }
 
     function renderGame() {
@@ -8153,6 +8362,7 @@
       const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
       centerBoardScroll();
+      saveLiveGameSoon();
     }
 
     // ---- Help tool #1: four choices (multiple choice) ----
@@ -8663,6 +8873,7 @@
     }
 
     function renderResults() {
+      clearLiveGame(); // reaching the results ends the game — no resume
       const ranked = state.teams.slice(0, state.teamCount)
         .map((team, index) => ({ ...team, index }))
         .sort((a, b) => b.score - a.score);
@@ -8830,6 +9041,7 @@
     $("#goTeams").addEventListener("click", () => showScreen("setup"));
     $("#startGame").addEventListener("click", startGame);
     $("#exitGame").addEventListener("click", () => {
+      clearLiveGame(); // leaving via ✕ ends the game — start fresh next time
       resetScores();
       showScreen("menu");
     });
@@ -8905,6 +9117,8 @@
     $("#gameCategoriesTab").addEventListener("click", () => setCategoryMode("game"));
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
     $("#manageCustomFromCategories").addEventListener("click", () => openCustomManager("categories"));
+    $("#randomCategories").addEventListener("click", randomizeCategories);
+    document.querySelectorAll("[data-theme-toggle]").forEach(btn => btn.addEventListener("click", toggleTheme));
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
     $("#adminEntry").addEventListener("click", openAdminPanel);
@@ -9051,6 +9265,9 @@
       if (typeof renderGameLibrary === "function") renderGameLibrary();
       if (typeof renderCategories === "function") renderCategories();
       if (state.editorTarget === "published") renderCustomManager();
+      // A resumed game may reference published categories that only just loaded;
+      // refresh the board so their columns appear.
+      if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
     };
     $("#closePreview").addEventListener("click", closeCategoryPreview);
     $("#categoryPreview").addEventListener("click", event => {
@@ -9084,11 +9301,17 @@
     }
 
     syncGameViewport();
+    loadTheme();
     loadGameSettings();
     loadSavedGames();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
+    resumeLiveGame(); // if a game was left unfinished, drop straight back into it
+    // Flush the live game the instant the tab is hidden/closed, so even an
+    // abrupt exit resumes with the very latest scores.
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveLiveGame(); });
+    window.addEventListener("pagehide", saveLiveGame);
 
     /* ===== Cloud sync (Firebase) — see FIREBASE_SETUP.md ===== */
     (function setupCloudSync() {
