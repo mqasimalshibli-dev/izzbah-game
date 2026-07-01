@@ -656,6 +656,15 @@
       transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
     }
 
+    /* "continue an unfinished game" card */
+    .resume-card { cursor: default; border-color: var(--gold) !important; box-shadow: 0 0 0 2px rgba(201, 151, 74, .3), 0 10px 26px -12px rgba(120, 40, 30, .35) !important; }
+    .resume-card .saved-game-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .resume-badge { flex: 0 0 auto; background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; font: 800 12px 'Cairo', sans-serif; padding: 4px 12px; border-radius: 999px; }
+    .resume-scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .resume-team { display: inline-flex; align-items: center; gap: 8px; background: rgba(158, 19, 34, .08); border: 1.5px solid rgba(158, 19, 34, .22); border-radius: 999px; padding: 5px 13px; font: 700 15px 'Cairo', sans-serif; color: #7a1414; }
+    .resume-team b { font-family: 'Lalezar', cursive; font-size: 18px; color: #9e1322; }
+    .resume-card .saved-game-actions .primary svg, .resume-card .saved-game-actions .ghost svg { width: 17px; height: 17px; }
+
     .saved-game-card:hover,
     .saved-game-card:focus-visible {
       transform: translateY(-2px);
@@ -3696,21 +3705,6 @@
     .wlc-admin:hover { background: rgba(231, 195, 115, .18); color: #fbe9a8; transform: rotate(35deg); }
     .wlc-admin:active { transform: rotate(35deg) scale(.92); }
 
-    /* menu day/night toggle — mirrors the admin gear on the opposite corner */
-    .wlc-theme {
-      position: absolute; z-index: 6; top: 16px; inset-inline-start: 16px;
-      width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
-      background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(231, 195, 115, .5);
-      color: #e7c373; cursor: pointer; transition: transform .2s ease, background .2s ease, color .2s ease;
-      backdrop-filter: blur(4px);
-    }
-    .wlc-theme:hover { background: rgba(231, 195, 115, .18); color: #fbe9a8; }
-    .wlc-theme:active { transform: scale(.92); }
-    .wlc-theme .theme-ico { width: 21px; height: 21px; grid-area: 1 / 1; }
-    .wlc-theme .theme-sun { display: none; }
-    html[data-theme="dark"] .wlc-theme .theme-moon { display: none; }
-    html[data-theme="dark"] .wlc-theme .theme-sun { display: block; }
-
     /* 🎲 randomizer buttons (categories + helpers) */
     .rand-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
     .rand-btn .rand-die { font-size: 1.1em; line-height: 1; filter: saturate(1.1); }
@@ -4579,52 +4573,6 @@
       #answerPage #backToQuestion, #answerPage #continueAnswer { padding: 7px 14px !important; font-size: 13px !important; }
     }
 
-    /* ===================== DARK MODE (night) =====================
-       A deep warm night that keeps the red/gold identity. The immersive menu
-       and the results screen are already dark; this recolors the light
-       setup / category / library surfaces and flips body text to warm cream. */
-    html[data-theme="dark"] { --dark: #f0dcbf; --ink: #f0dcbf; }
-    html[data-theme="dark"] body {
-      background:
-        radial-gradient(circle at 12% 10%, rgba(150, 30, 32, .30), transparent 30%),
-        radial-gradient(circle at 88% 6%, rgba(201, 151, 74, .12), transparent 26%),
-        linear-gradient(150deg, #1c1010 0%, #241514 52%, #170c0c 100%) !important;
-      color: #f0dcbf;
-    }
-    html[data-theme="dark"] .panel {
-      background: rgba(44, 26, 24, .92) !important; border-color: #7a5a2a !important;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, .45) !important;
-    }
-    html[data-theme="dark"] .team-card { background: linear-gradient(180deg, #2c1a19, #241413) !important; }
-    html[data-theme="dark"] input,
-    html[data-theme="dark"] textarea { background: #1f1211 !important; color: #f3e3c9 !important; border-color: #8a6a2e !important; }
-    html[data-theme="dark"] input::placeholder,
-    html[data-theme="dark"] textarea::placeholder { color: #b09a7d !important; }
-    html[data-theme="dark"] .game-name-box { background: #241514 !important; border-color: #6f4f24 !important; }
-    html[data-theme="dark"] .game-name-box label { color: #f0b8a0 !important; }
-    html[data-theme="dark"] .game-name-box input { background: #1f1211 !important; color: #f3e3c9 !important; border-color: #6f4f24 !important; }
-    html[data-theme="dark"] #game .score-box { background: linear-gradient(180deg, #2c1a19, #221312) !important; box-shadow: 0 2px 0 rgba(255, 255, 255, .04) inset, 0 18px 30px -22px rgba(0, 0, 0, .7) !important; }
-    html[data-theme="dark"] #game .score-value { color: #f3e3c9 !important; text-shadow: none !important; }
-    html[data-theme="dark"] .helper-chip { background: rgba(60, 36, 32, .72) !important; color: #ecd9bd !important; border-color: rgba(230, 200, 120, .22) !important; }
-    html[data-theme="dark"] .category-tab { color: #d9b98a; }
-    html[data-theme="dark"] .done-banner { background: #2a1512 !important; }
-    html[data-theme="dark"] .rand-btn--sm { background: #2e2016; color: #f0d49a; border-color: #7a5a2a; }
-    html[data-theme="dark"] #gameLibrary .saved-game-actions .secondary { background: #2e2016 !important; border-color: #7a5a2a !important; color: #f0d49a !important; }
-    html[data-theme="dark"] #gameLibrary .saved-game-actions .ghost { background: #331a1a !important; border-color: #7a3a3a !important; color: #f0a9a9 !important; }
-    html[data-theme="dark"] .category.empty-bank { filter: grayscale(.3) brightness(.7); }
-    /* setup screen: its light surfaces are #id-scoped with !important, so the
-       dark overrides must be #id-scoped too to win the cascade */
-    html[data-theme="dark"] #setup {
-      background:
-        radial-gradient(135% 95% at 50% -22%, rgba(150, 30, 32, .22) 0%, transparent 56%),
-        linear-gradient(180deg, #211312, #170c0c) !important;
-    }
-    html[data-theme="dark"] #setup .team-stepper { background: linear-gradient(180deg, #2c1a19, #241413) !important; border-color: #6f4f24 !important; box-shadow: 0 20px 34px -22px rgba(0, 0, 0, .7) !important; }
-    html[data-theme="dark"] #setup .team-stepper .step-label { color: #d9b98a !important; }
-    html[data-theme="dark"] #setup .team-stepper .team-number { color: #f3e3c9 !important; }
-    html[data-theme="dark"] #setup .team-card { background: linear-gradient(180deg, #2c1a19, #241413) !important; border-color: rgba(230, 200, 120, .3) !important; box-shadow: 0 2px 0 rgba(255, 255, 255, .04) inset, 0 24px 36px -24px rgba(0, 0, 0, .7) !important; }
-    html[data-theme="dark"] #setup .team-card input.team-name-input { background: #1f1211 !important; color: #f3e3c9 !important; border-color: rgba(230, 200, 120, .3) !important; }
-    html[data-theme="dark"] .category-tabs { background: #2a1a17 !important; border-color: #6f4f24 !important; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4) !important; }
   </style>
   <script>
     /* =====================================================================
@@ -4666,10 +4614,6 @@
           <div class="wlc-vig2"></div>
         </div>
         <div class="wlc-star"><i></i><i></i></div>
-        <button class="wlc-theme" data-theme-toggle type="button" aria-label="تبديل الوضع الليلي" aria-pressed="false" title="الوضع الليلي / النهاري">
-          <svg class="theme-ico theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-          <svg class="theme-ico theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2 12h2.4M19.6 12H22M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
-        </button>
         <button class="wlc-admin" id="adminEntry" type="button" aria-label="لوحة المشرف" title="لوحة المشرف" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -6607,14 +6551,24 @@
       clearTimeout(liveGameSaveTimer);
       try { localStorage.removeItem(liveGameKey); } catch (error) { /* ignore */ }
     }
-    function resumeLiveGame() {
-      let saved;
+    function getLiveGameInfo() {
       try {
         const raw = localStorage.getItem(liveGameKey);
-        if (!raw) return false;
-        saved = JSON.parse(raw);
-      } catch (error) { return false; }
-      if (!saved || !Array.isArray(saved.selected) || !saved.selected.length) return false;
+        if (!raw) return null;
+        const g = JSON.parse(raw);
+        if (!g || !Array.isArray(g.selected) || !g.selected.length) return null;
+        return g;
+      } catch (error) { return null; }
+    }
+    function resumeLiveGame() {
+      const saved = getLiveGameInfo();
+      if (!saved) return false;
+      // Safety: if none of the game's categories can be resolved (e.g. they were
+      // deleted, or a community game whose data never loaded), don't drop the
+      // host onto an empty, unplayable board — bail out instead of getting stuck.
+      refreshBuiltinQuestions();
+      const resolvable = saved.selected.some(id => { const c = categoryById(id); return c && categoryHasQuestions(c); });
+      if (!resolvable) { showToast("تعذّر استرجاع فئات اللعبة."); return false; }
       if (saved.teamCount >= 2 && saved.teamCount <= 5) state.teamCount = saved.teamCount;
       if (Array.isArray(saved.teams)) {
         saved.teams.forEach((t, i) => {
@@ -6641,7 +6595,6 @@
       state.history = Array.isArray(saved.history) ? saved.history : [];
       if (typeof saved.currentGameName === "string") state.currentGameName = saved.currentGameName;
       state.gameActive = true;
-      refreshBuiltinQuestions();
       renderGame();
       showScreen("game");
       return true;
@@ -6670,24 +6623,6 @@
       state.teams.slice(0, state.teamCount).forEach(randomizeTeamHelpers);
     }
 
-    // ===== Dark mode (keeps the red/gold identity) =====
-    const themeKey = "izzbah-trivia-theme-v1";
-    function applyTheme(theme) {
-      const dark = theme === "dark";
-      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-      try { localStorage.setItem(themeKey, dark ? "dark" : "light"); } catch (error) { /* ignore */ }
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", dark ? "#160b0b" : "#9E1C1C");
-      document.querySelectorAll("[data-theme-toggle]").forEach(btn => btn.setAttribute("aria-pressed", String(dark)));
-    }
-    function toggleTheme() {
-      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
-    }
-    function loadTheme() {
-      let t = "light";
-      try { t = localStorage.getItem(themeKey) || "light"; } catch (error) { /* ignore */ }
-      applyTheme(t === "dark" ? "dark" : "light");
-    }
 
     function iconSvg(id) {
       const common = `<circle cx="25" cy="25" r="22" fill="#f7ead3" stroke="#c9974a" stroke-width="2"/>`;
@@ -7463,6 +7398,31 @@
       return `${toArabicDigits(n)} فئة`;
     }
 
+    // "Continue" card for an unfinished game, shown at the top of ألعابك.
+    function buildResumeCard(live) {
+      const teams = (live.teams || []);
+      const title = (live.currentGameName && live.currentGameName.trim()) ? live.currentGameName.trim() : "لعبة غير مكتملة";
+      const card = document.createElement("div");
+      card.className = "saved-game-card resume-card";
+      const scoresHtml = teams.map((t, i) => {
+        const nm = (t.name && t.name.trim()) ? t.name.trim() : `الفريق ${toArabicDigits(i + 1)}`;
+        return `<span class="resume-team">${escapeHtml(nm)}<b>${toArabicDigits(t.score || 0)}</b></span>`;
+      }).join("");
+      card.innerHTML = `
+        <div class="saved-game-head">
+          <div class="saved-game-title">${escapeHtml(title)}</div>
+          <span class="resume-badge">غير مكتملة</span>
+        </div>
+        <div class="resume-scores">${scoresHtml}</div>
+        <div class="saved-game-actions">
+          <button class="primary" type="button" data-resume-continue><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>متابعة اللعبة</span></button>
+          <button class="ghost" type="button" data-resume-discard><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>تجاهل</span></button>
+        </div>`;
+      card.querySelector("[data-resume-continue]").addEventListener("click", () => { resumeLiveGame(); });
+      card.querySelector("[data-resume-discard]").addEventListener("click", () => { clearLiveGame(); renderGameLibrary(); });
+      return card;
+    }
+
     function renderGameLibrary() {
       const list = $("#gameLibraryList");
       const createButton = $("#createSavedGame");
@@ -7478,8 +7438,13 @@
       }
 
       $("#gameLibraryHint").textContent = "كل مرة تبدأ فيها لعبة، يتم حفظ مجموعة الفئات هنا.";
+      // An unfinished game (left abruptly) shows up here as a "continue" card.
+      const live = getLiveGameInfo();
+      if (live) list.appendChild(buildResumeCard(live));
       if (!state.savedGames.length) {
-        list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب محفوظة بعد</p><p class="gl-empty-sub">أنشئ لعبة جديدة واختر الفئات لتظهر هنا.</p></div>`;
+        if (!live) {
+          list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب محفوظة بعد</p><p class="gl-empty-sub">أنشئ لعبة جديدة واختر الفئات لتظهر هنا.</p></div>`;
+        }
         return;
       }
 
@@ -9118,7 +9083,6 @@
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
     $("#manageCustomFromCategories").addEventListener("click", () => openCustomManager("categories"));
     $("#randomCategories").addEventListener("click", randomizeCategories);
-    document.querySelectorAll("[data-theme-toggle]").forEach(btn => btn.addEventListener("click", toggleTheme));
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
     $("#adminEntry").addEventListener("click", openAdminPanel);
@@ -9301,15 +9265,16 @@
     }
 
     syncGameViewport();
-    loadTheme();
     loadGameSettings();
     loadSavedGames();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
-    resumeLiveGame(); // if a game was left unfinished, drop straight back into it
+    // NOTE: we intentionally do NOT auto-resume into the board here — the app
+    // always opens on the welcome screen. An unfinished game is offered as a
+    // "متابعة" card inside ألعابك (see renderGameLibrary).
     // Flush the live game the instant the tab is hidden/closed, so even an
-    // abrupt exit resumes with the very latest scores.
+    // abrupt exit keeps the very latest scores for resuming later.
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveLiveGame(); });
     window.addEventListener("pagehide", saveLiveGame);
 
