@@ -6742,10 +6742,20 @@
     // Built-in categories, with any admin-published doc of the SAME id applied
     // as an override, plus brand-new published categories. Admins can thus edit
     // existing categories (override) or add new ones — both for all players.
+    function overrideHasQuestions(ov) {
+      return !!(ov && Array.isArray(ov.questions) && ov.questions.some(q => (q && q.q || "").trim()));
+    }
     function mergedOfficialCategories() {
       const overrides = new Map(state.publishedCategories.map(c => [c.id, c]));
       const builtinIds = new Set(builtinCategories.map(c => c.id));
-      const builtins = builtinCategories.map(c => overrides.get(c.id) || c);
+      // A published override normally replaces the built-in. But if the override
+      // has NO real questions while the built-in ships a question bank, fall back
+      // to the built-in so its questions aren't hidden by an empty override.
+      const builtins = builtinCategories.map(c => {
+        const ov = overrides.get(c.id);
+        if (ov && !overrideHasQuestions(ov) && builtinQuestionBanks[c.id]) return c;
+        return ov || c;
+      });
       const extras = state.publishedCategories.filter(c => !builtinIds.has(c.id));
       return { builtins, extras };
     }
@@ -7668,7 +7678,16 @@
     // built-in so saving customizes it for everyone.
     function editOfficialCategory(id) {
       const override = state.publishedCategories.find(c => c.id === id);
-      if (override) { editCustomCategory(override); return; }
+      if (override) {
+        // If the override is empty but the built-in has a question bank, seed the
+        // editor with the built-in questions so they're visible (and publishable).
+        if (!overrideHasQuestions(override) && builtinQuestionBanks[id]) {
+          editCustomCategory(Object.assign({}, override, { questions: builtinEditableQuestions(id) }));
+          return;
+        }
+        editCustomCategory(override);
+        return;
+      }
       const meta = builtinCategories.find(c => c.id === id);
       const seed = {
         id,
@@ -7695,8 +7714,13 @@
         ...newOnes.map(c => ({ cat: c, base: c, edited: true, builtin: false }))
       ];
       rows.forEach(({ cat, edited, builtin }) => {
-        const done = (cat.questions || []).filter(q => (q.q || "").trim()).length;
-        const total = (cat.questions || []).length || pointValues.length;
+        // Show the real question count: for a built-in whose override (if any) is
+        // empty, count the built-in bank rather than the empty inline list.
+        const effectiveQs = (builtin && !overrideHasQuestions(cat) && builtinQuestionBanks[cat.id])
+          ? builtinEditableQuestions(cat.id)
+          : (cat.questions || []);
+        const done = effectiveQs.filter(q => (q.q || "").trim()).length;
+        const total = effectiveQs.length || pointValues.length;
         const row = document.createElement("div");
         row.className = "custom-row";
         row.innerHTML = `
