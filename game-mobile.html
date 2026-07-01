@@ -3787,8 +3787,6 @@
     .admin-table .q-thumb-tag { position: absolute; bottom: -3px; left: -3px; font: 800 9px 'Cairo', sans-serif; color: #fff; border-radius: 5px; padding: 0 4px; line-height: 1.45; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
     .admin-table .q-thumb-tag--q { background: #9e1322; }
     .admin-table .q-thumb-tag--a { background: #1f5237; }
-    .admin-table .q-thumb-tag--rule { background: #6b3f9e; } /* auto image from a keyword rule */
-    .admin-table .q-thumb-wrap.rule-thumb { opacity: .95; }
     .admin-table .q-noimg { color: #6b5f48; }
     .admin-table .q-act { display: inline-flex; gap: 6px; }
     .admin-table .q-act button { border: 0; cursor: pointer; border-radius: 9px; padding: 7px 13px; font: 700 13px 'Cairo', sans-serif; color: #fff; }
@@ -7927,7 +7925,6 @@
           const thumb = (src, tag, cls) => `<span class="q-thumb-wrap"><img class="q-thumb" src="${escapeHtml(src)}" alt=""><span class="q-thumb-tag ${cls}">${tag}</span></span>`;
           const thumbs = [];
           if (q.image) thumbs.push(thumb(q.image, "س", "q-thumb-tag--q"));
-          else { const rimg = ruleImageForQuestion(q); if (rimg) thumbs.push(thumb(rimg, "⟲", "q-thumb-tag--rule")); }
           if (q.answerImage) thumbs.push(thumb(q.answerImage, "ج", "q-thumb-tag--a"));
           imgCell.innerHTML = thumbs.length ? `<span class="q-thumbs">${thumbs.join("")}</span>` : `<span class="q-noimg">—</span>`;
           const ptsCell = document.createElement("td"); ptsCell.className = "col-pts";
@@ -8761,19 +8758,6 @@
       box.classList.add("visible");
     }
 
-    // Keyword → image rules. Any question whose TEXT matches gets this image on
-    // the QUESTION screen automatically (never the answer) — defined once and
-    // applied to every matching question, built-in or published, with no manual
-    // upload. A question's own uploaded image always takes priority.
-    const questionImageRules = [
-      { re: /هاري\s*بوتر|harry\s*potter/i, image: "https://variety.com/wp-content/uploads/2024/04/Harry-Potter-Audiobooks-Audible.png" }
-    ];
-    function ruleImageForQuestion(q) {
-      const text = (q && q.q) || "";
-      const hit = questionImageRules.find(rule => rule.re.test(text));
-      return hit ? hit.image : "";
-    }
-
     function fillQuestionContent(cat, q) {
       const at = state.teams[state.activeTeam];
       const x2 = at && at.doubleArmed ? ` <span class="pts-x2">×2</span>` : "";
@@ -8784,11 +8768,7 @@
       $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       const image = $("#modalQuestionImage");
-      const qImg = q.image || ruleImageForQuestion(q); // keyword-rule image, question screen only
-      // If a rule/external image fails to load (e.g. a site that blocks
-      // hotlinking), hide it gracefully instead of showing a broken icon.
-      image.onerror = () => { image.removeAttribute("src"); image.classList.remove("visible"); };
-      if (qImg) { image.src = qImg; image.classList.add("visible"); }
+      if (q.image) { image.src = q.image; image.classList.add("visible"); }
       else { image.removeAttribute("src"); image.classList.remove("visible"); }
       const answerImage = $("#modalAnswerImage");
       if (q.answerImage) { answerImage.src = q.answerImage; answerImage.classList.add("visible"); }
