@@ -7962,7 +7962,7 @@
       const prev = sel.value || "all";
       const tiers = [...new Set((cat.questions || []).map(q => q.points))].sort((a, b) => a - b);
       sel.innerHTML = `<option value="all">كل النقاط</option>` +
-        tiers.map(p => `<option value="${p}">${toArabicDigits(p)} نقطة</option>`).join("");
+        tiers.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(toArabicDigits(p))} نقطة</option>`).join("");
       sel.value = tiers.some(p => String(p) === prev) ? prev : "all";
     }
 
@@ -8008,7 +8008,7 @@
           if (q.answerImage) thumbs.push(thumb(q.answerImage, "ج", "q-thumb-tag--a"));
           imgCell.innerHTML = thumbs.length ? `<span class="q-thumbs">${thumbs.join("")}</span>` : `<span class="q-noimg">—</span>`;
           const ptsCell = document.createElement("td"); ptsCell.className = "col-pts";
-          ptsCell.innerHTML = `<span class="q-pts">${toArabicDigits(q.points)}</span>`;
+          ptsCell.innerHTML = `<span class="q-pts">${escapeHtml(toArabicDigits(q.points))}</span>`;
           const actCell = document.createElement("td"); actCell.className = "col-act";
           const act = document.createElement("span"); act.className = "q-act";
           const edit = document.createElement("button"); edit.className = "q-edit"; edit.textContent = "تعديل";
@@ -8842,9 +8842,9 @@
       const at = state.teams[state.activeTeam];
       const x2 = at && at.doubleArmed ? ` <span class="pts-x2">×2</span>` : "";
       $("#modalCategory").textContent = toArabicDigits(cat.name);
-      $("#modalPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة${x2}`;
+      $("#modalPoints").innerHTML = `<span class="clean-number">${escapeHtml(toArabicDigits(q.points))}</span> نقطة${x2}`;
       $("#answerCategory").textContent = toArabicDigits(cat.name);
-      $("#answerPoints").innerHTML = `<span class="clean-number">${toArabicDigits(q.points)}</span> نقطة${x2}`;
+      $("#answerPoints").innerHTML = `<span class="clean-number">${escapeHtml(toArabicDigits(q.points))}</span> نقطة${x2}`;
       $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       showMedia($("#modalQuestionImage"), q.image || "", "question");
@@ -8998,7 +8998,7 @@
       $("#resultsCongrats").innerHTML = isDraw
         ? `<span class="cong-orn">\u2756</span><span>تعادل بنتيجة <span class="clean-number">${toArabicDigits(topScore)}</span></span><span class="cong-orn">\u2756</span>`
         : (winner
-          ? `<span class="cong-orn">\u2756</span><span>مبروك <strong>${teamDisplayName(winner, winner.index)}</strong> الفوز لكم اليوم !</span><span class="cong-orn">\u2756</span>`
+          ? `<span class="cong-orn">\u2756</span><span>مبروك <strong>${escapeHtml(teamDisplayName(winner, winner.index))}</strong> الفوز لكم اليوم !</span><span class="cong-orn">\u2756</span>`
           : `<span>انتهت اللعبة</span>`);
 
       const introSrc = document.querySelector(".mini-brand-logo");
@@ -9027,7 +9027,7 @@
         const banner = isWin ? `<div class="rs-winner-banner">الفائز</div>` : "";
         const sClass = place === 0 ? "gold" : place === 1 ? "silver" : place === 2 ? "bronze" : "plain";
         card.innerHTML = `
-          <div class="rs-title">${teamDisplayName(team, team.index)}</div>
+          <div class="rs-title">${escapeHtml(teamDisplayName(team, team.index))}</div>
           <div class="rs-avatar-wrap">${crown}${avatar}${medal}</div>
           <div class="rs-score rs-score-${sClass}"><span class="clean-number">${toArabicDigits(team.score)}</span></div>
           ${banner}
@@ -9078,7 +9078,7 @@
       const list = $("#reviewList");
       const hist = state.history || [];
       list.innerHTML = hist.length
-        ? hist.map(h => `<li><div class="rev-q">${h.question || "\u2014"}</div><div class="rev-a">الإجابة: ${h.answer || "\u2014"}</div><div class="rev-meta">${h.category || ""} \u00b7 <span class="clean-number">${toArabicDigits(h.points || 0)}</span></div></li>`).join("")
+        ? hist.map(h => `<li><div class="rev-q">${escapeHtml(h.question || "\u2014")}</div><div class="rev-a">الإجابة: ${escapeHtml(h.answer || "\u2014")}</div><div class="rev-meta">${escapeHtml(h.category || "")} \u00b7 <span class="clean-number">${toArabicDigits(h.points || 0)}</span></div></li>`).join("")
         : `<li class="rev-empty">لا توجد أسئلة للعرض</li>`;
       const modal = $("#reviewModal");
       modal.classList.add("open");
