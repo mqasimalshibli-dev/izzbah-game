@@ -136,6 +136,28 @@
     .screen.active { display: flex; }
     .game-screen.active { display: flex; }
 
+    /* The question & answer screens are self-contained — everything is sized to
+       fit inside the card, so the page must never scroll, drag, or rubber-band.
+       The short-landscape media query already pins these; this extends the lock
+       to portrait and tall phones/desktops so they can't "slide" either. */
+    body[data-screen="questionPage"],
+    body[data-screen="answerPage"] {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: var(--game-vh, 100dvh);
+      max-height: var(--game-vh, 100dvh);
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+    body[data-screen="questionPage"] .app,
+    body[data-screen="answerPage"] .app {
+      height: var(--game-vh, 100dvh);
+      max-height: var(--game-vh, 100dvh);
+      overflow: hidden;
+    }
+
     .center {
       align-items: center;
       justify-content: center;
