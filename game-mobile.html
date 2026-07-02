@@ -9358,9 +9358,15 @@
     })();
 
     // ---- Bridge to the Firebase layer (defined in the separate <script> below) ----
+    // Covers that were accidentally wiped in the cloud can be restored from a
+    // bundled asset. The fallback applies only while the published image is
+    // empty — as soon as an admin uploads and publishes a new cover, that wins.
+    const publishedCoverFallbacks = {
+      "pub-1783014442530-9484": "assets/img/cat-khareef.webp" // خريف ظفار
+    };
     function normalizePublishedCategory(c) {
       return {
-        id: c.id, name: c.name || "", image: c.image || "", color: c.color || "",
+        id: c.id, name: c.name || "", image: c.image || publishedCoverFallbacks[c.id] || "", color: c.color || "",
         custom: false, published: true, order: c.order || 0,
         questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => ({
           points: q.points || pointValues[i] || 100,
