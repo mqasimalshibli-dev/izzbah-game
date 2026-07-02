@@ -53,7 +53,7 @@
         linear-gradient(135deg, #efd6ba 0%, #f3dcc3 48%, #e9c7aa 100%);
       color: var(--dark);
       direction: rtl;
-      font-family: "Amiri", "Scheherazade New", "DecoType Naskh", "Traditional Arabic", "Geeza Pro", "Diwan Kufi", Tahoma, Arial, sans-serif;
+      font-family: "Cairo", Tahoma, Arial, sans-serif;
       font-size: 19px;
       font-weight: 900;
       line-height: 1.45;
@@ -69,8 +69,8 @@
     .score-value,
     .cell,
     .bar-score {
-      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-      font-weight: 900;
+      font-family: "Lalezar", "Cairo", sans-serif;
+      font-weight: 400;
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1, "kern" 1;
       letter-spacing: 0;
@@ -108,21 +108,25 @@
       pointer-events: none;
     }
 
+    /* Background ornament — a whisper-light eight-point star lattice (echoes the
+       star in the عزبة logo), faded toward the bottom so content stays the hero. */
     .app::before {
-      background:
-        linear-gradient(45deg, transparent 48%, rgba(145, 24, 28, .055) 49%, rgba(145, 24, 28, .055) 51%, transparent 52%),
-        linear-gradient(-45deg, transparent 48%, rgba(201, 151, 74, .09) 49%, rgba(201, 151, 74, .09) 51%, transparent 52%);
-      background-size: 64px 64px;
-      opacity: .8;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.15'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.3'/%3E%3Cg fill='%23911820' fill-opacity='.06'%3E%3Cpath d='M0 -7 7 0 0 7 -7 0z'/%3E%3Cpath d='M120 -7 127 0 120 7 113 0z'/%3E%3Cpath d='M0 113 7 120 0 127 -7 120z'/%3E%3Cpath d='M120 113 127 120 120 127 113 120z'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: 120px 120px;
+      mask-image: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, .85), rgba(0, 0, 0, .2));
+      -webkit-mask-image: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, .85), rgba(0, 0, 0, .2));
     }
 
+    /* Ambient warmth + gold arch rings in the corners (majlis-arch motif). */
     .app::after {
       background:
-        radial-gradient(circle at 50% 18%, transparent 0 28px, rgba(145, 24, 28, .08) 29px 31px, transparent 32px),
-        radial-gradient(circle at 50% 18%, transparent 0 56px, rgba(145, 24, 28, .045) 57px 59px, transparent 60px);
-      background-size: 260px 180px;
-      opacity: .65;
-      mask-image: linear-gradient(180deg, rgba(0,0,0,.75), rgba(0,0,0,.18));
+        radial-gradient(58% 42% at 50% 0%, rgba(255, 246, 229, .5), transparent 72%),
+        radial-gradient(40% 34% at 0% 100%, rgba(145, 24, 28, .06), transparent 70%),
+        radial-gradient(40% 34% at 100% 100%, rgba(145, 24, 28, .06), transparent 70%),
+        radial-gradient(circle at 0 0, transparent 0 88px, rgba(201, 151, 74, .22) 89px 91px, transparent 92px 116px, rgba(145, 24, 28, .12) 117px 119px, transparent 120px 148px, rgba(201, 151, 74, .13) 149px 151px, transparent 152px),
+        radial-gradient(circle at 100% 0, transparent 0 88px, rgba(201, 151, 74, .22) 89px 91px, transparent 92px 116px, rgba(145, 24, 28, .12) 117px 119px, transparent 120px 148px, rgba(201, 151, 74, .13) 149px 151px, transparent 152px),
+        radial-gradient(circle at 0 100%, transparent 0 88px, rgba(201, 151, 74, .22) 89px 91px, transparent 92px 116px, rgba(145, 24, 28, .12) 117px 119px, transparent 120px 148px, rgba(201, 151, 74, .13) 149px 151px, transparent 152px),
+        radial-gradient(circle at 100% 100%, transparent 0 88px, rgba(201, 151, 74, .22) 89px 91px, transparent 92px 116px, rgba(145, 24, 28, .12) 117px 119px, transparent 120px 148px, rgba(201, 151, 74, .13) 149px 151px, transparent 152px);
     }
 
     .screen, .game-screen {
@@ -1358,24 +1362,6 @@
       color: #fff7e8;
     }
 
-    #game::before,
-    #game::after {
-      content: "";
-      position: absolute;
-      bottom: 28px;
-      width: 90px;
-      height: 150px;
-      opacity: .45;
-      pointer-events: none;
-      background:
-        radial-gradient(ellipse at 50% 100%, rgba(91, 122, 107, .45), transparent 62%),
-        linear-gradient(40deg, transparent 40%, rgba(91, 122, 107, .5) 42% 49%, transparent 51%),
-        linear-gradient(-35deg, transparent 35%, rgba(91, 122, 107, .42) 38% 47%, transparent 50%);
-    }
-
-    #game::before { left: 8px; }
-    #game::after { right: 8px; transform: scaleX(-1); }
-
     .question-page {
       flex-direction: column;
       gap: 10px;
@@ -1413,10 +1399,12 @@
       border: 1px solid rgba(140, 106, 46, .22);
       border-radius: 18px;
       background:
-        radial-gradient(circle at 50% 0, transparent 0 30px, rgba(145, 24, 28, .08) 31px 33px, transparent 34px),
-        linear-gradient(45deg, transparent 48%, rgba(201, 151, 74, .13) 49%, rgba(201, 151, 74, .13) 51%, transparent 52%),
-        linear-gradient(-45deg, transparent 48%, rgba(145, 24, 28, .06) 49%, rgba(145, 24, 28, .06) 51%, transparent 52%);
-      background-size: 52px 52px;
+        linear-gradient(180deg, rgba(255, 252, 242, .45), rgba(255, 252, 242, 0) 140px),
+        radial-gradient(circle at 0 0, transparent 0 36px, rgba(201, 151, 74, .2) 37px 39px, transparent 40px 58px, rgba(145, 24, 28, .1) 59px 61px, transparent 62px),
+        radial-gradient(circle at 100% 0, transparent 0 36px, rgba(201, 151, 74, .2) 37px 39px, transparent 40px 58px, rgba(145, 24, 28, .1) 59px 61px, transparent 62px),
+        radial-gradient(circle at 0 100%, transparent 0 36px, rgba(201, 151, 74, .2) 37px 39px, transparent 40px 58px, rgba(145, 24, 28, .1) 59px 61px, transparent 62px),
+        radial-gradient(circle at 100% 100%, transparent 0 36px, rgba(201, 151, 74, .2) 37px 39px, transparent 40px 58px, rgba(145, 24, 28, .1) 59px 61px, transparent 62px);
+      box-shadow: inset 0 0 0 4px rgba(255, 252, 242, .3);
       pointer-events: none;
     }
 
@@ -1596,7 +1584,7 @@
       border-radius: 50%;
       background: var(--red);
       color: white;
-      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Lalezar', 'Cairo', sans-serif;
       font-size: 20px;
     }
 
@@ -3670,7 +3658,7 @@
       position: fixed; inset: 0; z-index: 0; overflow-y: auto; overflow-x: hidden;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: clamp(28px, 6vh, 60px) 22px;
-      font-family: 'El Messiri', sans-serif;
+      font-family: 'Cairo', sans-serif;
       background:
         radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
         radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
@@ -3706,7 +3694,7 @@
     .wlc-mark { width: clamp(96px, 24vw, 158px); height: auto; filter: drop-shadow(0 6px 16px rgba(0,0,0,.4)); }
     .wlc-logo-text { font-family: 'Aref Ruqaa', serif; font-weight: 700; font-size: clamp(62px, 16vw, 100px); line-height: .9; color: #fbf3dd; text-shadow: 0 2px 12px rgba(0,0,0,.45); }
     .wlc-logo-sweep { position: absolute; top: 0; bottom: 0; width: 42%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent); animation: wlcSweep 5.5s ease-in-out 1.4s infinite; }
-    .wlc-subtitle { font-family: 'El Messiri', sans-serif; font-weight: 600; font-size: clamp(17px, 4vw, 23px); letter-spacing: .5px; color: #f3dcae; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+    .wlc-subtitle { font-family: 'Cairo', sans-serif; font-weight: 600; font-size: clamp(17px, 4vw, 23px); letter-spacing: .5px; color: #f3dcae; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
     .wlc-start {
       position: relative; overflow: hidden; cursor: pointer; border: none; margin-top: 8px;
       font-family: 'Cairo', sans-serif; font-weight: 800; font-size: clamp(19px, 5vw, 22px); color: #3a0a0c;
@@ -3721,7 +3709,7 @@
     .wlc-or { display: flex; align-items: center; gap: 14px; width: 260px; }
     .wlc-or-line { flex: 1; height: 1px; background: linear-gradient(to right, rgba(220,189,113,.45), transparent); }
     .wlc-or-line:first-child { background: linear-gradient(to left, rgba(220,189,113,.45), transparent); }
-    .wlc-or-text { font-family: 'El Messiri'; font-size: 14px; color: #e9cfa0; opacity: .85; }
+    .wlc-or-text { font-family: 'Cairo', sans-serif; font-size: 14px; color: #e9cfa0; opacity: .85; }
     .wlc-google {
       display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer;
       font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 17px; color: #2c1208;
@@ -3891,10 +3879,10 @@
     #game .score-box.active-team::before {
       content: "دورهم الآن"; position: absolute; top: -13px; right: 18px; z-index: 3;
       background: linear-gradient(180deg, #e0444a, #bb1d27); color: #fff;
-      font: 800 12px 'Tajawal', sans-serif; padding: 5px 15px; border-radius: 999px;
+      font: 800 12px 'Cairo', sans-serif; padding: 5px 15px; border-radius: 999px;
       border: 1px solid #eac877; box-shadow: 0 6px 12px -5px rgba(0, 0, 0, .5); white-space: nowrap;
     }
-    #game .score-name { font-family: 'Tajawal', sans-serif !important; font-weight: 800 !important; color: currentColor !important; }
+    #game .score-name { font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; color: currentColor !important; }
     #game .score-value { font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; color: #23463a !important; font-variant-numeric: tabular-nums; }
     #game .score-tools button { font-family: 'Cairo', sans-serif !important; font-weight: 900 !important; border-radius: 13px !important; }
 
@@ -4015,12 +4003,11 @@
       width: 100% !important; max-width: 100% !important; padding: 0 !important;
       background:
         radial-gradient(135% 95% at 50% -22%, #fcefd4 0%, rgba(252, 239, 212, 0) 56%),
-        repeating-linear-gradient(45deg, rgba(168, 118, 52, .05) 0 1.5px, transparent 1.5px 26px),
-        repeating-linear-gradient(-45deg, rgba(168, 118, 52, .05) 0 1.5px, transparent 1.5px 26px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.12'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.22'/%3E%3C/svg%3E") 0 0 / 120px 120px,
         linear-gradient(180deg, #f5e7cb, #ecd6b2) !important;
     }
     #setup.center { justify-content: flex-start !important; align-items: stretch !important; gap: 0 !important; overflow-y: auto !important; text-align: right !important; }
-    #setup .setup-shell { width: 100%; max-width: 1080px; margin: 0 auto; padding: 30px 22px 64px; direction: rtl; font-family: 'Tajawal', sans-serif; }
+    #setup .setup-shell { width: 100%; max-width: 1080px; margin: 0 auto; padding: 30px 22px 64px; direction: rtl; font-family: 'Cairo', sans-serif; }
     /* nav */
     #setup .setup-nav {
       position: static !important; inset: auto !important; direction: rtl !important; width: auto !important; z-index: auto !important;
@@ -4044,7 +4031,7 @@
     #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .6) !important; }
     /* head */
     #setup .setup-head { text-align: center; margin-top: 34px; }
-    #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Tajawal', sans-serif; letter-spacing: .14em; }
+    #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Cairo', sans-serif; letter-spacing: .14em; }
     #setup .setup-eyebrow span { width: 34px; height: 1px; display: inline-block; }
     #setup .setup-eyebrow span:first-child { background: linear-gradient(90deg, transparent, #c89a4e); }
     #setup .setup-eyebrow span:last-child { background: linear-gradient(90deg, #c89a4e, transparent); }
@@ -4054,7 +4041,7 @@
     }
     #setup .setup-underline { margin: 14px auto 0; width: 74px; height: 5px; border-radius: 99px; background: linear-gradient(90deg, #e3c785, #c89a4e, #e3c785); }
     #setup .setup-head .hint {
-      margin: 20px auto 0 !important; max-width: 560px; font: 500 18px/1.7 'Tajawal', sans-serif !important; color: #3d6a55 !important;
+      margin: 20px auto 0 !important; max-width: 560px; font: 500 18px/1.7 'Cairo', sans-serif !important; color: #3d6a55 !important;
     }
     /* count stepper card */
     #setup .team-count { display: flex; justify-content: center; margin: 32px 0 30px; }
@@ -4065,7 +4052,7 @@
       border-radius: 26px !important; padding: 18px 30px 22px !important;
       box-shadow: 0 2px 0 #fff inset, 0 26px 40px -26px rgba(70, 45, 15, .55) !important;
     }
-    #setup .team-stepper .step-label { font: 700 13px 'Tajawal', sans-serif; letter-spacing: .1em; color: #8a6a2e; }
+    #setup .team-stepper .step-label { font: 700 13px 'Cairo', sans-serif; letter-spacing: .1em; color: #8a6a2e; }
     #setup .team-stepper .step-row { display: flex; align-items: center; gap: 26px; }
     #setup .team-stepper .stepper-btn {
       width: 62px !important; height: 62px !important; border-radius: 50% !important; font: 900 30px 'Cairo', sans-serif !important;
@@ -4104,15 +4091,15 @@
     #setup .team-card .image-picker .plus { font-size: 40px !important; color: var(--accent-deep) !important; }
     #setup .team-card .team-badge {
       position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff;
-      font: 800 11px 'Tajawal', sans-serif; padding: 3px 13px; border-radius: 999px; border: 2px solid #fffdf6;
+      font: 800 11px 'Cairo', sans-serif; padding: 3px 13px; border-radius: 999px; border: 2px solid #fffdf6;
       box-shadow: 0 5px 9px -4px rgba(0, 0, 0, .4); white-space: nowrap;
     }
     #setup .team-card .field-label {
-      display: block; margin: 20px 0 0 !important; font: 600 12px 'Tajawal', sans-serif !important; letter-spacing: .05em;
+      display: block; margin: 20px 0 0 !important; font: 600 12px 'Cairo', sans-serif !important; letter-spacing: .05em;
       color: var(--accent-deep) !important; text-align: center !important;
     }
     #setup .team-card input.team-name-input {
-      margin-top: 8px !important; width: 100%; text-align: center !important; font: 700 18px 'Tajawal', sans-serif !important; color: #234a3b !important;
+      margin-top: 8px !important; width: 100%; text-align: center !important; font: 700 18px 'Cairo', sans-serif !important; color: #234a3b !important;
       background: #fffdf7 !important; border: 1px solid rgba(201, 168, 95, .5) !important; border-bottom: 2.5px solid var(--accent) !important;
       border-radius: 13px !important; padding: 12px 14px !important; outline: none;
     }
@@ -4122,9 +4109,9 @@
     #gameLibrary, #questionPage, #answerPage {
       background-color: #f1e2bf !important;
       background-image:
-        radial-gradient(120% 90% at 50% 0%, #f6ead0 0%, #efe0ba 55%, #e9d6a9 100%),
-        repeating-linear-gradient(45deg, rgba(150, 95, 35, .055) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(-45deg, rgba(150, 95, 35, .055) 0 1px, transparent 1px 16px) !important;
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.13'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.24'/%3E%3C/svg%3E"),
+        radial-gradient(120% 90% at 50% 0%, #f6ead0 0%, #efe0ba 55%, #e9d6a9 100%) !important;
+      background-size: 120px 120px, auto !important;
     }
     /* main screen (games library) — dark-red to match the final-score screen */
     #gameLibrary {
@@ -4133,6 +4120,7 @@
         radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
         radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
         linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%) !important;
+      background-size: auto !important;
     }
     /* let the red header bleed flush + let card badges hang (drop the old tan frame/clip) */
     #questionPage, #answerPage { overflow: visible !important; border: 0 !important; border-radius: 0 !important; }
@@ -4314,9 +4302,7 @@
     /* ============ QUESTION / ANSWER CARDS ============ */
     #questionPage .question-card, #answerPage .question-card {
       background-color: #fdf8ec !important;
-      background-image:
-        repeating-linear-gradient(45deg, rgba(150, 90, 30, .05) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(-45deg, rgba(150, 90, 30, .05) 0 1px, transparent 1px 16px) !important;
+      background-image: linear-gradient(180deg, rgba(255, 253, 246, .8), rgba(253, 248, 236, 0) 180px) !important;
       border: 3px solid #b51f2b !important; border-radius: 22px !important;
       box-shadow: 0 22px 46px rgba(120, 40, 30, .16) !important; overflow: visible !important;
     }
@@ -4637,9 +4623,8 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700;800&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&display=swap" rel="stylesheet">
+  <!-- Unified type system: Cairo (all text) + Lalezar (display numbers) + Aref Ruqaa (عزبة wordmark only) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <main class="app">
