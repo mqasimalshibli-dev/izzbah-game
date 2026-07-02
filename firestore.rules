@@ -11,7 +11,10 @@ service cloud.firestore {
     }
 
     // Per-user save document — each signed-in user reads/writes ONLY their own,
-    // constrained to the exact shape the app writes.
+    // constrained to the exact shape the app writes. The `data` map holds a
+    // small, fixed number of blobs (settings / saved games / preview choices);
+    // cap the key count so it can't be turned into an arbitrary store. (Firestore
+    // already enforces a hard 1 MiB per-document ceiling on total size.)
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
@@ -20,6 +23,7 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.email.size() <= 320
         && request.resource.data.data is map
+        && request.resource.data.data.size() <= 12
         && request.resource.data.updatedAt is timestamp;
     }
 
@@ -46,10 +50,22 @@ service cloud.firestore {
         && request.resource.data.questions.size() <= 200;
       allow delete: if isAdmin();
 
-      // One document per question (text + its images). Public read; admin write.
+      // One document per question (text + its images). Public read; admin write,
+      // now shape/type-checked so even a mistaken or compromised admin write
+      // can't store malformed or unexpected data. (The image fields are data
+      // URLs or links; their byte size is bounded by Firestore's 1 MiB doc limit.)
       match /questions/{questionId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isAdmin()
+          && request.resource.data.keys().hasOnly(['points', 'q', 'a', 'image', 'answerImage', 'idx'])
+          && request.resource.data.points is number
+          && request.resource.data.q is string
+          && request.resource.data.q.size() <= 2000
+          && request.resource.data.a is string
+          && request.resource.data.a.size() <= 2000
+          && request.resource.data.image is string
+          && request.resource.data.answerImage is string
+          && request.resource.data.idx is number;
         allow delete: if isAdmin();
       }
     }
