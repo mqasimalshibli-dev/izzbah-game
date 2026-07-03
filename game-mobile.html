@@ -4690,6 +4690,26 @@
       }
     }
 
+    /* Laptops / medium landscape (601–900px tall): too tall for the short-
+       landscape lock, but the desktop card's fixed ~520–560px min-height + big
+       padding runs past the bottom, clipping the action buttons now that scroll
+       is locked. Cap the media by viewport height, drop the min-heights, and
+       trim padding so the whole screen — including the buttons — always fits. */
+    @media (orientation: landscape) and (min-height: 601px) and (max-height: 900px) {
+      #questionPage .question-main-card {
+        min-height: 0 !important;
+        padding: clamp(40px, 8vh, 90px) 44px clamp(38px, 7vh, 80px) !important;
+      }
+      #questionPage .question-main-card .question-image { max-height: 36vh !important; }
+      #questionPage .question-main-card:has(.qchoices.visible) .question-image { max-height: 24vh !important; }
+      #answerPage .answer-card {
+        min-height: 0 !important;
+        padding: clamp(40px, 8vh, 90px) 40px clamp(30px, 5vh, 50px) !important;
+      }
+      #answerPage .answer-card .answer-image { max-height: 34vh !important; }
+      #answerPage #modalAnswer { font-size: clamp(26px, 5.4vh, 44px) !important; line-height: 1.2 !important; }
+    }
+
   </style>
   <script>
     /* =====================================================================
