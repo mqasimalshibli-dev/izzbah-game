@@ -4599,6 +4599,97 @@
       #answerPage #backToQuestion, #answerPage #continueAnswer { padding: 7px 14px !important; font-size: 13px !important; }
     }
 
+    /* ============ PORTRAIT PHONES: make the question/answer card FIT ============
+       In portrait the card must never grow past the (now scroll-locked) viewport,
+       so cap the media, tighten paddings, and stack the four options in a single
+       column. This guarantees the badges, question, image, all options, and the
+       reveal button are visible at once — no scrolling, no clipping. */
+    @media (orientation: portrait) and (max-width: 800px) {
+      #questionPage .question-main-card {
+        min-height: 0 !important;
+        padding: 58px 16px 56px !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        overflow: hidden !important;
+      }
+      #questionPage .question-main-card .question-image {
+        flex: 0 1 auto !important;
+        max-height: 32vh !important;
+        width: auto !important; height: auto !important;
+        max-width: 100% !important; object-fit: contain !important;
+        margin: 0 auto !important;
+      }
+      #questionPage .question-text {
+        flex: 0 0 auto !important;
+        font-size: clamp(16px, 4vw, 26px) !important; line-height: 1.28 !important;
+      }
+      /* when the four-choices helper is up, shrink the image and stack options;
+         the reveal button is pinned to the card bottom, so reserve room for it. */
+      #questionPage .question-main-card:has(.qchoices.visible) {
+        padding-top: 46px !important; padding-bottom: 62px !important; gap: 7px !important;
+        justify-content: flex-start !important;
+      }
+      #questionPage .question-main-card:has(.qchoices.visible) .question-image {
+        max-height: 18vh !important;
+      }
+      #questionPage .qchoices.visible {
+        grid-template-columns: 1fr !important;
+        width: 100% !important; padding-right: 52px !important;
+        gap: 7px !important; margin-top: 8px !important;
+      }
+      #questionPage .qchoice {
+        min-height: 0 !important; gap: 9px !important; border-radius: 11px !important;
+        padding: 8px 12px !important;
+        font-size: clamp(13px, 3.6vw, 18px) !important; line-height: 1.2 !important;
+      }
+      #questionPage .qchoice::before {
+        width: 26px !important; height: 26px !important;
+        font-size: 15px !important; border-radius: 7px !important;
+      }
+      /* answer screen: cap the media AND the (often long) answer text so the
+         whole column — award row, answer, and the bottom buttons — stays in view */
+      #answerPage .answer-card { min-height: 0 !important; padding: 52px 16px 16px !important; overflow: hidden !important; }
+      #answerPage .answer-card .answer-image {
+        max-height: 32vh !important; width: auto !important; height: auto !important;
+        max-width: 100% !important; object-fit: contain !important; margin: 0 auto 6px !important;
+      }
+      #answerPage #modalAnswer { font-size: clamp(17px, 4.8vw, 30px) !important; line-height: 1.25 !important; }
+    }
+
+    /* Very short portrait screens (small phones, ≤700px tall): the topbar and a
+       long question already eat most of the height, so with the four-option
+       helper up we compact the topbar, shrink the media to a thumbnail, and lay
+       the options two-per-row — keeping everything on one screen. Standalone
+       (placed after the portrait block) so it reliably wins the cascade. */
+    @media (orientation: portrait) and (max-width: 800px) and (max-height: 700px) {
+      #questionPage .topbar, #answerPage .topbar { min-height: 0 !important; padding: 6px 10px !important; gap: 4px !important; }
+      #questionPage .topbar .mini-brand, #answerPage .topbar .mini-brand { display: none !important; }
+      /* answer screen: thumbnail image + compact answer text so buttons stay in view */
+      #answerPage .answer-card { padding: 34px 14px 12px !important; }
+      #answerPage .answer-card .answer-image { max-height: 17vh !important; margin: 0 auto 4px !important; }
+      #answerPage #modalAnswer { font-size: clamp(15px, 4.4vw, 22px) !important; line-height: 1.22 !important; }
+      #answerPage #modalAnswer::before { margin-bottom: 4px !important; }
+      #answerPage #modalAnswer::after { margin-top: 6px !important; }
+      #answerPage .answer-bottom-actions { gap: 6px !important; }
+      #questionPage .question-main-card:has(.qchoices.visible) {
+        padding-top: 34px !important; padding-bottom: 56px !important; gap: 5px !important;
+      }
+      #questionPage .question-main-card:has(.qchoices.visible) .question-image { max-height: 12vh !important; }
+      #questionPage .question-main-card:has(.qchoices.visible) .question-text {
+        font-size: clamp(13px, 3.4vw, 17px) !important; line-height: 1.18 !important;
+      }
+      #questionPage .question-main-card:has(.qchoices.visible) .qchoices.visible {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        padding-right: 46px !important; gap: 5px 7px !important; margin-top: 5px !important;
+      }
+      #questionPage .question-main-card:has(.qchoices.visible) .qchoice {
+        padding: 5px 9px !important; font-size: clamp(11px, 3vw, 15px) !important; gap: 6px !important;
+      }
+      #questionPage .question-main-card:has(.qchoices.visible) .qchoice::before {
+        width: 21px !important; height: 21px !important; font-size: 13px !important;
+      }
+    }
+
   </style>
   <script>
     /* =====================================================================
