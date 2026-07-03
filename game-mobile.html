@@ -149,16 +149,16 @@
       position: fixed;
       inset: 0;
       width: 100%;
-      height: var(--game-vh, 100dvh);
-      max-height: var(--game-vh, 100dvh);
+      height: var(--game-vh, 100svh);
+      max-height: var(--game-vh, 100svh);
       overflow: hidden;
       overscroll-behavior: none;
       touch-action: manipulation;
     }
     body[data-screen="questionPage"] .app,
     body[data-screen="answerPage"] .app {
-      height: var(--game-vh, 100dvh);
-      max-height: var(--game-vh, 100dvh);
+      height: var(--game-vh, 100svh);
+      max-height: var(--game-vh, 100svh);
       overflow: hidden;
     }
 
@@ -4690,24 +4690,33 @@
       }
     }
 
-    /* Laptops / medium landscape (601–900px tall): too tall for the short-
-       landscape lock, but the desktop card's fixed ~520–560px min-height + big
-       padding runs past the bottom, clipping the action buttons now that scroll
-       is locked. Cap the media by viewport height, drop the min-heights, and
-       trim padding so the whole screen — including the buttons — always fits. */
-    @media (orientation: landscape) and (min-height: 601px) and (max-height: 900px) {
+    /* Laptops AND large desktops (any landscape taller than the short-landscape
+       lock, i.e. >600px): the desktop card's fixed ~520–560px min-height + big
+       padding + a 48vh image runs past the bottom on anything under ~1100px tall
+       and is borderline even above that, clipping the action buttons now that
+       scroll is locked. Two-part fix, applied at ALL these heights:
+         1) Cap the media by viewport height and drop the min-heights so the card
+            can never grow past the screen.
+         2) Structural guarantee — make the middle region flex-shrink and pin the
+            action bar as a non-shrinking last row, so the buttons can never be
+            pushed below the fold regardless of content or a few px of drift. */
+    @media (orientation: landscape) and (min-height: 601px) {
+      #questionPage .question-page, #answerPage.question-page { min-height: 0 !important; }
       #questionPage .question-main-card {
-        min-height: 0 !important;
-        padding: clamp(40px, 8vh, 90px) 44px clamp(38px, 7vh, 80px) !important;
+        flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important;
+        padding: clamp(36px, 7vh, 84px) 44px clamp(36px, 6vh, 74px) !important;
       }
-      #questionPage .question-main-card .question-image { max-height: 36vh !important; }
-      #questionPage .question-main-card:has(.qchoices.visible) .question-image { max-height: 24vh !important; }
+      #questionPage .question-main-card .question-image { max-height: 34vh !important; }
+      #questionPage .question-main-card:has(.qchoices.visible) .question-image { max-height: 22vh !important; }
+
+      #answerPage .answer-layout { flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
       #answerPage .answer-card {
-        min-height: 0 !important;
-        padding: clamp(40px, 8vh, 90px) 40px clamp(30px, 5vh, 50px) !important;
+        min-height: 0 !important; height: 100% !important; overflow: hidden !important;
+        padding: clamp(34px, 6vh, 80px) 40px clamp(26px, 4vh, 46px) !important;
       }
-      #answerPage .answer-card .answer-image { max-height: 34vh !important; }
-      #answerPage #modalAnswer { font-size: clamp(26px, 5.4vh, 44px) !important; line-height: 1.2 !important; }
+      #answerPage .answer-card .answer-image { max-height: 32vh !important; }
+      #answerPage #modalAnswer { font-size: clamp(24px, 5vh, 44px) !important; line-height: 1.2 !important; }
+      #answerPage .answer-bottom-actions { flex: 0 0 auto !important; }
     }
 
   </style>
@@ -7222,10 +7231,16 @@
 
     function syncGameViewport() {
       const viewport = window.visualViewport;
+      // Use the SMALLER of the visual viewport and the layout viewport for the
+      // locked game height. visualViewport.height is the actually-visible area
+      // (it excludes a mobile/tablet browser's toolbar); taking the max instead
+      // made the app taller than the screen on those devices, pushing the answer
+      // action buttons under the toolbar / below the fold. Width keeps the larger
+      // value so the landscape board still spans the full page.
       const width = viewport ? Math.max(viewport.width, window.innerWidth || 0) : window.innerWidth;
-      const height = viewport ? Math.max(viewport.height, window.innerHeight || 0) : window.innerHeight;
+      const vh = viewport && viewport.height ? Math.min(viewport.height, window.innerHeight || viewport.height) : window.innerHeight;
       document.documentElement.style.setProperty("--game-vw", `${Math.round(width)}px`);
-      document.documentElement.style.setProperty("--game-vh", `${Math.round(height)}px`);
+      document.documentElement.style.setProperty("--game-vh", `${Math.round(vh)}px`);
     }
 
     async function applyGameOrientation(id) {
