@@ -11243,6 +11243,76 @@
           }
           auth = firebase.auth();
           db = firebase.firestore();
+          // Test hook: point Firestore at a local emulator (never set in prod).
+          // Accepts a port (8080) or "host:port" string.
+          try {
+            if (window.IZZBAH_FIRESTORE_EMULATOR) {
+              const em = String(window.IZZBAH_FIRESTORE_EMULATOR);
+              const emHost = em.indexOf(":") > 0 ? em.split(":")[0] : "localhost";
+              const emPort = +(em.indexOf(":") > 0 ? em.split(":")[1] : em) || 8080;
+              db.useEmulator(emHost, emPort);
+            }
+          } catch (e) {}
+          // Live read accounting — lets us (and tests) see exactly how many
+          // billed document reads a load costs.
+          const readStats = window.IZZBAH_READ_STATS = { parentDocs: 0, questionDocs: 0, cacheHits: 0, cacheMisses: 0, fallbackUsed: false };
+
+          // ---- Device cache for cloud categories (IndexedDB) -------------------
+          // Firestore bills every document read, and the free tier allows 50k/day.
+          // Re-downloading every question of every published category on every
+          // page load was burning ~600 reads/visit. The cache keeps the full
+          // category (questions included) on-device keyed by its publish
+          // timestamp, so an unchanged category costs 1 parent-doc read instead
+          // of 1 + N question reads. Any failure inside falls back to "no cache".
+          const catCache = (() => {
+            let opened = null;
+            function open() {
+              if (opened) return opened;
+              opened = new Promise(resolve => {
+                try {
+                  const req = indexedDB.open("izzbah-cloud-cache", 1);
+                  req.onupgradeneeded = () => { try { req.result.createObjectStore("cats"); } catch (e) {} };
+                  req.onsuccess = () => resolve(req.result);
+                  req.onerror = () => resolve(null);
+                } catch (e) { resolve(null); }
+              });
+              return opened;
+            }
+            return {
+              all() { // -> Map(id -> entry) | null
+                return open().then(idb => {
+                  if (!idb) return null;
+                  return new Promise(resolve => {
+                    try {
+                      const tx = idb.transaction("cats", "readonly");
+                      const store = tx.objectStore("cats");
+                      const keysReq = store.getAllKeys();
+                      const valsReq = store.getAll();
+                      tx.oncomplete = () => {
+                        const m = new Map();
+                        (keysReq.result || []).forEach((k, i) => m.set(k, (valsReq.result || [])[i]));
+                        resolve(m);
+                      };
+                      tx.onerror = () => resolve(null);
+                      tx.onabort = () => resolve(null);
+                    } catch (e) { resolve(null); }
+                  });
+                }).catch(() => null);
+              },
+              put(id, entry) {
+                return open().then(idb => {
+                  if (!idb) return;
+                  try { idb.transaction("cats", "readwrite").objectStore("cats").put(entry, id); } catch (e) {}
+                }).catch(() => {});
+              },
+              remove(id) {
+                return open().then(idb => {
+                  if (!idb) return;
+                  try { idb.transaction("cats", "readwrite").objectStore("cats").delete(id); } catch (e) {}
+                }).catch(() => {});
+              }
+            };
+          })();
 
           // ---- Admin CMS bridge (published content + admin gating) ----
           window.IZZBAH = window.IZZBAH || {};
@@ -11254,6 +11324,7 @@
             const inline = Array.isArray(data.questions) ? data.questions : [];
             return d.ref.collection("questions").get()
               .then(qsnap => {
+                readStats.questionDocs += qsnap.size;
                 const questions = qsnap.empty
                   ? inline
                   : qsnap.docs.map(q => q.data())
@@ -11263,14 +11334,75 @@
               })
               .catch(() => Object.assign({ id: d.id }, data, { questions: inline }));
           }
+          // Serve the cached official categories (used when the network fails or
+          // stalls). A fresher network result arriving later simply re-applies.
+          function applyCachedCategories(cache) {
+            if (!cache) return false;
+            const cats = [];
+            cache.forEach((v, k) => {
+              if (typeof k === "string" && k.indexOf("__") !== 0 && v && v.cat) cats.push(v.cat);
+            });
+            if (!cats.length) return false;
+            readStats.fallbackUsed = true;
+            cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+            if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
+            return true;
+          }
           function loadPublishedCategories() {
-            return db.collection("categories").get()
-              .then(snap => Promise.all(snap.docs.map(loadCategoryDoc)))
-              .then(cats => {
-                cats.sort((a, b) => (a.order || 0) - (b.order || 0));
-                if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
-              })
-              .catch(e => console.warn("load categories failed", e));
+            // Cheap freshness check: read only the small parent docs, then serve
+            // each category from the device cache when its publish timestamp is
+            // unchanged. Only new/changed categories re-read their /questions.
+            // If the whole query fails (offline / out of quota), the last-known
+            // cloud state still renders from the cache instead of vanishing.
+            return catCache.all().then(cache => {
+              // Fully offline, the SDK retries silently and the promise never
+              // settles — after 8s render the cache provisionally; a network
+              // result that lands later re-applies over it.
+              const provisional = setTimeout(() => applyCachedCategories(cache), 8000);
+              // source:"server" — offline, a plain get() "succeeds" with an
+              // EMPTY snapshot from the SDK's own cache, which would read as
+              // "all categories deleted" and wipe the device cache. A server
+              // read rejects instead, landing in the catch (cache fallback).
+              return db.collection("categories").get({ source: "server" })
+                .then(snap => {
+                  clearTimeout(provisional);
+                  if (snap.metadata && snap.metadata.fromCache) { applyCachedCategories(cache); return; }
+                  readStats.parentDocs += snap.size;
+                  const liveIds = new Set();
+                  return Promise.all(snap.docs.map(d => {
+                    liveIds.add(d.id);
+                    const data = d.data() || {};
+                    const ver = data.updatedAt && typeof data.updatedAt.toMillis === "function" ? data.updatedAt.toMillis() : 0;
+                    const hit = cache && cache.get(d.id);
+                    if (hit && ver > 0 && hit.ver === ver && hit.cat && Array.isArray(hit.cat.questions)) {
+                      readStats.cacheHits++;
+                      return hit.cat;
+                    }
+                    readStats.cacheMisses++;
+                    return loadCategoryDoc(d).then(cat => {
+                      // Strip the Firestore Timestamp before storing; the cache
+                      // key is `ver`, and plain JSON survives IndexedDB cleanly.
+                      const plain = Object.assign({}, cat);
+                      delete plain.updatedAt;
+                      catCache.put(d.id, { ver, cat: plain });
+                      return cat;
+                    });
+                  })).then(cats => {
+                    // Categories deleted in the cloud leave the cache too (keys
+                    // starting with "__" are non-category blobs, keep those).
+                    if (cache) cache.forEach((v, k) => {
+                      if (typeof k === "string" && k.indexOf("__") !== 0 && !liveIds.has(k)) catCache.remove(k);
+                    });
+                    cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+                    if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
+                  });
+                })
+                .catch(e => {
+                  clearTimeout(provisional);
+                  console.warn("load categories failed", e && (e.code || e));
+                  applyCachedCategories(cache);
+                });
+            });
           }
           let cloudIsAdmin = false; // mirror of admin status inside this closure
           function refreshAdminStatus(user) {
@@ -11320,7 +11452,9 @@
                 }
               });
               existing.forEach(d => { if (!keep.has(d.id)) { batch.delete(d.ref); changed++; } });
-              return batch.commit();
+              // Our own cached copy is now stale (new updatedAt) — drop it so
+              // the next load refetches this category once and re-caches it.
+              return batch.commit().then(r => { catCache.remove(cat.id); return r; });
             });
             // NOTE: no full re-download here — both callers already update the
             // local publishedCategories via upsertPublished, so re-reading every
@@ -11333,7 +11467,7 @@
               qsnap.forEach(d => batch.delete(d.ref));
               batch.delete(catRef);
               return batch.commit();
-            }).then(loadPublishedCategories);
+            }).then(() => catCache.remove(id)).then(loadPublishedCategories);
           };
 
           // ---- Community categories (member-submitted, ADMIN-APPROVED) ---------
@@ -11349,13 +11483,33 @@
           function loadCommunityCategories() {
             // Public pool = APPROVED only (rules also block reading others' pending).
             const jobs = [
-              db.collection("community").where("approved", "==", true).get()
-                .then(snap => {
-                  const cats = snap.docs.map(mapCommunityDoc);
-                  if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
-                  return loadMyCommunityVotes(cats);
-                })
-                .catch(e => { console.warn("load community failed", e); if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity([]); })
+              // Same resilience as official categories: on failure OR a silent
+              // offline stall, keep showing the last-known approved list.
+              catCache.all().then(cache => {
+                const saved = cache && cache.get("__community__");
+                const cachedCats = saved && Array.isArray(saved.cats) ? saved.cats : [];
+                const applyCached = () => {
+                  if (!cachedCats.length) return;
+                  readStats.fallbackUsed = true;
+                  if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cachedCats);
+                };
+                const provisional = setTimeout(applyCached, 8000);
+                return db.collection("community").where("approved", "==", true).get({ source: "server" })
+                  .then(snap => {
+                    clearTimeout(provisional);
+                    if (snap.metadata && snap.metadata.fromCache) { applyCached(); return; }
+                    const cats = snap.docs.map(mapCommunityDoc);
+                    catCache.put("__community__", { cats }); // offline/quota fallback copy
+                    if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
+                    return loadMyCommunityVotes(cats);
+                  })
+                  .catch(e => {
+                    clearTimeout(provisional);
+                    console.warn("load community failed", e && (e.code || e));
+                    if (cachedCats.length) applyCached();
+                    else if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity([]);
+                  });
+              })
             ];
             // The member's OWN submissions (approved + pending) for their manager.
             if (currentUser) {
