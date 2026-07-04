@@ -8372,7 +8372,40 @@
       pub.id = "adminPublishBtn";
       pub.textContent = "نشر التعديلات";
       pub.addEventListener("click", publishAdminCategory);
-      head.append(name, colorLbl, imgLbl, count, pub);
+      // Remove a category from the game: brand-new (cloud) categories are
+      // deleted outright; built-in ones can't be deleted from the app, so they
+      // get a reversible hide/show toggle (skipped in the category picker).
+      const isBuiltin = builtinCategories.some(b => b.id === cat.id);
+      const del = document.createElement("button");
+      del.className = "danger ac-delete";
+      if (isBuiltin) {
+        const hidden = isCategoryHidden(cat.id);
+        del.textContent = hidden ? "إظهار الفئة" : "إخفاء الفئة";
+        del.title = hidden ? "إظهارها في شاشة اختيار الفئات" : "إخفاؤها من شاشة اختيار الفئات";
+        del.addEventListener("click", () => {
+          setCategoryHidden(cat.id, !hidden);
+          showToast(hidden ? "تم إظهار الفئة" : "تم إخفاء الفئة من اختيار الفئات");
+          renderAdminCatHead();
+        });
+      } else {
+        del.textContent = "حذف الفئة";
+        del.title = "حذف هذه الفئة نهائيًا للجميع";
+        del.addEventListener("click", () => {
+          if (!window.confirm(`حذف الفئة «${cat.name || ""}» نهائيًا للجميع؟`)) return;
+          const cloud = window.IZZBAH && window.IZZBAH.cloudDelete;
+          if (!cloud) { showToast("الحذف السحابي غير متاح — سجّل الدخول"); return; }
+          cloud(cat.id)
+            .then(() => {
+              state.publishedCategories = state.publishedCategories.filter(c => c.id !== cat.id);
+              state.selected.delete(cat.id);
+              showToast("تم حذف الفئة");
+              const l = adminOfficialList();
+              if (l.length) selectAdminCategory(l[0].id); else newAdminCategory();
+            })
+            .catch(() => showToast("تعذّر الحذف"));
+        });
+      }
+      head.append(name, colorLbl, imgLbl, count, pub, del);
       markAdminDirty();
     }
 
