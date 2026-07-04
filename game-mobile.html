@@ -617,6 +617,34 @@
 
     .category-eye svg { width: 16px; height: 16px; }
 
+    /* Community: vote pill (bottom-start), author tag, and owner edit/delete. */
+    .cat-vote {
+      position: absolute; bottom: 10px; inset-inline-start: 10px; z-index: 3;
+      display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px;
+      border-radius: 999px; border: 1px solid rgba(255, 255, 255, .35);
+      background: rgba(0, 0, 0, .5); color: #fff; cursor: pointer; min-height: 0;
+      font: 800 14px 'Cairo', sans-serif; box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+      -webkit-tap-highlight-color: transparent; transition: transform .12s, background .15s;
+    }
+    .cat-vote:hover { background: rgba(0, 0, 0, .62); }
+    .cat-vote:active { transform: scale(.94); }
+    .cat-vote svg { width: 16px; height: 16px; }
+    .cat-vote.voted { background: linear-gradient(180deg, #e0455a, #c11f38); border-color: #ffd7de; color: #fff; }
+    .cat-author {
+      position: absolute; top: 10px; inset-inline-start: 10px; z-index: 3;
+      max-width: 55%; padding: 2px 9px; border-radius: 999px;
+      background: rgba(0, 0, 0, .45); color: #fbeecd; font: 700 11px 'Cairo', sans-serif;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cat-owner {
+      position: absolute; z-index: 4; width: 28px; height: 28px; min-height: 0; padding: 0;
+      display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, .4); background: rgba(0, 0, 0, .55); color: #fff;
+      font-size: 14px; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+    }
+    .cat-owner-edit { top: 46px; inset-inline-end: 10px; }
+    .cat-owner-del { top: 80px; inset-inline-end: 10px; background: rgba(158, 19, 34, .8); }
+
     .category.selected {
       border-color: #e6c869;
       box-shadow: 0 0 0 4px rgba(230, 200, 105, .30), 0 8px 18px rgba(80, 20, 20, .28);
@@ -7092,6 +7120,10 @@
       teams: teamDefaults.map(name => ({ name, score: 0, image: "", helpers: ["fourChoices", "firstLetter", "doublePoints"], helpUsed: {}, doubleArmed: false, stealArmed: false })),
       selected: new Set(),
       customCategories: [],
+      communityCategories: [],
+      myVotes: new Set(),
+      signedIn: false,
+      myUid: "",
       hiddenCategories: [],
       savedGames: [],
       used: new Set(),
@@ -7415,7 +7447,7 @@
 
     function allCategories() {
       const { builtins, extras } = mergedOfficialCategories();
-      return [...builtins, ...extras, ...state.customCategories];
+      return [...builtins, ...extras, ...state.communityCategories, ...state.customCategories];
     }
 
     // Admin can remove categories from the game: cloud categories are deleted
@@ -7518,8 +7550,10 @@
     }
 
     function visibleCategoryGroup() {
+      // Community tab: shared member categories (already sorted by votes) first,
+      // then this device's private custom categories so nothing is lost.
       const group = state.categoryMode === "community"
-        ? state.customCategories
+        ? [...state.communityCategories, ...state.customCategories]
         : (() => { const { builtins, extras } = mergedOfficialCategories(); return [...extras, ...builtins]; })();
       return group.filter(cat => !isCategoryHidden(cat.id));
     }
@@ -7527,6 +7561,37 @@
     function setCategoryMode(mode) {
       state.categoryMode = mode;
       renderCategories();
+    }
+
+    // Toggle the current member's vote on a shared community category. Optimistic:
+    // flip the local state right away, then let the cloud round-trip confirm.
+    function voteCommunityCategory(cat) {
+      if (!state.signedIn) { showToast("سجّل الدخول للتصويت"); return; }
+      if (!(window.IZZBAH && window.IZZBAH.communityVote)) return;
+      const had = state.myVotes.has(cat.id);
+      const shouldVote = !had;
+      if (shouldVote) { state.myVotes.add(cat.id); cat.votes = (cat.votes || 0) + 1; }
+      else { state.myVotes.delete(cat.id); cat.votes = Math.max(0, (cat.votes || 0) - 1); }
+      renderCategories();
+      window.IZZBAH.communityVote(cat.id, shouldVote).catch(() => {
+        showToast("تعذّر التصويت");
+      });
+    }
+
+    // Open the community submission flow: signed-in members create/edit their own
+    // shared categories; signed-out users are sent to their private local ones.
+    function openCommunityCategories() {
+      if (!state.signedIn) {
+        showToast("سجّل الدخول لإضافة فئة للمجتمع");
+        openCustomManager("categories");
+        return;
+      }
+      openCommunityManager();
+    }
+    function openCommunityManager() {
+      state.editorTarget = "community";
+      renderCustomManager();
+      showScreen("customManager");
     }
 
     function openNewGameCategories() {
@@ -8141,7 +8206,7 @@
       $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
       $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
       if (state.categoryMode === "community" && visibleCategories.length === 0) {
-        grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط زر إنشاء / تعديل فئات المجتمع لإضافة فئة.</div>`;
+        grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط «إنشاء / تعديل فئات المجتمع» لإضافة فئة يراها ويصوّت عليها كل الأعضاء.</div>`;
       }
       const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
       visibleCategories.forEach(cat => {
@@ -8157,17 +8222,52 @@
         } else {
           card.style.setProperty("--cat-grad", `radial-gradient(130% 130% at 75% 12%, ${categoryColor(cat)}, #1c0608)`);
         }
+        const isCommunity = !!cat.community;
+        const voted = isCommunity && state.myVotes && state.myVotes.has(cat.id);
+        const isAuthor = isCommunity && state.myUid && cat.authorUid === state.myUid;
+        const voteHtml = isCommunity ? `
+          <button class="cat-vote${voted ? " voted" : ""}" type="button" title="صوّت لهذه الفئة" aria-label="تصويت">
+            <svg viewBox="0 0 24 24" fill="${voted ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2 5 5.3 5c2 0 3.3 1.1 4.2 2.3l.5.7.5-.7C11.4 6.1 12.7 5 14.7 5 18 5 19.6 8.4 22 11.7 19.5 16.4 12 21 12 21Z"/></svg>
+            <span class="clean-number">${toArabicDigits(cat.votes || 0)}</span>
+          </button>` : "";
+        const authorTag = isCommunity && cat.authorName ? `<span class="cat-author">${escapeHtml(cat.authorName)}</span>` : "";
+        const authorTools = isAuthor ? `
+          <button class="cat-owner cat-owner-edit" type="button" title="تعديل" aria-label="تعديل">✎</button>
+          <button class="cat-owner cat-owner-del" type="button" title="حذف" aria-label="حذف">🗑</button>` : "";
         card.innerHTML = `
           ${cat.image ? "" : `<span class="cat-watermark">${escapeHtml(name)}</span>`}
           <span class="cat-scrim"></span>
           <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${escapeHtml(name)}">${EYE_SVG}</button>
+          ${voteHtml}
+          ${authorTools}
           <span class="cat-name-pill">${escapeHtml(name)}</span>
+          ${authorTag}
           ${unavailable ? `<span class="cat-soon">قريباً</span>` : ""}
           <span class="cat-ring" aria-hidden="true"></span>
         `;
         card.querySelector(".category-eye").addEventListener("click", event => {
           event.stopPropagation();
           openCategoryPreview(cat);
+        });
+        const voteBtn = card.querySelector(".cat-vote");
+        if (voteBtn) voteBtn.addEventListener("click", event => {
+          event.stopPropagation();
+          voteCommunityCategory(cat);
+        });
+        const editBtn = card.querySelector(".cat-owner-edit");
+        if (editBtn) editBtn.addEventListener("click", event => {
+          event.stopPropagation();
+          state.editorTarget = "community";
+          editCustomCategory(cat);
+        });
+        const delBtn = card.querySelector(".cat-owner-del");
+        if (delBtn) delBtn.addEventListener("click", event => {
+          event.stopPropagation();
+          if (window.confirm(`حذف فئة «${cat.name || ""}» من المجتمع؟`)) {
+            if (window.IZZBAH && window.IZZBAH.communityDelete) {
+              window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم حذف الفئة")).catch(() => showToast("تعذّر الحذف"));
+            }
+          }
         });
         if (!unavailable) card.addEventListener("click", () => {
           if (!state.randomizedCats) state.randomizedCats = new Set();
@@ -8855,31 +8955,40 @@
 
     function renderCustomManager() {
       const published = state.editorTarget === "published";
-      const source = published ? state.publishedCategories : state.customCategories;
+      const community = state.editorTarget === "community";
+      const source = published ? state.publishedCategories
+        : community ? state.communityCategories.filter(c => c.authorUid === state.myUid)
+        : state.customCategories;
       const titleEl = document.querySelector("#customManager .screen-title");
-      if (titleEl) titleEl.textContent = published ? "إدارة المحتوى — المشرف" : "فئاتك الخاصة";
+      if (titleEl) titleEl.textContent = published ? "إدارة المحتوى — المشرف" : community ? "فئات المجتمع" : "فئاتك الخاصة";
       const hintEl = document.querySelector("#customManager .hint");
       if (hintEl) hintEl.textContent = published
         ? "عدّل الفئات الحالية أو أنشئ فئات جديدة — تظهر لجميع اللاعبين."
-        : "أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.";
+        : community
+          ? "أنشئ فئة وشاركها مع كل الأعضاء — الفئات الأكثر تصويتاً تظهر في الأعلى."
+          : "أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.";
       if (published) { renderAdminCategoryList(); return; }
       const list = $("#customList");
       list.innerHTML = "";
       if (!source.length) {
         const empty = document.createElement("div");
         empty.className = "panel";
-        empty.textContent = published ? "لا توجد فئات منشورة بعد." : "لا توجد فئات مخصصة بعد.";
+        empty.textContent = community ? "لم تُضِف أي فئة للمجتمع بعد. اضغط «＋ فئة جديدة» لإضافة فئة يراها ويصوّت عليها الجميع." : "لا توجد فئات مخصصة بعد.";
         list.appendChild(empty);
         return;
       }
       source.forEach(cat => {
         const row = document.createElement("div");
         row.className = "custom-row";
+        const filled = (cat.questions || []).filter(q => q.q && q.q.trim()).length;
+        const meta = community
+          ? `<span class="clean-number">${toArabicDigits(cat.votes || 0)}</span> صوت · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`
+          : `<span class="clean-number">${toArabicDigits(filled)}/5</span> أسئلة مكتملة`;
         row.innerHTML = `
           <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
           <div>
             <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
-            <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(cat.questions.filter(q => q.q.trim()).length)}/5</span> أسئلة مكتملة</div>
+            <div style="font-size:17px;color:var(--gold-dark)">${meta}</div>
           </div>
         `;
         const actions = document.createElement("div");
@@ -8893,8 +9002,10 @@
         del.className = "danger";
         del.textContent = "حذف";
         del.addEventListener("click", () => {
-          if (published) {
-            if (window.confirm(`حذف الفئة «${cat.name || ""}» للجميع؟`)) deletePublishedCategory(cat);
+          if (community) {
+            if (window.confirm(`حذف فئة «${cat.name || ""}» من المجتمع؟`)) {
+              window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم حذف الفئة")).catch(() => showToast("تعذّر الحذف"));
+            }
             return;
           }
           state.customCategories = state.customCategories.filter(item => item.id !== cat.id);
@@ -9020,7 +9131,8 @@
       cancel.addEventListener("click", () => showScreen("customManager"));
       const save = document.createElement("button");
       save.className = "primary";
-      save.textContent = state.editorTarget === "published" ? "نشر للجميع" : "حفظ الفئة";
+      save.textContent = state.editorTarget === "published" ? "نشر للجميع"
+        : state.editorTarget === "community" ? "نشر للمجتمع" : "حفظ الفئة";
       save.addEventListener("click", () => {
         cat.name = cat.name.trim();
         if (!cat.name) {
@@ -9029,6 +9141,14 @@
         }
         if (state.editorTarget === "published") {
           publishCategory(cat);
+          return;
+        }
+        if (state.editorTarget === "community") {
+          if (!(window.IZZBAH && window.IZZBAH.communityPublish)) { showToast("سجّل الدخول للمشاركة"); return; }
+          save.disabled = true; save.textContent = "جارٍ النشر…";
+          window.IZZBAH.communityPublish(cat)
+            .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
+            .catch((e) => { console.warn("community publish failed", e); showToast("تعذّر النشر"); save.disabled = false; save.textContent = "نشر للمجتمع"; });
           return;
         }
         const existing = state.customCategories.findIndex(item => item.id === cat.id);
@@ -9944,7 +10064,7 @@
     });
     $("#gameCategoriesTab").addEventListener("click", () => setCategoryMode("game"));
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
-    $("#manageCustomFromCategories").addEventListener("click", () => openCustomManager("categories"));
+    $("#manageCustomFromCategories").addEventListener("click", () => openCommunityCategories());
     $("#randomCategories").addEventListener("click", randomizeCategories);
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
@@ -10089,8 +10209,10 @@
       const btn = $("#adminEntry");
       if (btn) btn.style.display = state.isAdmin ? "" : "none";
     };
-    window.IZZBAH.applyAuth = function (signedIn) {
+    window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
+      state.myUid = signedIn ? (uid || "") : "";
+      if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
     };
     window.IZZBAH.applyPublished = function (cats) {
@@ -10101,6 +10223,22 @@
       // A resumed game may reference published categories that only just loaded;
       // refresh the board so their columns appear.
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
+    };
+    window.IZZBAH.applyCommunity = function (cats) {
+      state.communityCategories = (Array.isArray(cats) ? cats : []).map(c => {
+        const n = normalizePublishedCategory(c);
+        n.community = true; n.custom = true;
+        n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
+        n.votes = c.votes || 0;
+        return n;
+      }).sort((a, b) => (b.votes - a.votes) || String(a.name).localeCompare(String(b.name), "ar"));
+      if (typeof renderCategories === "function") renderCategories();
+      if (state.editorTarget === "community" && typeof renderCustomManager === "function") renderCustomManager();
+      if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
+    };
+    window.IZZBAH.applyMyVotes = function (ids) {
+      state.myVotes = new Set(Array.isArray(ids) ? ids : []);
+      if (typeof renderCategories === "function") renderCategories();
     };
     $("#closePreview").addEventListener("click", closeCategoryPreview);
     $("#categoryPreview").addEventListener("click", event => {
@@ -10312,7 +10450,76 @@
               return batch.commit();
             }).then(loadPublishedCategories);
           };
+
+          // ---- Community categories (member-submitted, votable) ----------------
+          function loadCommunityCategories() {
+            return db.collection("community").get()
+              .then(snap => {
+                const cats = snap.docs.map(d => {
+                  const x = d.data() || {};
+                  return {
+                    id: d.id, name: x.name || "", image: x.image || "", color: x.color || "",
+                    questions: Array.isArray(x.questions) ? x.questions : [],
+                    authorUid: x.authorUid || "", authorName: x.authorName || "",
+                    votes: x.votes || 0, community: true, custom: true
+                  };
+                });
+                if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
+                return loadMyCommunityVotes(cats);
+              })
+              .catch(e => console.warn("load community failed", e));
+          }
+          function loadMyCommunityVotes(cats) {
+            if (!currentUser) { if (window.IZZBAH.applyMyVotes) window.IZZBAH.applyMyVotes([]); return; }
+            return Promise.all(cats.map(c =>
+              db.collection("community").doc(c.id).collection("votes").doc(currentUser.uid).get()
+                .then(d => d.exists ? c.id : null).catch(() => null)
+            )).then(ids => { if (window.IZZBAH.applyMyVotes) window.IZZBAH.applyMyVotes(ids.filter(Boolean)); });
+          }
+          window.IZZBAH.communityPublish = function (cat) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            const isNew = !cat.id;
+            const ref = isNew ? db.collection("community").doc() : db.collection("community").doc(cat.id);
+            const data = {
+              name: cat.name || "", image: cat.image || "", color: cat.color || "",
+              questions: (cat.questions || []).map(q => ({
+                points: q.points || 0, q: q.q || "", a: q.a || "",
+                image: q.image || "", answerImage: q.answerImage || ""
+              })),
+              authorUid: currentUser.uid,
+              authorName: currentUser.displayName || currentUser.email || "عضو",
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (isNew) { data.votes = 0; data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
+            const write = isNew ? ref.set(data) : ref.set(data, { merge: true });
+            return write.then(loadCommunityCategories).then(() => ref.id);
+          };
+          window.IZZBAH.communityDelete = function (id) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            // Delete just the parent doc; any orphaned /votes are harmless.
+            return db.collection("community").doc(id).delete().then(loadCommunityCategories);
+          };
+          window.IZZBAH.communityVote = function (id, shouldVote) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            const catRef = db.collection("community").doc(id);
+            const voteRef = catRef.collection("votes").doc(currentUser.uid);
+            return db.runTransaction(tx =>
+              tx.get(voteRef).then(voteDoc => tx.get(catRef).then(catDoc => {
+                const votes = (catDoc.data() || {}).votes || 0;
+                const has = voteDoc.exists;
+                if (shouldVote && !has) {
+                  tx.set(voteRef, { at: firebase.firestore.FieldValue.serverTimestamp() });
+                  tx.update(catRef, { votes: votes + 1 });
+                } else if (!shouldVote && has) {
+                  tx.delete(voteRef);
+                  tx.update(catRef, { votes: Math.max(0, votes - 1) });
+                }
+              }))
+            ).then(loadCommunityCategories);
+          };
+
           loadPublishedCategories(); // available to everyone, even signed-out
+          loadCommunityCategories();
 
           try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
           const provider = new firebase.auth.GoogleAuthProvider();
@@ -10345,8 +10552,9 @@
           auth.onAuthStateChanged(async (user) => {
             currentUser = user;
             setAuthUI(user);
-            if (window.IZZBAH.applyAuth) window.IZZBAH.applyAuth(!!user);
+            if (window.IZZBAH.applyAuth) window.IZZBAH.applyAuth(!!user, user ? user.uid : "");
             refreshAdminStatus(user);
+            loadCommunityCategories(); // refresh "my votes" + author controls on sign in/out
             if (!user) return;
             try {
               const snap = await db.collection("users").doc(user.uid).get();
