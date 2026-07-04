@@ -416,6 +416,15 @@
     }
 
     .image-picker input { display: none; }
+    /* placeholder avatar shown behind the + when a team hasn't picked a photo */
+    .image-picker .ip-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+    .image-picker .ip-plus-over {
+      position: relative; z-index: 2; display: grid; place-items: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(0, 0, 0, .42); color: #fff; line-height: 1;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
+    }
+    .image-picker:hover .ip-placeholder { opacity: 1; }
     .image-picker:focus-visible { outline: 3px solid #3f7a57; outline-offset: 2px; }
     .image-picker.drag-over {
       transform: scale(1.05);
@@ -7657,9 +7666,12 @@
       picker.tabIndex = 0; // focusable so you can paste (Ctrl/⌘+V) into it
       picker.title = label + (allowMedia ? " — اضغط أو اسحب صورة/فيديو/صوت أو الصقها" : " — اضغط أو اسحب صورة أو الصقها");
       const removeBtnHtml = `<button type="button" class="img-remove" title="حذف" aria-label="حذف">×</button>`;
+      const placeholder = opts && opts.placeholder;
       picker.innerHTML = currentImage
         ? mediaPreviewHtml(currentImage) + removeBtnHtml
-        : `<span class="plus">+</span>`;
+        : (placeholder
+            ? `<img class="ip-placeholder" src="${escapeHtml(placeholder)}" alt=""><span class="plus ip-plus-over">+</span>`
+            : `<span class="plus">+</span>`);
       const removeBtn = picker.querySelector(".img-remove");
       if (removeBtn) {
         // keep the click off the label so it doesn't reopen the file dialog
@@ -7783,7 +7795,7 @@
           team.image = image;
           saveGameSettings();
           renderTeamSetup();
-        }, "اختر صورة الفريق", { maxDim: 640, targetKB: 180, minQ: 0.55 }));
+        }, "اختر صورة الفريق", { maxDim: 640, targetKB: 180, minQ: 0.55, placeholder: teamPlaceholderAvatars[i % teamPlaceholderAvatars.length] }));
         const badge = document.createElement("div");
         badge.className = "team-badge";
         badge.textContent = `فريق ${toArabicDigits(i + 1)}`;
