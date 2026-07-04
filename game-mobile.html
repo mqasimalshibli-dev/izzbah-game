@@ -11058,12 +11058,18 @@
       "pub-1783014442530-9484": "assets/img/cat-khareef.webp" // خريف ظفار
     };
     function normalizePublishedCategory(c) {
+      // Word-game overrides published before the QR images existed store their
+      // questions with image:"" — backfill each unmodified word's built-in QR
+      // here so the board, admin table and editor all show it.
+      const wordCat = isWordGuessCategory(c);
       return {
         id: c.id, name: c.name || "", image: c.image || publishedCoverFallbacks[c.id] || "", color: c.color || "",
         custom: false, published: true, order: c.order || 0,
         questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => ({
           points: q.points || pointValues[i] || 100,
-          q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || ""
+          q: q.q || "", a: q.a || "",
+          image: q.image || (wordCat ? wordQrFor(c.id, q.a) : "") || "",
+          answerImage: q.answerImage || ""
         }))
       };
     }
