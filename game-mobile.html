@@ -7121,6 +7121,8 @@
       selected: new Set(),
       customCategories: [],
       communityCategories: [],
+      myCommunity: [],
+      pendingCommunity: [],
       myVotes: new Set(),
       signedIn: false,
       myUid: "",
@@ -8957,7 +8959,7 @@
       const published = state.editorTarget === "published";
       const community = state.editorTarget === "community";
       const source = published ? state.publishedCategories
-        : community ? state.communityCategories.filter(c => c.authorUid === state.myUid)
+        : community ? state.myCommunity
         : state.customCategories;
       const titleEl = document.querySelector("#customManager .screen-title");
       if (titleEl) titleEl.textContent = published ? "إدارة المحتوى — المشرف" : community ? "فئات المجتمع" : "فئاتك الخاصة";
@@ -8965,15 +8967,57 @@
       if (hintEl) hintEl.textContent = published
         ? "عدّل الفئات الحالية أو أنشئ فئات جديدة — تظهر لجميع اللاعبين."
         : community
-          ? "أنشئ فئة وشاركها مع كل الأعضاء — الفئات الأكثر تصويتاً تظهر في الأعلى."
+          ? "أنشئ فئة وأرسلها — تظهر للجميع بعد موافقة المشرف، والأكثر تصويتاً في الأعلى."
           : "أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.";
       if (published) { renderAdminCategoryList(); return; }
       const list = $("#customList");
       list.innerHTML = "";
+
+      // Admins: an approval queue at the top of the community manager.
+      if (community && state.isAdmin && state.pendingCommunity.length) {
+        const head = document.createElement("div");
+        head.className = "panel";
+        head.style.cssText = "background:#fff3d6;border:2px solid #e0b84f;color:#7a5a12;font-weight:800;";
+        head.textContent = `طلبات بانتظار الموافقة (${toArabicDigits(state.pendingCommunity.length)})`;
+        list.appendChild(head);
+        state.pendingCommunity.forEach(cat => {
+          const row = document.createElement("div");
+          row.className = "custom-row";
+          const filled = (cat.questions || []).filter(q => q.q && q.q.trim()).length;
+          row.innerHTML = `
+            <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
+            <div>
+              <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
+              <div style="font-size:16px;color:var(--gold-dark)">من ${escapeHtml(cat.authorName || "عضو")} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة</div>
+            </div>`;
+          const actions = document.createElement("div");
+          actions.className = "actions"; actions.style.margin = "0";
+          const preview = document.createElement("button");
+          preview.className = "ghost"; preview.textContent = "معاينة";
+          preview.addEventListener("click", () => openCategoryPreview(cat));
+          const ok = document.createElement("button");
+          ok.className = "primary"; ok.textContent = "موافقة";
+          ok.addEventListener("click", () => {
+            window.IZZBAH.communityApprove(cat.id, true).then(() => showToast("تمت الموافقة على الفئة")).catch(() => showToast("تعذّر"));
+          });
+          const no = document.createElement("button");
+          no.className = "danger"; no.textContent = "رفض";
+          no.addEventListener("click", () => {
+            if (window.confirm(`رفض وحذف فئة «${cat.name || ""}»؟`)) window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم الرفض")).catch(() => showToast("تعذّر"));
+          });
+          actions.append(preview, ok, no);
+          row.appendChild(actions);
+          list.appendChild(row);
+        });
+        const sep = document.createElement("div");
+        sep.style.cssText = "height:1px;background:rgba(140,106,46,.25);margin:6px 0;";
+        list.appendChild(sep);
+      }
+
       if (!source.length) {
         const empty = document.createElement("div");
         empty.className = "panel";
-        empty.textContent = community ? "لم تُضِف أي فئة للمجتمع بعد. اضغط «＋ فئة جديدة» لإضافة فئة يراها ويصوّت عليها الجميع." : "لا توجد فئات مخصصة بعد.";
+        empty.textContent = community ? "لم تُرسل أي فئة بعد. اضغط «＋ فئة جديدة» لإرسال فئة، وستظهر للجميع بعد موافقة المشرف." : "لا توجد فئات مخصصة بعد.";
         list.appendChild(empty);
         return;
       }
@@ -8981,8 +9025,11 @@
         const row = document.createElement("div");
         row.className = "custom-row";
         const filled = (cat.questions || []).filter(q => q.q && q.q.trim()).length;
+        const status = cat.approved
+          ? `<span style="color:#2fa15a">• معتمدة</span> · <span class="clean-number">${toArabicDigits(cat.votes || 0)}</span> صوت`
+          : `<span style="color:#c58a12">• قيد المراجعة</span>`;
         const meta = community
-          ? `<span class="clean-number">${toArabicDigits(cat.votes || 0)}</span> صوت · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`
+          ? `${status} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`
           : `<span class="clean-number">${toArabicDigits(filled)}/5</span> أسئلة مكتملة`;
         row.innerHTML = `
           <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
@@ -9003,7 +9050,7 @@
         del.textContent = "حذف";
         del.addEventListener("click", () => {
           if (community) {
-            if (window.confirm(`حذف فئة «${cat.name || ""}» من المجتمع؟`)) {
+            if (window.confirm(`حذف فئة «${cat.name || ""}»؟`)) {
               window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم حذف الفئة")).catch(() => showToast("تعذّر الحذف"));
             }
             return;
@@ -10225,20 +10272,34 @@
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
     };
     window.IZZBAH.applyCommunity = function (cats) {
-      state.communityCategories = (Array.isArray(cats) ? cats : []).map(c => {
-        const n = normalizePublishedCategory(c);
-        n.community = true; n.custom = true;
-        n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
-        n.votes = c.votes || 0;
-        return n;
-      }).sort((a, b) => (b.votes - a.votes) || String(a.name).localeCompare(String(b.name), "ar"));
+      // Public pool = APPROVED categories only, most-voted first.
+      state.communityCategories = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
+        .filter(c => c.approved)
+        .sort((a, b) => (b.votes - a.votes) || String(a.name).localeCompare(String(b.name), "ar"));
       if (typeof renderCategories === "function") renderCategories();
-      if (state.editorTarget === "community" && typeof renderCustomManager === "function") renderCustomManager();
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
     };
     window.IZZBAH.applyMyVotes = function (ids) {
       state.myVotes = new Set(Array.isArray(ids) ? ids : []);
       if (typeof renderCategories === "function") renderCategories();
+    };
+    function normalizeCommunityCategory(c) {
+      const n = normalizePublishedCategory(c);
+      n.community = true; n.custom = true;
+      n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
+      n.votes = c.votes || 0; n.approved = c.approved === true;
+      return n;
+    }
+    window.IZZBAH.applyMyCommunity = function (cats) {
+      // The member's own submissions (approved + pending), newest edits first.
+      state.myCommunity = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
+        .sort((a, b) => (Number(b.approved) - Number(a.approved)) || String(a.name).localeCompare(String(b.name), "ar"));
+      if (state.editorTarget === "community" && typeof renderCustomManager === "function") renderCustomManager();
+    };
+    window.IZZBAH.applyPendingCommunity = function (cats) {
+      state.pendingCommunity = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
+        .filter(c => !c.approved);
+      if (state.editorTarget === "community" && typeof renderCustomManager === "function") renderCustomManager();
     };
     $("#closePreview").addEventListener("click", closeCategoryPreview);
     $("#categoryPreview").addEventListener("click", event => {
@@ -10388,11 +10449,12 @@
               })
               .catch(e => console.warn("load categories failed", e));
           }
+          let cloudIsAdmin = false; // mirror of admin status inside this closure
           function refreshAdminStatus(user) {
-            if (!user) { if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
+            if (!user) { cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
             return db.collection("admins").doc(user.uid).get()
-              .then(doc => { if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(doc.exists); })
-              .catch(e => { console.warn("admin check failed", e); if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); });
+              .then(doc => { cloudIsAdmin = doc.exists; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(doc.exists); })
+              .catch(e => { console.warn("admin check failed", e); cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); });
           }
           window.IZZBAH.cloudPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
@@ -10451,23 +10513,48 @@
             }).then(loadPublishedCategories);
           };
 
-          // ---- Community categories (member-submitted, votable) ----------------
+          // ---- Community categories (member-submitted, ADMIN-APPROVED) ---------
+          function mapCommunityDoc(d) {
+            const x = d.data() || {};
+            return {
+              id: d.id, name: x.name || "", image: x.image || "", color: x.color || "",
+              questions: Array.isArray(x.questions) ? x.questions : [],
+              authorUid: x.authorUid || "", authorName: x.authorName || "",
+              votes: x.votes || 0, approved: x.approved === true, community: true, custom: true
+            };
+          }
           function loadCommunityCategories() {
-            return db.collection("community").get()
-              .then(snap => {
-                const cats = snap.docs.map(d => {
-                  const x = d.data() || {};
-                  return {
-                    id: d.id, name: x.name || "", image: x.image || "", color: x.color || "",
-                    questions: Array.isArray(x.questions) ? x.questions : [],
-                    authorUid: x.authorUid || "", authorName: x.authorName || "",
-                    votes: x.votes || 0, community: true, custom: true
-                  };
-                });
-                if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
-                return loadMyCommunityVotes(cats);
-              })
-              .catch(e => console.warn("load community failed", e));
+            // Public pool = APPROVED only (rules also block reading others' pending).
+            const jobs = [
+              db.collection("community").where("approved", "==", true).get()
+                .then(snap => {
+                  const cats = snap.docs.map(mapCommunityDoc);
+                  if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
+                  return loadMyCommunityVotes(cats);
+                })
+                .catch(e => { console.warn("load community failed", e); if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity([]); })
+            ];
+            // The member's OWN submissions (approved + pending) for their manager.
+            if (currentUser) {
+              jobs.push(
+                db.collection("community").where("authorUid", "==", currentUser.uid).get()
+                  .then(snap => { if (window.IZZBAH.applyMyCommunity) window.IZZBAH.applyMyCommunity(snap.docs.map(mapCommunityDoc)); })
+                  .catch(e => console.warn("load my community failed", e))
+              );
+            } else if (window.IZZBAH.applyMyCommunity) {
+              window.IZZBAH.applyMyCommunity([]);
+            }
+            // Admin's approval queue = everything still pending.
+            if (cloudIsAdmin) {
+              jobs.push(
+                db.collection("community").where("approved", "==", false).get()
+                  .then(snap => { if (window.IZZBAH.applyPendingCommunity) window.IZZBAH.applyPendingCommunity(snap.docs.map(mapCommunityDoc)); })
+                  .catch(e => console.warn("load pending community failed", e))
+              );
+            } else if (window.IZZBAH.applyPendingCommunity) {
+              window.IZZBAH.applyPendingCommunity([]);
+            }
+            return Promise.all(jobs);
           }
           function loadMyCommunityVotes(cats) {
             if (!currentUser) { if (window.IZZBAH.applyMyVotes) window.IZZBAH.applyMyVotes([]); return; }
@@ -10480,6 +10567,8 @@
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             const isNew = !cat.id;
             const ref = isNew ? db.collection("community").doc() : db.collection("community").doc(cat.id);
+            // Always submit UNAPPROVED: a new one is pending; editing an existing
+            // one (even if it was approved) sends it back to the review queue.
             const data = {
               name: cat.name || "", image: cat.image || "", color: cat.color || "",
               questions: (cat.questions || []).map(q => ({
@@ -10488,11 +10577,19 @@
               })),
               authorUid: currentUser.uid,
               authorName: currentUser.displayName || currentUser.email || "عضو",
+              approved: false,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (isNew) { data.votes = 0; data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
             const write = isNew ? ref.set(data) : ref.set(data, { merge: true });
             return write.then(loadCommunityCategories).then(() => ref.id);
+          };
+          // Admin only: approve a pending submission (or un-approve to pull it).
+          window.IZZBAH.communityApprove = function (id, approved) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("community").doc(id)
+              .update({ approved: !!approved, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(loadCommunityCategories);
           };
           window.IZZBAH.communityDelete = function (id) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
@@ -10553,8 +10650,9 @@
             currentUser = user;
             setAuthUI(user);
             if (window.IZZBAH.applyAuth) window.IZZBAH.applyAuth(!!user, user ? user.uid : "");
-            refreshAdminStatus(user);
-            loadCommunityCategories(); // refresh "my votes" + author controls on sign in/out
+            // Resolve admin status first, THEN (re)load community so the admin
+            // approval queue and the member's own submissions load correctly.
+            refreshAdminStatus(user).then(loadCommunityCategories);
             if (!user) return;
             try {
               const snap = await db.collection("users").doc(user.uid).get();

@@ -1,23 +1,65 @@
 rules_version = '2';
 
-// Izzbah trivia security rules.
+// ============================================================================
+//  عزبة (Izzbah) — Firestore security rules
+// ----------------------------------------------------------------------------
+//  Reading guide (what each collection is for):
+//    users/{uid}        A player's own saved settings + progress. Private.
+//    admins/{uid}       The list of admins. Being in it = you're an admin.
+//    categories/{id}    Official game content. Only admins can write it.
+//    community/{id}     Member-submitted categories. Anyone signed in can
+//                       SUBMIT one, but it stays hidden until an ADMIN approves
+//                       it. Members vote on approved ones.
+//
+//  Safety model (why this is locked down):
+//    • Default is DENY. A path is only writable if a rule below explicitly
+//      allows it — the final match/{**} closes everything else.
+//    • Every write is checked for: who you are, that you own the data, the
+//      exact set of fields, their types, and their sizes. Nothing unexpected
+//      can be stored.
+//    • Members can never approve their own community category, never vote as
+//      someone else or twice, and never edit content that isn't theirs.
+//    • Editing an already-approved community category sends it BACK to the
+//      review queue, so approved content can't be secretly swapped later.
+// ============================================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: is the caller a registered admin? (admins/{uid} doc must exist)
+    // ---- Helpers -----------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    // An admin is anyone with a doc at admins/{their-uid}. Bootstrap the FIRST
+    // admin by hand in the Firebase console (Firestore > add admins/<uid>).
     function isAdmin() {
-      return request.auth != null
+      return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+    // Shape + size checks shared by community create and author-edit. Keeps a
+    // submission small, well-formed, and free of any unexpected fields.
+    function validCommunity(d) {
+      return d.keys().hasOnly(['name', 'image', 'color', 'questions',
+                               'authorUid', 'authorName', 'votes', 'approved',
+                               'createdAt', 'updatedAt'])
+        && d.name is string        && d.name.size() > 0 && d.name.size() <= 80
+        && d.image is string       && d.image.size() <= 900000   // cover image (data URL)
+        && d.color is string       && d.color.size() <= 20
+        && d.authorUid is string   && d.authorUid.size() <= 128
+        && d.authorName is string  && d.authorName.size() <= 120
+        && d.votes is int          && d.votes >= 0
+        && d.approved is bool
+        && d.questions is list     && d.questions.size() <= 12;
+      // (Firestore also enforces a hard 1 MiB ceiling on the whole document,
+      //  which bounds the inline questions + their images.)
+    }
 
-    // Per-user save document — each signed-in user reads/writes ONLY their own,
-    // constrained to the exact shape the app writes. The `data` map holds a
-    // small, fixed number of blobs (settings / saved games / preview choices);
-    // cap the key count so it can't be turned into an arbitrary store. (Firestore
-    // already enforces a hard 1 MiB per-document ceiling on total size.)
+    // ---- A player's own save document (private) ----------------------------
+    // Each signed-in user may read/write ONLY their own doc, in the exact shape
+    // the app writes. The `data` map holds a few blobs (settings / saved games);
+    // capping the key count stops it being turned into an arbitrary data store.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['email', 'data', 'updatedAt'])
         && request.resource.data.email is string
@@ -27,19 +69,18 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
-    // Admin registry. Anyone signed in may READ it (so the app can tell whether
-    // the current user is an admin and show the admin UI). Only existing admins
-    // may add/remove admins — bootstrap the FIRST admin manually in the console.
+    // ---- Admin registry ----------------------------------------------------
+    // Any signed-in user may READ this (so the app can tell if they're an admin
+    // and show the admin tools). Only an existing admin may add/remove admins.
     match /admins/{uid} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Published game content (admin CMS). Readable by everyone so all players
-    // get the official categories; writable ONLY by admins, and shape-checked.
-    // The parent doc holds metadata + a text-only copy of the questions; the
-    // full questions (with images) live one-per-document in /questions so each
-    // gets its own 1 MiB budget.
+    // ---- Official game content (admin CMS) ---------------------------------
+    // Readable by everyone; writable only by admins, and shape-checked. The
+    // parent doc holds metadata + a text-only copy of the questions; the full
+    // questions (with images) live one-per-document so each gets its own 1 MiB.
     match /categories/{catId} {
       allow read: if true;
       allow write: if isAdmin()
@@ -50,10 +91,6 @@ service cloud.firestore {
         && request.resource.data.questions.size() <= 200;
       allow delete: if isAdmin();
 
-      // One document per question (text + its images). Public read; admin write,
-      // now shape/type-checked so even a mistaken or compromised admin write
-      // can't store malformed or unexpected data. (The image fields are data
-      // URLs or links; their byte size is bounded by Firestore's 1 MiB doc limit.)
       match /questions/{questionId} {
         allow read: if true;
         allow write: if isAdmin()
@@ -70,58 +107,65 @@ service cloud.firestore {
       }
     }
 
-    // ---- Community categories (member-submitted) ----------------------------
-    // Any signed-in member may publish a category here; everyone can read them.
-    // Each doc holds its own questions inline (text + images) and a vote tally.
-    // Members vote by creating a doc under /votes/{their uid}; the tally on the
-    // parent may only move by ±1 per write. A member can edit/delete ONLY their
-    // own category. (This opens writes to all signed-in users — content is not
-    // moderated except by an admin deleting it; the ±1 vote rule is not proof
-    // against a determined abuser, which would need Cloud Functions.)
+    // ---- Community categories (member-submitted, admin-approved) -----------
     match /community/{catId} {
-      allow read: if true;
 
-      allow create: if request.auth != null
+      // WHO CAN SEE IT:
+      //   • approved categories  -> everyone
+      //   • not-yet-approved ones -> only their author, or an admin
+      // (So pending submissions stay private until you approve them.)
+      allow read: if resource.data.approved == true
+        || isAdmin()
+        || (isSignedIn() && resource.data.authorUid == request.auth.uid);
+
+      // SUBMIT a new category: any signed-in member, as themselves, and it
+      // starts UNAPPROVED with zero votes. A member can't publish it live or
+      // pre-set votes — only an admin can approve it (see update rule (a)).
+      allow create: if isSignedIn()
         && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.approved == false
         && request.resource.data.votes == 0
-        && request.resource.data.keys().hasOnly(['name', 'image', 'color', 'questions', 'authorUid', 'authorName', 'votes', 'createdAt', 'updatedAt'])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() <= 80
-        && request.resource.data.authorName is string
-        && request.resource.data.authorName.size() <= 120
-        && request.resource.data.questions is list
-        && request.resource.data.questions.size() <= 12;
+        && validCommunity(request.resource.data);
 
-      allow update: if request.auth != null && (
-        // (a) the author edits their own category — votes/author must not change
-        ( resource.data.authorUid == request.auth.uid
-          && request.resource.data.authorUid == resource.data.authorUid
+      // UPDATE — three separate, tightly-scoped cases:
+      allow update: if isSignedIn() && (
+
+        // (a) ADMIN moderation: approve, reject, or fix any submission.
+        isAdmin()
+
+        // (b) AUTHOR edits their OWN submission. They can't change the owner,
+        //     can't touch the vote count, and can't self-approve — any edit
+        //     forces it back to "pending" so you review the new content.
+        || ( resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.approved == false
           && request.resource.data.votes == resource.data.votes
-          && request.resource.data.name is string
-          && request.resource.data.name.size() <= 80
-          && request.resource.data.questions is list
-          && request.resource.data.questions.size() <= 12 )
-        ||
-        // (b) a vote — ONLY the votes field may change, and only by ±1
-        ( request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+          && validCommunity(request.resource.data) )
+
+        // (c) A VOTE by any signed-in member: ONLY the `votes` field may move,
+        //     by exactly ±1, and ONLY on a category that's already approved.
+        //     (One-vote-per-member is enforced by the /votes/{uid} doc below.)
+        || ( resource.data.approved == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
           && ( request.resource.data.votes == resource.data.votes + 1
             || request.resource.data.votes == resource.data.votes - 1 ) )
       );
 
-      // Author may delete their own; an admin may remove anyone's (moderation).
-      allow delete: if request.auth != null
-        && (resource.data.authorUid == request.auth.uid || isAdmin());
+      // DELETE: the author may remove their own; an admin may remove anyone's.
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.authorUid == request.auth.uid);
 
-      // One vote per member: the doc id IS the voter's uid, so nobody can vote
-      // twice or vote as someone else.
+      // One vote per member. The doc id IS the voter's uid, so a member can
+      // only ever create/remove THEIR OWN vote — never vote twice or as anyone
+      // else. Existing votes can't be edited.
       match /votes/{uid} {
         allow read: if true;
-        allow create, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, delete: if isSignedIn() && request.auth.uid == uid;
         allow update: if false;
       }
     }
 
-    // Deny everything else.
+    // ---- Everything else is denied -----------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
