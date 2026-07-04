@@ -7430,7 +7430,11 @@
     // as an override, plus brand-new published categories. Admins can thus edit
     // existing categories (override) or add new ones — both for all players.
     function overrideHasQuestions(ov) {
-      return !!(ov && Array.isArray(ov.questions) && ov.questions.some(q => (q && q.q || "").trim()));
+      // A question counts as "real" if it has question text OR an answer — some
+      // categories (e.g. the answer-only word game ولا كلمة) carry only answers,
+      // so requiring `q` text would make a full word list look empty.
+      return !!(ov && Array.isArray(ov.questions)
+        && ov.questions.some(q => (q && q.q || "").trim() || (q && q.a || "").trim()));
     }
     function mergedOfficialCategories() {
       const overrides = new Map(state.publishedCategories.map(c => [c.id, c]));
@@ -7452,7 +7456,9 @@
             image: ov.image || c.image
           });
         }
-        return ov;
+        // Override replaces the built-in, but keep built-in-only display flags
+        // (e.g. fullImage for the full-bleed cover) the published copy lacks.
+        return Object.assign({}, ov, { fullImage: ov.fullImage || c.fullImage });
       });
       const extras = state.publishedCategories.filter(c => !builtinIds.has(c.id));
       return { builtins, extras };
