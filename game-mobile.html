@@ -7440,8 +7440,19 @@
       // to the built-in so its questions aren't hidden by an empty override.
       const builtins = builtinCategories.map(c => {
         const ov = overrides.get(c.id);
-        if (ov && !overrideHasQuestions(ov) && builtinQuestionBanks[c.id]) return c;
-        return ov || c;
+        if (!ov) return c;
+        // If the override carries no real questions but the built-in ships a bank,
+        // keep the built-in's questions + special flags (e.g. answer-only word
+        // categories) — yet still apply the override's DISPLAY metadata so a
+        // rename / recolour / new cover on a bank category actually shows.
+        if (!overrideHasQuestions(ov) && builtinQuestionBanks[c.id]) {
+          return Object.assign({}, c, {
+            name: (ov.name || "").trim() || c.name,
+            color: ov.color || c.color,
+            image: ov.image || c.image
+          });
+        }
+        return ov;
       });
       const extras = state.publishedCategories.filter(c => !builtinIds.has(c.id));
       return { builtins, extras };
