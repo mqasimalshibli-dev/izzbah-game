@@ -9192,10 +9192,23 @@
         }
         if (state.editorTarget === "community") {
           if (!(window.IZZBAH && window.IZZBAH.communityPublish)) { showToast("سجّل الدخول للمشاركة"); return; }
+          if ((cat.questions || []).length > 60) { showToast("الحد الأقصى ٦٠ سؤالًا للفئة"); return; }
+          const resetBtn = () => { save.disabled = false; save.textContent = "نشر للمجتمع"; };
           save.disabled = true; save.textContent = "جارٍ النشر…";
-          window.IZZBAH.communityPublish(cat)
-            .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
-            .catch((e) => { console.warn("community publish failed", e); showToast("تعذّر النشر"); save.disabled = false; save.textContent = "نشر للمجتمع"; });
+          // Shrink cover + question images so the whole category fits comfortably
+          // under Firestore's 1 MiB/doc limit AND the cover stays under the rules'
+          // image cap — otherwise the server rejects the write.
+          fitCategoryImages(cat, 850000).then(fits => {
+            if (!fits) { showToast("الصور كبيرة جدًا، صغّرها ثم أعد المحاولة"); resetBtn(); return; }
+            return window.IZZBAH.communityPublish(cat)
+              .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
+              .catch((e) => {
+                console.warn("community publish failed", e);
+                const denied = e && (e.code === "permission-denied" || /permission/i.test(e.message || ""));
+                showToast(denied ? "الصلاحيات لا تسمح بالنشر" : "تعذّر النشر، حاول مرة أخرى");
+                resetBtn();
+              });
+          }).catch((e) => { console.warn("fit failed", e); showToast("تعذّر النشر، حاول مرة أخرى"); resetBtn(); });
           return;
         }
         const existing = state.customCategories.findIndex(item => item.id === cat.id);
