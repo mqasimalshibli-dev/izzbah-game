@@ -9473,7 +9473,7 @@
         const card = document.createElement("div");
         card.className = "rs-card" + (isWin ? " winner" : "");
         card.style.setProperty("--enter-delay", `${(place * 0.12).toFixed(2)}s`);
-        const avatar = teamAvatarHtml(team, state.teams.indexOf(team), "rs-avatar");
+        const avatar = teamAvatarHtml(team, team.index, "rs-avatar");
         const crown = isWin ? `<span class="rs-crown" aria-hidden="true">\ud83d\udc51</span>` : "";
         const medal = (!isWin && place < 3)
           ? `<span class="rs-medal rs-medal-${medalNames[place]}"><span class="clean-number">${toArabicDigits(place + 1)}</span></span>`
