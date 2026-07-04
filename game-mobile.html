@@ -11334,15 +11334,34 @@
               })
               .catch(() => Object.assign({ id: d.id }, data, { questions: inline }));
           }
+          // Serve the cached official categories (used when the network fails or
+          // stalls). A fresher network result arriving later simply re-applies.
+          function applyCachedCategories(cache) {
+            if (!cache) return false;
+            const cats = [];
+            cache.forEach((v, k) => {
+              if (typeof k === "string" && k.indexOf("__") !== 0 && v && v.cat) cats.push(v.cat);
+            });
+            if (!cats.length) return false;
+            readStats.fallbackUsed = true;
+            cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+            if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
+            return true;
+          }
           function loadPublishedCategories() {
             // Cheap freshness check: read only the small parent docs, then serve
             // each category from the device cache when its publish timestamp is
             // unchanged. Only new/changed categories re-read their /questions.
             // If the whole query fails (offline / out of quota), the last-known
             // cloud state still renders from the cache instead of vanishing.
-            return catCache.all().then(cache =>
-              db.collection("categories").get()
+            return catCache.all().then(cache => {
+              // Fully offline, the SDK retries silently and the promise never
+              // settles — after 8s render the cache provisionally; a network
+              // result that lands later re-applies over it.
+              const provisional = setTimeout(() => applyCachedCategories(cache), 8000);
+              return db.collection("categories").get()
                 .then(snap => {
+                  clearTimeout(provisional);
                   readStats.parentDocs += snap.size;
                   const liveIds = new Set();
                   return Promise.all(snap.docs.map(d => {
@@ -11374,20 +11393,11 @@
                   });
                 })
                 .catch(e => {
+                  clearTimeout(provisional);
                   console.warn("load categories failed", e && (e.code || e));
-                  if (cache) {
-                    const cats = [];
-                    cache.forEach((v, k) => {
-                      if (typeof k === "string" && k.indexOf("__") !== 0 && v && v.cat) cats.push(v.cat);
-                    });
-                    if (cats.length) {
-                      readStats.fallbackUsed = true;
-                      cats.sort((a, b) => (a.order || 0) - (b.order || 0));
-                      if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
-                    }
-                  }
-                })
-            );
+                  applyCachedCategories(cache);
+                });
+            });
           }
           let cloudIsAdmin = false; // mirror of admin status inside this closure
           function refreshAdminStatus(user) {
@@ -11468,24 +11478,32 @@
           function loadCommunityCategories() {
             // Public pool = APPROVED only (rules also block reading others' pending).
             const jobs = [
-              db.collection("community").where("approved", "==", true).get()
-                .then(snap => {
-                  const cats = snap.docs.map(mapCommunityDoc);
-                  catCache.put("__community__", { cats }); // offline/quota fallback copy
-                  if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
-                  return loadMyCommunityVotes(cats);
-                })
-                .catch(e => {
-                  console.warn("load community failed", e && (e.code || e));
-                  // Same resilience as official categories: keep showing the
-                  // last-known approved list rather than an empty shelf.
-                  return catCache.all().then(cache => {
-                    const saved = cache && cache.get("__community__");
-                    const cats = saved && Array.isArray(saved.cats) ? saved.cats : [];
-                    if (cats.length) readStats.fallbackUsed = true;
+              // Same resilience as official categories: on failure OR a silent
+              // offline stall, keep showing the last-known approved list.
+              catCache.all().then(cache => {
+                const saved = cache && cache.get("__community__");
+                const cachedCats = saved && Array.isArray(saved.cats) ? saved.cats : [];
+                const applyCached = () => {
+                  if (!cachedCats.length) return;
+                  readStats.fallbackUsed = true;
+                  if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cachedCats);
+                };
+                const provisional = setTimeout(applyCached, 8000);
+                return db.collection("community").where("approved", "==", true).get()
+                  .then(snap => {
+                    clearTimeout(provisional);
+                    const cats = snap.docs.map(mapCommunityDoc);
+                    catCache.put("__community__", { cats }); // offline/quota fallback copy
                     if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
+                    return loadMyCommunityVotes(cats);
+                  })
+                  .catch(e => {
+                    clearTimeout(provisional);
+                    console.warn("load community failed", e && (e.code || e));
+                    if (cachedCats.length) applyCached();
+                    else if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity([]);
                   });
-                })
+              })
             ];
             // The member's OWN submissions (approved + pending) for their manager.
             if (currentUser) {
