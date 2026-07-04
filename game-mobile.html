@@ -11359,9 +11359,14 @@
               // settles — after 8s render the cache provisionally; a network
               // result that lands later re-applies over it.
               const provisional = setTimeout(() => applyCachedCategories(cache), 8000);
-              return db.collection("categories").get()
+              // source:"server" — offline, a plain get() "succeeds" with an
+              // EMPTY snapshot from the SDK's own cache, which would read as
+              // "all categories deleted" and wipe the device cache. A server
+              // read rejects instead, landing in the catch (cache fallback).
+              return db.collection("categories").get({ source: "server" })
                 .then(snap => {
                   clearTimeout(provisional);
+                  if (snap.metadata && snap.metadata.fromCache) { applyCachedCategories(cache); return; }
                   readStats.parentDocs += snap.size;
                   const liveIds = new Set();
                   return Promise.all(snap.docs.map(d => {
@@ -11489,9 +11494,10 @@
                   if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cachedCats);
                 };
                 const provisional = setTimeout(applyCached, 8000);
-                return db.collection("community").where("approved", "==", true).get()
+                return db.collection("community").where("approved", "==", true).get({ source: "server" })
                   .then(snap => {
                     clearTimeout(provisional);
+                    if (snap.metadata && snap.metadata.fromCache) { applyCached(); return; }
                     const cats = snap.docs.map(mapCommunityDoc);
                     catCache.put("__community__", { cats }); // offline/quota fallback copy
                     if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
