@@ -10603,7 +10603,13 @@
           };
           window.IZZBAH.communityPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
-            const isNew = !cat.id;
+            // A brand-new category carries a LOCAL editor id ("custom-…" / "pub-…"),
+            // NOT a real community doc id. Publishing it must CREATE a fresh doc
+            // (with votes + createdAt, as the create rule requires). Only a
+            // category loaded from the community manager has a real Firestore id
+            // and is a merge-update. Treating a local id as an existing doc would
+            // strip votes/createdAt and get rejected by the create rule.
+            const isNew = !cat.id || /^(custom|pub|saved)-/.test(String(cat.id));
             const ref = isNew ? db.collection("community").doc() : db.collection("community").doc(cat.id);
             // Always submit UNAPPROVED: a new one is pending; editing an existing
             // one (even if it was approved) sends it back to the review queue.
