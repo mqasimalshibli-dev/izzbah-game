@@ -6820,6 +6820,7 @@
       teams: teamDefaults.map(name => ({ name, score: 0, image: "", helpers: ["fourChoices", "firstLetter", "doublePoints"], helpUsed: {}, doubleArmed: false, stealArmed: false })),
       selected: new Set(),
       customCategories: [],
+      hiddenCategories: [],
       savedGames: [],
       used: new Set(),
       history: [],
@@ -7094,6 +7095,26 @@
       `;
     }
 
+    // Themed placeholder avatars — a team that hasn't uploaded a photo gets one
+    // of these by its slot, so every team shows a distinct illustrated portrait
+    // instead of a generic grey silhouette.
+    const teamPlaceholderAvatars = [
+      "assets/img/avatar-camel.webp",
+      "assets/img/avatar-horse.webp",
+      "assets/img/avatar-falcon.webp",
+      "assets/img/avatar-goat.webp",
+      "assets/img/avatar-khanjar.webp"
+    ];
+    function teamAvatarSrc(team, index) {
+      if (team && team.image) return team.image;
+      let i = index;
+      if (typeof i !== "number" || i < 0) i = Math.max(0, state.teams ? state.teams.indexOf(team) : 0);
+      return teamPlaceholderAvatars[i % teamPlaceholderAvatars.length];
+    }
+    function teamAvatarHtml(team, index, imgClass) {
+      return `<img class="${imgClass}" src="${escapeHtml(teamAvatarSrc(team, index))}" alt="">`;
+    }
+
     function teamDisplayName(team, index) {
       return team.name || `الفريق ${toArabicDigits(index + 1)}`;
     }
@@ -7122,6 +7143,32 @@
     function allCategories() {
       const { builtins, extras } = mergedOfficialCategories();
       return [...builtins, ...extras, ...state.customCategories];
+    }
+
+    // Admin can remove categories from the game: cloud categories are deleted
+    // outright (see deletePublishedCategory); built-in categories can't be
+    // deleted from the code, so they're HIDDEN via this list (stored on-device)
+    // and simply skipped in the picker. Hiding is reversible from the admin.
+    const hiddenCatsKey = "izzbah-hidden-cats-v1";
+    function loadHiddenCategories() {
+      try {
+        const raw = localStorage.getItem(hiddenCatsKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        state.hiddenCategories = Array.isArray(parsed) ? parsed : [];
+      } catch (e) { state.hiddenCategories = []; }
+    }
+    function saveHiddenCategories() {
+      try { localStorage.setItem(hiddenCatsKey, JSON.stringify(state.hiddenCategories)); } catch (e) {}
+    }
+    function isCategoryHidden(id) {
+      return Array.isArray(state.hiddenCategories) && state.hiddenCategories.includes(id);
+    }
+    function setCategoryHidden(id, hidden) {
+      const set = new Set(state.hiddenCategories || []);
+      if (hidden) { set.add(id); state.selected.delete(id); }
+      else set.delete(id);
+      state.hiddenCategories = [...set];
+      saveHiddenCategories();
     }
 
     function categoryHasQuestions(cat) {
@@ -7198,9 +7245,10 @@
     }
 
     function visibleCategoryGroup() {
-      if (state.categoryMode === "community") return state.customCategories;
-      const { builtins, extras } = mergedOfficialCategories();
-      return [...extras, ...builtins];
+      const group = state.categoryMode === "community"
+        ? state.customCategories
+        : (() => { const { builtins, extras } = mergedOfficialCategories(); return [...extras, ...builtins]; })();
+      return group.filter(cat => !isCategoryHidden(cat.id));
     }
 
     function setCategoryMode(mode) {
@@ -8145,12 +8193,17 @@
           : (cat.questions || []);
         const done = effectiveQs.filter(q => (q.q || "").trim()).length;
         const total = effectiveQs.length || pointValues.length;
+        const hidden = isCategoryHidden(cat.id);
+        const statusLabel = hidden
+          ? ' <span style="font-size:14px;color:#b23">• مخفية</span>'
+          : (edited ? ' <span style="font-size:14px;color:#2fa15a">• معدّلة</span>' : (builtin ? ' <span style="font-size:14px;color:var(--gold-dark)">• أساسية</span>' : ''));
         const row = document.createElement("div");
         row.className = "custom-row";
+        if (hidden) row.style.opacity = ".55";
         row.innerHTML = `
           <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg(builtin ? cat.id : "custom")}</div>
           <div>
-            <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}${edited ? ' <span style="font-size:14px;color:#2fa15a">• معدّلة</span>' : (builtin ? ' <span style="font-size:14px;color:var(--gold-dark)">• أساسية</span>' : '')}</div>
+            <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}${statusLabel}</div>
             <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(done)}/${toArabicDigits(total)}</span> أسئلة</div>
           </div>`;
         const actions = document.createElement("div");
@@ -8170,6 +8223,14 @@
           });
           actions.appendChild(reset);
         }
+        // Hide / show toggle — lets the admin remove any category from the picker
+        // (built-ins can't be deleted from the code, so they're hidden instead).
+        const vis = document.createElement("button");
+        vis.className = hidden ? "secondary" : "ghost";
+        vis.textContent = hidden ? "إظهار" : "إخفاء";
+        vis.title = hidden ? "إظهار الفئة في اختيار الفئات" : "إخفاء الفئة من اختيار الفئات";
+        vis.addEventListener("click", () => { setCategoryHidden(cat.id, !hidden); renderAdminCategoryList(); });
+        actions.appendChild(vis);
         row.appendChild(actions);
         list.appendChild(row);
       });
@@ -8724,7 +8785,7 @@
       document.querySelectorAll("[data-turn-box]").forEach(box => {
         box.innerHTML = `
           <button class="turn-switch" data-turn-switch title="تبديل الدور" aria-label="تبديل الدور">⇄</button>
-          ${team.image ? `<img class="turn-photo" src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml("turn-photo default-avatar")}
+          ${teamAvatarHtml(team, state.activeTeam || 0, "turn-photo")}
           <span class="turn-label"><small>دور الفريق</small><strong>${escapeHtml(displayName)}</strong></span>
         `;
       });
@@ -8747,7 +8808,7 @@
         box.style.color = colors[i];
         box.innerHTML = `
           <div class="score-head">
-            ${team.image ? `<img class="score-photo" src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}
+            ${teamAvatarHtml(team, i, "score-photo")}
             <span class="score-name">${escapeHtml(displayName)}</span>
           </div>
           <span class="score-value">${toArabicDigits(team.score)}</span>
@@ -9107,7 +9168,7 @@
         btn.className = "turn-pick-btn";
         btn.type = "button";
         btn.style.setProperty("--team", colors[i] || "#9e1322");
-        btn.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(teamDisplayName(team, i))}</span>`;
+        btn.innerHTML = `${teamAvatarHtml(team, i, "turn-pick-photo")}<span>${escapeHtml(teamDisplayName(team, i))}</span>`;
         btn.addEventListener("click", () => onPick(i, team));
         list.appendChild(btn);
       });
@@ -9234,7 +9295,7 @@
         const button = document.createElement("button");
         button.className = "team-award";
         button.style.background = colors[i];
-        button.innerHTML = `${team.image ? `<img src="${escapeHtml(team.image)}" alt="">` : defaultAvatarHtml()}<span>${escapeHtml(displayName)}</span>`;
+        button.innerHTML = `${teamAvatarHtml(team, i, "team-award-photo")}<span>${escapeHtml(displayName)}</span>`;
         button.addEventListener("click", () => {
           state.pendingWinner = i;
           award.querySelectorAll(".team-award").forEach(item => item.classList.remove("selected"));
@@ -9367,9 +9428,7 @@
         const card = document.createElement("div");
         card.className = "rs-card" + (isWin ? " winner" : "");
         card.style.setProperty("--enter-delay", `${(place * 0.12).toFixed(2)}s`);
-        const avatar = team.image
-          ? `<img class="rs-avatar" src="${escapeHtml(team.image)}" alt="">`
-          : defaultAvatarHtml("rs-avatar default-avatar");
+        const avatar = teamAvatarHtml(team, state.teams.indexOf(team), "rs-avatar");
         const crown = isWin ? `<span class="rs-crown" aria-hidden="true">\ud83d\udc51</span>` : "";
         const medal = (!isWin && place < 3)
           ? `<span class="rs-medal rs-medal-${medalNames[place]}"><span class="clean-number">${toArabicDigits(place + 1)}</span></span>`
@@ -9766,6 +9825,7 @@
     }
 
     syncGameViewport();
+    loadHiddenCategories();
     loadGameSettings();
     loadSavedGames();
     renderTeamSetup();
