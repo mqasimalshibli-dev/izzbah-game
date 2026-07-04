@@ -46,9 +46,9 @@ service cloud.firestore {
         && d.color is string       && d.color.size() <= 20
         && d.authorUid is string   && d.authorUid.size() <= 128
         && d.authorName is string  && d.authorName.size() <= 120
-        && d.votes is int          && d.votes >= 0
+        && d.votes is number       && d.votes >= 0
         && d.approved is bool
-        && d.questions is list     && d.questions.size() <= 12;
+        && d.questions is list     && d.questions.size() <= 60;
       // (Firestore also enforces a hard 1 MiB ceiling on the whole document,
       //  which bounds the inline questions + their images.)
     }
