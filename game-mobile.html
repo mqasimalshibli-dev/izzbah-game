@@ -9204,9 +9204,22 @@
               .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
               .catch((e) => {
                 console.warn("community publish failed", e);
-                const denied = e && (e.code === "permission-denied" || /permission/i.test(e.message || ""));
-                showToast(denied ? "الصلاحيات لا تسمح بالنشر" : "تعذّر النشر، حاول مرة أخرى");
+                const code = (e && e.code) || "";
+                const denied = code === "permission-denied" || /permission/i.test((e && e.message) || "");
                 resetBtn();
+                if (!denied) { showToast("تعذّر النشر: " + (code || "خطأ")); return; }
+                // permission-denied could be the community rules OR App Check
+                // enforcement. Probe a write the rules certainly allow (the
+                // user's own settings doc) to tell the two apart on-screen.
+                if (window.IZZBAH && window.IZZBAH.diagnoseWrite) {
+                  window.IZZBAH.diagnoseWrite().then(ok => {
+                    alert(ok
+                      ? "تم رفض النشر من قواعد الفئات المجتمعية.\n\nرمز الخطأ: " + (code || "permission-denied") + "\n(الكتابة الأساسية تعمل، فالمشكلة في قواعد community تحديدًا — تأكد أن آخر نسخة من القواعد منشورة.)"
+                      : "تم رفض كل عمليات الكتابة (ليست الفئات فقط).\n\nغالبًا App Check مفعّل بوضع Enforce بمفتاح reCAPTCHA غير صالح لهذا النطاق. رمز الخطأ: " + (code || "permission-denied"));
+                  }).catch(() => showToast("الصلاحيات لا تسمح بالنشر: " + (code || "")));
+                } else {
+                  showToast("الصلاحيات لا تسمح بالنشر: " + (code || ""));
+                }
               });
           }).catch((e) => { console.warn("fit failed", e); showToast("تعذّر النشر، حاول مرة أخرى"); resetBtn(); });
           return;
@@ -10576,6 +10589,18 @@
                 .then(d => d.exists ? c.id : null).catch(() => null)
             )).then(ids => { if (window.IZZBAH.applyMyVotes) window.IZZBAH.applyMyVotes(ids.filter(Boolean)); });
           }
+          // Diagnostic: try a write the security rules definitely allow for this
+          // signed-in user (their OWN settings doc). If it succeeds, writes work
+          // and a community rejection is a community-rules issue; if it also
+          // fails, the whole write path is blocked (e.g. App Check enforced).
+          window.IZZBAH.diagnoseWrite = function () {
+            if (!currentUser) return Promise.resolve(false);
+            return db.collection("users").doc(currentUser.uid).set({
+              email: currentUser.email || "",
+              data: {},
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).then(() => true).catch(() => false);
+          };
           window.IZZBAH.communityPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             const isNew = !cat.id;
