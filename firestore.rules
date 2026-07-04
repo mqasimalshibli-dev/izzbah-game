@@ -70,6 +70,57 @@ service cloud.firestore {
       }
     }
 
+    // ---- Community categories (member-submitted) ----------------------------
+    // Any signed-in member may publish a category here; everyone can read them.
+    // Each doc holds its own questions inline (text + images) and a vote tally.
+    // Members vote by creating a doc under /votes/{their uid}; the tally on the
+    // parent may only move by ±1 per write. A member can edit/delete ONLY their
+    // own category. (This opens writes to all signed-in users — content is not
+    // moderated except by an admin deleting it; the ±1 vote rule is not proof
+    // against a determined abuser, which would need Cloud Functions.)
+    match /community/{catId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.votes == 0
+        && request.resource.data.keys().hasOnly(['name', 'image', 'color', 'questions', 'authorUid', 'authorName', 'votes', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() <= 120
+        && request.resource.data.questions is list
+        && request.resource.data.questions.size() <= 12;
+
+      allow update: if request.auth != null && (
+        // (a) the author edits their own category — votes/author must not change
+        ( resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorUid == resource.data.authorUid
+          && request.resource.data.votes == resource.data.votes
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.questions is list
+          && request.resource.data.questions.size() <= 12 )
+        ||
+        // (b) a vote — ONLY the votes field may change, and only by ±1
+        ( request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+          && ( request.resource.data.votes == resource.data.votes + 1
+            || request.resource.data.votes == resource.data.votes - 1 ) )
+      );
+
+      // Author may delete their own; an admin may remove anyone's (moderation).
+      allow delete: if request.auth != null
+        && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      // One vote per member: the doc id IS the voter's uid, so nobody can vote
+      // twice or vote as someone else.
+      match /votes/{uid} {
+        allow read: if true;
+        allow create, delete: if request.auth != null && request.auth.uid == uid;
+        allow update: if false;
+      }
+    }
+
     // Deny everything else.
     match /{document=**} {
       allow read, write: if false;
