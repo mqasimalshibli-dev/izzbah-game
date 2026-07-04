@@ -88,7 +88,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.questions is list
-        && request.resource.data.questions.size() <= 200;
+        && request.resource.data.questions.size() <= 500;  // text-only copy; full Qs live in /questions
       allow delete: if isAdmin();
 
       match /questions/{questionId} {
