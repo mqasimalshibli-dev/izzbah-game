@@ -1251,6 +1251,15 @@
       font-size: clamp(40px, 4.6vw, 58px);
     }
 
+    /* Brief pop of the score when a question's points land on a team. */
+    .score-value.score-pop { animation: scorePop .55s cubic-bezier(.2, .9, .3, 1.35); }
+
+    @keyframes scorePop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
     .score-tools {
       display: flex;
       justify-content: center;
@@ -2456,6 +2465,7 @@
         white-space: nowrap;
       }
       .game-actions #exitGame,
+      .game-actions #soundToggle,
       .game-actions #endGameEarly {
         width: 23px;
         height: 23px;
@@ -3680,6 +3690,7 @@
     }
     /* Premium round action buttons (exit + end game) */
     .game-actions #exitGame,
+    .game-actions #soundToggle,
     .game-actions #endGameEarly {
       width: clamp(30px, 4.6vw, 42px) !important;
       height: clamp(30px, 4.6vw, 42px) !important;
@@ -3692,6 +3703,7 @@
       transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
     }
     .game-actions #exitGame svg,
+    .game-actions #soundToggle svg,
     .game-actions #endGameEarly svg { width: 56%; height: 56%; display: block; }
     .game-actions #endGameEarly {
       background: linear-gradient(180deg, #e2342b, #9c0f12) !important;
@@ -3701,13 +3713,20 @@
     }
     .game-actions #endGameEarly:hover { transform: scale(1.08); filter: brightness(1.08); }
     .game-actions #endGameEarly:active { transform: scale(.95); }
-    .game-actions #exitGame {
+    .game-actions #exitGame,
+    .game-actions #soundToggle {
       background: rgba(0, 0, 0, .22) !important;
       border: 2px solid rgba(255, 255, 255, .65) !important;
       color: #fff !important;
       box-shadow: 0 3px 10px rgba(0, 0, 0, .3) !important;
     }
-    .game-actions #exitGame:hover { transform: scale(1.08); background: rgba(0, 0, 0, .34) !important; }
+    .game-actions #exitGame:hover,
+    .game-actions #soundToggle:hover { transform: scale(1.08); background: rgba(0, 0, 0, .34) !important; }
+    /* Sound toggle shows ONE of its two icons; muted state is dimmed. */
+    .game-actions #soundToggle .snd-off { display: none !important; }
+    .game-actions #soundToggle.muted .snd-on { display: none !important; }
+    .game-actions #soundToggle.muted .snd-off { display: block !important; }
+    .game-actions #soundToggle.muted { opacity: .6; }
     /* Done banner -> premium */
     .done-banner {
       background: linear-gradient(180deg, #2a0709, #1a0406) !important;
@@ -3924,6 +3943,7 @@
       box-shadow: 0 12px 26px -14px rgba(120, 10, 16, .6) !important;
     }
     #game .game-actions #exitGame,
+    #game .game-actions #soundToggle,
     #game .game-actions #endGameEarly {
       background: rgba(255, 255, 255, .12) !important;
       border: 1px solid rgba(255, 255, 255, .4) !important;
@@ -3932,6 +3952,7 @@
     }
     @media (hover: hover) {
       #game .game-actions #exitGame:hover,
+      #game .game-actions #soundToggle:hover,
       #game .game-actions #endGameEarly:hover { background: rgba(255, 255, 255, .26) !important; }
     }
     #game .mini-brand { flex-direction: row; gap: 11px; padding: 0; margin: 0; }
@@ -5045,6 +5066,7 @@
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
           <button class="ghost" id="exitGame" aria-label="خروج" title="خروج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+          <button class="ghost" id="soundToggle" aria-label="كتم الأصوات" title="كتم الأصوات"><svg class="snd-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><svg class="snd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
           <button class="gold-btn" id="endGameEarly" aria-label="إنهاء وعرض النتائج" title="إنهاء وعرض النتائج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg></button>
         </div>
         <div class="mini-brand">
@@ -8469,6 +8491,62 @@
       }
     }
 
+    // ---- Sound effects: tiny synthesized cues, no audio files --------------
+    // A few short, quiet WebAudio tones give play feedback (question opens,
+    // answer reveals, points land, results). The 🔊 button on the board mutes
+    // them all, and the choice is remembered on this device only — muting
+    // your phone shouldn't mute the majlis TV.
+    const soundKey = "izzbah-sound-v1";
+    let soundOn = true;
+    try { soundOn = localStorage.getItem(soundKey) !== "0"; } catch (e) {}
+    let sfxCtx = null;
+    function getSfxCtx() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!sfxCtx) { try { sfxCtx = new AC(); } catch (e) { return null; } }
+      if (sfxCtx.state === "suspended") sfxCtx.resume().catch(() => {});
+      return sfxCtx;
+    }
+    // One soft tone; the gentle attack/decay keeps every cue click-free.
+    function sfxTone(ctx, freq, at, dur, vol, type) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t = ctx.currentTime + at;
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
+    }
+    const SFX = {
+      open:    ctx => sfxTone(ctx, 660, 0, .09, .04, "triangle"),
+      reveal:  ctx => { sfxTone(ctx, 392, 0, .12, .045); sfxTone(ctx, 523.25, .07, .16, .045); },
+      correct: ctx => { sfxTone(ctx, 523.25, 0, .14, .06); sfxTone(ctx, 659.25, .09, .14, .06); sfxTone(ctx, 783.99, .18, .24, .06); },
+      none:    ctx => { sfxTone(ctx, 246.94, 0, .16, .04); sfxTone(ctx, 196, .1, .24, .04); },
+      win:     ctx => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => sfxTone(ctx, f, i * .13, i === 3 ? .5 : .2, .055))
+    };
+    function playSfx(name) {
+      if (!soundOn) return;
+      try { const ctx = getSfxCtx(); if (ctx) SFX[name](ctx); } catch (e) {}
+    }
+    function syncSoundToggle() {
+      const btn = document.getElementById("soundToggle");
+      if (!btn) return;
+      btn.classList.toggle("muted", !soundOn);
+      const label = soundOn ? "كتم الأصوات" : "تشغيل الأصوات";
+      btn.title = label;
+      btn.setAttribute("aria-label", label);
+    }
+    function toggleSound() {
+      soundOn = !soundOn;
+      try { localStorage.setItem(soundKey, soundOn ? "1" : "0"); } catch (e) {}
+      syncSoundToggle();
+      if (soundOn) playSfx("open"); // tiny blip confirms sound is back on
+    }
+
     // ---- Answer stopwatch: counts UP from 0:00 while a team answers ----
     // startAnswerTimer() zeroes it for a NEW question (called from openQuestion);
     // resumeAnswerTimer() keeps the running/paused state across a reveal→back
@@ -10630,11 +10708,13 @@
       $("#awardRow").classList.remove("visible");
       showScreen("questionPage", { keepQuestion: true });
       startAnswerTimer(); // fresh question → stopwatch from 0:00
+      playSfx("open");
     }
 
     function revealAnswer() {
       const active = state.activeQuestion;
       if (!active) return;
+      playSfx("reveal");
       const award = $("#awardRow");
       award.innerHTML = "";
       state.pendingWinner = null;
@@ -10689,14 +10769,24 @@
         winnerTeam.score = Math.min(maxTotalScore, winnerTeam.score + gained);
         if (winnerTeam.doubleArmed) winnerTeam.doubleArmed = false; // consumed on an answered question
         state.activeTeam = (winnerIndex + 1) % state.teamCount;
+        playSfx("correct");
       } else {
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
+        playSfx("none");
       }
       // "سؤال عشوائي": the activator skipped its turn, so resume after it
       // regardless of who answered the forced random question.
       if (typeof active.forcedNextTeam === "number") state.activeTeam = active.forcedNextTeam;
       closeQuestion(false);
       renderGame();
+      if (typeof winnerIndex === "number") {
+        // pop the awarded team's score once the board is back on screen
+        requestAnimationFrame(() => {
+          const box = document.querySelectorAll("#scoreRow .score-box")[winnerIndex];
+          const value = box && box.querySelector(".score-value");
+          if (value) value.classList.add("score-pop");
+        });
+      }
     }
 
     function clearQuestionView() {
@@ -10792,7 +10882,7 @@
         card.innerHTML = `
           <div class="rs-title">${escapeHtml(teamDisplayName(team, team.index))}</div>
           <div class="rs-avatar-wrap">${crown}${avatar}${medal}</div>
-          <div class="rs-score rs-score-${sClass}"><span class="clean-number">${toArabicDigits(team.score)}</span></div>
+          <div class="rs-score rs-score-${sClass}"><span class="clean-number" data-count="${team.score}">${toArabicDigits(team.score)}</span></div>
           ${banner}
         `;
         return card;
@@ -10816,6 +10906,8 @@
       playResultsIntro(() => {
         stage.classList.add("revealed");
         spawnConfetti(screen);
+        playSfx("win");
+        animateResultScores(stage);
       });
       resetScores();
     }
@@ -10877,6 +10969,26 @@
       }
     }
 
+    // Roll each final score up from 0 as its card reveals. Skipped for users
+    // who prefer reduced motion — they see the final number straight away
+    // (which is also what the cards were rendered with, so a failure here
+    // never hides a score).
+    function animateResultScores(stage) {
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      stage.querySelectorAll(".rs-score .clean-number[data-count]").forEach(el => {
+        const target = parseInt(el.dataset.count, 10) || 0;
+        if (!target) return;
+        const start = timerNow();
+        const duration = 900;
+        (function step() {
+          const p = Math.min(1, (timerNow() - start) / duration);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = toArabicDigits(Math.round(target * eased));
+          if (p < 1) requestAnimationFrame(step);
+        })();
+      });
+    }
+
     function playResultsIntro(done) {
       const intro = $("#resultsIntro");
       if (!intro) { if (done) done(); return; }
@@ -10924,6 +11036,8 @@
     $("#revealAnswer").addEventListener("click", revealAnswer);
     $("#qTimerRestart").addEventListener("click", event => { event.stopPropagation(); startAnswerTimer(); });
     $("#qTimer").addEventListener("click", toggleAnswerTimer);
+    $("#soundToggle").addEventListener("click", toggleSound);
+    syncSoundToggle();
     $("#backToQuestion").addEventListener("click", () => {
       $("#questionActions").style.display = "flex";
       showScreen("questionPage", { keepQuestion: true });
