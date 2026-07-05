@@ -3805,6 +3805,17 @@
     .wlc-start:hover { transform: translateY(-3px); box-shadow: 0 22px 44px rgba(0,0,0,.55), 0 0 44px rgba(217,173,82,.55), inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1.5px rgba(120,20,25,.3); filter: brightness(1.05); }
     .wlc-start:active { transform: translateY(-1px) scale(.99); }
     .wlc-start span { position: relative; z-index: 2; }
+    .wlc-help {
+      display: inline-flex; align-items: center; gap: 7px; cursor: pointer; margin-top: 4px;
+      font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 15px; color: #e9cfa0;
+      padding: 8px 18px; border-radius: 999px; background: rgba(255,255,255,.06);
+      border: 1px solid rgba(220,189,113,.4);
+      transition: background .18s ease, color .18s ease, transform .18s ease;
+    }
+    .wlc-help svg { width: 18px; height: 18px; opacity: .9; }
+    .wlc-help:hover { background: rgba(255,255,255,.13); color: #f7e6c3; transform: translateY(-1px); }
+    .wlc-help:active { transform: translateY(0) scale(.98); }
+    .howto-list li b { color: var(--red); font-weight: 800; }
     .wlc-or { display: flex; align-items: center; gap: 14px; width: 260px; }
     .wlc-or-line { flex: 1; height: 1px; background: linear-gradient(to right, rgba(220,189,113,.45), transparent); }
     .wlc-or-line:first-child { background: linear-gradient(to left, rgba(220,189,113,.45), transparent); }
@@ -4871,6 +4882,10 @@
           <div class="wlc-or"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
+          <button class="wlc-help" id="howToPlayBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.2-2.6 4"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></svg>
+            <span>كيف تلعب؟</span>
+          </button>
         </div>
         <div class="wlc-foot"><i></i><span>عزبة · ٢٠٢٦</span><i></i></div>
       </div>
@@ -5182,6 +5197,24 @@
         <ol class="preview-list review-list" id="reviewList"></ol>
         <div class="actions">
           <button class="primary" id="closeReview" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="howToModal" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="howToTitle">
+        <h3 class="preview-title" id="howToTitle">كيف تلعب؟</h3>
+        <p class="preview-desc">عِزبة لعبة جماعية: تتنافس فرق على أسئلة من فئات مختلفة، والفريق صاحب أعلى نقاط يفوز. اتبع الخطوات:</p>
+        <ol class="preview-list howto-list">
+          <li><div><b>ابدأ لعبة جديدة.</b> من الشاشة الرئيسية اضغط «ابدأ لعبة جديدة» (سجّل الدخول بحساب Google في أول مرة).</div></li>
+          <li><div><b>اختر فئاتك.</b> اختر من فئة واحدة حتى ٦ فئات (تاريخ، علوم، رياضة، أفلام وغيرها)، اكتب اسماً للعبة، ثم اضغط «اختيار الفرق».</div></li>
+          <li><div><b>جهّز الفرق.</b> حدّد عدد الفرق (من ٢ إلى ٥)، اكتب أسماءهم، وأضف صورة لكل فريق إن أحببت.</div></li>
+          <li><div><b>اختر وسائل المساعدة.</b> لكل فريق ٣ وسائل يختارها: <b>أربعة خيارات</b>، <b>كشف أول حرف</b>، <b>مضاعفة النقاط</b>، <b>سرقة الدور</b>، <b>سؤال عشوائي</b>، و<b>حظر المساعدات</b> — ثم اضغط «ابدأ اللعبة».</div></li>
+          <li><div><b>العبوا بالتناوب.</b> يختار الفريق نقطة (١٠٠ إلى ٥٠٠) من أي فئة لفتح سؤالها، ويمكنه استخدام وسائل المساعدة، ثم اضغط «إظهار الإجابة».</div></li>
+          <li><div><b>احتسبوا النقاط.</b> اختر الفريق الذي أجاب صح ليأخذ النقاط. عند انتهاء الأسئلة، الفريق صاحب أعلى مجموع هو الفائز! 🏆</div></li>
+        </ol>
+        <div class="actions">
+          <button class="primary" id="closeHowTo" type="button">فهمت، هيا نلعب!</button>
         </div>
       </div>
     </div>
@@ -10914,8 +10947,19 @@
 
     function resultsSummaryText() {
       const snap = state.resultSnapshot || [];
-      const lines = snap.map((t, i) => `${toArabicDigits(i + 1)}. ${t.name}: ${toArabicDigits(t.score)}`);
-      return `عزبة \u2014 النتائج النهائية\n${lines.join("\n")}`;
+      const medals = ["🥇", "🥈", "🥉"]; // gold/silver/bronze
+      const ranked = snap.map((t, i) => `${medals[i] || "•"} ${t.name}: ${toArabicDigits(t.score)}`);
+      // Lead with the winner so a shared message reads like a headline, and end
+      // with the game link so friends who see it can jump straight in (organic
+      // word-of-mouth is the whole point of sharing).
+      const top = snap[0];
+      const runnerUp = snap[1];
+      const isDraw = top && runnerUp && top.score === runnerUp.score;
+      const head = isDraw
+        ? `🏆 تعادل في عِزبة بنتيجة ${toArabicDigits(top.score)}!`
+        : (top ? `🏆 فاز ${top.name} في عِزبة بـ ${toArabicDigits(top.score)} نقطة!` : "عِزبة \u2014 النتائج النهائية");
+      const link = "https://mqasimalshibli-dev.github.io/izzbah-game/";
+      return `${head}\n\n${ranked.join("\n")}\n\nالعب عِزبة \u2014 لعبة التريفيا الجماعية:\n${link}`;
     }
 
     function shareResults() {
@@ -11059,6 +11103,21 @@
     $("#closeReview").addEventListener("click", closeReview);
     $("#reviewModal").addEventListener("click", event => {
       if (event.target.id === "reviewModal") closeReview();
+    });
+    function openHowTo() {
+      const m = $("#howToModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeHowTo() {
+      const m = $("#howToModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    $("#howToPlayBtn").addEventListener("click", openHowTo);
+    $("#closeHowTo").addEventListener("click", closeHowTo);
+    $("#howToModal").addEventListener("click", event => {
+      if (event.target.id === "howToModal") closeHowTo();
     });
     $("#yourGamesTab").addEventListener("click", () => {
       state.gameLibraryMode = "your";
