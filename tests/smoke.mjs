@@ -27,6 +27,9 @@ await new Promise(r => setTimeout(r, 1200));
 
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM || undefined });
 const page = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+// Pre-accept the first-run legal consent gate so this test stays focused on
+// gameplay (the gate itself is covered by tests/legal.mjs).
+await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 const jsErrors = [];
 page.on("pageerror", e => jsErrors.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
