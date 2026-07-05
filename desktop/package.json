@@ -23,7 +23,8 @@
     "files": [
       "electron-main.js",
       "game-mobile.html",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
     "win": {
       "icon": "build/icon.ico",

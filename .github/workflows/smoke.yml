@@ -1,0 +1,40 @@
+name: Smoke test
+
+# Boots the game in a headless browser and checks the core paths still work.
+# Runs on every push/PR that touches the game or the tests themselves.
+on:
+  push:
+    paths:
+      - "game-mobile.html"
+      - "tests/**"
+      - ".github/workflows/smoke.yml"
+  pull_request:
+    paths:
+      - "game-mobile.html"
+      - "tests/**"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test deps
+        working-directory: tests
+        run: |
+          npm install --no-save playwright-core playwright
+
+      - name: Install Chromium
+        working-directory: tests
+        run: npx playwright install chromium
+
+      - name: Run smoke test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node smoke.mjs
