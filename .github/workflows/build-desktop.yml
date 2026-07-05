@@ -22,9 +22,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Copy game into desktop wrapper
+      - name: Copy game + assets into desktop wrapper
         shell: bash
-        run: cp game-mobile.html desktop/game-mobile.html
+        # The game references assets/ by relative path (covers, QR codes, any
+        # bundled media). electron-builder only packages what lives under
+        # desktop/, so the assets folder must be copied in alongside the HTML —
+        # otherwise the packaged .exe shows broken images.
+        run: |
+          cp game-mobile.html desktop/game-mobile.html
+          rm -rf desktop/assets
+          cp -r assets desktop/assets
 
       - name: Install dependencies
         working-directory: desktop

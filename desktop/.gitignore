@@ -1,4 +1,5 @@
 node_modules/
 dist/
-# game HTML is copied in from the repo root at build time by the workflow
+# game HTML + assets are copied in from the repo root at build time by the workflow
 game-mobile.html
+assets/
