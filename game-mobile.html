@@ -467,6 +467,14 @@
     }
     .image-picker .img-remove:hover { opacity: 1; transform: scale(1.12); background: #b71c2c; }
     .image-picker:hover .img-remove, .image-picker:focus-within .img-remove { opacity: 1; }
+    .image-picker .ip-link-btn {
+      position: absolute; bottom: 3px; left: 3px; z-index: 4;
+      width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(27, 58, 47, .92); color: #fff;
+      font-size: 12px; line-height: 1; display: grid; place-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .45); opacity: .9; transition: opacity .12s;
+    }
+    .image-picker:hover .ip-link-btn, .image-picker:focus-within .ip-link-btn { opacity: 1; }
 
     .image-picker .plus {
       font-size: 42px;
@@ -8764,7 +8772,18 @@
         if (file) handleFile(file);
       });
 
-      // paste (focus the picker first, then Ctrl/⌘+V)
+      // Accept a direct media URL (e.g. a Cloudflare R2 link) as well as a file,
+      // so large videos live off-database and are just referenced by link —
+      // bypassing the 1 MB-per-question inline storage cap.
+      const MEDIA_URL_RE = /^https:\/\/[^\s]+\.(mp4|webm|ogg|ogv|mov|m4v|mp3|wav|m4a|oga)(\?[^\s]*)?$/i;
+      const useMediaUrl = (raw) => {
+        const url = (raw || "").trim();
+        if (!url) return false;
+        if (!MEDIA_URL_RE.test(url)) { alert("رابط غير صالح. الصق رابط ملف فيديو أو صوت مباشر ينتهي بامتداد مثل mp4 أو webm أو mp3."); return false; }
+        onChange(url); return true;
+      };
+
+      // paste: an image file, or — for media pickers — a pasted media URL.
       picker.addEventListener("paste", (e) => {
         const items = (e.clipboardData && e.clipboardData.items) || [];
         for (const it of items) {
@@ -8774,7 +8793,28 @@
             return;
           }
         }
+        if (allowMedia) {
+          const text = e.clipboardData && e.clipboardData.getData("text");
+          if (text && MEDIA_URL_RE.test(text.trim())) { e.preventDefault(); useMediaUrl(text); }
+        }
       });
+
+      // Media pickers get a visible "link" button — the way to add a real video
+      // from an R2 (or any direct) URL without hitting the 1 MB inline cap.
+      if (allowMedia) {
+        const linkBtn = document.createElement("button");
+        linkBtn.type = "button";
+        linkBtn.className = "ip-link-btn";
+        linkBtn.textContent = "🔗";
+        linkBtn.title = "إضافة فيديو أو صوت من رابط مباشر (مثل رابط R2)";
+        linkBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        linkBtn.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const url = window.prompt("الصق رابط الفيديو أو الصوت المباشر:\n(مثال: https://pub-xxxx.r2.dev/clip.mp4)", "");
+          if (url != null) useMediaUrl(url);
+        });
+        picker.appendChild(linkBtn);
+      }
 
       picker.appendChild(input);
       return picker;
