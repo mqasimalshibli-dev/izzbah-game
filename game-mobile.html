@@ -8122,9 +8122,14 @@
             image: ov.image || c.image
           });
         }
-        // Override replaces the built-in, but keep built-in-only display flags
-        // (e.g. fullImage for the full-bleed cover) the published copy lacks.
-        return Object.assign({}, ov, { fullImage: ov.fullImage || c.fullImage });
+        // Override replaces the built-in, but keep built-in-only display bits
+        // the published copy lacks: the fullImage flag and — when the cloud copy
+        // has no cover of its own — the built-in's bundled cover image, so
+        // republishing a built-in category never leaves it picture-less.
+        return Object.assign({}, ov, {
+          fullImage: ov.fullImage || c.fullImage,
+          image: ov.image || c.image
+        });
       });
       const extras = state.publishedCategories.filter(c => !builtinIds.has(c.id));
       return { builtins, extras };
@@ -10957,7 +10962,14 @@
     // bundled asset. The fallback applies only while the published image is
     // empty — as soon as an admin uploads and publishes a new cover, that wins.
     const publishedCoverFallbacks = {
-      "pub-1783014442530-9484": "assets/img/cat-khareef.webp" // خريف ظفار
+      "pub-1783014442530-9484": "assets/img/cat-khareef.webp",      // خريف ظفار
+      "pub-1783170059396-601":  "assets/img/cat-oman-places.webp",  // مواقع في عمان
+      "pub-1783170084646-5700": "assets/img/cat-harim.webp",        // جلسة حريم
+      "pub-1783170306877-1440": "assets/img/cat-deen.webp",         // دين
+      "pub-1783170356019-2501": "assets/img/cat-brands.webp",       // براندات
+      "pub-1783189569201-313":  "assets/img/cat-omani-word.webp",   // ولا كلمة عماني
+      "pub-1783189666048-7547": "assets/img/cat-wrestling.webp",    // مصارعة حره
+      "pub-1783189684453-7350": "assets/img/cat-memes.webp"         // ميمز
     };
     function normalizePublishedCategory(c) {
       // Word-game overrides published before the QR images existed store their
