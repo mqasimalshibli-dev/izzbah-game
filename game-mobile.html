@@ -1589,6 +1589,14 @@
       font-size: clamp(32px, 4vw, 48px);
       text-align: center;
     }
+    .preview-desc {
+      margin: 0;
+      color: var(--dark);
+      font-size: clamp(19px, 2.6vw, 27px);
+      line-height: 1.75;
+      text-align: center;
+      padding: 2px 8px 8px;
+    }
 
     .preview-list {
       display: grid;
@@ -4979,7 +4987,7 @@
     <div class="modal-backdrop" id="categoryPreview" aria-hidden="true">
       <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
         <h3 class="preview-title" id="previewTitle"></h3>
-        <ol class="preview-list" id="previewList"></ol>
+        <p class="preview-desc" id="previewDesc"></p>
         <div class="actions">
           <button class="primary" id="closePreview">إغلاق</button>
         </div>
@@ -8898,7 +8906,7 @@
       if (state.categoryMode === "community" && visibleCategories.length === 0) {
         grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط «إنشاء / تعديل فئات المجتمع» لإضافة فئة يراها ويصوّت عليها كل الأعضاء.</div>`;
       }
-      const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      const INFO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.6v5.4" stroke-linecap="round"/><circle cx="12" cy="16.7" r="1.05" fill="#fff" stroke="none"/></svg>`;
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
         const unavailable = cat.empty === true;
@@ -8927,7 +8935,7 @@
         card.innerHTML = `
           ${cat.image ? "" : `<span class="cat-watermark">${escapeHtml(name)}</span>`}
           <span class="cat-scrim"></span>
-          <button class="category-eye" type="button" title="معاينة الأسئلة" aria-label="معاينة أسئلة ${escapeHtml(name)}">${EYE_SVG}</button>
+          <button class="category-eye" type="button" title="وصف الفئة" aria-label="وصف فئة ${escapeHtml(name)}">${INFO_SVG}</button>
           ${voteHtml}
           ${authorTools}
           <span class="cat-name-pill">${escapeHtml(name)}</span>
@@ -9096,15 +9104,49 @@
       });
     }
 
+    // Short, accurate descriptions shown when tapping the (!) on a category tile.
+    // Keyed by category id (built-ins + known published categories); anything
+    // else gets an accurate line derived from the category's own contents.
+    const categoryDescriptions = {
+      history: "أسئلة في التاريخ العالمي والإسلامي: حضارات وحروب وشخصيات وأحداث فاصلة عبر العصور.",
+      science: "أسئلة في العلوم: فيزياء وكيمياء وأحياء وفضاء واختراعات.",
+      geo: "دول وعواصم، أنهار وجبال، خرائط ومعالم من حول العالم.",
+      culture: "معلومات عامة متنوّعة في الأدب والفن والحياة اليومية.",
+      sports: "أسئلة رياضية: كرة قدم وبطولات ولاعبون وأرقام قياسية.",
+      cafesRestaurants: "أسئلة عن المطاعم والكافيهات والأطعمة والمشروبات.",
+      cars: "ماركات السيارات وموديلاتها ومعلومات من عالم السيارات.",
+      footballMix: "منوّعات في كرة القدم: أندية ولاعبون وبطولات ولحظات شهيرة.",
+      foreignMoviesOnly: "أسئلة عن الأفلام الأجنبية: قصص وأبطال ومخرجون.",
+      foreignSeries: "أسئلة عن المسلسلات الأجنبية وشخصياتها وأحداثها.",
+      omaniFootball: "أسئلة عن كرة القدم العُمانية: المنتخب والأندية واللاعبون.",
+      khareef: "أسئلة عن موسم خريف ظفار وصلالة: طبيعة وسياحة ومعالم.",
+      seerah: "أسئلة عن السيرة النبوية: حياة النبي ﷺ وغزواته وأصحابه.",
+      whoAmI: "خمّن الشخصية من ثلاثة تلميحات تُكشف واحدًا تلو الآخر.",
+      charades: "تمثيل صامت: امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.",
+      charadesMovies: "تمثيل صامت بأسماء أفلام وشخصيات: امسح الرمز ومثّلها دون كلام.",
+      charadesArabic: "تمثيل صامت بكلمات ومصطلحات عربية: امسح الرمز ومثّلها دون كلام.",
+      charadesSeries: "تمثيل صامت بأسماء مسلسلات: امسح الرمز ومثّلها دون كلام.",
+      "pub-1783170059396-601": "أماكن ومعالم سياحية وجغرافية في سلطنة عُمان.",
+      "pub-1783170084646-5700": "فئة اجتماعية خفيفة بأجواء الجلسات.",
+      "pub-1783170306877-1440": "أسئلة دينية عامة.",
+      "pub-1783170356019-2501": "خمّن العلامات التجارية والماركات الشهيرة.",
+      "pub-1783189569201-313": "تمثيل صامت بكلمات ومصطلحات عُمانية: امسح الرمز ومثّلها دون كلام.",
+      "pub-1783189666048-7547": "أسئلة عن المصارعة الحرة ونجومها.",
+      "pub-1783189684453-7350": "خمّن الميمات والنكات الشائعة على الإنترنت.",
+      "pub-1783014442530-9484": "أسئلة عن موسم خريف ظفار وصلالة: طبيعة وسياحة ومعالم."
+    };
+    function categoryDescription(cat) {
+      if (!cat) return "";
+      const known = categoryDescriptions[cat.id];
+      if (known) return known;
+      const n = (cat.questions || []).filter(q => (q && q.q || "").trim() || (q && q.a || "").trim()).length;
+      const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "فئة";
+      return n ? `${who} · تحتوي على ${toArabicDigits(n)} سؤالًا.` : `${who} · لا توجد أسئلة بعد.`;
+    }
+
     function openCategoryPreview(cat) {
-      $("#previewTitle").textContent = `أسئلة ${cat.name || "الفئة"}`;
-      const list = $("#previewList");
-      list.innerHTML = "";
-      [previewQuestionForCategory(cat)].forEach(question => {
-        const item = document.createElement("li");
-        item.textContent = question.q?.trim() || "لم يتم إدخال السؤال بعد.";
-        list.appendChild(item);
-      });
+      $("#previewTitle").textContent = cat.name || "الفئة";
+      $("#previewDesc").textContent = categoryDescription(cat);
       const backdrop = $("#categoryPreview");
       backdrop.classList.add("open");
       backdrop.setAttribute("aria-hidden", "false");
