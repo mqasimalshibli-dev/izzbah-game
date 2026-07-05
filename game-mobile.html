@@ -467,14 +467,13 @@
     }
     .image-picker .img-remove:hover { opacity: 1; transform: scale(1.12); background: #b71c2c; }
     .image-picker:hover .img-remove, .image-picker:focus-within .img-remove { opacity: 1; }
-    .image-picker .ip-link-btn {
-      position: absolute; bottom: 3px; left: 3px; z-index: 4;
-      width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
-      background: rgba(27, 58, 47, .92); color: #fff;
-      font-size: 12px; line-height: 1; display: grid; place-items: center;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, .45); opacity: .9; transition: opacity .12s;
+    .media-picker-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
+    .media-link-btn {
+      background: rgba(27, 58, 47, .9); color: #f7ecd6; border: none;
+      border-radius: 999px; font: 600 12px 'Cairo', sans-serif;
+      padding: 4px 12px; cursor: pointer; white-space: nowrap;
     }
-    .image-picker:hover .ip-link-btn, .image-picker:focus-within .ip-link-btn { opacity: 1; }
+    .media-link-btn:hover { background: rgba(27, 58, 47, 1); }
 
     .image-picker .plus {
       font-size: 42px;
@@ -8799,25 +8798,30 @@
         }
       });
 
-      // Media pickers get a visible "link" button — the way to add a real video
-      // from an R2 (or any direct) URL without hitting the 1 MB inline cap.
-      if (allowMedia) {
-        const linkBtn = document.createElement("button");
-        linkBtn.type = "button";
-        linkBtn.className = "ip-link-btn";
-        linkBtn.textContent = "🔗";
-        linkBtn.title = "إضافة فيديو أو صوت من رابط مباشر (مثل رابط R2)";
-        linkBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); });
-        linkBtn.addEventListener("click", (e) => {
-          e.preventDefault(); e.stopPropagation();
-          const url = window.prompt("الصق رابط الفيديو أو الصوت المباشر:\n(مثال: https://pub-xxxx.r2.dev/clip.mp4)", "");
-          if (url != null) useMediaUrl(url);
-        });
-        picker.appendChild(linkBtn);
-      }
-
       picker.appendChild(input);
-      return picker;
+
+      // Non-media pickers (pictures, avatars, covers): the box IS the control —
+      // tap to upload. Return it as-is.
+      if (!allowMedia) return picker;
+
+      // Media pickers: keep the box a plain "tap to upload" control, and put the
+      // "add by link" action in a SEPARATE, clearly-labelled button beneath it —
+      // so tapping the box always uploads a file and the R2 link is never hit by
+      // accident. The button is the way to attach a big video without the 1 MB cap.
+      const wrap = document.createElement("div");
+      wrap.className = "media-picker-wrap";
+      wrap.appendChild(picker);
+      const linkBtn = document.createElement("button");
+      linkBtn.type = "button";
+      linkBtn.className = "media-link-btn";
+      linkBtn.textContent = "🔗 رابط فيديو/صوت";
+      linkBtn.title = "إضافة فيديو أو صوت من رابط مباشر (مثل رابط R2)";
+      linkBtn.addEventListener("click", () => {
+        const url = window.prompt("الصق رابط الفيديو أو الصوت المباشر:\n(مثال: https://pub-xxxx.r2.dev/clip.mp4)", "");
+        if (url != null) useMediaUrl(url);
+      });
+      wrap.appendChild(linkBtn);
+      return wrap;
     }
 
     const teamAccentTones = [
