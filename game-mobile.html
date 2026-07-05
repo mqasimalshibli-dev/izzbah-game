@@ -1681,6 +1681,45 @@
       margin-top: 18px;
     }
 
+    /* ---- Legal / consent modal ---- */
+    .legal-modal { width: min(760px, 100%); text-align: right; }
+    .legal-tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px;
+    }
+    .legal-tab {
+      cursor: pointer; border: 2px solid rgba(201, 151, 74, .6); background: var(--white);
+      color: var(--dark); border-radius: 999px; padding: 6px 15px;
+      font: 700 14px 'Cairo', sans-serif; transition: background .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .legal-tab.active { background: var(--red); color: #fff; border-color: var(--red); }
+    .legal-body {
+      text-align: right; background: var(--white); border: 2px solid rgba(201, 151, 74, .5);
+      border-radius: 10px; padding: 16px 18px; max-height: 46vh; overflow-y: auto;
+      color: var(--dark); font-size: 15.5px; line-height: 1.8;
+    }
+    .legal-doc { display: none; }
+    .legal-doc.active { display: block; }
+    .legal-doc h4 {
+      margin: 0 0 6px; color: var(--red); font-size: 21px; font-weight: 800;
+    }
+    .legal-doc .legal-updated { margin: 0 0 12px; font-size: 12.5px; color: #8a7550; }
+    .legal-doc h5 {
+      margin: 15px 0 4px; color: #1b3a2f; font-size: 16.5px; font-weight: 800;
+    }
+    .legal-doc p { margin: 0 0 9px; }
+    .legal-doc ul { margin: 0 0 9px; padding-inline-start: 20px; }
+    .legal-doc li { margin-bottom: 5px; }
+    .legal-doc a { color: var(--red); word-break: break-all; }
+    .legal-consent {
+      display: flex; align-items: flex-start; gap: 10px; margin: 16px 2px 4px;
+      text-align: right; font: 600 15px 'Cairo', sans-serif; color: var(--dark);
+      cursor: pointer; line-height: 1.6;
+    }
+    .legal-consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--red); cursor: pointer; }
+    .legal-modal .actions { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .legal-modal .actions .primary:disabled { opacity: .5; cursor: not-allowed; }
+    .legal-hint { margin: 8px 2px 0; font-size: 12.5px; color: #8a7550; text-align: center; }
+
     .question-meta {
       display: flex;
       justify-content: center;
@@ -3816,6 +3855,18 @@
     .wlc-help:hover { background: rgba(255,255,255,.13); color: #f7e6c3; transform: translateY(-1px); }
     .wlc-help:active { transform: translateY(0) scale(.98); }
     .howto-list li b { color: var(--red); font-weight: 800; }
+    .wlc-legal-links {
+      position: relative; z-index: 2; margin-top: 8px; display: flex; align-items: center;
+      gap: 8px; flex-wrap: wrap; justify-content: center;
+    }
+    .wlc-legal-link {
+      background: none; border: none; cursor: pointer; padding: 4px 2px;
+      font-family: 'Cairo', sans-serif; font-size: 12.5px; color: #d9bd8a;
+      text-decoration: underline; text-underline-offset: 3px; opacity: .8;
+      transition: color .15s ease, opacity .15s ease;
+    }
+    .wlc-legal-link:hover { color: #f7e6c3; opacity: 1; }
+    .wlc-legal-dot { color: #9a7f52; font-size: 12px; }
     .wlc-or { display: flex; align-items: center; gap: 14px; width: 260px; }
     .wlc-or-line { flex: 1; height: 1px; background: linear-gradient(to right, rgba(220,189,113,.45), transparent); }
     .wlc-or-line:first-child { background: linear-gradient(to left, rgba(220,189,113,.45), transparent); }
@@ -4888,6 +4939,13 @@
           </button>
         </div>
         <div class="wlc-foot"><i></i><span>عزبة · ٢٠٢٦</span><i></i></div>
+        <div class="wlc-legal-links">
+          <button type="button" class="wlc-legal-link" data-legal="privacy">سياسة الخصوصية</button>
+          <span class="wlc-legal-dot">·</span>
+          <button type="button" class="wlc-legal-link" data-legal="terms">شروط الاستخدام</button>
+          <span class="wlc-legal-dot">·</span>
+          <button type="button" class="wlc-legal-link" data-legal="notices">إشعارات وحقوق</button>
+        </div>
       </div>
     </section>
 
@@ -5216,6 +5274,90 @@
         <div class="actions">
           <button class="primary" id="closeHowTo" type="button">فهمت، هيا نلعب!</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="legalModal" aria-hidden="true">
+      <div class="question-modal preview-modal legal-modal" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+        <h3 class="preview-title" id="legalTitle">الشروط والسياسات</h3>
+        <div class="legal-tabs" role="tablist">
+          <button class="legal-tab active" type="button" data-legal-tab="privacy">سياسة الخصوصية</button>
+          <button class="legal-tab" type="button" data-legal-tab="terms">شروط الاستخدام</button>
+          <button class="legal-tab" type="button" data-legal-tab="notices">إشعارات وحقوق</button>
+        </div>
+        <div class="legal-body" id="legalBody" tabindex="0">
+
+          <div class="legal-doc active" data-legal-doc="privacy">
+            <h4>سياسة الخصوصية</h4>
+            <p class="legal-updated">آخر تحديث: يوليو ٢٠٢٦</p>
+            <p>نحترم خصوصيتك في «عِزبة». توضّح هذه السياسة البيانات التي نجمعها وكيف نستخدمها ونحميها.</p>
+            <h5>البيانات التي نجمعها</h5>
+            <ul>
+              <li>عند تسجيل الدخول بحساب Google: بريدك الإلكتروني ومُعرّف حسابك لدى Google.</li>
+              <li>بيانات اللعب: الفِرَق، الفئات التي تنشئها، الألعاب المحفوظة، وإعداداتك.</li>
+              <li>لا نطلب ولا نُخزّن بيانات بطاقتك البنكية إطلاقاً.</li>
+            </ul>
+            <h5>أين تُخزَّن ولماذا</h5>
+            <p>تُحفَظ بياناتك على خدمة Google Firebase (خوادم Google) لغرض تسجيل الدخول وحفظ تقدّمك ومزامنته بين أجهزتك. كما نستخدم التخزين المحلي في متصفّحك (localStorage) لحفظ إعداداتك ولعبتك الحالية على جهازك.</p>
+            <h5>المشاركة</h5>
+            <p>لا نبيع بياناتك ولا نشاركها لأغراض تسويقية. تُعالَج بياناتك عبر Google/Firebase وفق سياسات الخصوصية الخاصة بهم.</p>
+            <h5>حقوقك</h5>
+            <p>يمكنك طلب الاطّلاع على بياناتك أو حذف حسابك وبياناتك بمراسلتنا عبر: <a href="mailto:BADAL_BAREED@izzbah.example">‏[أدخل بريد التواصل هنا]‏</a>.</p>
+            <h5>الأطفال</h5>
+            <p>اللعبة مناسبة للعائلة، لكنها غير موجَّهة لجمع بيانات من الأطفال دون سن ١٣ عاماً؛ ويُفضَّل استخدام من هم دون هذا السن تحت إشراف وليّ الأمر.</p>
+            <h5>التغييرات</h5>
+            <p>قد نُحدِّث هذه السياسة من وقت لآخر، وسننشر أي تغييرات في هذه الصفحة.</p>
+          </div>
+
+          <div class="legal-doc" data-legal-doc="terms">
+            <h4>شروط الاستخدام</h4>
+            <p class="legal-updated">آخر تحديث: يوليو ٢٠٢٦</p>
+            <p>باستخدامك «عِزبة» فإنك تُقِرّ بأنك قرأت هذه الشروط ووافقت عليها.</p>
+            <h5>الاستخدام المقبول</h5>
+            <p>الخدمة للاستخدام الشخصي والترفيهي. يُمنع إساءة استخدام الخدمة أو محاولة اختراقها أو رفع محتوى مخالف للقانون أو مسيء أو ينتهك حقوق الآخرين.</p>
+            <h5>حسابك</h5>
+            <p>أنت مسؤول عن الحفاظ على حسابك وعن كل نشاط يتم من خلاله.</p>
+            <h5>المحتوى الذي تُقدّمه (فئات المجتمع)</h5>
+            <p>يبقى المحتوى الذي ترفعه ملكاً لك، وتمنحنا الحق في عرضه ومراجعته وتعديله وحذفه. أنت تُقِرّ بأن لديك الحق في نشره وأنه لا ينتهك حقوق أي طرف. ونحتفظ بحق مراجعة أي محتوى وإزالته دون إشعار مسبق.</p>
+            <h5>الاشتراكات والمدفوعات</h5>
+            <p>قد تتطلّب بعض الميزات مستقبلاً اشتراكاً مدفوعاً. ستُعرَض كل التفاصيل (السعر، مدة الاشتراك، التجديد التلقائي، وكيفية الإلغاء) قبل إتمام أي عملية شراء. تتم المدفوعات عبر متاجر التطبيقات أو مزوّد دفع موثوق، ولا نطّلع على بيانات بطاقتك.</p>
+            <h5>الملكية الفكرية</h5>
+            <p>اسم «عِزبة» وشعارها وتصميمها ومحتواها الأصلي مملوكة لنا، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
+            <h5>إخلاء الضمان وحدود المسؤولية</h5>
+            <p>تُقدَّم الخدمة «كما هي» دون أي ضمانات. لا نضمن خلوّها من الأخطاء أو عدم انقطاعها، ولا نتحمّل مسؤولية أي أضرار غير مباشرة تنتج عن استخدامها.</p>
+            <h5>تعديل الشروط</h5>
+            <p>قد نُعدّل هذه الشروط، واستمرارك في استخدام الخدمة بعد التعديل يعني موافقتك عليها.</p>
+            <h5>القانون المعمول به</h5>
+            <p>تخضع هذه الشروط لقوانين ‏[أدخل الدولة/الجهة القضائية]‏.</p>
+          </div>
+
+          <div class="legal-doc" data-legal-doc="notices">
+            <h4>إشعارات وحقوق</h4>
+            <p class="legal-updated">آخر تحديث: يوليو ٢٠٢٦</p>
+            <h5>حقوق النشر</h5>
+            <p>© ٢٠٢٦ عِزبة — جميع الحقوق محفوظة.</p>
+            <h5>محتوى الطرف الثالث</h5>
+            <p>قد تتضمّن بعض الأسئلة أسماءً أو صوراً لأعمال أو علامات مملوكة لأصحابها، وتُستخدم لأغراض تعريفية وترفيهية فقط، وتبقى كل الحقوق لأصحابها الأصليين.</p>
+            <h5>عدم الارتباط</h5>
+            <p>«عِزبة» غير مرتبطة بأي علامة تجارية أو جهة أو شخصية قد يرد ذكرها في الأسئلة، وليست معتمدة أو مموَّلة من أيٍّ منها.</p>
+            <h5>محتوى المجتمع</h5>
+            <p>الفئات المقدَّمة من المستخدمين تُعبّر عن أصحابها ولا تمثّل رأي «عِزبة». للإبلاغ عن محتوى مخالف يُرجى مراسلتنا.</p>
+            <h5>الغرض</h5>
+            <p>المحتوى مُعَدّ لأغراض الترفيه والتسلية، وقد يحتوي على أخطاء غير مقصودة.</p>
+            <h5>المكوّنات والخدمات</h5>
+            <p>تعتمد اللعبة على خدمات Google Firebase وخطوط «Cairo» وغيرها، ويُستخدم كلٌّ منها وفق ترخيصه الخاص.</p>
+          </div>
+
+        </div>
+        <label class="legal-consent" id="legalConsentRow">
+          <input type="checkbox" id="legalAgreeCheck">
+          <span>لقد قرأتُ ووافقتُ على <b>سياسة الخصوصية</b> و<b>شروط الاستخدام</b> و<b>الإشعارات والحقوق</b> المذكورة أعلاه.</span>
+        </label>
+        <div class="actions">
+          <button class="primary" id="legalAgreeBtn" type="button" disabled>أوافق وأتابع</button>
+          <button class="ghost" id="legalCloseBtn" type="button" style="display:none">إغلاق</button>
+        </div>
+        <p class="legal-hint" id="legalHint">يجب الموافقة للمتابعة واستخدام اللعبة.</p>
       </div>
     </div>
 
@@ -11119,6 +11261,67 @@
     $("#howToModal").addEventListener("click", event => {
       if (event.target.id === "howToModal") closeHowTo();
     });
+
+    // ---- Legal / consent gate ---------------------------------------------
+    // On first use we require the player to read and tick agreement to the
+    // privacy policy + terms before using the app (consent mode: not
+    // dismissible). Afterwards the same text is reachable read-only from the
+    // welcome footer (review mode: a plain Close button). Bumping the version
+    // string re-prompts everyone — do that if the terms change materially.
+    const legalConsentKey = "izzbah-legal-consent-v1";
+    const legalConsentVersion = "1";
+    function hasLegalConsent() {
+      try { return localStorage.getItem(legalConsentKey) === legalConsentVersion; }
+      catch (e) { return false; }
+    }
+    function showLegalDoc(which) {
+      document.querySelectorAll("#legalModal .legal-tab").forEach(t =>
+        t.classList.toggle("active", t.dataset.legalTab === which));
+      document.querySelectorAll("#legalModal .legal-doc").forEach(d =>
+        d.classList.toggle("active", d.dataset.legalDoc === which));
+      const body = $("#legalBody");
+      if (body) body.scrollTop = 0;
+    }
+    function openLegal(which, mode) {
+      showLegalDoc(which || "privacy");
+      const consenting = mode === "consent";
+      $("#legalConsentRow").style.display = consenting ? "flex" : "none";
+      $("#legalAgreeBtn").style.display = consenting ? "" : "none";
+      $("#legalHint").style.display = consenting ? "" : "none";
+      $("#legalCloseBtn").style.display = consenting ? "none" : "";
+      if (consenting) {
+        $("#legalAgreeCheck").checked = false;
+        $("#legalAgreeBtn").disabled = true;
+      }
+      const m = $("#legalModal");
+      m.dataset.mode = consenting ? "consent" : "review";
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeLegal() {
+      const m = $("#legalModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    function acceptLegal() {
+      try { localStorage.setItem(legalConsentKey, legalConsentVersion); } catch (e) {}
+      closeLegal();
+    }
+    document.querySelectorAll("#legalModal .legal-tab").forEach(tab =>
+      tab.addEventListener("click", () => showLegalDoc(tab.dataset.legalTab)));
+    $("#legalAgreeCheck").addEventListener("change", event => {
+      $("#legalAgreeBtn").disabled = !event.target.checked;
+    });
+    $("#legalAgreeBtn").addEventListener("click", acceptLegal);
+    $("#legalCloseBtn").addEventListener("click", closeLegal);
+    $("#legalModal").addEventListener("click", event => {
+      // In consent mode the gate is mandatory: backdrop taps do nothing.
+      if (event.target.id === "legalModal" && event.currentTarget.dataset.mode !== "consent") closeLegal();
+    });
+    document.querySelectorAll(".wlc-legal-link").forEach(link =>
+      link.addEventListener("click", () => openLegal(link.dataset.legal, "review")));
+    // First-run gate: require agreement before anything else.
+    if (!hasLegalConsent()) openLegal("privacy", "consent");
     $("#yourGamesTab").addEventListener("click", () => {
       state.gameLibraryMode = "your";
       renderGameLibrary();
@@ -11422,7 +11625,7 @@
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1"];
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
 
