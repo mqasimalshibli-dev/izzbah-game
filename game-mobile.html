@@ -11476,6 +11476,32 @@
             });
           }
           let cloudIsAdmin = false; // mirror of admin status inside this closure
+          // Live-watch the signed-in user's premium entitlement. Premium is
+          // driven ONLY by the cloud doc (which the user can't write), so the
+          // unlock is tamper-proof. A manual admin grant or a RevenueCat webhook
+          // writing entitlements/{uid} flips the user to premium in real time.
+          let entitlementUnsub = null;
+          function watchEntitlement(user) {
+            if (entitlementUnsub) { try { entitlementUnsub(); } catch (e) {} entitlementUnsub = null; }
+            if (!user) { if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(false); return; }
+            entitlementUnsub = db.collection("entitlements").doc(user.uid).onSnapshot(
+              doc => {
+                const d = (doc.exists && doc.data()) || {};
+                const exp = d.expiresAt && typeof d.expiresAt.toMillis === "function" ? d.expiresAt.toMillis() : null;
+                const active = !!d.premium && (!exp || exp > Date.now());
+                if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(active);
+              },
+              err => { console.warn("entitlement watch failed", err && (err.code || err)); if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(false); }
+            );
+          }
+          // Admin-only: manually grant/revoke premium for a user (the MVP path
+          // before automated billing; RevenueCat later writes the same doc).
+          window.IZZBAH.grantPremium = function (uid, active, days) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const data = { premium: !!active, source: "manual", updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            data.expiresAt = (active && days) ? firebase.firestore.Timestamp.fromMillis(Date.now() + days * 86400000) : null;
+            return db.collection("entitlements").doc(String(uid || "").trim()).set(data, { merge: true });
+          };
           function refreshAdminStatus(user) {
             if (!user) { cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
             return db.collection("admins").doc(user.uid).get()
@@ -11719,6 +11745,7 @@
             // Resolve admin status first, THEN (re)load community so the admin
             // approval queue and the member's own submissions load correctly.
             refreshAdminStatus(user).then(loadCommunityCategories);
+            watchEntitlement(user); // keep premium status in sync with the cloud
             if (!user) return;
             try {
               const snap = await db.collection("users").doc(user.uid).get();

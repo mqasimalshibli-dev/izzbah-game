@@ -77,6 +77,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---- Premium entitlements (who has an active subscription) --------------
+    // A user may READ ONLY their own entitlement (so the app can unlock premium
+    // for them). They can NEVER write it — so no one can grant themselves
+    // premium from the client. It is set only by an admin (manual grant) or by
+    // the backend writing via the Admin SDK (e.g. a RevenueCat webhook), which
+    // bypasses these rules entirely. This is the real, tamper-proof paywall.
+    match /entitlements/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isAdmin();
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full
