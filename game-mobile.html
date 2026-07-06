@@ -5058,6 +5058,7 @@
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
           <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
+          <button class="secondary share-game-btn" id="shareGameBtn" type="button" disabled><span aria-hidden="true">🔗</span> شارك اللعبة</button>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
@@ -9442,6 +9443,67 @@
       $("#categoryStatus").innerHTML = count ? `تم اختيار <span class="clean-number">${toArabicDigits(count)}</span> ${count === 1 ? "فئة" : "فئات"} من <span class="clean-number">6</span>.` : "اختر فئة واحدة على الأقل.";
       $("#categoryStatus").style.color = count > 6 ? "var(--red)" : "var(--dark)";
       $("#goTeams").disabled = count === 0;
+      const shareBtn = $("#shareGameBtn");
+      if (shareBtn) shareBtn.disabled = count === 0;
+    }
+
+    // ---- Shareable custom-game links ---------------------------------------
+    // A host picks categories, then shares a link that encodes the selection +
+    // game name in the URL hash (no backend needed). Opening the link
+    // pre-selects those categories so a friend can start the same game at once.
+    function b64urlEncode(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function b64urlDecode(s) {
+      s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      const bin = atob(s);
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    }
+    function buildSharedGameLink() {
+      const payload = JSON.stringify({
+        n: (state.currentGameName || "").slice(0, 80),
+        c: [...state.selected].slice(0, 6)
+      });
+      return location.origin + location.pathname + "#g=" + b64urlEncode(payload);
+    }
+    function shareGameSetup() {
+      if (!state.selected.size) { showToast("اختر فئة واحدة على الأقل"); return; }
+      const link = buildSharedGameLink();
+      const name = state.currentGameName && state.currentGameName.trim();
+      const text = `العب معي ${name ? `«${name}» ` : ""}في عِزبة 🔥 — نفس الفئات جاهزة لك:`;
+      track("share_game", { categories: state.selected.size });
+      if (navigator.share) {
+        navigator.share({ title: "عِزبة", text, url: link }).catch(() => {});
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => showToast("تم نسخ رابط اللعبة ✓")).catch(() => showToast("تعذّر النسخ"));
+      } else {
+        showToast("المشاركة غير مدعومة");
+      }
+    }
+    // On load: if the URL carries a shared game, pre-select it and open the
+    // category screen. Returns true if a shared game was applied.
+    function applySharedGameFromUrl() {
+      const h = location.hash || "";
+      const m = h.match(/[#&]g=([^&]+)/);
+      if (!m) return false;
+      try {
+        const data = JSON.parse(b64urlDecode(decodeURIComponent(m[1])));
+        const ids = Array.isArray(data.c) ? data.c.filter(x => typeof x === "string" && x).slice(0, 6) : [];
+        if (!ids.length) return false;
+        state.selected = new Set(ids);
+        if (typeof data.n === "string" && data.n.trim()) state.currentGameName = data.n.slice(0, 80);
+        // Clean the hash so a refresh doesn't re-apply it and the URL looks tidy.
+        try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+        renderCategories();
+        showScreen("categories");
+        showToast("تم تحميل اللعبة المشتركة — جهّز الفرق وابدأ 🎉");
+        track("shared_game_open", { categories: ids.length });
+        return true;
+      } catch (e) { return false; }
     }
 
     function categoryCountLabel(n) {
@@ -11597,6 +11659,7 @@
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
     $("#manageCustomFromCategories").addEventListener("click", () => openCommunityCategories());
     $("#randomCategories").addEventListener("click", randomizeCategories);
+    $("#shareGameBtn").addEventListener("click", shareGameSetup);
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
     $("#adminEntry").addEventListener("click", openAdminPanel);
@@ -11860,6 +11923,9 @@
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
+    // If the app was opened via a shared game link, jump straight to the
+    // pre-selected categories (cloud categories fill in as they load).
+    applySharedGameFromUrl();
     // NOTE: we intentionally do NOT auto-resume into the board here — the app
     // always opens on the welcome screen. An unfinished game is offered as a
     // "متابعة" card inside ألعابك (see renderGameLibrary).
