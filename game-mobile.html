@@ -4017,6 +4017,34 @@
     .admin-q-grid { display: grid; gap: 8px; text-align: right; }
     .admin-q-grid input, .admin-q-grid textarea { width: 100%; }
     .admin-q-media { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+
+    /* ---- Bulk question import modal ---- */
+    .import-modal { max-width: 620px; width: 94%; text-align: right; }
+    .import-help { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--dark); }
+    .import-format {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center;
+      background: #f3ead3; border: 1px solid rgba(201,151,74,.5); border-radius: 8px;
+      padding: 8px 10px; margin: 0 0 6px; font: 700 13px 'Cairo', sans-serif; color: #6a5a2f;
+    }
+    .import-format b { color: #9a1c1c; }
+    .import-note { margin: 0 0 10px; font-size: 12.5px; color: #8a7550; text-align: center; }
+    .import-text {
+      width: 100%; min-height: 150px; resize: vertical; direction: rtl; text-align: right;
+      font: 400 14px/1.7 'Cairo', sans-serif; padding: 10px 12px;
+      border: 2px solid rgba(201,151,74,.5); border-radius: 10px; background: var(--white); color: var(--dark);
+    }
+    .import-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 6px; }
+    .import-ctl { display: flex; flex-direction: column; gap: 4px; font: 700 13px 'Cairo', sans-serif; color: var(--dark); }
+    .import-ctl select, .import-ctl input {
+      font: 600 14px 'Cairo', sans-serif; padding: 7px 10px; border-radius: 8px;
+      border: 2px solid rgba(201,151,74,.5); background: var(--white); color: var(--dark); min-width: 150px;
+    }
+    .import-preview { margin: 8px 0 2px; font: 600 14px 'Cairo', sans-serif; min-height: 22px; }
+    .import-preview .imp-ok { color: #1b6a3f; }
+    .import-preview .imp-count { color: var(--red); font-weight: 800; }
+    .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
+    .import-preview .imp-errs div { margin-bottom: 2px; }
+    .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
     .wlc-foot i { width: 5px; height: 5px; background: #dcbd71; transform: rotate(45deg); }
     .wlc-foot span { font-family: 'Aref Ruqaa', serif; font-size: 14px; color: #e9cfa0; }
@@ -5091,6 +5119,7 @@
         </div>
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
+          <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
         </div>
       </div>
     </section>
@@ -5113,6 +5142,49 @@
         <div class="actions">
           <button class="ghost" id="adminQCancel" type="button">إلغاء</button>
           <button class="primary" id="adminQSave" type="button">حفظ السؤال</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="importModal" aria-hidden="true">
+      <div class="question-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+        <h3 class="preview-title" id="importTitle">استيراد أسئلة</h3>
+        <p class="import-help">الصق أسئلتك — سطر لكل سؤال. افصل بين الحقول بمسافة جدولة (Tab، عند النسخ من Excel/Sheets) أو بالرمز <b>|</b>. ترتيب الأعمدة:</p>
+        <div class="import-format"><span>السؤال</span><b>|</b><span>الإجابة</span><b>|</b><span>خطأ١</span><b>|</b><span>خطأ٢</span><b>|</b><span>خطأ٣</span><b>|</b><span>النقاط</span></div>
+        <p class="import-note">الإجابة مطلوبة فقط. الأخطاء الثلاثة والنقاط اختيارية.</p>
+        <textarea id="importText" class="import-text" placeholder="ما عاصمة عُمان؟ | مسقط | صلالة | نزوى | صحار | 100&#10;أطول نهر في العالم؟ | النيل | الأمازون | الكونغو | اليانغتسي"></textarea>
+
+        <div class="import-controls">
+          <label class="import-ctl">
+            <span>النقاط</span>
+            <select id="importPointsMode">
+              <option value="auto">وزّع تلقائياً (١٠٠–٥٠٠)</option>
+              <option value="column">من العمود الأخير</option>
+              <option value="fixed">قيمة ثابتة</option>
+            </select>
+          </label>
+          <label class="import-ctl" id="importFixedWrap" style="display:none">
+            <span>القيمة</span>
+            <input type="number" id="importFixedPoints" min="0" step="50" value="300" />
+          </label>
+          <label class="import-ctl">
+            <span>الوجهة</span>
+            <select id="importTarget">
+              <option value="append">أضف إلى هذه الفئة</option>
+              <option value="new">أنشئ فئة جديدة</option>
+            </select>
+          </label>
+          <label class="import-ctl" id="importNewNameWrap" style="display:none">
+            <span>اسم الفئة</span>
+            <input type="text" id="importNewName" placeholder="اسم الفئة الجديدة" />
+          </label>
+        </div>
+
+        <div class="import-preview" id="importPreview"></div>
+
+        <div class="actions">
+          <button class="ghost" id="importCancel" type="button">إلغاء</button>
+          <button class="primary" id="importRun" type="button" disabled>استيراد</button>
         </div>
       </div>
     </div>
@@ -9974,6 +10046,121 @@
         });
     }
 
+    // ---- Bulk question import -------------------------------------------------
+    // Paste rows (Tab- or |-separated): question | answer | wrong1 | wrong2 |
+    // wrong3 | points. Only the answer is required. Points are assigned by the
+    // chosen mode. Parsed here, previewed, then committed either to the open
+    // category or a brand-new one — publishing through the normal pipeline.
+    function parseImport(raw) {
+      const rows = [];
+      const lines = String(raw || "").replace(/\r/g, "").split("\n");
+      lines.forEach((line, idx) => {
+        if (!line.trim()) return; // skip blanks
+        const delim = line.indexOf("\t") >= 0 ? "\t" : "|";
+        const cells = line.split(delim).map(c => c.trim());
+        // Skip an obvious header row (first non-blank line only).
+        if (rows.length === 0 && /^(question|السؤال)$/i.test(cells[0] || "") ) return;
+        const q = cells[0] || "";
+        const a = cells[1] || "";
+        const distractors = [cells[2], cells[3], cells[4]].map(x => (x || "").trim()).filter(Boolean);
+        const ptsRaw = cells[5];
+        const pts = ptsRaw != null && ptsRaw !== "" ? parseInt(String(ptsRaw).replace(/[^\d]/g, ""), 10) : null;
+        const error = !a ? (q ? "لا توجد إجابة" : "سطر فارغ من الحقول") : "";
+        rows.push({ line: idx + 1, q, a, distractors, points: Number.isFinite(pts) ? pts : null, error });
+      });
+      return rows;
+    }
+    // Assign points to the valid rows per the selected mode.
+    function assignImportPoints(valid) {
+      const mode = $("#importPointsMode").value;
+      if (mode === "fixed") {
+        const v = parseInt($("#importFixedPoints").value, 10) || 0;
+        valid.forEach(r => { r.points = v; });
+      } else if (mode === "column") {
+        valid.forEach(r => { r.points = Number.isFinite(r.points) ? r.points : 0; });
+      } else { // auto: distribute across 100–500 in order, preserving difficulty
+        const n = valid.length;
+        const perTier = Math.max(1, Math.ceil(n / pointValues.length));
+        valid.forEach((r, i) => { r.points = pointValues[Math.min(pointValues.length - 1, Math.floor(i / perTier))]; });
+      }
+    }
+    function refreshImportPreview() {
+      const rows = parseImport($("#importText").value);
+      const valid = rows.filter(r => !r.error);
+      const errs = rows.filter(r => r.error && r.q); // ignore truly blank lines
+      const box = $("#importPreview");
+      const runBtn = $("#importRun");
+      if (!rows.length) { box.innerHTML = ""; runBtn.disabled = true; return; }
+      assignImportPoints(valid);
+      let html = `<span class="imp-ok">سيتم استيراد <span class="imp-count">${toArabicDigits(valid.length)}</span> سؤالاً.</span>`;
+      if (valid[0]) {
+        const s = valid[0];
+        const opts = s.distractors.length ? ` — خيارات: ${escapeHtml(s.distractors.join("، "))}` : "";
+        html += `<div class="imp-sample">مثال: «${escapeHtml(s.q || "—")}» ← ${escapeHtml(s.a)} (${toArabicDigits(s.points)})${opts}</div>`;
+      }
+      if (errs.length) {
+        html += `<div class="imp-errs">${errs.slice(0, 8).map(e => `<div>السطر ${toArabicDigits(e.line)}: ${e.error}</div>`).join("")}${errs.length > 8 ? `<div>… و${toArabicDigits(errs.length - 8)} أخرى</div>` : ""}</div>`;
+      }
+      box.innerHTML = html;
+      runBtn.disabled = valid.length === 0;
+    }
+    function openImportModal() {
+      $("#importText").value = "";
+      $("#importPointsMode").value = "auto";
+      $("#importFixedWrap").style.display = "none";
+      $("#importTarget").value = state.adminCat ? "append" : "new";
+      $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
+      $("#importNewName").value = "";
+      $("#importPreview").innerHTML = "";
+      $("#importRun").disabled = true;
+      const m = $("#importModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+      setTimeout(() => $("#importText").focus(), 40);
+    }
+    function closeImportModal() {
+      const m = $("#importModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    function runImport() {
+      const rows = parseImport($("#importText").value);
+      const valid = rows.filter(r => !r.error);
+      if (!valid.length) { showToast("لا توجد أسئلة صالحة"); return; }
+      assignImportPoints(valid);
+      const questions = valid.map(r => {
+        const obj = { points: r.points || 0, q: r.q, a: r.a, image: "", answerImage: "" };
+        if (r.distractors.length) obj.distractors = r.distractors.slice(0, 3);
+        return obj;
+      });
+      const target = $("#importTarget").value;
+      if (target === "new") {
+        const nm = ($("#importNewName").value || "").trim();
+        if (!nm) { showToast("أدخل اسم الفئة الجديدة"); $("#importNewName").focus(); return; }
+        state.adminCat = {
+          id: `pub-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+          name: nm, image: "", color: "#9e1322", custom: false, published: true,
+          order: state.publishedCategories.length, questions
+        };
+        state.adminDirty = true;
+        renderAdminTabs(); renderAdminCatHead(); populateAdminFilter(); renderAdminTable();
+        closeImportModal();
+        showToast(`تم استيراد ${toArabicDigits(questions.length)} سؤالاً — جارٍ النشر…`);
+        publishAdminCategory(); // validates the name and publishes
+      } else {
+        if (!state.adminCat) { showToast("اختر فئة أولاً أو أنشئ فئة جديدة"); return; }
+        const room = 500 - state.adminCat.questions.length;
+        if (room <= 0) { showToast("الفئة ممتلئة (٥٠٠ سؤال كحد أقصى)"); return; }
+        const add = questions.slice(0, room);
+        state.adminCat.questions.push(...add);
+        state.adminDirty = true;
+        populateAdminFilter(); renderAdminTable(); renderAdminCatHead();
+        closeImportModal();
+        showToast(`تمت إضافة ${toArabicDigits(add.length)} سؤالاً${add.length < questions.length ? " (بلغت الحد الأقصى)" : ""}`);
+        autoPublishAdmin();
+      }
+    }
+
     function renderAdminQImages() {
       const qi = $("#adminQImage");
       if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "وسائط السؤال", { media: true })); }
@@ -11415,6 +11602,19 @@
     $("#adminEntry").addEventListener("click", openAdminPanel);
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
+    $("#adminImportQuestions").addEventListener("click", openImportModal);
+    $("#importCancel").addEventListener("click", closeImportModal);
+    $("#importRun").addEventListener("click", runImport);
+    $("#importText").addEventListener("input", refreshImportPreview);
+    $("#importPointsMode").addEventListener("change", () => {
+      $("#importFixedWrap").style.display = $("#importPointsMode").value === "fixed" ? "" : "none";
+      refreshImportPreview();
+    });
+    $("#importFixedPoints").addEventListener("input", refreshImportPreview);
+    $("#importTarget").addEventListener("change", () => {
+      $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
+    });
+    $("#importModal").addEventListener("click", event => { if (event.target.id === "importModal") closeImportModal(); });
     if ($("#notePopOk")) $("#notePopOk").addEventListener("click", () => $("#notePop").classList.remove("open"));
     if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
     if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
