@@ -688,6 +688,34 @@
       border-color: #e6c869;
     }
 
+    /* Info flip: the (!) button reveals the category's description in place,
+       covering the picture; pressing it again (or tapping the panel) flips
+       back to the normal cover. */
+    .cat-info {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 44px 15px 16px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(20, 4, 6, .93), rgba(20, 4, 6, .97));
+      color: #f7ecd6;
+      font: 600 14px/1.65 'Cairo', sans-serif;
+      opacity: 0;
+      visibility: hidden;
+      overflow-y: auto;
+      cursor: pointer;
+      transition: opacity .2s ease;
+    }
+    .cat-info p { margin: 0; }
+    .category.showing-info .cat-info { opacity: 1; visibility: visible; }
+    .category.showing-info .category-eye {
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      border-color: #e6c869;
+    }
+
     .cat-ring {
       display: none;
       position: absolute;
@@ -9283,7 +9311,8 @@
         card.innerHTML = `
           ${cat.image ? "" : `<span class="cat-watermark">${escapeHtml(name)}</span>`}
           <span class="cat-scrim"></span>
-          <button class="category-eye" type="button" title="وصف الفئة" aria-label="وصف فئة ${escapeHtml(name)}">${INFO_SVG}</button>
+          <div class="cat-info"><p>${escapeHtml(categoryDescription(cat))}</p></div>
+          <button class="category-eye" type="button" title="وصف الفئة" aria-label="عرض/إخفاء وصف فئة ${escapeHtml(name)}">${INFO_SVG}</button>
           ${voteHtml}
           ${authorTools}
           <span class="cat-name-pill">${escapeHtml(name)}</span>
@@ -9291,9 +9320,15 @@
           ${unavailable ? `<span class="cat-soon">قريباً</span>` : ""}
           <span class="cat-ring" aria-hidden="true"></span>
         `;
+        // (!) flips the card between its cover and its description, in place.
         card.querySelector(".category-eye").addEventListener("click", event => {
           event.stopPropagation();
-          openCategoryPreview(cat);
+          card.classList.toggle("showing-info");
+        });
+        // Tapping the description panel flips back too (and never selects).
+        card.querySelector(".cat-info").addEventListener("click", event => {
+          event.stopPropagation();
+          card.classList.remove("showing-info");
         });
         const voteBtn = card.querySelector(".cat-vote");
         if (voteBtn) voteBtn.addEventListener("click", event => {
