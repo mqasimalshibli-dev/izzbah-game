@@ -8239,7 +8239,12 @@
             }))
           }));
         }
-        state.selected = new Set();
+        // Normally a settings (re)load starts with an empty selection. But if a
+        // shared game link is still pending, a late cloud reload must NOT wipe
+        // its pre-selected categories — re-assert them instead.
+        state.selected = (state.pendingSharedGame && Array.isArray(state.pendingSharedIds))
+          ? new Set(state.pendingSharedIds)
+          : new Set();
       } catch (error) {
         console.warn("تعذر استرجاع إعدادات اللعبة.", error);
       }
@@ -8649,6 +8654,7 @@
     }
 
     function openNewGameCategories() {
+      state.pendingSharedGame = false; // fresh game — forget any shared preset
       state.selected = new Set();
       state.currentGameName = "";
       state.editingSavedGameId = null;
@@ -9425,6 +9431,7 @@
         });
         if (!unavailable) card.addEventListener("click", () => {
           if (!state.randomizedCats) state.randomizedCats = new Set();
+          state.pendingSharedGame = false; // the host has taken over the selection
           if (state.selected.has(cat.id)) state.selected.delete(cat.id);
           else if (state.selected.size < 6) state.selected.add(cat.id);
           else {
@@ -9495,6 +9502,9 @@
         const ids = Array.isArray(data.c) ? data.c.filter(x => typeof x === "string" && x).slice(0, 6) : [];
         if (!ids.length) return false;
         state.selected = new Set(ids);
+        // Remember the shared pick so a late cloud reload can't wipe it.
+        state.pendingSharedGame = true;
+        state.pendingSharedIds = ids.slice();
         if (typeof data.n === "string" && data.n.trim()) state.currentGameName = data.n.slice(0, 80);
         // Clean the hash so a refresh doesn't re-apply it and the URL looks tidy.
         try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
@@ -10617,6 +10627,7 @@
     function startGame() {
       // Free-play gate: a non-admin, non-subscriber may start only one game.
       if (!canStartNewGame()) { openSubscribeGate(); return; }
+      state.pendingSharedGame = false; // shared preset consumed once the game starts
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
       state.used.clear();
