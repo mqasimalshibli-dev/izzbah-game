@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' data: blob: https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.google-analytics.com https://*.google-analytics.com; media-src 'self' data: blob: https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <script>
     /* Clickjacking guard — GitHub Pages can't send X-Frame-Options /
        CSP frame-ancestors headers, so break out of any foreign frame here. */
@@ -5299,6 +5299,8 @@
             </ul>
             <h5>أين تُخزَّن ولماذا</h5>
             <p>تُحفَظ بياناتك على خدمة Google Firebase (خوادم Google) لغرض تسجيل الدخول وحفظ تقدّمك ومزامنته بين أجهزتك. كما نستخدم التخزين المحلي في متصفّحك (localStorage) لحفظ إعداداتك ولعبتك الحالية على جهازك.</p>
+            <h5>قياس الاستخدام (التحليلات)</h5>
+            <p>نستخدم Google Analytics for Firebase لقياس كيفية استخدام اللعبة بشكل مُجمَّع (مثل عدد اللاعبين وأكثر الميزات استخداماً) بهدف تحسينها. تُجمَع هذه الإحصاءات بصورة عامة ولا تُستخدم لتحديد هويتك الشخصية.</p>
             <h5>المشاركة</h5>
             <p>لا نبيع بياناتك ولا نشاركها لأغراض تسويقية. تُعالَج بياناتك عبر Google/Firebase وفق سياسات الخصوصية الخاصة بهم.</p>
             <h5>حقوقك</h5>
@@ -9993,6 +9995,7 @@
     }
     // Shown when a non-subscriber tries to start a second game.
     function openSubscribeGate() {
+      track("paywall_hit", {});
       popNote("انتهت لعبتك المجانية",
         "استمتعت بلعبتك المجانية! للّعب بلا حدود اشترك في النسخة المميّزة — الاشتراك قريباً بإذن الله.",
         "⭐");
@@ -10342,6 +10345,7 @@
       showScreen("game");
       saveLiveGame();
       markFreeGamePlayed(); // this free game is now spent (resuming it is still allowed)
+      track("game_start", { teams: state.teamCount, categories: state.selected.size });
     }
 
     function beginHold(team, delta) {
@@ -11023,6 +11027,7 @@
       const isDraw = topTeams.length > 1;
       const winner = isDraw ? null : ranked[0];
       const gap = Math.max(0, topScore - secondScore);
+      track("game_finish", { teams: state.teamCount, questions: (state.history || []).length, top_score: topScore });
       state.resultSnapshot = ranked.map(t => ({ name: teamDisplayName(t, t.index), score: t.score }));
 
       $("#resultsCongrats").innerHTML = isDraw
@@ -11105,6 +11110,7 @@
     }
 
     function shareResults() {
+      track("share_results", { method: navigator.share ? "native" : "clipboard" });
       const text = resultsSummaryText();
       if (navigator.share) {
         navigator.share({ title: "عزبة", text }).catch(() => {});
@@ -11247,6 +11253,7 @@
       if (event.target.id === "reviewModal") closeReview();
     });
     function openHowTo() {
+      track("how_to_open", {});
       const m = $("#howToModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
@@ -11305,6 +11312,7 @@
     }
     function acceptLegal() {
       try { localStorage.setItem(legalConsentKey, legalConsentVersion); } catch (e) {}
+      track("consent_accept", {});
       closeLegal();
     }
     document.querySelectorAll("#legalModal .legal-tab").forEach(tab =>
@@ -11518,6 +11526,14 @@
       };
     }
     window.IZZBAH = window.IZZBAH || {};
+    // Analytics bridge. Firebase loads asynchronously, so until it's ready
+    // events are queued here and flushed once analytics initializes (see
+    // setupCloudSync). track() is always safe to call and never throws.
+    window.IZZBAH._trackQueue = window.IZZBAH._trackQueue || [];
+    window.IZZBAH.track = window.IZZBAH.track || function (name, params) {
+      try { window.IZZBAH._trackQueue.push([name, params || {}]); } catch (e) {}
+    };
+    const track = (name, params) => { try { window.IZZBAH.track(name, params); } catch (e) {} };
     window.IZZBAH.applyAdmin = function (isAdmin) {
       state.isAdmin = !!isAdmin;
       const btn = $("#adminEntry");
@@ -11676,6 +11692,9 @@
       loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
+        .then(() => cfg.measurementId
+          ? loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-analytics-compat.js").catch(() => {})
+          : null)
         .then(() => {
           const acKey = window.IZZBAH_APPCHECK_SITE_KEY;
           return (acKey && acKey.indexOf("PASTE_") !== 0)
@@ -11690,6 +11709,21 @@
           }
           auth = firebase.auth();
           db = firebase.firestore();
+          // ---- Analytics: replace the buffering shim with the real logger ----
+          // Free with the Firebase project (measurementId in the config). We log
+          // a handful of funnel events; Firebase also auto-logs page_view /
+          // session_start. If anything here fails, track() stays a safe no-op.
+          try {
+            if (cfg.measurementId && firebase.analytics) {
+              const analytics = firebase.analytics();
+              window.IZZBAH.track = function (name, params) {
+                try { analytics.logEvent(name, params || {}); } catch (e) {}
+              };
+              const queued = window.IZZBAH._trackQueue || [];
+              window.IZZBAH._trackQueue = [];
+              queued.forEach(ev => window.IZZBAH.track(ev[0], ev[1]));
+            }
+          } catch (e) { console.warn("analytics init failed", e && (e.code || e)); }
           // Test hook: point Firestore at a local emulator (never set in prod).
           // Accepts a port (8080) or "host:port" string.
           try {
