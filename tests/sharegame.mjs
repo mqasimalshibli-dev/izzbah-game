@@ -80,6 +80,24 @@ try {
   check("start-teams button is enabled (ready to play)", opened.goTeamsEnabled);
   check("URL hash is cleaned after applying", opened.hashCleared);
 
+  // Regression: a late cloud reload (loadGameSettings) must NOT wipe the shared
+  // pre-selection while it's still pending.
+  const afterReload = await page2.evaluate(() => {
+    loadGameSettings();      // what the signed-in cloud sync fires on snapshot
+    renderCategories();
+    return document.querySelectorAll("#categoryGrid .category.selected").length;
+  });
+  check(`shared selection survives a cloud reload (got ${afterReload})`, afterReload === 2);
+  // …and once the host touches the selection, the shared-preset lock releases
+  // (so it won't be re-forced), while the host's own edit is respected.
+  const afterTakeover = await page2.evaluate(() => {
+    const c = [...document.querySelectorAll("#categoryGrid .category.selected")][0];
+    if (c) c.click();        // deselect one → host has taken over
+    renderCategories();
+    return { selected: document.querySelectorAll("#categoryGrid .category.selected").length, pending: state.pendingSharedGame };
+  });
+  check(`host edit respected (${afterTakeover.selected}) and the shared lock releases`, afterTakeover.selected === 1 && afterTakeover.pending === false);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
