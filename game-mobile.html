@@ -467,6 +467,15 @@
     }
     .image-picker .img-remove:hover { opacity: 1; transform: scale(1.12); background: #b71c2c; }
     .image-picker:hover .img-remove, .image-picker:focus-within .img-remove { opacity: 1; }
+    .image-picker .img-preview {
+      position: absolute; top: 3px; left: 3px; z-index: 4;
+      width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(20, 4, 6, .82); color: #fbe7a6;
+      font-size: 12px; line-height: 1; display: grid; place-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .45); opacity: .9; transition: opacity .12s, transform .12s;
+    }
+    .image-picker .img-preview:hover { opacity: 1; transform: scale(1.12); }
+    .image-picker:hover .img-preview, .image-picker:focus-within .img-preview { opacity: 1; }
     .media-picker-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
     .media-link-btn {
       background: rgba(27, 58, 47, .9); color: #f7ecd6; border: none;
@@ -4046,6 +4055,30 @@
 
     .admin-undo-btn:disabled { opacity: .45; cursor: not-allowed; }
 
+    /* ---- Media preview (click a question thumbnail to view/play it) ---- */
+    .q-thumb-wrap.q-thumb-clickable { cursor: zoom-in; }
+    .q-thumb-play {
+      position: absolute; bottom: -3px; inset-inline-start: -3px; z-index: 2;
+      background: rgba(20, 4, 6, .82); color: #fbe7a6; border-radius: 999px;
+      font-size: 10px; line-height: 1; padding: 2px 4px; pointer-events: none;
+    }
+    .media-preview-box {
+      position: relative; width: min(92vw, 900px); max-height: 90vh;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      background: #14110c; border: 3px solid var(--gold); border-radius: 14px;
+      padding: 44px 18px 18px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
+    }
+    .media-preview-close {
+      position: absolute; top: 8px; inset-inline-end: 10px; width: 34px; height: 34px;
+      border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3); background: rgba(0, 0, 0, .5);
+      color: #fff; font-size: 17px; cursor: pointer; display: grid; place-items: center; padding: 0;
+    }
+    .media-preview-stage { width: 100%; display: flex; align-items: center; justify-content: center; overflow: auto; }
+    .media-preview-stage img,
+    .media-preview-stage video { max-width: 100%; max-height: 74vh; border-radius: 8px; display: block; }
+    .media-preview-stage audio { width: min(90%, 460px); }
+    .media-preview-cap { font: 600 13px 'Cairo', sans-serif; color: #d9bd8a; }
+
     /* ---- Bulk question import modal ---- */
     .import-modal { max-width: 620px; width: 94%; text-align: right; }
     .import-help { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--dark); }
@@ -5266,6 +5299,14 @@
           <button class="ghost" id="importCancel" type="button">إلغاء</button>
           <button class="primary" id="importRun" type="button" disabled>استيراد</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="mediaPreviewModal" aria-hidden="true">
+      <div class="media-preview-box" role="dialog" aria-modal="true" aria-label="معاينة الوسائط">
+        <button class="media-preview-close" id="mediaPreviewClose" type="button" aria-label="إغلاق">✕</button>
+        <div class="media-preview-stage" id="mediaPreviewStage"></div>
+        <div class="media-preview-cap" id="mediaPreviewCap"></div>
       </div>
     </div>
 
@@ -9220,6 +9261,35 @@
       return `<img src="${escapeHtml(src)}" alt="" />`;
     }
 
+    // Full-size media preview for the admin: view a picture, or actually PLAY a
+    // question/answer video or audio clip, to verify what was added.
+    function openMediaPreview(src, caption) {
+      if (!src) return;
+      const stage = $("#mediaPreviewStage");
+      const cap = $("#mediaPreviewCap");
+      if (!stage) return;
+      const kind = mediaKind(src);
+      stage.innerHTML = kind === "video"
+        ? `<video src="${escapeHtml(src)}" controls autoplay playsinline></video>`
+        : kind === "audio"
+          ? `<audio src="${escapeHtml(src)}" controls autoplay></audio>`
+          : `<img src="${escapeHtml(src)}" alt="">`;
+      if (cap) cap.textContent = caption || (kind === "video" ? "فيديو" : kind === "audio" ? "صوت" : "صورة");
+      const m = $("#mediaPreviewModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeMediaPreview() {
+      const stage = $("#mediaPreviewStage");
+      if (stage) {
+        stage.querySelectorAll("video, audio").forEach(el => { try { el.pause(); } catch (e) {} });
+        stage.innerHTML = ""; // release the media element
+      }
+      const m = $("#mediaPreviewModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+
     function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
       const allowMedia = !!(opts && opts.media);
       const picker = document.createElement("label");
@@ -9227,9 +9297,10 @@
       picker.tabIndex = 0; // focusable so you can paste (Ctrl/⌘+V) into it
       picker.title = label + (allowMedia ? " — اضغط أو اسحب صورة/فيديو/صوت أو الصقها" : " — اضغط أو اسحب صورة أو الصقها");
       const removeBtnHtml = `<button type="button" class="img-remove" title="حذف" aria-label="حذف">×</button>`;
+      const previewBtnHtml = `<button type="button" class="img-preview" title="معاينة" aria-label="معاينة">🔍</button>`;
       const placeholder = opts && opts.placeholder;
       picker.innerHTML = currentImage
-        ? mediaPreviewHtml(currentImage) + removeBtnHtml
+        ? mediaPreviewHtml(currentImage) + previewBtnHtml + removeBtnHtml
         : (placeholder
             ? `<img class="ip-placeholder" src="${escapeHtml(placeholder)}" alt=""><span class="plus ip-plus-over">+</span>`
             : `<span class="plus">+</span>`);
@@ -9238,6 +9309,12 @@
         // keep the click off the label so it doesn't reopen the file dialog
         removeBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); });
         removeBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); onChange(""); });
+      }
+      const previewBtn = picker.querySelector(".img-preview");
+      if (previewBtn) {
+        // preview the current media without reopening the file dialog
+        previewBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        previewBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); openMediaPreview(currentImage, label); });
       }
       const input = document.createElement("input");
       input.type = "file";
@@ -10202,17 +10279,31 @@
           const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
           const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
           const imgCell = document.createElement("td"); imgCell.className = "col-img";
-          const thumb = (src, tag, cls) => {
+          // Clickable thumbnail → opens a full-size preview (plays video/audio).
+          const makeThumb = (src, tag, cls, capLabel) => {
             const kind = mediaKind(src);
+            const wrap = document.createElement("span");
+            wrap.className = "q-thumb-wrap q-thumb-clickable";
+            wrap.title = "معاينة";
             const inner = kind === "video" ? `<video class="q-thumb" src="${escapeHtml(src)}" muted preload="metadata"></video>`
               : kind === "audio" ? `<span class="q-thumb q-thumb--media">🔊</span>`
               : `<img class="q-thumb" src="${escapeHtml(src)}" alt="">`;
-            return `<span class="q-thumb-wrap">${inner}<span class="q-thumb-tag ${cls}">${tag}</span></span>`;
+            wrap.innerHTML = inner
+              + `<span class="q-thumb-tag ${cls}">${tag}</span>`
+              + `<span class="q-thumb-play">${kind === "image" ? "🔍" : "▶"}</span>`;
+            wrap.addEventListener("click", () => openMediaPreview(src, capLabel));
+            return wrap;
           };
           const thumbs = [];
-          if (q.image) thumbs.push(thumb(q.image, "س", "q-thumb-tag--q"));
-          if (q.answerImage) thumbs.push(thumb(q.answerImage, "ج", "q-thumb-tag--a"));
-          imgCell.innerHTML = thumbs.length ? `<span class="q-thumbs">${thumbs.join("")}</span>` : `<span class="q-noimg">—</span>`;
+          if (q.image) thumbs.push(makeThumb(q.image, "س", "q-thumb-tag--q", "وسائط السؤال"));
+          if (q.answerImage) thumbs.push(makeThumb(q.answerImage, "ج", "q-thumb-tag--a", "وسائط الإجابة"));
+          if (thumbs.length) {
+            const box = document.createElement("span"); box.className = "q-thumbs";
+            thumbs.forEach(t => box.appendChild(t));
+            imgCell.appendChild(box);
+          } else {
+            imgCell.innerHTML = `<span class="q-noimg">—</span>`;
+          }
           const ptsCell = document.createElement("td"); ptsCell.className = "col-pts";
           ptsCell.innerHTML = `<span class="q-pts">${escapeHtml(toArabicDigits(q.points))}</span>`;
           const actCell = document.createElement("td"); actCell.className = "col-act";
@@ -12018,6 +12109,8 @@
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
     $("#adminUndo").addEventListener("click", undoAdminStep);
+    $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
+    $("#mediaPreviewModal").addEventListener("click", event => { if (event.target.id === "mediaPreviewModal") closeMediaPreview(); });
     $("#importCancel").addEventListener("click", closeImportModal);
     $("#importRun").addEventListener("click", runImport);
     $("#importText").addEventListener("input", refreshImportPreview);
