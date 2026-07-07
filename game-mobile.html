@@ -4510,6 +4510,16 @@
     #questionPage .q-timer.paused { opacity: .58; }
     #questionPage .q-timer:not(.paused) .q-timer-ico { animation: qTimerPulse 1s ease-in-out infinite; }
     @keyframes qTimerPulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+    /* Past one minute: the whole tab flips to a brighter, flashing alarm red. */
+    #questionPage .q-timer-wrap.overminute {
+      background: linear-gradient(180deg, #ff3b30, #c1121f) !important;
+      border-color: #ffd7d0 !important;
+      animation: qTimerAlarm .8s ease-in-out infinite;
+    }
+    @keyframes qTimerAlarm {
+      0%, 100% { box-shadow: 0 6px 14px rgba(193, 18, 31, .4); filter: brightness(1); }
+      50% { box-shadow: 0 0 22px 4px rgba(255, 59, 48, .7); filter: brightness(1.18); }
+    }
     #questionPage .q-timer-restart {
       display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
       background: rgba(0, 0, 0, .16); border: none; border-inline-start: 2px solid rgba(230, 200, 105, .5);
@@ -8813,7 +8823,12 @@
       reveal:  ctx => { sfxTone(ctx, 392, 0, .12, .045); sfxTone(ctx, 523.25, .07, .16, .045); },
       correct: ctx => { sfxTone(ctx, 523.25, 0, .14, .06); sfxTone(ctx, 659.25, .09, .14, .06); sfxTone(ctx, 783.99, .18, .24, .06); },
       none:    ctx => { sfxTone(ctx, 246.94, 0, .16, .04); sfxTone(ctx, 196, .1, .24, .04); },
-      win:     ctx => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => sfxTone(ctx, f, i * .13, i === 3 ? .5 : .2, .055))
+      win:     ctx => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => sfxTone(ctx, f, i * .13, i === 3 ? .5 : .2, .055)),
+      // Clock ticks + the one-minute alarm. Quiet by default; the urgent tick
+      // is sharper to build tension as the minute approaches.
+      tick:       ctx => sfxTone(ctx, 1200, 0, .025, .02, "square"),
+      tickUrgent: ctx => sfxTone(ctx, 1650, 0, .035, .045, "square"),
+      minute:     ctx => { sfxTone(ctx, 880, 0, .1, .06, "square"); sfxTone(ctx, 880, .16, .1, .06, "square"); sfxTone(ctx, 1046.5, .32, .22, .06, "square"); }
     };
     function playSfx(name) {
       if (!soundOn) return;
@@ -8838,7 +8853,23 @@
     // startAnswerTimer() zeroes it for a NEW question (called from openQuestion);
     // resumeAnswerTimer() keeps the running/paused state across a reveal→back
     // round-trip; tapping the pill pauses / resumes; the ↻ button restarts at 0.
-    const answerTimer = { base: 0, elapsed: 0, raf: 0, running: false, paused: false };
+    const answerTimer = { base: 0, elapsed: 0, raf: 0, running: false, paused: false, lastSec: 0 };
+    const TIMER_URGENT_AT = 50; // start the tense ticking (seconds)
+    const TIMER_RED_AT = 60;    // turn red + alarm at one minute
+    // Fires once per whole second while the timer runs: ticks, ramps urgency as
+    // the minute nears, and flips the pill red (with an alarm) at 60s — the
+    // clock keeps counting past it.
+    function handleTimerSecond(sec) {
+      if (sec <= 0) return; // no tick on the 0:00 start
+      const wrap = document.getElementById("qTimerWrap");
+      if (sec === TIMER_RED_AT) {
+        if (wrap) wrap.classList.add("overminute");
+        playSfx("minute"); // the alarm stands in for this second's tick
+        return;
+      }
+      if (sec >= TIMER_URGENT_AT) { playSfx("tickUrgent"); return; } // approaching + over the minute
+      playSfx("tick");
+    }
     const timerNow = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     function formatStopwatch(ms) {
       const total = Math.max(0, Math.floor(ms / 1000));
@@ -8860,6 +8891,11 @@
       if (!answerTimer.running) return;
       answerTimer.elapsed = timerNow() - answerTimer.base;
       paintAnswerTimer();
+      const sec = Math.floor(answerTimer.elapsed / 1000);
+      if (sec !== answerTimer.lastSec) {
+        answerTimer.lastSec = sec;
+        handleTimerSecond(sec);
+      }
       answerTimer.raf = requestAnimationFrame(answerTimerTick);
     }
     function startAnswerTimer() {            // fresh question → zero and run
@@ -8868,6 +8904,9 @@
       answerTimer.base = timerNow();
       answerTimer.running = true;
       answerTimer.paused = false;
+      answerTimer.lastSec = 0;
+      const wrap = document.getElementById("qTimerWrap");
+      if (wrap) wrap.classList.remove("overminute"); // new question → not red yet
       syncTimerPill();
       paintAnswerTimer();
       answerTimer.raf = requestAnimationFrame(answerTimerTick);
