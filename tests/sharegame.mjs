@@ -14,6 +14,9 @@ await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
 const ctx = await browser.newContext({ viewport: { width: 1300, height: 900 }, permissions: ["clipboard-read", "clipboard-write"] });
 const page = await ctx.newPage();
+  // Never hit the real Firebase from tests: abort the SDK load so the game
+  // runs offline on built-in content (no production Firestore reads/quota).
+  await page.route("**/firebasejs/**", route => route.abort());
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));

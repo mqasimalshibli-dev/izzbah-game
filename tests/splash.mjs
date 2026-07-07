@@ -20,6 +20,9 @@ check("splash appears before the main script tag", html.indexOf('id="appSplash"'
 
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // Never hit the real Firebase from tests: abort the SDK load so the game
+  // runs offline on built-in content (no production Firestore reads/quota).
+  await page.route("**/firebasejs/**", route => route.abort());
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
