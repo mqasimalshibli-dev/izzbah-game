@@ -4018,6 +4018,8 @@
     .admin-q-grid input, .admin-q-grid textarea { width: 100%; }
     .admin-q-media { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
 
+    .admin-undo-btn:disabled { opacity: .45; cursor: not-allowed; }
+
     /* ---- Bulk question import modal ---- */
     .import-modal { max-width: 620px; width: 94%; text-align: right; }
     .import-help { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--dark); }
@@ -5121,6 +5123,7 @@
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
+          <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
     </section>
@@ -9909,6 +9912,7 @@
     function selectAdminCategory(id) {
       state.adminCat = adminCloneCategory(id);
       state.adminDirty = false;
+      clearAdminUndo(); // undo history is per-category
       if ($("#adminSearch")) $("#adminSearch").value = "";
       renderAdminTabs();
       renderAdminCatHead();
@@ -9924,6 +9928,7 @@
         questions: pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }))
       };
       state.adminDirty = true;
+      clearAdminUndo(); // fresh category — no prior steps
       if ($("#adminSearch")) $("#adminSearch").value = "";
       renderAdminTabs();
       renderAdminCatHead();
@@ -10104,6 +10109,7 @@
           const del = document.createElement("button"); del.className = "q-del"; del.textContent = "حذف";
           del.addEventListener("click", () => {
             if (window.confirm("حذف هذا السؤال؟")) {
+              pushAdminUndo("حذف سؤال");
               state.adminCat.questions.splice(i, 1);
               state.adminDirty = true;
               populateAdminFilter();
@@ -10116,6 +10122,46 @@
           tr.append(qCell, aCell, imgCell, ptsCell, actCell);
           tbody.appendChild(tr);
         });
+    }
+
+    // ---- Undo: revert the last content change in the open category -----------
+    // Before each mutation (add / edit / delete / import) we snapshot the
+    // category's questions; the undo button restores the most recent snapshot,
+    // one step per press. History is per-category and cleared on switch.
+    function updateAdminUndoBtn() {
+      const btn = document.getElementById("adminUndo");
+      if (!btn) return;
+      const stack = state.adminUndoStack || [];
+      btn.disabled = stack.length === 0;
+      const last = stack[stack.length - 1];
+      btn.title = last ? `تراجع عن: ${last.label}` : "لا توجد خطوة للتراجع";
+    }
+    function clearAdminUndo() {
+      state.adminUndoStack = [];
+      updateAdminUndoBtn();
+    }
+    function pushAdminUndo(label) {
+      if (!state.adminCat) return;
+      if (!state.adminUndoStack) state.adminUndoStack = [];
+      state.adminUndoStack.push({
+        label: label || "تغيير",
+        questions: JSON.parse(JSON.stringify(state.adminCat.questions || []))
+      });
+      if (state.adminUndoStack.length > 50) state.adminUndoStack.shift(); // cap memory
+      updateAdminUndoBtn();
+    }
+    function undoAdminStep() {
+      const stack = state.adminUndoStack || [];
+      if (!stack.length || !state.adminCat) { updateAdminUndoBtn(); return; }
+      const snap = stack.pop();
+      state.adminCat.questions = snap.questions;
+      state.adminDirty = true;
+      populateAdminFilter();
+      renderAdminTable();
+      renderAdminCatHead();
+      updateAdminUndoBtn();
+      showToast(`تم التراجع عن: ${snap.label}`);
+      autoPublishAdmin(); // sync the revert to the cloud
     }
 
     // ---- Bulk question import -------------------------------------------------
@@ -10215,6 +10261,7 @@
           order: state.publishedCategories.length, questions
         };
         state.adminDirty = true;
+        clearAdminUndo(); // brand-new category — nothing prior to undo to
         renderAdminTabs(); renderAdminCatHead(); populateAdminFilter(); renderAdminTable();
         closeImportModal();
         showToast(`تم استيراد ${toArabicDigits(questions.length)} سؤالاً — جارٍ النشر…`);
@@ -10224,6 +10271,7 @@
         const room = 500 - state.adminCat.questions.length;
         if (room <= 0) { showToast("الفئة ممتلئة (٥٠٠ سؤال كحد أقصى)"); return; }
         const add = questions.slice(0, room);
+        pushAdminUndo(`استيراد ${toArabicDigits(add.length)} سؤالاً`);
         state.adminCat.questions.push(...add);
         state.adminDirty = true;
         populateAdminFilter(); renderAdminTable(); renderAdminCatHead();
@@ -10257,6 +10305,7 @@
       const qText = $("#adminQText").value.trim();
       const aText = $("#adminQAnswer").value.trim();
       if (!qText && !aText) { alert("أدخل نص السؤال أو الإجابة."); return; }
+      pushAdminUndo(state.adminQIndex >= 0 ? "تعديل سؤال" : "إضافة سؤال");
       const obj = { points, q: qText, a: aText, image: state.adminQDraft.image || "", answerImage: state.adminQDraft.answerImage || "" };
       if (state.adminQIndex >= 0) state.adminCat.questions[state.adminQIndex] = obj;
       else state.adminCat.questions.push(obj);
@@ -11677,6 +11726,7 @@
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
+    $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#importCancel").addEventListener("click", closeImportModal);
     $("#importRun").addEventListener("click", runImport);
     $("#importText").addEventListener("input", refreshImportPreview);
