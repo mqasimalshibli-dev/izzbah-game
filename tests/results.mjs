@@ -1,9 +1,11 @@
 // E2E for the results-screen fun stats + share-as-image card.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { writeFileSync } from "fs";
 
-const ROOT = "/home/user/izzbah-game";
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8301;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };

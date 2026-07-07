@@ -1,8 +1,10 @@
 // E2E for the question timer: red-at-a-minute + tick logic + keeps counting.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const ROOT = "/home/user/izzbah-game";
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8295;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
