@@ -154,12 +154,25 @@ service cloud.firestore {
           && validCommunity(request.resource.data) )
 
         // (c) A VOTE by any signed-in member: ONLY the `votes` field may move,
-        //     by exactly ±1, and ONLY on a category that's already approved.
-        //     (One-vote-per-member is enforced by the /votes/{uid} doc below.)
+        //     by exactly ±1, only on an approved category, never below 0, and
+        //     ONLY in lock-step with creating/removing the caller's OWN
+        //     /votes/{uid} doc in the SAME write (the client does both in one
+        //     transaction). This makes it truly one-vote-per-member at the
+        //     rules layer — a +1 requires the vote doc not to exist before and
+        //     to exist after, so it can't be looped, and a -1 requires the
+        //     reverse, so votes can't be stuffed or driven negative.
         || ( resource.data.approved == true
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
-          && ( request.resource.data.votes == resource.data.votes + 1
-            || request.resource.data.votes == resource.data.votes - 1 ) )
+          && request.resource.data.votes is int
+          && request.resource.data.votes >= 0
+          && (
+               ( request.resource.data.votes == resource.data.votes + 1
+                 && !exists(/databases/$(database)/documents/community/$(catId)/votes/$(request.auth.uid))
+                 && existsAfter(/databases/$(database)/documents/community/$(catId)/votes/$(request.auth.uid)) )
+            || ( request.resource.data.votes == resource.data.votes - 1
+                 && exists(/databases/$(database)/documents/community/$(catId)/votes/$(request.auth.uid))
+                 && !existsAfter(/databases/$(database)/documents/community/$(catId)/votes/$(request.auth.uid)) )
+             ) )
       );
 
       // DELETE: the author may remove their own; an admin may remove anyone's.
