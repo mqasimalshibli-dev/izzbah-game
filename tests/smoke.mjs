@@ -27,6 +27,9 @@ await new Promise(r => setTimeout(r, 1200));
 
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM || undefined });
 const page = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+  // Never hit the real Firebase from tests: abort the SDK load so the game
+  // runs offline on built-in content (no production Firestore reads/quota).
+  await page.route("**/firebasejs/**", route => route.abort());
 // Pre-accept the first-run legal consent gate so this test stays focused on
 // gameplay (the gate itself is covered by tests/legal.mjs).
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });

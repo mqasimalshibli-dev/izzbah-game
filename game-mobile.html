@@ -8699,6 +8699,13 @@
 
     function setCategoryMode(mode) {
       state.categoryMode = mode;
+      // Which community categories the member has voted for is only shown in
+      // the community tab. Load those vote docs lazily on first open instead of
+      // on every app launch — that avoids an N+1 read (one per community
+      // category) that most sessions never need.
+      if (mode === "community" && window.IZZBAH && window.IZZBAH.loadCommunityVotes) {
+        window.IZZBAH.loadCommunityVotes();
+      }
       renderCategories();
     }
 
@@ -12301,6 +12308,7 @@
       const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
+      let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
 
       function loadScript(src) {
         return new Promise((res, rej) => {
@@ -12665,7 +12673,12 @@
                     const cats = snap.docs.map(mapCommunityDoc);
                     catCache.put("__community__", { cats }); // offline/quota fallback copy
                     if (window.IZZBAH.applyCommunity) window.IZZBAH.applyCommunity(cats);
-                    return loadMyCommunityVotes(cats);
+                    // Remember the list so votes can be read lazily when the
+                    // community tab is opened (see loadCommunityVotes) — reading
+                    // them here would cost one doc read per category on EVERY
+                    // load, which most sessions never look at.
+                    lastCommunityCats = cats;
+                    if (communityVotesLoaded) { communityVotesLoaded = false; loadCommunityVotes(); }
                   })
                   .catch(e => {
                     clearTimeout(provisional);
@@ -12704,6 +12717,13 @@
                 .then(d => d.exists ? c.id : null).catch(() => null)
             )).then(ids => { if (window.IZZBAH.applyMyVotes) window.IZZBAH.applyMyVotes(ids.filter(Boolean)); });
           }
+          // Lazy vote loading — called once when the community tab is first
+          // opened, so the per-category vote reads don't happen on every launch.
+          window.IZZBAH.loadCommunityVotes = function () {
+            if (communityVotesLoaded || !currentUser || !lastCommunityCats.length) return;
+            communityVotesLoaded = true;
+            loadMyCommunityVotes(lastCommunityCats);
+          };
           // Diagnostic: try a write the security rules definitely allow for this
           // signed-in user (their OWN settings doc). If it succeeds, writes work
           // and a community rejection is a community-rules issue; if it also
@@ -12810,6 +12830,7 @@
           }
           auth.onAuthStateChanged(async (user) => {
             currentUser = user;
+            communityVotesLoaded = false; // a different user must reload their own votes
             setAuthUI(user);
             if (window.IZZBAH.applyAuth) window.IZZBAH.applyAuth(!!user, user ? user.uid : "");
             // Resolve admin status first, THEN (re)load community so the admin
