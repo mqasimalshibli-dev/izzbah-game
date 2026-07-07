@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { writeFileSync } from "fs";
+import { tmpdir } from "os";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8301;
@@ -70,7 +71,7 @@ try {
     return { size: blob.size, type: blob.type, b64: btoa(bin) };
   });
   check(`result card is a compact JPEG (${Math.round(card.size / 1024)} KB)`, card.type === "image/jpeg" && card.size > 20000 && card.size < 600000);
-  writeFileSync("results-card.jpg", Buffer.from(card.b64, "base64"));
+  writeFileSync(join(tmpdir(), "izzbah-results-card.jpg"), Buffer.from(card.b64, "base64"));
 
   // share button prefers the image file when the platform supports it
   const shared = await page.evaluate(async () => {
