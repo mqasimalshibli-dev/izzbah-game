@@ -10780,6 +10780,14 @@
     }
 
     function startGame() {
+      // Guard against a blank board: every selected category may have been
+      // deleted or be empty (e.g. a shared link to a removed category, or a
+      // saved game whose categories are gone). Don't start with nothing to play.
+      if (!activeCategories().length) {
+        showToast("لا توجد فئات صالحة للّعب — اختر فئة تحتوي على أسئلة.");
+        showScreen("categories");
+        return;
+      }
       // Free-play gate: a non-admin, non-subscriber may start only one game.
       if (!canStartNewGame()) { openSubscribeGate(); return; }
       state.pendingSharedGame = false; // shared preset consumed once the game starts
@@ -10821,7 +10829,9 @@
     function bindHold(button, team, delta) {
       button.addEventListener("pointerdown", event => {
         event.preventDefault();
-        button.setPointerCapture?.(event.pointerId);
+        // Guard: a stale/released pointer id makes setPointerCapture throw,
+        // which would otherwise bubble up as an uncaught error.
+        try { button.setPointerCapture?.(event.pointerId); } catch (e) {}
         beginHold(team, delta);
       });
       button.addEventListener("pointerup", stopHold);
@@ -11343,6 +11353,7 @@
     function revealAnswer() {
       const active = state.activeQuestion;
       if (!active) return;
+      stopQuestionMedia(); // pause any question audio/video before showing the answer
       playSfx("reveal");
       const award = $("#awardRow");
       award.innerHTML = "";
@@ -11406,6 +11417,10 @@
         state.activeTeam = (state.activeTeam + 1) % state.teamCount;
         playSfx("none");
       }
+      // The ×2 (مضاعفة النقاط) is armed for THIS question only — consume it
+      // however the question resolves (win, loss, or "لا أحد"), so it can never
+      // leak into a later question the arming team happens to win.
+      if (typeof active.team === "number" && state.teams[active.team]) state.teams[active.team].doubleArmed = false;
       // "سؤال عشوائي": the activator skipped its turn, so resume after it
       // regardless of who answered the forced random question.
       if (typeof active.forcedNextTeam === "number") state.activeTeam = active.forcedNextTeam;
@@ -11429,6 +11444,19 @@
       $("#continueAnswer").disabled = true;
       state.pendingWinner = null;
       state.activeQuestion = null;
+    }
+
+    // Back out of an opened question WITHOUT consuming it. openQuestion marks
+    // the tile used immediately, so the plain back arrow used to permanently
+    // burn the tile AND rotate the turn on an accidental tap (and recorded
+    // nothing). Cancelling restores the tile and leaves the turn untouched, so
+    // it's fully recoverable; to record a genuine skip, the host uses "لا أحد".
+    function cancelQuestion() {
+      const active = state.activeQuestion;
+      if (active && active.key) state.used.delete(active.key);
+      clearQuestionView();
+      renderGame();
+      showScreen("game", { keepQuestion: true });
     }
 
     function closeQuestion(advanceTurn = true) {
@@ -11823,8 +11851,8 @@
       showScreen("menu");
     });
     $("#endGameEarly").addEventListener("click", renderResults);
-    $("#questionBackTop").addEventListener("click", closeQuestion);
-    $("#answerBackTop").addEventListener("click", closeQuestion);
+    $("#questionBackTop").addEventListener("click", cancelQuestion);
+    $("#answerBackTop").addEventListener("click", cancelQuestion);
     $("#revealAnswer").addEventListener("click", revealAnswer);
     $("#qTimerRestart").addEventListener("click", event => { event.stopPropagation(); startAnswerTimer(); });
     $("#qTimer").addEventListener("click", toggleAnswerTimer);
@@ -12069,7 +12097,7 @@
       const dist = () => { const p = [...pointers.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
       stage.addEventListener("pointerdown", (e) => {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        stage.setPointerCapture(e.pointerId);
+        try { stage.setPointerCapture(e.pointerId); } catch (err) {}
         if (pointers.size === 2) { pinchStartDist = dist(); pinchStartScale = scale; }
         stage.classList.add("panning");
       });
@@ -12747,7 +12775,10 @@
           };
 
           loadPublishedCategories(); // available to everyone, even signed-out
-          loadCommunityCategories();
+          // Community categories are loaded from onAuthStateChanged (which fires
+          // once on init with the current user or null, after admin status is
+          // known so the pending-approval queue is correct) — calling it here
+          // too would double the reads on every load, so we don't.
 
           try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
           const provider = new firebase.auth.GoogleAuthProvider();
@@ -12791,9 +12822,15 @@
               const data = snap.exists ? snap.data().data : null;
               if (data) {
                 applying = true;
-                KEYS.forEach(k => { if (data[k] != null) origSet(k, data[k]); });
-                reloadFromStorage();
-                applying = false;
+                try {
+                  KEYS.forEach(k => { if (data[k] != null) origSet(k, data[k]); });
+                  reloadFromStorage();
+                } finally {
+                  // Must always clear, or schedulePush() stays blocked and the
+                  // session silently stops syncing to the cloud (a throw in
+                  // reloadFromStorage would otherwise leave `applying` stuck).
+                  applying = false;
+                }
                 if (typeof showToast === "function") showToast("تم استرجاع تقدّمك");
               } else {
                 schedulePush();
