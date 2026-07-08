@@ -58,10 +58,7 @@ service cloud.firestore {
     // the app writes. The `data` map holds a few blobs (settings / saved games);
     // capping the key count stops it being turned into an arbitrary data store.
     match /users/{userId} {
-      // A user reads their own doc; an admin may also read (and query by email)
-      // so the admin panel can resolve a player's email to their uid when
-      // granting a subscription. Admins never WRITE another user's doc.
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow write: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['email', 'data', 'updatedAt'])
