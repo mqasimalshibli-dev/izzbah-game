@@ -29,7 +29,10 @@ try {
   await page.waitForTimeout(1600);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);
+  // the gear now opens a chooser; pick "content management" to reach the panel
   await page.evaluate(() => document.getElementById("adminEntry").click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById("adminChoiceContent").click());
   await page.waitForTimeout(400);
 
   check("undo button starts disabled (no steps yet)", await undoDisabled());

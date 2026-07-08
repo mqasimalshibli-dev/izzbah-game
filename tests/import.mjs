@@ -27,7 +27,10 @@ try {
   // become admin and open the admin panel
   await page.evaluate(() => { window.IZZBAH.applyAuth && window.IZZBAH.applyAuth(true); window.IZZBAH.applyAdmin && window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(200);
+  // the gear now opens a chooser; pick "content management" to reach the panel
   await page.evaluate(() => document.getElementById("adminEntry").click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById("adminChoiceContent").click());
   await page.waitForTimeout(400);
   const onAdmin = await page.evaluate(() => document.getElementById("adminPanel").classList.contains("active"));
   check("admin panel opens", onAdmin);

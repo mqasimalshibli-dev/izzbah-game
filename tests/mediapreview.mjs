@@ -21,7 +21,10 @@ try {
   await page.waitForTimeout(1500);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);
+  // the gear now opens a chooser; pick "content management" to reach the panel
   await page.evaluate(() => document.getElementById("adminEntry").click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById("adminChoiceContent").click());
   await page.waitForTimeout(400);
   // inject a question carrying an image (question media) and a video URL (answer media)
   await page.evaluate(({ png, mp4 }) => {

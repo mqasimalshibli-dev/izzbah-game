@@ -4106,6 +4106,20 @@
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
+    /* ---- Admin entry chooser (content vs subscriptions) ---- */
+    .admin-choice-modal { max-width: 460px; width: 92%; text-align: center; }
+    .admin-choice-grid { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+    .admin-choice-btn {
+      display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto;
+      column-gap: 10px; align-items: center; text-align: right; cursor: pointer;
+      background: #f7efd9; border: 2px solid rgba(201,151,74,.5); border-radius: 12px;
+      padding: 12px 14px; font-family: 'Cairo', sans-serif; color: var(--dark);
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .admin-choice-btn:hover { background: #f3e7c8; border-color: #c9974a; transform: translateY(-1px); }
+    .admin-choice-ico { grid-row: 1 / span 2; font-size: 26px; line-height: 1; text-align: center; }
+    .admin-choice-name { font-weight: 800; font-size: 16px; }
+    .admin-choice-sub { font-weight: 600; font-size: 12.5px; color: #8a7550; }
     /* ---- Player subscriptions (admin) ---- */
     .premium-modal { max-width: 620px; width: 94%; text-align: right; }
     .prem-input {
@@ -5328,6 +5342,27 @@
         <div class="actions">
           <button class="ghost" id="importCancel" type="button">إلغاء</button>
           <button class="primary" id="importRun" type="button" disabled>استيراد</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="adminChoiceModal" aria-hidden="true">
+      <div class="question-modal admin-choice-modal" role="dialog" aria-modal="true" aria-labelledby="adminChoiceTitle">
+        <h3 class="preview-title" id="adminChoiceTitle">لوحة المشرف</h3>
+        <div class="admin-choice-grid">
+          <button class="admin-choice-btn" id="adminChoiceContent" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🗂️</span>
+            <span class="admin-choice-name">إدارة المحتوى</span>
+            <span class="admin-choice-sub">الفئات والأسئلة والوسائط</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceSubs" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">⭐</span>
+            <span class="admin-choice-name">إدارة الاشتراكات</span>
+            <span class="admin-choice-sub">منح اللاعبين اشتراكات وألعاباً</span>
+          </button>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
         </div>
       </div>
     </div>
@@ -10638,6 +10673,18 @@
       m.classList.add("open");
     }
     // Shown when a non-subscriber tries to start a second game.
+    // ---- Admin entry chooser: content vs subscriptions ---------------------
+    function openAdminChoice() {
+      const m = $("#adminChoiceModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeAdminChoice() {
+      const m = $("#adminChoiceModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+
     // ---- Admin: grant player subscriptions / game allowances --------------
     function premSetStatus(msg, kind) {
       const el = $("#premStatus");
@@ -12330,7 +12377,13 @@
     $("#shareGameBtn").addEventListener("click", shareGameSetup);
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
-    $("#adminEntry").addEventListener("click", openAdminPanel);
+    // The welcome-screen gear opens a chooser: content management or
+    // subscription management. Each option closes the chooser first.
+    $("#adminEntry").addEventListener("click", openAdminChoice);
+    $("#adminChoiceContent").addEventListener("click", () => { closeAdminChoice(); openAdminPanel(); });
+    $("#adminChoiceSubs").addEventListener("click", () => { closeAdminChoice(); openPremiumModal(); });
+    $("#adminChoiceCancel").addEventListener("click", closeAdminChoice);
+    $("#adminChoiceModal").addEventListener("click", event => { if (event.target.id === "adminChoiceModal") closeAdminChoice(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
