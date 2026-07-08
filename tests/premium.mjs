@@ -109,6 +109,23 @@ try {
   });
   check("the code balance survives a reload (local mirror)", resilience.mirrored);
   check("delta-credit fallback adds to the balance", resilience.delta);
+
+  // self-heal: an inflated used-counter (from past phantom-credit bugs) is
+  // clamped to the granted total, so new codes credit in full afterwards
+  const heal = await page.evaluate(() => {
+    state.isAdmin = false; state.freeGamePlayed = true; state.gamesAllowed = 0;
+    localStorage.setItem("izzbah-games-used-v1", "12");
+    state.gamesUsed = 12;
+    window.IZZBAH.applyCodes({ gamesAllowed: 3 });          // authoritative: only 3 ever granted
+    const clamped = state.gamesUsed === 3 && gamesRemaining() === 0;
+    window.IZZBAH.applyCodes({ gamesAllowed: 5 });          // player redeems a new 2-games code
+    const newCodeCredits = gamesRemaining() === 2;
+    localStorage.setItem("izzbah-games-used-v1", "0"); state.gamesUsed = 0;
+    window.IZZBAH.applyCodes({});
+    return { clamped, newCodeCredits };
+  });
+  check("an impossible used-counter is clamped to the granted total", heal.clamped);
+  check("after healing, a newly redeemed code credits in full", heal.newCodeCredits);
   check("the library balance line shows the remaining games", /6/.test(resilience.balanceText));
 
   // ---- Admin UI: the gear opens a chooser with the two managers ----
