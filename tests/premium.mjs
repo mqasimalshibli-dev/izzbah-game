@@ -202,6 +202,34 @@ try {
   });
   check("an already-used code keeps the input (player can fix a typo)", badRedeem.kept);
 
+  // ---- Paywall: out of games -> the plans modal, not a dead-end note ----
+  const paywall = await page.evaluate(() => {
+    document.getElementById("premCancel").click(); // close the admin modal first
+    state.isAdmin = false; state.freeGamePlayed = true; state.gamesUsed = 0; state.gamesAllowed = 0;
+    window.IZZBAH.applyPremium(false, {});
+    window.IZZBAH.applyCodes({});
+    openSubscribeGate();
+    return {
+      open: document.getElementById("plansModal").classList.contains("open"),
+      cards: document.querySelectorAll("#plansGrid .plan-card").length,
+      featured: !!document.querySelector("#plansGrid .plan-featured"),
+      redeem: !!document.getElementById("redeemInputPlans"),
+      contact: /izzbahgame@gmail\.com/.test(document.querySelector(".plans-contact").textContent),
+    };
+  });
+  check("out of games opens the plans modal (3+ cards, featured plan, contact)",
+    paywall.open && paywall.cards >= 3 && paywall.featured && paywall.contact);
+  check("the plans modal has its own redeem box", paywall.redeem);
+
+  const planRedeem = await page.evaluate(async () => {
+    window.IZZBAH.redeemCode = () => Promise.resolve({ gamesAllowed: 5, premium: false });
+    document.getElementById("redeemInputPlans").value = "AB2D-EF4H";
+    document.getElementById("redeemBtnPlans").click();
+    await new Promise(r => setTimeout(r, 200));
+    return !document.getElementById("plansModal").classList.contains("open");
+  });
+  check("redeeming inside the plans modal closes it", planRedeem);
+
   // "my account id" shows for a signed-in player so they can share it
   const uidShown = await page.evaluate(() => {
     const el = document.getElementById("myAccountId");
