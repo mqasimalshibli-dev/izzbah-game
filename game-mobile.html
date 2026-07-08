@@ -678,6 +678,16 @@
       background: rgba(0, 0, 0, .45); color: #fbeecd; font: 700 11px 'Cairo', sans-serif;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    /* Lifetime answered-progress badge, top-right corner (RTL: inline-start). */
+    .cat-progress {
+      position: absolute; top: 10px; inset-inline-start: 10px; z-index: 3;
+      display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+      background: linear-gradient(180deg, #e7c46a, #c9973f); border: 1px solid #f3e1c0;
+      color: #2b1408; font: 800 12px 'Cairo', sans-serif; line-height: 1;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .35); pointer-events: none;
+    }
+    /* When both show on a community card, drop the author tag below the badge. */
+    .category.has-progress .cat-author { top: 42px; }
     .cat-owner {
       position: absolute; z-index: 4; width: 28px; height: 28px; min-height: 0; padding: 0;
       display: grid; place-items: center; border-radius: 50%; cursor: pointer;
@@ -8381,6 +8391,17 @@
     function isWordGuessCategory(cat) {
       return !!(cat && /^charades/.test(String(cat.id || "")));
     }
+    // Reaction categories (رياكشنات) — the answer would be given away by a
+    // multiple-choice list, so the "أربعة خيارات" helper is switched off for
+    // them. Matched by NAME because these are cloud/admin categories with no
+    // special id, so naming a category "…رياكشنات…" makes it choice-free.
+    function isReactionCategory(cat) {
+      return /رياكشن/.test(String((cat && cat.name) || ""));
+    }
+    // Categories where the four-choices (multiple choice) helper is hidden.
+    function hidesMultipleChoice(cat) {
+      return isWordGuessCategory(cat) || isReactionCategory(cat);
+    }
     // Answer -> bundled QR path, per word category (built lazily from the banks).
     // Lets a published override of a word category — whose stored questions
     // carry no image — still show the built-in QR for any unmodified word.
@@ -8451,6 +8472,7 @@
       codeGamesAllowed: 0, // allowance from redeemed one-time codes
       codePremium: false,  // an unlimited code was redeemed
       gamesUsed: 0,
+      progress: {},        // catId -> [answered-question signatures]
       signedIn: false,
       adminCat: null,
       adminQIndex: -1,
@@ -8467,7 +8489,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-08.6";
+    const IZZBAH_BUILD = "2026-07-08.7";
     const saveKey = "izzbah-trivia-settings-v1";
     const savedGamesKey = "izzbah-trivia-saved-games-v1";
     const previewSaveKey = "izzbah-trivia-preview-questions-v1";
@@ -8879,6 +8901,46 @@
 
     function categoryHasQuestions(cat) {
       return !cat.empty && (cat.questions || []).some(question => question.q?.trim() || question.a?.trim());
+    }
+
+    // ---- Per-category answered progress (persistent + cloud-synced) --------
+    // For each category we remember which distinct questions this player has
+    // finished, so the picker can show what % of the category they've covered.
+    // A question is identified by a small stable hash of its text + answer, so
+    // it survives reorders and cloud reloads.
+    const progressKey = "izzbah-progress-v1";
+    function loadProgress() {
+      try { const p = JSON.parse(localStorage.getItem(progressKey)); state.progress = (p && typeof p === "object") ? p : {}; }
+      catch (e) { state.progress = {}; }
+    }
+    function saveProgress() {
+      try { localStorage.setItem(progressKey, JSON.stringify(state.progress || {})); } catch (e) {}
+    }
+    function questionSig(q) {
+      const s = String((q && q.q) || "") + "" + String((q && q.a) || "");
+      let h = 5381;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+      return (h >>> 0).toString(36);
+    }
+    // Total questions a category offers: the full built-in bank when it has one,
+    // otherwise the stored question list (cloud/admin categories like رياكشنات).
+    function categoryTotalQuestions(cat) {
+      const bank = builtinQuestionBanks[cat && cat.id];
+      if (bank) return Object.keys(bank).reduce((n, k) => n + ((bank[k] || []).length), 0);
+      return Array.isArray(cat && cat.questions) ? cat.questions.length : 0;
+    }
+    function markQuestionAnswered(cat, q) {
+      if (!cat || !cat.id || !q) return;
+      if (!state.progress) state.progress = {};
+      const list = state.progress[cat.id] || (state.progress[cat.id] = []);
+      const sig = questionSig(q);
+      if (list.indexOf(sig) === -1) { list.push(sig); saveProgress(); }
+    }
+    function categoryProgressPercent(cat) {
+      const total = categoryTotalQuestions(cat);
+      if (!total) return 0;
+      const done = ((state.progress && state.progress[cat.id]) || []).length;
+      return Math.max(0, Math.min(100, Math.round(done / total * 100)));
     }
 
     function activeCategories() {
@@ -9780,9 +9842,11 @@
         const card = document.createElement("div");
         const unavailable = cat.empty === true;
         if (unavailable) state.selected.delete(cat.id);
+        const pct = unavailable ? 0 : categoryProgressPercent(cat);
         card.className = "category"
           + (state.selected.has(cat.id) ? " selected" : "")
-          + (unavailable ? " empty-bank" : "");
+          + (unavailable ? " empty-bank" : "")
+          + (pct > 0 ? " has-progress" : "");
         const name = cat.name || "فئة بدون اسم";
         if (cat.image) {
           card.style.setProperty("--cat-image", `url("${cat.image}")`);
@@ -9808,6 +9872,7 @@
           <button class="category-eye" type="button" title="وصف الفئة" aria-label="عرض/إخفاء وصف فئة ${escapeHtml(name)}">${INFO_SVG}</button>
           ${voteHtml}
           ${authorTools}
+          ${pct > 0 ? `<span class="cat-progress" title="أجبت على ${toArabicDigits(pct)}% من أسئلة هذه الفئة">${toArabicDigits(pct)}%</span>` : ""}
           <span class="cat-name-pill">${escapeHtml(name)}</span>
           ${authorTag}
           ${unavailable ? `<span class="cat-soon">قريباً</span>` : ""}
@@ -11651,16 +11716,19 @@
       const team = state.teams[teamIndex];
       const banned = !!team.helpBanned; // banned teams can't use any helper this turn
       container.classList.toggle("banned", banned);
-      // On a وش الكلمة question the word must stay secret: helpers that would
-      // reveal it to the room (four choices / first letter) are switched off.
-      const wordGame = screenPhase === "question"
-        && state.activeQuestion && isWordGuessCategory(state.activeQuestion.cat);
+      // Some categories must not have their answer spoiled by a helper: on a
+      // وش الكلمة question both four-choices AND first-letter are off (they'd
+      // reveal the word); on a رياكشنات question the four-choices list alone is
+      // off (multiple choice would give the answer away).
+      const qCat = (screenPhase === "question" && state.activeQuestion) ? state.activeQuestion.cat : null;
+      const hideFour = !!qCat && hidesMultipleChoice(qCat);
+      const hideFirst = !!qCat && isWordGuessCategory(qCat);
       teamLoadout(teamIndex).forEach(id => {
         const h = HELPERS[id];
         const used = !!teamHelpUsed(teamIndex)[id];
         const armed = (id === "doublePoints" && team.doubleArmed);
         const inPhase = h.phase === screenPhase;
-        const revealsWord = wordGame && (id === "fourChoices" || id === "firstLetter");
+        const revealsWord = (id === "fourChoices" && hideFour) || (id === "firstLetter" && hideFirst);
         const allowed = !banned && inPhase && !revealsWord && (!h.activeOnly || teamIndex === state.activeTeam);
         const btn = document.createElement("button");
         btn.type = "button";
@@ -11699,8 +11767,9 @@
       if (!team || teamHelpUsed(teamIndex)[id]) return;
       const active = state.activeQuestion;
       if (HELPERS[id].phase === "question" && !active) return;
-      // Backstop for the render-level disable: never reveal a وش الكلمة word.
-      if ((id === "fourChoices" || id === "firstLetter") && active && isWordGuessCategory(active.cat)) return;
+      // Backstop for the render-level disable: never spoil a protected answer.
+      if (id === "fourChoices" && active && hidesMultipleChoice(active.cat)) return;
+      if (id === "firstLetter" && active && isWordGuessCategory(active.cat)) return;
       if (id === "fourChoices") {
         const options = buildChoiceOptions(active.cat, active.q);
         if (!options) return;
@@ -11930,6 +11999,8 @@
         // on the results screen (frozen when the host left the question page).
         seconds: Math.max(0, Math.round(answerTimer.elapsed / 1000))
       });
+      // Record this question toward the category's lifetime progress %.
+      markQuestionAnswered(active.cat, active.q);
       if (typeof winnerIndex === "number") {
         const winnerTeam = state.teams[winnerIndex];
         const gained = active.q.points * (winnerTeam.doubleArmed ? 2 : 1);
@@ -12894,6 +12965,7 @@
     loadGameSettings();
     loadSavedGames();
     loadFreeGameState();
+    loadProgress();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
@@ -12927,7 +12999,7 @@
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-legal-consent-v1"];
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
       let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
@@ -12940,7 +13012,7 @@
         });
       }
       function reloadFromStorage() {
-        loadGameSettings(); loadSavedGames(); loadFreeGameState();
+        loadGameSettings(); loadSavedGames(); loadFreeGameState(); loadProgress();
         renderTeamSetup(); renderGameLibrary(); renderCategories();
       }
       function cloudBlob() {
