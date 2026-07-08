@@ -79,18 +79,37 @@ try {
   });
   check("admins always bypass the gate", admin === true);
 
-  // ---- Admin UI: the modal opens and the mode toggle works ----
+  // ---- Admin UI: the gear opens a chooser with the two managers ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);
   await page.evaluate(() => document.getElementById("adminEntry").click());
-  await page.waitForTimeout(300);
-  const hasBtn = await page.evaluate(() => !!document.getElementById("adminPremiumBtn"));
-  check("admin panel shows the subscriptions button", hasBtn);
+  await page.waitForTimeout(200);
+  const chooser = await page.evaluate(() => ({
+    open: document.getElementById("adminChoiceModal").classList.contains("open"),
+    content: !!document.getElementById("adminChoiceContent"),
+    subs: !!document.getElementById("adminChoiceSubs"),
+  }));
+  check("gear icon opens the chooser with both options", chooser.open && chooser.content && chooser.subs);
 
-  await page.evaluate(() => document.getElementById("adminPremiumBtn").click());
+  // "content management" -> the admin panel
+  await page.evaluate(() => document.getElementById("adminChoiceContent").click());
+  await page.waitForTimeout(300);
+  const toPanel = await page.evaluate(() => ({
+    chooserClosed: !document.getElementById("adminChoiceModal").classList.contains("open"),
+    onAdmin: document.getElementById("adminPanel").classList.contains("active"),
+    hasBtn: !!document.getElementById("adminPremiumBtn"),
+  }));
+  check("content management opens the admin panel (with its subscriptions button)", toPanel.chooserClosed && toPanel.onAdmin && toPanel.hasBtn);
+
+  // "subscription management" from the chooser -> the premium modal directly
+  await page.evaluate(() => document.getElementById("adminEntry").click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById("adminChoiceSubs").click());
   await page.waitForTimeout(250);
-  const opened = await page.evaluate(() => document.getElementById("premiumModal").classList.contains("open"));
-  check("subscriptions modal opens", opened);
+  const opened = await page.evaluate(() =>
+    document.getElementById("premiumModal").classList.contains("open")
+    && !document.getElementById("adminChoiceModal").classList.contains("open"));
+  check("subscription management opens the subscriptions modal", opened);
 
   const toggle = await page.evaluate(() => {
     const mode = document.getElementById("premMode");
