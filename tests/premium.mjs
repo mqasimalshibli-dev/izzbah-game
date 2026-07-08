@@ -123,11 +123,39 @@ try {
 
   // Granting without a signed-in admin bridge surfaces a helpful status (offline)
   const noBridge = await page.evaluate(() => {
-    document.getElementById("premUserInput").value = "player@gmail.com";
+    document.getElementById("premUserInput").value = "qka67ZMefQXfitti2BJ2SVVCKYU2";
     document.getElementById("premGrant").click();
     return document.getElementById("premStatus").textContent;
   });
   check("grant without cloud bridge reports it needs admin sign-in", /مشرف/.test(noBridge));
+
+  // Players are identified by UID only: an email is rejected before any write
+  const emailRejected = await page.evaluate(() => {
+    const calls = [];
+    window.IZZBAH.grantEntitlement = (uid, opts) => { calls.push(uid); return Promise.resolve(); };
+    document.getElementById("premUserInput").value = "player@gmail.com";
+    document.getElementById("premGrant").click();
+    return { msg: document.getElementById("premStatus").textContent, calls: calls.length };
+  });
+  check("typing an email is rejected (UID required), nothing written", /UID/.test(emailRejected.msg) && emailRejected.calls === 0);
+
+  // A UID goes straight through to the grant bridge
+  const uidGrant = await page.evaluate(async () => {
+    const calls = [];
+    window.IZZBAH.grantEntitlement = (uid, opts) => { calls.push({ uid, opts }); return Promise.resolve(); };
+    document.getElementById("premUserInput").value = "qka67ZMefQXfitti2BJ2SVVCKYU2";
+    document.getElementById("premMode").value = "games";
+    document.getElementById("premMode").dispatchEvent(new Event("change", { bubbles: true }));
+    document.getElementById("premGames").value = "7";
+    document.getElementById("premGrant").click();
+    await new Promise(r => setTimeout(r, 200));
+    return { calls, msg: document.getElementById("premStatus").textContent };
+  });
+  check("a UID grant calls the bridge with that uid + 7 games",
+    uidGrant.calls.length === 1
+    && uidGrant.calls[0].uid === "qka67ZMefQXfitti2BJ2SVVCKYU2"
+    && uidGrant.calls[0].opts.gamesAllowed === 7
+    && /✅/.test(uidGrant.msg));
 
   // "my account id" shows for a signed-in player so they can share it
   const uidShown = await page.evaluate(() => {

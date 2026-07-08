@@ -4146,8 +4146,8 @@
     .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-revoke:hover { background: #f6d6d6; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
-    .wlc-uid { margin-top: 6px; font: 600 12px 'Cairo', sans-serif; color: #e9cfa0; opacity: .82; cursor: pointer; direction: ltr; }
-    .wlc-uid b { color: #f6d27a; font-weight: 800; }
+    .wlc-uid { margin-top: 5px; font: 600 10px 'Cairo', sans-serif; color: #e9cfa0; opacity: .75; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wlc-uid b { color: #f6d27a; font-weight: 700; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
     .wlc-foot i { width: 5px; height: 5px; background: #dcbd71; transform: rotate(45deg); }
     .wlc-foot span { font-family: 'Aref Ruqaa', serif; font-size: 14px; color: #e9cfa0; }
@@ -5370,10 +5370,10 @@
       <div class="question-modal premium-modal" role="dialog" aria-modal="true" aria-labelledby="premiumTitle">
         <h3 class="preview-title" id="premiumTitle">اشتراكات اللاعبين</h3>
         <p class="import-help">امنح لاعباً معيّناً اشتراكاً مميّزاً (لعب غير محدود) أو عدداً محدّداً من الألعاب. «اللعبة» = جولة كاملة بمجموعة فئات — نفس وحدة اللعبة المجانية.</p>
-        <p class="import-note">اطلب من اللاعب تسجيل الدخول بحساب Google مرة واحدة على الأقل، ثم أدخل بريده الإلكتروني أو معرّف حسابه (يظهر له أسفل زر تسجيل الدخول).</p>
+        <p class="import-note">اطلب من اللاعب تسجيل الدخول بحساب Google، ثم نسخ «معرّف حسابه» (يظهر له في الشاشة الرئيسية أسفل تسجيل الدخول — بالضغط عليه يُنسخ) وإرساله لك.</p>
 
-        <label class="field-label">بريد اللاعب أو معرّف حسابه (UID)</label>
-        <input type="text" id="premUserInput" class="prem-input" placeholder="player@gmail.com  أو  معرّف الحساب" autocomplete="off" dir="ltr" />
+        <label class="field-label">معرّف حساب اللاعب (UID)</label>
+        <input type="text" id="premUserInput" class="prem-input" placeholder="معرّف الحساب — مثال: qka67ZMefQXfi…" autocomplete="off" dir="ltr" />
 
         <div class="import-controls">
           <label class="import-ctl">
@@ -10713,21 +10713,18 @@
     function premModeChanged() {
       $("#premGamesWrap").style.display = $("#premMode").value === "games" ? "" : "none";
     }
-    // Resolve the typed identifier to a uid. An "@" means an email → look it up
-    // via the cloud (needs the admin-read rule on /users); otherwise it's a UID.
-    function premResolveUid(raw) {
-      raw = String(raw || "").trim();
-      if (!raw) return Promise.resolve({ uid: "", email: "" });
-      if (raw.indexOf("@") === -1) return Promise.resolve({ uid: raw, email: "" });
-      const bridge = window.IZZBAH && window.IZZBAH.resolveUidByEmail;
-      if (!bridge) return Promise.resolve({ uid: "", email: raw });
-      return bridge(raw).then(uid => ({ uid: uid || "", email: raw }));
-    }
     function grantFromAdmin() {
       const bridge = window.IZZBAH && window.IZZBAH.grantEntitlement;
       if (!bridge) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
-      const raw = ($("#premUserInput").value || "").trim();
-      if (!raw) { premSetStatus("أدخل بريد اللاعب أو معرّف حسابه.", "err"); $("#premUserInput").focus(); return; }
+      // Players are identified ONLY by their account id (UID) — the one shown
+      // to them on the welcome screen — never by email.
+      const uid = ($("#premUserInput").value || "").trim();
+      if (!uid) { premSetStatus("أدخل معرّف حساب اللاعب.", "err"); $("#premUserInput").focus(); return; }
+      if (uid.indexOf("@") !== -1) {
+        premSetStatus("استخدم معرّف الحساب (UID) وليس البريد — يجده اللاعب في الشاشة الرئيسية وينسخه بالضغط عليه.", "err");
+        $("#premUserInput").focus();
+        return;
+      }
       const mode = $("#premMode").value;
       const days = Math.max(0, Math.floor(Number($("#premDays").value) || 0));
       let games = 0, premium = false;
@@ -10736,25 +10733,16 @@
         games = Math.max(1, Math.floor(Number($("#premGames").value) || 0));
         if (!games) { premSetStatus("أدخل عدد ألعاب صحيحاً.", "err"); $("#premGames").focus(); return; }
       }
-      premSetStatus("جارٍ التحقق…", "busy");
+      premSetStatus("جارٍ المنح…", "busy");
       $("#premGrant").disabled = true;
-      premResolveUid(raw).then(({ uid, email }) => {
-        if (!uid) {
-          premSetStatus(raw.indexOf("@") !== -1
-            ? "لم يُعثر على لاعب بهذا البريد — تأكّد أنه سجّل الدخول مرة واحدة، أو استخدم معرّف الحساب (UID)."
-            : "معرّف غير صالح.", "err");
-          $("#premGrant").disabled = false;
-          return;
-        }
-        return bridge(uid, { premium, gamesAllowed: games, days, email }).then(() => {
-          const what = premium
-            ? "اشتراك مفتوح" + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "")
-            : `${toArabicDigits(games)} ألعاب` + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "");
-          premSetStatus(`✅ تم منح ${what}.`, "ok");
-          $("#premUserInput").value = "";
-          $("#premGrant").disabled = false;
-          refreshPremiumList();
-        });
+      bridge(uid, { premium, gamesAllowed: games, days }).then(() => {
+        const what = premium
+          ? "اشتراك مفتوح" + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "")
+          : `${toArabicDigits(games)} ألعاب` + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "");
+        premSetStatus(`✅ تم منح ${what}.`, "ok");
+        $("#premUserInput").value = "";
+        $("#premGrant").disabled = false;
+        refreshPremiumList();
       }).catch(err => {
         console.warn("grant failed", err);
         premSetStatus("تعذّر المنح: " + ((err && (err.code || err.message)) || "خطأ"), "err");
@@ -10789,7 +10777,7 @@
           main.className = "prem-row-main";
           const id = document.createElement("div");
           id.className = "prem-row-id";
-          id.textContent = r.email || r.uid;
+          id.textContent = r.uid; // players are identified by UID, not email
           const sub = document.createElement("div");
           sub.className = "prem-row-sub";
           const badge = expired
@@ -10801,7 +10789,7 @@
           main.appendChild(id); main.appendChild(sub);
           const btn = document.createElement("button");
           btn.className = "prem-revoke"; btn.type = "button"; btn.textContent = "إلغاء";
-          btn.addEventListener("click", () => revokeFromAdmin(r.uid, r.email || r.uid));
+          btn.addEventListener("click", () => revokeFromAdmin(r.uid, r.uid));
           row.appendChild(main); row.appendChild(btn);
           list.appendChild(row);
         });
@@ -12969,10 +12957,10 @@
             );
           }
           // Admin-only: grant an entitlement — either an unlimited subscription
-          // (premium) or a finite games allowance — to a specific player. This is
-          // the MVP path before automated billing (a RevenueCat webhook would
-          // later write the same doc via the Admin SDK). Storing `email` lets the
-          // admin grantee list stay human-readable.
+          // (premium) or a finite games allowance — to a specific player,
+          // identified by their UID. This is the MVP path before automated
+          // billing (a RevenueCat webhook would later write the same doc via
+          // the Admin SDK).
           window.IZZBAH.grantEntitlement = function (uid, opts) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             opts = opts || {};
@@ -12982,7 +12970,6 @@
             const data = {
               premium: !!opts.premium,
               gamesAllowed: Math.max(0, Math.floor(Number(opts.gamesAllowed) || 0)),
-              email: String(opts.email || "").trim().slice(0, 320),
               source: "manual",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               expiresAt: days > 0 ? firebase.firestore.Timestamp.fromMillis(Date.now() + days * 86400000) : null
@@ -13002,7 +12989,7 @@
             );
           };
           // Admin-only: list current grantees (needs the admin-read rule on
-          // /entitlements). Returns [{ uid, premium, gamesAllowed, email, expiresAt }].
+          // /entitlements). Returns [{ uid, premium, gamesAllowed, expiresAt }].
           window.IZZBAH.listEntitlements = function () {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("entitlements").limit(200).get().then(snap => {
@@ -13013,21 +13000,11 @@
                   uid: doc.id,
                   premium: !!d.premium,
                   gamesAllowed: Number(d.gamesAllowed) || 0,
-                  email: d.email || "",
                   expiresAt: d.expiresAt && typeof d.expiresAt.toMillis === "function" ? d.expiresAt.toMillis() : null
                 });
               });
               return out;
             });
-          };
-          // Admin-only: resolve a signed-in player's uid from their email (needs
-          // the admin-read rule on /users). Returns "" if not found.
-          window.IZZBAH.resolveUidByEmail = function (email) {
-            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            email = String(email || "").trim().toLowerCase();
-            if (!email) return Promise.resolve("");
-            return db.collection("users").where("email", "==", email).limit(1).get()
-              .then(snap => (snap.empty ? "" : snap.docs[0].id));
           };
           function refreshAdminStatus(user) {
             if (!user) { cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
