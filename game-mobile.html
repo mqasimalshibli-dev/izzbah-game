@@ -4164,6 +4164,24 @@
       border: 2px solid rgba(201,151,74,.55); background: var(--white); color: var(--dark);
     }
     .redeem-btn { padding: 8px 14px; font-size: 14px; }
+    /* ---- Paywall: available plans ---- */
+    .plans-modal { max-width: 560px; width: 94%; text-align: center; }
+    .plans-sub { margin: 0 0 10px; font: 700 14px 'Cairo', sans-serif; color: #6a5a2f; }
+    .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 8px; }
+    .plan-card {
+      background: #f7efd9; border: 2px solid rgba(201,151,74,.5); border-radius: 14px;
+      padding: 14px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .plan-card.plan-featured { background: #f3e7c8; border-color: #c9974a; box-shadow: 0 6px 18px -8px rgba(154,28,28,.35); }
+    .plan-ico { font-size: 26px; line-height: 1; }
+    .plan-name { font: 800 15px 'Cairo', sans-serif; color: var(--dark); }
+    .plan-price { font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; }
+    .plan-desc { font: 600 12px/1.5 'Cairo', sans-serif; color: #8a7550; }
+    .plan-tag { background: #9e1322; color: #fff; border-radius: 6px; padding: 1px 8px; font: 800 11px 'Cairo', sans-serif; margin-bottom: 2px; }
+    .plans-contact { font: 700 13px 'Cairo', sans-serif; color: #6a5a2f; margin: 6px 0 8px; }
+    .plans-contact a { color: #9a1c1c; font-weight: 800; text-decoration: none; direction: ltr; unicode-bidi: embed; }
+    .plans-redeem { justify-content: center; }
+    .plans-redeem .redeem-label { color: #6a5a2f; }
     .wlc-uid { margin-top: 5px; font: 600 10px 'Cairo', sans-serif; color: #e9cfa0; opacity: .75; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wlc-uid b { color: #f6d27a; font-weight: 700; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
@@ -5390,6 +5408,23 @@
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="plansModal" aria-hidden="true">
+      <div class="question-modal plans-modal" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
+        <h3 class="preview-title" id="plansTitle">🎟️ باقات اللعب</h3>
+        <p class="plans-sub">انتهى رصيد ألعابك — اختر الباقة المناسبة واحصل على كود تفعيلها.</p>
+        <div class="plans-grid" id="plansGrid"></div>
+        <div class="plans-contact">للحصول على كود باقة راسلنا: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
+        <div class="redeem-row plans-redeem">
+          <span class="redeem-label">عندك كود؟</span>
+          <input type="text" id="redeemInputPlans" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
+          <button class="secondary redeem-btn" id="redeemBtnPlans" type="button">🎟️ تفعيل</button>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="plansClose" type="button">إغلاق</button>
         </div>
       </div>
     </div>
@@ -10838,6 +10873,9 @@
         track("code_redeem", {});
         if (res && res.premium) showToast("🎉 تم التفعيل — لعب غير محدود!");
         else showToast(`🎉 تم التفعيل — أُضيفت ${toArabicDigits((res && res.gamesAllowed) || 0)} ألعاب لرصيدك`);
+        // If they redeemed from the paywall, it has served its purpose.
+        const pm = $("#plansModal");
+        if (pm && pm.classList.contains("open")) closePlans();
       }).catch(err => {
         const why = err && err.message;
         if (why === "not-found") showToast("الكود غير صحيح — تأكّد منه");
@@ -10846,13 +10884,47 @@
       });
     }
 
+    // The plans offered on the paywall. Edit names/descriptions/prices here —
+    // the actual grant is the one-time code the admin generates and sends after
+    // the player picks a plan (price shows only when set, e.g. "٢ ر.ع").
+    const PLAY_PLANS = [
+      { icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "" },
+      { icon: "🏆", name: "باقة ١٠ ألعاب", desc: "عشر جولات — الأنسب للعزبات المتكررة", price: "" },
+      { icon: "⭐", name: "اشتراك مفتوح", desc: "لعب غير محدود بلا عدّاد", price: "", featured: true, tag: "الأفضل قيمة" },
+    ];
+    function renderPlans() {
+      const grid = $("#plansGrid");
+      if (!grid) return;
+      grid.innerHTML = "";
+      PLAY_PLANS.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "plan-card" + (p.featured ? " plan-featured" : "");
+        if (p.tag) { const t = document.createElement("div"); t.className = "plan-tag"; t.textContent = p.tag; card.appendChild(t); }
+        const ico = document.createElement("div"); ico.className = "plan-ico"; ico.textContent = p.icon; card.appendChild(ico);
+        const nm = document.createElement("div"); nm.className = "plan-name"; nm.textContent = p.name; card.appendChild(nm);
+        if (p.price) { const pr = document.createElement("div"); pr.className = "plan-price"; pr.textContent = p.price; card.appendChild(pr); }
+        const ds = document.createElement("div"); ds.className = "plan-desc"; ds.textContent = p.desc; card.appendChild(ds);
+        grid.appendChild(card);
+      });
+    }
+    function openPlans() {
+      renderPlans();
+      const inp = $("#redeemInputPlans");
+      if (inp) inp.value = "";
+      const m = $("#plansModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closePlans() {
+      const m = $("#plansModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    // Out of games -> show the available plans (with an in-place redeem box)
+    // instead of a dead-end message.
     function openSubscribeGate() {
       track("paywall_hit", {});
-      const hadAllowance = ((state.gamesAllowed || 0) + (state.codeGamesAllowed || 0)) > 0 && gamesRemaining() <= 0;
-      const body = hadAllowance
-        ? "انتهت ألعابك المتاحة. احصل على كود جديد من المشرف وفعّله من خانة «لديك كود؟»."
-        : "استمتعت بلعبتك المجانية! للّعب أكثر احصل على كود من المشرف وفعّله من خانة «لديك كود؟» في شاشة الألعاب.";
-      popNote("انتهى رصيد الألعاب", body, "🎟️");
+      openPlans();
     }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
@@ -12446,6 +12518,10 @@
     $("#redeemBtnCats").addEventListener("click", () => redeemCodeFlow($("#redeemInputCats")));
     $("#redeemInputLib").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputLib")); });
     $("#redeemInputCats").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputCats")); });
+    $("#plansClose").addEventListener("click", closePlans);
+    $("#plansModal").addEventListener("click", event => { if (event.target.id === "plansModal") closePlans(); });
+    $("#redeemBtnPlans").addEventListener("click", () => redeemCodeFlow($("#redeemInputPlans")));
+    $("#redeemInputPlans").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputPlans")); });
     if ($("#notePopOk")) $("#notePopOk").addEventListener("click", () => $("#notePop").classList.remove("open"));
     if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
     if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
