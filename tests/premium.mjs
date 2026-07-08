@@ -79,6 +79,20 @@ try {
   });
   check("admins always bypass the gate", admin === true);
 
+  // redeemed one-time codes feed the same gate
+  const codes = await page.evaluate(() => {
+    state.isAdmin = false; state.freeGamePlayed = true; state.gamesUsed = 0; state.gamesAllowed = 0;
+    window.IZZBAH.applyCodes({ gamesAllowed: 2 });
+    const withGamesCode = canStartNewGame() && gamesRemaining() === 2;
+    window.IZZBAH.applyCodes({ gamesAllowed: 0, premium: true });
+    const withUnlimitedCode = canStartNewGame() && premiumActive();
+    window.IZZBAH.applyCodes({});
+    return { withGamesCode, withUnlimitedCode, cleared: !canStartNewGame() };
+  });
+  check("a redeemed 2-games code opens the gate", codes.withGamesCode);
+  check("a redeemed unlimited code gives premium play", codes.withUnlimitedCode);
+  check("clearing codes (sign-out) closes the gate again", codes.cleared);
+
   // ---- Admin UI: the gear opens a chooser with the two managers ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);
@@ -121,41 +135,72 @@ try {
   });
   check("choosing 'unlimited' hides the games count; 'games' shows it", toggle);
 
-  // Granting without a signed-in admin bridge surfaces a helpful status (offline)
+  // Generating without a signed-in admin bridge surfaces a helpful status (offline)
   const noBridge = await page.evaluate(() => {
-    document.getElementById("premUserInput").value = "qka67ZMefQXfitti2BJ2SVVCKYU2";
-    document.getElementById("premGrant").click();
+    document.getElementById("premGenerate").click();
     return document.getElementById("premStatus").textContent;
   });
-  check("grant without cloud bridge reports it needs admin sign-in", /مشرف/.test(noBridge));
+  check("generate without cloud bridge reports it needs admin sign-in", /مشرف/.test(noBridge));
 
-  // Players are identified by UID only: an email is rejected before any write
-  const emailRejected = await page.evaluate(() => {
+  // With a (stubbed) bridge, generating shows the code and passes the games count
+  const gen = await page.evaluate(async () => {
     const calls = [];
-    window.IZZBAH.grantEntitlement = (uid, opts) => { calls.push(uid); return Promise.resolve(); };
-    document.getElementById("premUserInput").value = "player@gmail.com";
-    document.getElementById("premGrant").click();
-    return { msg: document.getElementById("premStatus").textContent, calls: calls.length };
-  });
-  check("typing an email is rejected (UID required), nothing written", /UID/.test(emailRejected.msg) && emailRejected.calls === 0);
-
-  // A UID goes straight through to the grant bridge
-  const uidGrant = await page.evaluate(async () => {
-    const calls = [];
-    window.IZZBAH.grantEntitlement = (uid, opts) => { calls.push({ uid, opts }); return Promise.resolve(); };
-    document.getElementById("premUserInput").value = "qka67ZMefQXfitti2BJ2SVVCKYU2";
+    window.IZZBAH.createCode = (opts) => { calls.push(opts); return Promise.resolve("AB2D-EF4H"); };
+    window.IZZBAH.listCodes = () => Promise.resolve([{ code: "AB2D-EF4H", gamesAllowed: 7, premium: false, used: false, usedBy: "" }]);
     document.getElementById("premMode").value = "games";
     document.getElementById("premMode").dispatchEvent(new Event("change", { bubbles: true }));
     document.getElementById("premGames").value = "7";
-    document.getElementById("premGrant").click();
-    await new Promise(r => setTimeout(r, 200));
-    return { calls, msg: document.getElementById("premStatus").textContent };
+    document.getElementById("premGenerate").click();
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      calls,
+      shown: getComputedStyle(document.getElementById("codeResult")).display !== "none",
+      code: document.getElementById("codeResultCode").textContent,
+      listHasCode: document.getElementById("premList").textContent.includes("AB2D-EF4H"),
+      listUnused: /غير مستخدم/.test(document.getElementById("premList").textContent),
+    };
   });
-  check("a UID grant calls the bridge with that uid + 7 games",
-    uidGrant.calls.length === 1
-    && uidGrant.calls[0].uid === "qka67ZMefQXfitti2BJ2SVVCKYU2"
-    && uidGrant.calls[0].opts.gamesAllowed === 7
-    && /✅/.test(uidGrant.msg));
+  check("generating a 7-games code calls the bridge and displays the code",
+    gen.calls.length === 1 && gen.calls[0].gamesAllowed === 7 && !gen.calls[0].premium
+    && gen.shown && gen.code === "AB2D-EF4H");
+  check("the codes list shows the new unused code", gen.listHasCode && gen.listUnused);
+
+  // A redeemed code shows the redeeming player's account id in the list
+  const redeemedList = await page.evaluate(async () => {
+    window.IZZBAH.listCodes = () => Promise.resolve([{ code: "AB2D-EF4H", gamesAllowed: 7, premium: false, used: true, usedBy: "qka67ZMefQXfitti2BJ2SVVCKYU2", usedAt: 1750000000000 }]);
+    document.getElementById("premRefresh").click();
+    await new Promise(r => setTimeout(r, 200));
+    return document.getElementById("premList").textContent;
+  });
+  check("a redeemed code shows the player's id in the admin list", /qka67ZMefQXfitti2BJ2SVVCKYU2/.test(redeemedList));
+
+  // ---- Player side: redeem boxes on the game library + new-game screens ----
+  const boxes = await page.evaluate(() => ({
+    lib: !!document.getElementById("redeemInputLib") && !!document.getElementById("redeemBtnLib"),
+    cats: !!document.getElementById("redeemInputCats") && !!document.getElementById("redeemBtnCats"),
+  }));
+  check("redeem boxes exist on the game library AND the new-game screens", boxes.lib && boxes.cats);
+
+  const redeem = await page.evaluate(async () => {
+    const calls = [];
+    window.IZZBAH.redeemCode = (raw) => { calls.push(raw); return Promise.resolve({ gamesAllowed: 5, premium: false }); };
+    document.getElementById("redeemInputLib").value = "ab2d ef4h";
+    document.getElementById("redeemBtnLib").click();
+    await new Promise(r => setTimeout(r, 200));
+    return { calls, cleared: document.getElementById("redeemInputLib").value === "" };
+  });
+  check("redeeming from the library calls the bridge and clears the input",
+    redeem.calls.length === 1 && redeem.calls[0] === "ab2d ef4h" && redeem.cleared);
+
+  const badRedeem = await page.evaluate(async () => {
+    window.IZZBAH.redeemCode = () => Promise.reject(new Error("used"));
+    document.getElementById("redeemInputCats").value = "AB2D-EF4H";
+    document.getElementById("redeemBtnCats").click();
+    await new Promise(r => setTimeout(r, 250));
+    const toast = document.querySelector(".toast, #toast");
+    return { kept: document.getElementById("redeemInputCats").value !== "", toast: toast ? toast.textContent : "" };
+  });
+  check("an already-used code keeps the input (player can fix a typo)", badRedeem.kept);
 
   // "my account id" shows for a signed-in player so they can share it
   const uidShown = await page.evaluate(() => {
