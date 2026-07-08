@@ -93,6 +93,24 @@ try {
   check("a redeemed unlimited code gives premium play", codes.withUnlimitedCode);
   check("clearing codes (sign-out) closes the gate again", codes.cleared);
 
+  // the balance survives a reload via the local mirror, and delta-credit works
+  const resilience = await page.evaluate(() => {
+    state.isAdmin = false;
+    localStorage.setItem("izzbah-games-used-v1", "0");      // clean slate for the reload
+    window.IZZBAH.applyCodes({ gamesAllowed: 4 });          // writes the mirror
+    state.codeGamesAllowed = 0;                             // simulate a fresh boot
+    loadFreeGameState();                                    // reads the mirror back
+    const mirrored = state.codeGamesAllowed === 4;
+    window.IZZBAH.applyCodesDelta({ gamesAllowed: 2 });     // fallback credit path
+    const delta = state.codeGamesAllowed === 6;
+    const balanceText = (renderPlayBalance(), document.getElementById("playBalance").textContent);
+    window.IZZBAH.applyCodes({});                           // clean up
+    return { mirrored, delta, balanceText };
+  });
+  check("the code balance survives a reload (local mirror)", resilience.mirrored);
+  check("delta-credit fallback adds to the balance", resilience.delta);
+  check("the library balance line shows the remaining games", /6/.test(resilience.balanceText));
+
   // ---- Admin UI: the gear opens a chooser with the two managers ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);

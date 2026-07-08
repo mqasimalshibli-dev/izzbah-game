@@ -4164,6 +4164,7 @@
       border: 2px solid rgba(201,151,74,.55); background: var(--white); color: var(--dark);
     }
     .redeem-btn { padding: 8px 14px; font-size: 14px; }
+    .play-balance { font: 700 13.5px 'Cairo', sans-serif; color: #f2d999; margin: 0 0 2px; text-align: center; }
     /* ---- Paywall: available plans ---- */
     .plans-modal { max-width: 560px; width: 94%; text-align: center; }
     .plans-sub { margin: 0 0 10px; font: 700 14px 'Cairo', sans-serif; color: #6a5a2f; }
@@ -5208,6 +5209,7 @@
         <div class="category-toolbar">
           <button class="primary" id="createSavedGame">إنشاء لعبة جديدة</button>
         </div>
+        <p class="play-balance" id="playBalance" style="display:none"></p>
         <div class="redeem-row">
           <span class="redeem-label">لديك كود؟</span>
           <input type="text" id="redeemInputLib" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
@@ -8477,11 +8479,23 @@
     // the player's own synced doc, so — like the free-game flag — it is a SOFT
     // client-side counter, not billing-grade. Good enough for the free plan.
     const gamesUsedKey = "izzbah-games-used-v1";
+    // Mirror of the last known code balance. The cloud query over the player's
+    // redeemed codes is authoritative and overwrites this whenever it succeeds;
+    // the mirror keeps the balance usable across reloads (and is itself synced
+    // in the player's own cloud doc) if that query ever fails.
+    const codeBalanceKey = "izzbah-code-balance-v1";
     function loadFreeGameState() {
       try { state.freeGamePlayed = localStorage.getItem(freeGameKey) === "1"; }
       catch (e) { state.freeGamePlayed = false; }
       try { state.gamesUsed = Math.max(0, parseInt(localStorage.getItem(gamesUsedKey), 10) || 0); }
       catch (e) { state.gamesUsed = 0; }
+      try {
+        const m = JSON.parse(localStorage.getItem(codeBalanceKey) || "null");
+        if (m) {
+          state.codeGamesAllowed = Math.max(0, Math.floor(Number(m.g) || 0));
+          state.codePremium = !!m.p;
+        }
+      } catch (e) {}
     }
     function markFreeGamePlayed() {
       state.freeGamePlayed = true;
@@ -8508,6 +8522,7 @@
       if (state.isAdmin || premiumActive()) return;
       if (!state.freeGamePlayed) markFreeGamePlayed();
       else if (gamesRemaining() > 0) consumeAllowanceGame();
+      renderPlayBalance();
     }
 
     function saveGameSettings() {
@@ -9942,6 +9957,7 @@
     }
 
     function renderGameLibrary() {
+      renderPlayBalance();
       const list = $("#gameLibraryList");
       const createButton = $("#createSavedGame");
       list.innerHTML = "";
@@ -10925,6 +10941,22 @@
     function openSubscribeGate() {
       track("paywall_hit", {});
       openPlans();
+    }
+    // The balance line on the game library screen: exactly what the play gate
+    // sees, so a player always knows why they can (or can't) start a game.
+    function renderPlayBalance() {
+      const el = $("#playBalance");
+      if (!el) return;
+      if (state.isAdmin) { el.style.display = "none"; el.textContent = ""; return; }
+      el.style.display = "";
+      if (premiumActive()) { el.textContent = "⭐ اشتراك مفتوح — لعب غير محدود"; return; }
+      const parts = [];
+      if (!state.freeGamePlayed) parts.push("لعبة مجانية");
+      const rem = gamesRemaining();
+      if (rem > 0) parts.push(rem === 1 ? "لعبة واحدة" : `${toArabicDigits(rem)} ألعاب`);
+      el.textContent = parts.length
+        ? "🎟️ رصيدك: " + parts.join(" + ")
+        : "لا يوجد رصيد ألعاب — فعّل كوداً للّعب";
     }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
@@ -12680,6 +12712,7 @@
       state.isAdmin = !!isAdmin;
       const btn = $("#adminEntry");
       if (btn) btn.style.display = state.isAdmin ? "" : "none";
+      renderPlayBalance();
     };
     // Driven by watchEntitlement from the cloud entitlement doc. `active` = an
     // unlimited subscription; `info.gamesAllowed` = a finite granted allowance.
@@ -12687,12 +12720,24 @@
       state.isPremium = !!active;
       info = info || {};
       state.gamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
+      renderPlayBalance();
     };
     // Driven by loadMyCodes: the sum of the player's redeemed one-time codes.
     window.IZZBAH.applyCodes = function (info) {
       info = info || {};
       state.codeGamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
       state.codePremium = !!info.premium;
+      try { localStorage.setItem(codeBalanceKey, JSON.stringify({ g: state.codeGamesAllowed, p: state.codePremium })); } catch (e) {}
+      renderPlayBalance();
+    };
+    // Fallback used right after a redeem if the cloud balance reload fails:
+    // credit just the redeemed code so the player can play immediately.
+    window.IZZBAH.applyCodesDelta = function (info) {
+      info = info || {};
+      window.IZZBAH.applyCodes({
+        gamesAllowed: (state.codeGamesAllowed || 0) + Math.max(0, Math.floor(Number(info.gamesAllowed) || 0)),
+        premium: state.codePremium || !!info.premium
+      });
     };
     window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
@@ -12824,7 +12869,7 @@
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-legal-consent-v1"];
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
       let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
@@ -13153,8 +13198,10 @@
             return db.collection("codes").doc(normalizeCode(code)).delete();
           };
           // Sum the signed-in player's redeemed codes into their play balance.
+          // Resolves true when the (authoritative) query succeeded, false when
+          // it failed — the caller can then fall back to a local credit.
           function loadMyCodes(user) {
-            if (!user) { if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({}); return Promise.resolve(); }
+            if (!user) { if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({}); return Promise.resolve(true); }
             return db.collection("codes").where("usedBy", "==", user.uid).get().then(snap => {
               let games = 0, premium = false;
               snap.forEach(doc => {
@@ -13163,7 +13210,8 @@
                 games += Number(d.gamesAllowed) || 0;
               });
               if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({ gamesAllowed: games, premium: premium });
-            }).catch(e => console.warn("load codes failed", e && (e.code || e)));
+              return true;
+            }).catch(e => { console.warn("load codes failed", e && (e.code || e)); return false; });
           }
           // Player: redeem a code once. Rejects with "not-found" / "used".
           window.IZZBAH.redeemCode = function (raw) {
@@ -13178,7 +13226,15 @@
                 // as a rules rejection here — report it as an already-used code.
                 .catch(() => { throw new Error("used"); })
                 .then(() => loadMyCodes(currentUser))
-                .then(() => ({ gamesAllowed: Number(d.gamesAllowed) || 0, premium: !!d.premium }));
+                .then(loaded => {
+                  // The redeem itself succeeded; if the balance reload failed
+                  // (e.g. stale rules), credit this code directly so the player
+                  // can play right away.
+                  if (!loaded && window.IZZBAH.applyCodesDelta) {
+                    window.IZZBAH.applyCodesDelta({ gamesAllowed: Number(d.gamesAllowed) || 0, premium: !!d.premium });
+                  }
+                  return { gamesAllowed: Number(d.gamesAllowed) || 0, premium: !!d.premium };
+                });
             });
           };
           function refreshAdminStatus(user) {
