@@ -4106,6 +4106,34 @@
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
+    /* ---- Player subscriptions (admin) ---- */
+    .premium-modal { max-width: 620px; width: 94%; text-align: right; }
+    .prem-input {
+      width: 100%; font: 600 14px 'Cairo', sans-serif; padding: 9px 12px; border-radius: 8px;
+      border: 2px solid rgba(201,151,74,.5); background: var(--white); color: var(--dark); margin: 2px 0 4px;
+    }
+    .prem-status { min-height: 20px; margin: 8px 0 2px; font: 700 13.5px 'Cairo', sans-serif; }
+    .prem-status.ok { color: #1b6a3f; }
+    .prem-status.err { color: #9a1c1c; }
+    .prem-status.busy { color: #6a5a2f; }
+    .prem-list-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font: 800 14px 'Cairo', sans-serif; color: var(--dark); border-top: 1px solid rgba(201,151,74,.4); padding-top: 12px; }
+    .prem-refresh { padding: 4px 10px; font-size: 12.5px; }
+    .prem-list { max-height: 230px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; }
+    .prem-row {
+      display: flex; align-items: center; gap: 8px; justify-content: space-between;
+      background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 9px; padding: 8px 11px;
+    }
+    .prem-row-main { min-width: 0; }
+    .prem-row-id { font: 700 13.5px 'Cairo', sans-serif; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+    .prem-row-sub { font: 600 12px 'Cairo', sans-serif; color: #7a6738; margin-top: 2px; }
+    .prem-badge { display: inline-block; background: #9e1322; color: #fff; border-radius: 6px; padding: 1px 7px; font: 800 11.5px 'Cairo', sans-serif; }
+    .prem-badge.games { background: #1b6a3f; }
+    .prem-badge.expired { background: #8a7550; }
+    .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
+    .prem-revoke:hover { background: #f6d6d6; }
+    .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
+    .wlc-uid { margin-top: 6px; font: 600 12px 'Cairo', sans-serif; color: #e9cfa0; opacity: .82; cursor: pointer; direction: ltr; }
+    .wlc-uid b { color: #f6d27a; font-weight: 800; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
     .wlc-foot i { width: 5px; height: 5px; background: #dcbd71; transform: rotate(45deg); }
     .wlc-foot span { font-family: 'Aref Ruqaa', serif; font-size: 14px; color: #e9cfa0; }
@@ -5100,6 +5128,7 @@
           <div class="wlc-or"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
+          <div class="wlc-uid" id="myAccountId" style="display:none" title="اضغط لنسخ معرّف حسابك"></div>
           <button class="wlc-help" id="howToPlayBtn" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.2-2.6 4"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></svg>
             <span>كيف تلعب؟</span>
@@ -5232,6 +5261,7 @@
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
+          <button class="secondary" id="adminPremiumBtn" type="button">⭐ اشتراكات اللاعبين</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
@@ -5299,6 +5329,48 @@
           <button class="ghost" id="importCancel" type="button">إلغاء</button>
           <button class="primary" id="importRun" type="button" disabled>استيراد</button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="premiumModal" aria-hidden="true">
+      <div class="question-modal premium-modal" role="dialog" aria-modal="true" aria-labelledby="premiumTitle">
+        <h3 class="preview-title" id="premiumTitle">اشتراكات اللاعبين</h3>
+        <p class="import-help">امنح لاعباً معيّناً اشتراكاً مميّزاً (لعب غير محدود) أو عدداً محدّداً من الألعاب. «اللعبة» = جولة كاملة بمجموعة فئات — نفس وحدة اللعبة المجانية.</p>
+        <p class="import-note">اطلب من اللاعب تسجيل الدخول بحساب Google مرة واحدة على الأقل، ثم أدخل بريده الإلكتروني أو معرّف حسابه (يظهر له أسفل زر تسجيل الدخول).</p>
+
+        <label class="field-label">بريد اللاعب أو معرّف حسابه (UID)</label>
+        <input type="text" id="premUserInput" class="prem-input" placeholder="player@gmail.com  أو  معرّف الحساب" autocomplete="off" dir="ltr" />
+
+        <div class="import-controls">
+          <label class="import-ctl">
+            <span>نوع الصلاحية</span>
+            <select id="premMode">
+              <option value="games">عدد ألعاب محدّد</option>
+              <option value="unlimited">اشتراك مفتوح (غير محدود)</option>
+            </select>
+          </label>
+          <label class="import-ctl" id="premGamesWrap">
+            <span>عدد الألعاب</span>
+            <input type="number" id="premGames" min="1" step="1" value="5" />
+          </label>
+          <label class="import-ctl">
+            <span>ينتهي بعد (أيام)</span>
+            <input type="number" id="premDays" min="0" step="1" value="0" placeholder="0 = بلا انتهاء" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="ghost" id="premCancel" type="button">إغلاق</button>
+          <button class="primary" id="premGrant" type="button">منح الصلاحية</button>
+        </div>
+
+        <div class="prem-status" id="premStatus" aria-live="polite"></div>
+
+        <div class="prem-list-head">
+          <span>اللاعبون المشتركون</span>
+          <button class="ghost prem-refresh" id="premRefresh" type="button">تحديث ↻</button>
+        </div>
+        <div class="prem-list" id="premList"></div>
       </div>
     </div>
 
@@ -8273,6 +8345,9 @@
       editorTarget: "custom",
       publishedCategories: [],
       isAdmin: false,
+      isPremium: false,
+      gamesAllowed: 0,
+      gamesUsed: 0,
       signedIn: false,
       adminCat: null,
       adminQIndex: -1,
@@ -8299,17 +8374,39 @@
     // tamper-proof. Real enforcement arrives with the server-verified
     // entitlement (Firestore rules + a trusted writer).
     const freeGameKey = "izzbah-free-game-v1";
+    // How many games from a granted allowance the player has already spent. An
+    // admin grants an allowance of N games in entitlements/{uid} (read-only to
+    // the user, so the GRANT is tamper-proof); the consumed count lives here in
+    // the player's own synced doc, so — like the free-game flag — it is a SOFT
+    // client-side counter, not billing-grade. Good enough for the free plan.
+    const gamesUsedKey = "izzbah-games-used-v1";
     function loadFreeGameState() {
       try { state.freeGamePlayed = localStorage.getItem(freeGameKey) === "1"; }
       catch (e) { state.freeGamePlayed = false; }
+      try { state.gamesUsed = Math.max(0, parseInt(localStorage.getItem(gamesUsedKey), 10) || 0); }
+      catch (e) { state.gamesUsed = 0; }
     }
     function markFreeGamePlayed() {
       state.freeGamePlayed = true;
       try { localStorage.setItem(freeGameKey, "1"); } catch (e) {}
     }
-    function premiumActive() { return !!state.isPremium; }
-    // Admins and premium subscribers play unlimited; everyone else gets one game.
-    function canStartNewGame() { return state.isAdmin || premiumActive() || !state.freeGamePlayed; }
+    function consumeAllowanceGame() {
+      state.gamesUsed = (state.gamesUsed || 0) + 1;
+      try { localStorage.setItem(gamesUsedKey, String(state.gamesUsed)); } catch (e) {}
+    }
+    function premiumActive() { return !!state.isPremium; }        // unlimited subscription
+    function gamesRemaining() { return Math.max(0, (state.gamesAllowed || 0) - (state.gamesUsed || 0)); }
+    // Admins and unlimited subscribers play forever; everyone else gets one free
+    // game plus however many games an admin granted them.
+    function canStartNewGame() {
+      return state.isAdmin || premiumActive() || !state.freeGamePlayed || gamesRemaining() > 0;
+    }
+    // Spend one play right, in order: the free game first, then the allowance.
+    function spendGameCredit() {
+      if (state.isAdmin || premiumActive()) return;
+      if (!state.freeGamePlayed) markFreeGamePlayed();
+      else if (gamesRemaining() > 0) consumeAllowanceGame();
+    }
 
     function saveGameSettings() {
       try {
@@ -10541,11 +10638,140 @@
       m.classList.add("open");
     }
     // Shown when a non-subscriber tries to start a second game.
+    // ---- Admin: grant player subscriptions / game allowances --------------
+    function premSetStatus(msg, kind) {
+      const el = $("#premStatus");
+      if (!el) return;
+      el.textContent = msg || "";
+      el.className = "prem-status" + (kind ? " " + kind : "");
+    }
+    function openPremiumModal() {
+      $("#premUserInput").value = "";
+      $("#premMode").value = "games";
+      $("#premGames").value = "5";
+      $("#premDays").value = "0";
+      $("#premGamesWrap").style.display = "";
+      premSetStatus("", "");
+      $("#premList").innerHTML = "";
+      const m = $("#premiumModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+      refreshPremiumList();
+      setTimeout(() => $("#premUserInput").focus(), 40);
+    }
+    function closePremiumModal() {
+      const m = $("#premiumModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    function premModeChanged() {
+      $("#premGamesWrap").style.display = $("#premMode").value === "games" ? "" : "none";
+    }
+    // Resolve the typed identifier to a uid. An "@" means an email → look it up
+    // via the cloud (needs the admin-read rule on /users); otherwise it's a UID.
+    function premResolveUid(raw) {
+      raw = String(raw || "").trim();
+      if (!raw) return Promise.resolve({ uid: "", email: "" });
+      if (raw.indexOf("@") === -1) return Promise.resolve({ uid: raw, email: "" });
+      const bridge = window.IZZBAH && window.IZZBAH.resolveUidByEmail;
+      if (!bridge) return Promise.resolve({ uid: "", email: raw });
+      return bridge(raw).then(uid => ({ uid: uid || "", email: raw }));
+    }
+    function grantFromAdmin() {
+      const bridge = window.IZZBAH && window.IZZBAH.grantEntitlement;
+      if (!bridge) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      const raw = ($("#premUserInput").value || "").trim();
+      if (!raw) { premSetStatus("أدخل بريد اللاعب أو معرّف حسابه.", "err"); $("#premUserInput").focus(); return; }
+      const mode = $("#premMode").value;
+      const days = Math.max(0, Math.floor(Number($("#premDays").value) || 0));
+      let games = 0, premium = false;
+      if (mode === "unlimited") { premium = true; }
+      else {
+        games = Math.max(1, Math.floor(Number($("#premGames").value) || 0));
+        if (!games) { premSetStatus("أدخل عدد ألعاب صحيحاً.", "err"); $("#premGames").focus(); return; }
+      }
+      premSetStatus("جارٍ التحقق…", "busy");
+      $("#premGrant").disabled = true;
+      premResolveUid(raw).then(({ uid, email }) => {
+        if (!uid) {
+          premSetStatus(raw.indexOf("@") !== -1
+            ? "لم يُعثر على لاعب بهذا البريد — تأكّد أنه سجّل الدخول مرة واحدة، أو استخدم معرّف الحساب (UID)."
+            : "معرّف غير صالح.", "err");
+          $("#premGrant").disabled = false;
+          return;
+        }
+        return bridge(uid, { premium, gamesAllowed: games, days, email }).then(() => {
+          const what = premium
+            ? "اشتراك مفتوح" + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "")
+            : `${toArabicDigits(games)} ألعاب` + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "");
+          premSetStatus(`✅ تم منح ${what}.`, "ok");
+          $("#premUserInput").value = "";
+          $("#premGrant").disabled = false;
+          refreshPremiumList();
+        });
+      }).catch(err => {
+        console.warn("grant failed", err);
+        premSetStatus("تعذّر المنح: " + ((err && (err.code || err.message)) || "خطأ"), "err");
+        $("#premGrant").disabled = false;
+      });
+    }
+    function revokeFromAdmin(uid, label) {
+      const bridge = window.IZZBAH && window.IZZBAH.revokeEntitlement;
+      if (!bridge) return;
+      if (!confirm(`إلغاء صلاحية «${label || uid}»؟`)) return;
+      premSetStatus("جارٍ الإلغاء…", "busy");
+      bridge(uid).then(() => { premSetStatus("تم الإلغاء.", "ok"); refreshPremiumList(); })
+        .catch(err => { console.warn("revoke failed", err); premSetStatus("تعذّر الإلغاء.", "err"); });
+    }
+    function refreshPremiumList() {
+      const list = $("#premList");
+      const bridge = window.IZZBAH && window.IZZBAH.listEntitlements;
+      if (!list) return;
+      if (!bridge) { list.innerHTML = '<div class="prem-empty">سجّل الدخول كمشرف لعرض القائمة.</div>'; return; }
+      list.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
+      bridge().then(rows => {
+        // Only show players who actually have something active/granted.
+        const active = rows.filter(r => r.premium || r.gamesAllowed > 0);
+        if (!active.length) { list.innerHTML = '<div class="prem-empty">لا يوجد لاعبون مشتركون بعد.</div>'; return; }
+        active.sort((a, b) => (b.premium ? 1 : 0) - (a.premium ? 1 : 0));
+        list.innerHTML = "";
+        active.forEach(r => {
+          const expired = r.expiresAt && r.expiresAt <= Date.now();
+          const row = document.createElement("div");
+          row.className = "prem-row";
+          const main = document.createElement("div");
+          main.className = "prem-row-main";
+          const id = document.createElement("div");
+          id.className = "prem-row-id";
+          id.textContent = r.email || r.uid;
+          const sub = document.createElement("div");
+          sub.className = "prem-row-sub";
+          const badge = expired
+            ? '<span class="prem-badge expired">منتهٍ</span>'
+            : (r.premium ? '<span class="prem-badge">اشتراك مفتوح</span>'
+                         : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`);
+          const exp = r.expiresAt ? ` · ينتهي ${new Date(r.expiresAt).toLocaleDateString("ar")}` : "";
+          sub.innerHTML = badge + exp;
+          main.appendChild(id); main.appendChild(sub);
+          const btn = document.createElement("button");
+          btn.className = "prem-revoke"; btn.type = "button"; btn.textContent = "إلغاء";
+          btn.addEventListener("click", () => revokeFromAdmin(r.uid, r.email || r.uid));
+          row.appendChild(main); row.appendChild(btn);
+          list.appendChild(row);
+        });
+      }).catch(err => {
+        console.warn("list entitlements failed", err);
+        list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (قراءة المشرف للاشتراكات).</div>';
+      });
+    }
+
     function openSubscribeGate() {
       track("paywall_hit", {});
-      popNote("انتهت لعبتك المجانية",
-        "استمتعت بلعبتك المجانية! للّعب بلا حدود اشترك في النسخة المميّزة — الاشتراك قريباً بإذن الله.",
-        "⭐");
+      const usedAllowance = (state.gamesAllowed || 0) > 0 && gamesRemaining() <= 0;
+      const body = usedAllowance
+        ? "انتهت ألعابك المتاحة. تواصل مع المشرف لتجديد اشتراكك أو زيادة عدد ألعابك."
+        : "استمتعت بلعبتك المجانية! للّعب أكثر تواصل مع المشرف للحصول على اشتراك مميّز أو رصيد ألعاب.";
+      popNote("انتهى رصيد الألعاب", body, "⭐");
     }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
@@ -10900,7 +11126,7 @@
       renderGame();
       showScreen("game");
       saveLiveGame();
-      markFreeGamePlayed(); // this free game is now spent (resuming it is still allowed)
+      spendGameCredit(); // this game is now spent (free game, then allowance); resuming it is still allowed
       track("game_start", { teams: state.teamCount, categories: state.selected.size });
     }
 
@@ -12123,6 +12349,12 @@
       $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
     });
     $("#importModal").addEventListener("click", event => { if (event.target.id === "importModal") closeImportModal(); });
+    $("#adminPremiumBtn").addEventListener("click", openPremiumModal);
+    $("#premCancel").addEventListener("click", closePremiumModal);
+    $("#premMode").addEventListener("change", premModeChanged);
+    $("#premGrant").addEventListener("click", grantFromAdmin);
+    $("#premRefresh").addEventListener("click", refreshPremiumList);
+    $("#premiumModal").addEventListener("click", event => { if (event.target.id === "premiumModal") closePremiumModal(); });
     if ($("#notePopOk")) $("#notePopOk").addEventListener("click", () => $("#notePop").classList.remove("open"));
     if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
     if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
@@ -12282,13 +12514,34 @@
       const btn = $("#adminEntry");
       if (btn) btn.style.display = state.isAdmin ? "" : "none";
     };
-    // Flipped true by the (future) subscription layer to unlock unlimited play.
-    window.IZZBAH.applyPremium = function (active) { state.isPremium = !!active; };
+    // Driven by watchEntitlement from the cloud entitlement doc. `active` = an
+    // unlimited subscription; `info.gamesAllowed` = a finite granted allowance.
+    window.IZZBAH.applyPremium = function (active, info) {
+      state.isPremium = !!active;
+      info = info || {};
+      state.gamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
+    };
     window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
+      // Show the player's account id on the welcome screen so they can copy it
+      // and send it to an admin who is granting them a subscription/allowance.
+      const uidEl = $("#myAccountId");
+      if (uidEl) {
+        if (state.signedIn && state.myUid) {
+          uidEl.style.display = "";
+          uidEl.innerHTML = "معرّف حسابك: <b>" + state.myUid + "</b>";
+          uidEl.onclick = () => {
+            const done = () => { if (typeof showToast === "function") showToast("تم نسخ معرّف حسابك"); };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(state.myUid).then(done).catch(done);
+            else done();
+          };
+        } else {
+          uidEl.style.display = "none"; uidEl.textContent = ""; uidEl.onclick = null;
+        }
+      }
     };
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
@@ -12398,7 +12651,7 @@
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-legal-consent-v1"];
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
       let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
@@ -12656,19 +12909,74 @@
               doc => {
                 const d = (doc.exists && doc.data()) || {};
                 const exp = d.expiresAt && typeof d.expiresAt.toMillis === "function" ? d.expiresAt.toMillis() : null;
-                const active = !!d.premium && (!exp || exp > Date.now());
-                if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(active);
+                const expired = !!exp && exp <= Date.now();
+                const active = !!d.premium && !expired;
+                const gamesAllowed = expired ? 0 : (Number(d.gamesAllowed) || 0);
+                if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(active, { gamesAllowed: gamesAllowed });
               },
               err => { console.warn("entitlement watch failed", err && (err.code || err)); if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(false); }
             );
           }
-          // Admin-only: manually grant/revoke premium for a user (the MVP path
-          // before automated billing; RevenueCat later writes the same doc).
-          window.IZZBAH.grantPremium = function (uid, active, days) {
+          // Admin-only: grant an entitlement — either an unlimited subscription
+          // (premium) or a finite games allowance — to a specific player. This is
+          // the MVP path before automated billing (a RevenueCat webhook would
+          // later write the same doc via the Admin SDK). Storing `email` lets the
+          // admin grantee list stay human-readable.
+          window.IZZBAH.grantEntitlement = function (uid, opts) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            const data = { premium: !!active, source: "manual", updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-            data.expiresAt = (active && days) ? firebase.firestore.Timestamp.fromMillis(Date.now() + days * 86400000) : null;
-            return db.collection("entitlements").doc(String(uid || "").trim()).set(data, { merge: true });
+            opts = opts || {};
+            uid = String(uid || "").trim();
+            if (!uid) return Promise.reject(new Error("no uid"));
+            const days = Math.max(0, Math.floor(Number(opts.days) || 0));
+            const data = {
+              premium: !!opts.premium,
+              gamesAllowed: Math.max(0, Math.floor(Number(opts.gamesAllowed) || 0)),
+              email: String(opts.email || "").trim().slice(0, 320),
+              source: "manual",
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              expiresAt: days > 0 ? firebase.firestore.Timestamp.fromMillis(Date.now() + days * 86400000) : null
+            };
+            return db.collection("entitlements").doc(uid).set(data, { merge: true });
+          };
+          // Back-compat thin wrapper (unlimited-only grant).
+          window.IZZBAH.grantPremium = function (uid, active, days) {
+            return window.IZZBAH.grantEntitlement(uid, { premium: !!active, days: days });
+          };
+          // Admin-only: revoke everything for a user.
+          window.IZZBAH.revokeEntitlement = function (uid) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("entitlements").doc(String(uid || "").trim()).set(
+              { premium: false, gamesAllowed: 0, expiresAt: null, source: "manual", updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+              { merge: true }
+            );
+          };
+          // Admin-only: list current grantees (needs the admin-read rule on
+          // /entitlements). Returns [{ uid, premium, gamesAllowed, email, expiresAt }].
+          window.IZZBAH.listEntitlements = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("entitlements").limit(200).get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  uid: doc.id,
+                  premium: !!d.premium,
+                  gamesAllowed: Number(d.gamesAllowed) || 0,
+                  email: d.email || "",
+                  expiresAt: d.expiresAt && typeof d.expiresAt.toMillis === "function" ? d.expiresAt.toMillis() : null
+                });
+              });
+              return out;
+            });
+          };
+          // Admin-only: resolve a signed-in player's uid from their email (needs
+          // the admin-read rule on /users). Returns "" if not found.
+          window.IZZBAH.resolveUidByEmail = function (email) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            email = String(email || "").trim().toLowerCase();
+            if (!email) return Promise.resolve("");
+            return db.collection("users").where("email", "==", email).limit(1).get()
+              .then(snap => (snap.empty ? "" : snap.docs[0].id));
           };
           function refreshAdminStatus(user) {
             if (!user) { cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
