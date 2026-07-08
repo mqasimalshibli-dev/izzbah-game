@@ -91,15 +91,15 @@ try {
   }));
   check("gear icon opens the chooser with both options", chooser.open && chooser.content && chooser.subs);
 
-  // "content management" -> the admin panel
+  // "content management" -> the admin panel (subscriptions live ONLY in the chooser)
   await page.evaluate(() => document.getElementById("adminChoiceContent").click());
   await page.waitForTimeout(300);
   const toPanel = await page.evaluate(() => ({
     chooserClosed: !document.getElementById("adminChoiceModal").classList.contains("open"),
     onAdmin: document.getElementById("adminPanel").classList.contains("active"),
-    hasBtn: !!document.getElementById("adminPremiumBtn"),
+    noBtn: !document.getElementById("adminPremiumBtn"),
   }));
-  check("content management opens the admin panel (with its subscriptions button)", toPanel.chooserClosed && toPanel.onAdmin && toPanel.hasBtn);
+  check("content management opens the admin panel (no subscriptions button inside)", toPanel.chooserClosed && toPanel.onAdmin && toPanel.noBtn);
 
   // "subscription management" from the chooser -> the premium modal directly
   await page.evaluate(() => document.getElementById("adminEntry").click());

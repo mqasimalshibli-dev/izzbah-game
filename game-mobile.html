@@ -5275,7 +5275,6 @@
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
-          <button class="secondary" id="adminPremiumBtn" type="button">⭐ اشتراكات اللاعبين</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
@@ -12402,7 +12401,6 @@
       $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
     });
     $("#importModal").addEventListener("click", event => { if (event.target.id === "importModal") closeImportModal(); });
-    $("#adminPremiumBtn").addEventListener("click", openPremiumModal);
     $("#premCancel").addEventListener("click", closePremiumModal);
     $("#premMode").addEventListener("change", premModeChanged);
     $("#premGrant").addEventListener("click", grantFromAdmin);
