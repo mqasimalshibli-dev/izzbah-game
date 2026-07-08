@@ -8467,7 +8467,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-08.5";
+    const IZZBAH_BUILD = "2026-07-08.6";
     const saveKey = "izzbah-trivia-settings-v1";
     const savedGamesKey = "izzbah-trivia-saved-games-v1";
     const previewSaveKey = "izzbah-trivia-preview-questions-v1";
@@ -12775,6 +12775,17 @@
       state.codeGamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
       state.codePremium = !!info.premium;
       try { localStorage.setItem(codeBalanceKey, JSON.stringify({ g: state.codeGamesAllowed, p: state.codePremium })); } catch (e) {}
+      // Self-heal: a used-counter above the total ever granted is impossible in
+      // normal operation (every spend is gated on remaining > 0). It means the
+      // counter was inflated by a past bug (games started against phantom
+      // credit). Clamp it to the granted total so the corruption doesn't tax
+      // every future code forever. (If an entitlement allowance also exists it
+      // may not be loaded yet — the clamp then errs in the player's favor.)
+      const granted = (state.gamesAllowed || 0) + (state.codeGamesAllowed || 0);
+      if ((state.gamesUsed || 0) > granted) {
+        state.gamesUsed = granted;
+        try { localStorage.setItem(gamesUsedKey, String(granted)); } catch (e) {}
+      }
       renderPlayBalance();
     };
     // Fallback used right after a redeem if the cloud balance reload fails:
