@@ -58,7 +58,10 @@ service cloud.firestore {
     // the app writes. The `data` map holds a few blobs (settings / saved games);
     // capping the key count stops it being turned into an arbitrary data store.
     match /users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      // A user reads their own doc; an admin may also read (and query by email)
+      // so the admin panel can resolve a player's email to their uid when
+      // granting a subscription. Admins never WRITE another user's doc.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow write: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['email', 'data', 'updatedAt'])
@@ -84,7 +87,11 @@ service cloud.firestore {
     // the backend writing via the Admin SDK (e.g. a RevenueCat webhook), which
     // bypasses these rules entirely. This is the real, tamper-proof paywall.
     match /entitlements/{uid} {
-      allow read: if isSignedIn() && request.auth.uid == uid;
+      // A user reads ONLY their own entitlement (to unlock premium / their game
+      // allowance). An admin may also read/list all of them, so the admin panel
+      // can show the current grantees. Neither can a user WRITE their own — only
+      // an admin (manual grant) or the backend (Admin SDK) sets it. Tamper-proof.
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if isAdmin();
     }
 
