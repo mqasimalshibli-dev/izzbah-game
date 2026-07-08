@@ -4195,6 +4195,11 @@
     .plans-contact a { color: #9a1c1c; font-weight: 800; text-decoration: none; direction: ltr; unicode-bidi: embed; }
     .plans-redeem { justify-content: center; }
     .plans-redeem .redeem-label { color: #6a5a2f; }
+    .wlc-webview-note {
+      margin: 8px auto 0; max-width: 340px; display: block; text-align: center; cursor: pointer;
+      background: rgba(158, 19, 34, .5); border: 1px solid #e6c869; border-radius: 12px;
+      color: #fbeecd; font: 700 12.5px/1.6 'Cairo', sans-serif; padding: 10px 14px;
+    }
     .wlc-uid { margin-top: 5px; font: 600 10px 'Cairo', sans-serif; color: #e9cfa0; opacity: .75; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wlc-uid b { color: #f6d27a; font-weight: 700; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
@@ -5191,6 +5196,7 @@
           <div class="wlc-or"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
+          <button type="button" class="wlc-webview-note" id="webviewNote" style="display:none">⚠️ لتسجيل الدخول، افتح اللعبة في Safari أو Chrome — المتصفح المصغّر لا يدعم تسجيل دخول Google. اضغط هنا للتعليمات.</button>
           <div class="wlc-uid" id="myAccountId" style="display:none" title="اضغط لنسخ معرّف حسابك"></div>
           <button class="wlc-help" id="howToPlayBtn" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.2-2.6 4"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></svg>
@@ -8489,7 +8495,34 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-08.7";
+    const IZZBAH_BUILD = "2026-07-08.8";
+    // Google's OAuth refuses to run inside an app's embedded "in-app browser"
+    // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
+    // "Error 403: disallowed_useragent". Detect those webviews so we can steer
+    // the player to a real browser instead of a dead-end Google wall.
+    function isInAppBrowser() {
+      const ua = navigator.userAgent || "";
+      if (/FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|Snapchat|TikTok|musical_ly|BytedanceWebview|MicroMessenger|WhatsApp|Telegram|GSA\//i.test(ua)) return true;
+      // iOS WKWebView (not Safari): iOS UA but missing the "Safari" token.
+      const iOS = /iPhone|iPod|iPad/i.test(ua);
+      if (iOS && !/Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
+      // Android System WebView marks itself "; wv".
+      if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
+      return false;
+    }
+    // Shown when a webview player taps sign-in: copy the link + tell them how to
+    // open it in a real browser (the only place Google sign-in will work).
+    function showInAppBrowserHelp() {
+      let copied = false;
+      try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(location.href); copied = true; } } catch (e) {}
+      const how = /iPhone|iPod|iPad/i.test(navigator.userAgent || "")
+        ? "اضغط زر المشاركة أو «⋯» بالأعلى ثم اختر «فتح في Safari»."
+        : "اضغط زر «⋯» بالأعلى ثم اختر «فتح في المتصفح» (Chrome).";
+      popNote("افتح اللعبة في المتصفح",
+        "تسجيل الدخول بحساب Google لا يعمل داخل المتصفح المصغّر للتطبيقات (انستقرام، واتساب، تيك توك…).\n\n"
+        + (copied ? "تم نسخ رابط اللعبة. " : "") + how + "\n\nثم سجّل الدخول من هناك.",
+        "🌐");
+    }
     const saveKey = "izzbah-trivia-settings-v1";
     const savedGamesKey = "izzbah-trivia-saved-games-v1";
     const previewSaveKey = "izzbah-trivia-preview-questions-v1";
@@ -12574,6 +12607,11 @@
         "استعلام الأكواد: " + codesProbe
       ].join("\n"), "🔧");
     });
+    // Warn webview players up front that Google sign-in needs a real browser.
+    if (typeof isInAppBrowser === "function" && isInAppBrowser()) {
+      const wn = $("#webviewNote");
+      if (wn) { wn.style.display = ""; wn.addEventListener("click", showInAppBrowserHelp); }
+    }
     // First-run gate: require agreement before anything else.
     if (!hasLegalConsent()) openLegal("privacy", "consent");
     $("#yourGamesTab").addEventListener("click", () => {
@@ -13608,6 +13646,13 @@
               };
               if (currentUser) {
                 auth.signOut().then(() => setAuthUI(null)).catch(onErr);
+                return;
+              }
+              // Google blocks OAuth inside embedded webviews — don't send the
+              // player into a dead-end "disallowed_useragent" wall; guide them
+              // to open the game in a real browser instead.
+              if (typeof isInAppBrowser === "function" && isInAppBrowser()) {
+                if (typeof showInAppBrowserHelp === "function") showInAppBrowserHelp();
                 return;
               }
               auth.signInWithPopup(provider).catch((err) => {
