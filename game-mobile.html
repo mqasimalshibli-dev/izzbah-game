@@ -4146,6 +4146,24 @@
     .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-revoke:hover { background: #f6d6d6; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
+    .code-result {
+      display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+      background: #f3ead3; border: 2px dashed #c9974a; border-radius: 12px; padding: 12px 14px; margin: 10px 0 4px;
+    }
+    .code-result-code {
+      font: 800 24px/1.2 'Courier New', monospace; letter-spacing: 3px; color: #7a1414;
+      direction: ltr; user-select: all;
+    }
+    .code-copy { padding: 6px 14px; }
+    .prem-code { font: 800 14px 'Courier New', monospace; letter-spacing: 2px; color: var(--dark); direction: ltr; text-align: left; }
+    .redeem-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+    .redeem-label { font: 700 13.5px 'Cairo', sans-serif; color: #e9cfa0; }
+    .redeem-input {
+      width: 150px; font: 800 15px 'Courier New', monospace; letter-spacing: 2px; text-transform: uppercase;
+      text-align: center; direction: ltr; padding: 8px 10px; border-radius: 9px;
+      border: 2px solid rgba(201,151,74,.55); background: var(--white); color: var(--dark);
+    }
+    .redeem-btn { padding: 8px 14px; font-size: 14px; }
     .wlc-uid { margin-top: 5px; font: 600 10px 'Cairo', sans-serif; color: #e9cfa0; opacity: .75; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wlc-uid b { color: #f6d27a; font-weight: 700; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
@@ -5172,6 +5190,11 @@
         <div class="category-toolbar">
           <button class="primary" id="createSavedGame">إنشاء لعبة جديدة</button>
         </div>
+        <div class="redeem-row">
+          <span class="redeem-label">لديك كود؟</span>
+          <input type="text" id="redeemInputLib" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
+          <button class="secondary redeem-btn" id="redeemBtnLib" type="button">🎟️ تفعيل</button>
+        </div>
         <div class="game-library-list" id="gameLibraryList"></div>
         <div class="actions">
           <button class="ghost" data-screen="menu">رجوع</button>
@@ -5213,6 +5236,11 @@
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
           <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
           <button class="secondary share-game-btn" id="shareGameBtn" type="button" disabled><span aria-hidden="true">🔗</span> شارك اللعبة</button>
+        </div>
+        <div class="redeem-row">
+          <span class="redeem-label">لديك كود؟</span>
+          <input type="text" id="redeemInputCats" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
+          <button class="secondary redeem-btn" id="redeemBtnCats" type="button">🎟️ تفعيل</button>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
@@ -5368,16 +5396,13 @@
 
     <div class="modal-backdrop" id="premiumModal" aria-hidden="true">
       <div class="question-modal premium-modal" role="dialog" aria-modal="true" aria-labelledby="premiumTitle">
-        <h3 class="preview-title" id="premiumTitle">اشتراكات اللاعبين</h3>
-        <p class="import-help">امنح لاعباً معيّناً اشتراكاً مميّزاً (لعب غير محدود) أو عدداً محدّداً من الألعاب. «اللعبة» = جولة كاملة بمجموعة فئات — نفس وحدة اللعبة المجانية.</p>
-        <p class="import-note">اطلب من اللاعب تسجيل الدخول بحساب Google، ثم نسخ «معرّف حسابه» (يظهر له في الشاشة الرئيسية أسفل تسجيل الدخول — بالضغط عليه يُنسخ) وإرساله لك.</p>
-
-        <label class="field-label">معرّف حساب اللاعب (UID)</label>
-        <input type="text" id="premUserInput" class="prem-input" placeholder="معرّف الحساب — مثال: qka67ZMefQXfi…" autocomplete="off" dir="ltr" />
+        <h3 class="preview-title" id="premiumTitle">إدارة الاشتراكات — أكواد اللعب</h3>
+        <p class="import-help">أنشئ كوداً يُستخدم <b>مرة واحدة</b> وأعطه للاعب. عند تفعيله يحصل اللاعب على الألعاب المحدّدة في الكود، ويظهر معرّف حسابه في القائمة أدناه. «اللعبة» = جولة كاملة بمجموعة فئات.</p>
+        <p class="import-note">اللاعب يفعّل الكود من شاشة «الألعاب» أو شاشة اللعبة الجديدة (خانة «لديك كود؟»).</p>
 
         <div class="import-controls">
           <label class="import-ctl">
-            <span>نوع الصلاحية</span>
+            <span>نوع الكود</span>
             <select id="premMode">
               <option value="games">عدد ألعاب محدّد</option>
               <option value="unlimited">اشتراك مفتوح (غير محدود)</option>
@@ -5387,21 +5412,22 @@
             <span>عدد الألعاب</span>
             <input type="number" id="premGames" min="1" step="1" value="5" />
           </label>
-          <label class="import-ctl">
-            <span>ينتهي بعد (أيام)</span>
-            <input type="number" id="premDays" min="0" step="1" value="0" placeholder="0 = بلا انتهاء" />
-          </label>
         </div>
 
         <div class="actions">
           <button class="ghost" id="premCancel" type="button">إغلاق</button>
-          <button class="primary" id="premGrant" type="button">منح الصلاحية</button>
+          <button class="primary" id="premGenerate" type="button">🎟️ إنشاء كود</button>
+        </div>
+
+        <div class="code-result" id="codeResult" style="display:none">
+          <div class="code-result-code" id="codeResultCode"></div>
+          <button class="secondary code-copy" id="codeCopy" type="button">📋 نسخ الكود</button>
         </div>
 
         <div class="prem-status" id="premStatus" aria-live="polite"></div>
 
         <div class="prem-list-head">
-          <span>اللاعبون المشتركون</span>
+          <span>الأكواد</span>
           <button class="ghost prem-refresh" id="premRefresh" type="button">تحديث ↻</button>
         </div>
         <div class="prem-list" id="premList"></div>
@@ -8380,7 +8406,9 @@
       publishedCategories: [],
       isAdmin: false,
       isPremium: false,
-      gamesAllowed: 0,
+      gamesAllowed: 0,     // allowance from the entitlement doc (future billing)
+      codeGamesAllowed: 0, // allowance from redeemed one-time codes
+      codePremium: false,  // an unlimited code was redeemed
       gamesUsed: 0,
       signedIn: false,
       adminCat: null,
@@ -8428,8 +8456,13 @@
       state.gamesUsed = (state.gamesUsed || 0) + 1;
       try { localStorage.setItem(gamesUsedKey, String(state.gamesUsed)); } catch (e) {}
     }
-    function premiumActive() { return !!state.isPremium; }        // unlimited subscription
-    function gamesRemaining() { return Math.max(0, (state.gamesAllowed || 0) - (state.gamesUsed || 0)); }
+    // Unlimited play: an active entitlement OR a redeemed unlimited code.
+    function premiumActive() { return !!state.isPremium || !!state.codePremium; }
+    // Finite allowance: entitlement games + games from redeemed codes.
+    function gamesRemaining() {
+      const allowed = (state.gamesAllowed || 0) + (state.codeGamesAllowed || 0);
+      return Math.max(0, allowed - (state.gamesUsed || 0));
+    }
     // Admins and unlimited subscribers play forever; everyone else gets one free
     // game plus however many games an admin granted them.
     function canStartNewGame() {
@@ -10692,18 +10725,17 @@
       el.className = "prem-status" + (kind ? " " + kind : "");
     }
     function openPremiumModal() {
-      $("#premUserInput").value = "";
       $("#premMode").value = "games";
       $("#premGames").value = "5";
-      $("#premDays").value = "0";
       $("#premGamesWrap").style.display = "";
+      $("#codeResult").style.display = "none";
+      $("#codeResultCode").textContent = "";
       premSetStatus("", "");
       $("#premList").innerHTML = "";
       const m = $("#premiumModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
       refreshPremiumList();
-      setTimeout(() => $("#premUserInput").focus(), 40);
     }
     function closePremiumModal() {
       const m = $("#premiumModal");
@@ -10713,99 +10745,114 @@
     function premModeChanged() {
       $("#premGamesWrap").style.display = $("#premMode").value === "games" ? "" : "none";
     }
-    function grantFromAdmin() {
-      const bridge = window.IZZBAH && window.IZZBAH.grantEntitlement;
+    // Generate a one-time code carrying a games allowance (or unlimited play).
+    function generateCodeFromAdmin() {
+      const bridge = window.IZZBAH && window.IZZBAH.createCode;
       if (!bridge) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
-      // Players are identified ONLY by their account id (UID) — the one shown
-      // to them on the welcome screen — never by email.
-      const uid = ($("#premUserInput").value || "").trim();
-      if (!uid) { premSetStatus("أدخل معرّف حساب اللاعب.", "err"); $("#premUserInput").focus(); return; }
-      if (uid.indexOf("@") !== -1) {
-        premSetStatus("استخدم معرّف الحساب (UID) وليس البريد — يجده اللاعب في الشاشة الرئيسية وينسخه بالضغط عليه.", "err");
-        $("#premUserInput").focus();
-        return;
-      }
-      const mode = $("#premMode").value;
-      const days = Math.max(0, Math.floor(Number($("#premDays").value) || 0));
-      let games = 0, premium = false;
-      if (mode === "unlimited") { premium = true; }
-      else {
-        games = Math.max(1, Math.floor(Number($("#premGames").value) || 0));
-        if (!games) { premSetStatus("أدخل عدد ألعاب صحيحاً.", "err"); $("#premGames").focus(); return; }
-      }
-      premSetStatus("جارٍ المنح…", "busy");
-      $("#premGrant").disabled = true;
-      bridge(uid, { premium, gamesAllowed: games, days }).then(() => {
-        const what = premium
-          ? "اشتراك مفتوح" + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "")
-          : `${toArabicDigits(games)} ألعاب` + (days ? ` لمدة ${toArabicDigits(days)} يوم` : "");
-        premSetStatus(`✅ تم منح ${what}.`, "ok");
-        $("#premUserInput").value = "";
-        $("#premGrant").disabled = false;
+      const premium = $("#premMode").value === "unlimited";
+      const games = premium ? 0 : Math.max(1, Math.floor(Number($("#premGames").value) || 0));
+      premSetStatus("جارٍ إنشاء الكود…", "busy");
+      $("#premGenerate").disabled = true;
+      bridge({ premium, gamesAllowed: games }).then(code => {
+        $("#codeResultCode").textContent = code;
+        $("#codeResult").style.display = "";
+        premSetStatus(premium
+          ? "✅ كود اشتراك مفتوح — انسخه وأعطه للاعب."
+          : `✅ كود ${toArabicDigits(games)} ألعاب — انسخه وأعطه للاعب.`, "ok");
+        $("#premGenerate").disabled = false;
         refreshPremiumList();
       }).catch(err => {
-        console.warn("grant failed", err);
-        premSetStatus("تعذّر المنح: " + ((err && (err.code || err.message)) || "خطأ"), "err");
-        $("#premGrant").disabled = false;
+        console.warn("create code failed", err);
+        premSetStatus("تعذّر إنشاء الكود: " + ((err && (err.code || err.message)) || "خطأ"), "err");
+        $("#premGenerate").disabled = false;
       });
     }
-    function revokeFromAdmin(uid, label) {
-      const bridge = window.IZZBAH && window.IZZBAH.revokeEntitlement;
+    function copyGeneratedCode() {
+      const code = $("#codeResultCode").textContent || "";
+      if (!code) return;
+      const done = () => showToast("تم نسخ الكود");
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done).catch(done);
+      else done();
+    }
+    function deleteCodeFromAdmin(code, used) {
+      const bridge = window.IZZBAH && window.IZZBAH.deleteCode;
       if (!bridge) return;
-      if (!confirm(`إلغاء صلاحية «${label || uid}»؟`)) return;
-      premSetStatus("جارٍ الإلغاء…", "busy");
-      bridge(uid).then(() => { premSetStatus("تم الإلغاء.", "ok"); refreshPremiumList(); })
-        .catch(err => { console.warn("revoke failed", err); premSetStatus("تعذّر الإلغاء.", "err"); });
+      const msg = used
+        ? `إلغاء الكود «${code}»؟ سيُسحب رصيده من اللاعب الذي فعّله.`
+        : `حذف الكود «${code}»؟ لن يمكن استخدامه بعد الآن.`;
+      if (!confirm(msg)) return;
+      premSetStatus("جارٍ الحذف…", "busy");
+      bridge(code).then(() => { premSetStatus("تم الحذف.", "ok"); refreshPremiumList(); })
+        .catch(err => { console.warn("delete code failed", err); premSetStatus("تعذّر الحذف.", "err"); });
     }
     function refreshPremiumList() {
       const list = $("#premList");
-      const bridge = window.IZZBAH && window.IZZBAH.listEntitlements;
+      const bridge = window.IZZBAH && window.IZZBAH.listCodes;
       if (!list) return;
       if (!bridge) { list.innerHTML = '<div class="prem-empty">سجّل الدخول كمشرف لعرض القائمة.</div>'; return; }
       list.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
       bridge().then(rows => {
-        // Only show players who actually have something active/granted.
-        const active = rows.filter(r => r.premium || r.gamesAllowed > 0);
-        if (!active.length) { list.innerHTML = '<div class="prem-empty">لا يوجد لاعبون مشتركون بعد.</div>'; return; }
-        active.sort((a, b) => (b.premium ? 1 : 0) - (a.premium ? 1 : 0));
+        if (!rows.length) { list.innerHTML = '<div class="prem-empty">لا توجد أكواد بعد — أنشئ أول كود أعلاه.</div>'; return; }
         list.innerHTML = "";
-        active.forEach(r => {
-          const expired = r.expiresAt && r.expiresAt <= Date.now();
+        rows.forEach(r => {
           const row = document.createElement("div");
           row.className = "prem-row";
           const main = document.createElement("div");
           main.className = "prem-row-main";
           const id = document.createElement("div");
-          id.className = "prem-row-id";
-          id.textContent = r.uid; // players are identified by UID, not email
+          id.className = "prem-code";
+          id.textContent = r.code;
           const sub = document.createElement("div");
           sub.className = "prem-row-sub";
-          const badge = expired
-            ? '<span class="prem-badge expired">منتهٍ</span>'
-            : (r.premium ? '<span class="prem-badge">اشتراك مفتوح</span>'
-                         : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`);
-          const exp = r.expiresAt ? ` · ينتهي ${new Date(r.expiresAt).toLocaleDateString("ar")}` : "";
-          sub.innerHTML = badge + exp;
+          const badge = r.premium
+            ? '<span class="prem-badge">اشتراك مفتوح</span>'
+            : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`;
+          const status = r.used
+            ? ` · ✅ فعّله: <span dir="ltr">${r.usedBy}</span>` + (r.usedAt ? ` · ${new Date(r.usedAt).toLocaleDateString("ar")}` : "")
+            : " · ⏳ غير مستخدم";
+          sub.innerHTML = badge + status;
           main.appendChild(id); main.appendChild(sub);
           const btn = document.createElement("button");
-          btn.className = "prem-revoke"; btn.type = "button"; btn.textContent = "إلغاء";
-          btn.addEventListener("click", () => revokeFromAdmin(r.uid, r.uid));
+          btn.className = "prem-revoke"; btn.type = "button";
+          btn.textContent = r.used ? "إلغاء" : "حذف";
+          btn.addEventListener("click", () => deleteCodeFromAdmin(r.code, r.used));
           row.appendChild(main); row.appendChild(btn);
           list.appendChild(row);
         });
       }).catch(err => {
-        console.warn("list entitlements failed", err);
-        list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (قراءة المشرف للاشتراكات).</div>';
+        console.warn("list codes failed", err);
+        list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (مجموعة الأكواد).</div>';
+      });
+    }
+
+    // ---- Player side: redeem a one-time code -------------------------------
+    function redeemCodeFlow(inputEl) {
+      const raw = (inputEl.value || "").trim();
+      if (!raw) { showToast("أدخل الكود أولاً"); inputEl.focus(); return; }
+      if (!state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+      const bridge = window.IZZBAH && window.IZZBAH.redeemCode;
+      if (!bridge) { showToast("التفعيل غير متاح الآن — تحقّق من اتصالك"); return; }
+      showToast("جارٍ التحقق من الكود…");
+      bridge(raw).then(res => {
+        inputEl.value = "";
+        track("code_redeem", {});
+        if (res && res.premium) showToast("🎉 تم التفعيل — لعب غير محدود!");
+        else showToast(`🎉 تم التفعيل — أُضيفت ${toArabicDigits((res && res.gamesAllowed) || 0)} ألعاب لرصيدك`);
+      }).catch(err => {
+        const why = err && err.message;
+        if (why === "not-found") showToast("الكود غير صحيح — تأكّد منه");
+        else if (why === "used") showToast("هذا الكود مستخدم من قبل");
+        else showToast("تعذّر تفعيل الكود — حاول مرة أخرى");
       });
     }
 
     function openSubscribeGate() {
       track("paywall_hit", {});
-      const usedAllowance = (state.gamesAllowed || 0) > 0 && gamesRemaining() <= 0;
-      const body = usedAllowance
-        ? "انتهت ألعابك المتاحة. تواصل مع المشرف لتجديد اشتراكك أو زيادة عدد ألعابك."
-        : "استمتعت بلعبتك المجانية! للّعب أكثر تواصل مع المشرف للحصول على اشتراك مميّز أو رصيد ألعاب.";
-      popNote("انتهى رصيد الألعاب", body, "⭐");
+      const hadAllowance = ((state.gamesAllowed || 0) + (state.codeGamesAllowed || 0)) > 0 && gamesRemaining() <= 0;
+      const body = hadAllowance
+        ? "انتهت ألعابك المتاحة. احصل على كود جديد من المشرف وفعّله من خانة «لديك كود؟»."
+        : "استمتعت بلعبتك المجانية! للّعب أكثر احصل على كود من المشرف وفعّله من خانة «لديك كود؟» في شاشة الألعاب.";
+      popNote("انتهى رصيد الألعاب", body, "🎟️");
     }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
@@ -12391,9 +12438,14 @@
     $("#importModal").addEventListener("click", event => { if (event.target.id === "importModal") closeImportModal(); });
     $("#premCancel").addEventListener("click", closePremiumModal);
     $("#premMode").addEventListener("change", premModeChanged);
-    $("#premGrant").addEventListener("click", grantFromAdmin);
+    $("#premGenerate").addEventListener("click", generateCodeFromAdmin);
+    $("#codeCopy").addEventListener("click", copyGeneratedCode);
     $("#premRefresh").addEventListener("click", refreshPremiumList);
     $("#premiumModal").addEventListener("click", event => { if (event.target.id === "premiumModal") closePremiumModal(); });
+    $("#redeemBtnLib").addEventListener("click", () => redeemCodeFlow($("#redeemInputLib")));
+    $("#redeemBtnCats").addEventListener("click", () => redeemCodeFlow($("#redeemInputCats")));
+    $("#redeemInputLib").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputLib")); });
+    $("#redeemInputCats").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputCats")); });
     if ($("#notePopOk")) $("#notePopOk").addEventListener("click", () => $("#notePop").classList.remove("open"));
     if ($("#adminSearch")) $("#adminSearch").addEventListener("input", renderAdminTable);
     if ($("#adminSort")) $("#adminSort").addEventListener("change", renderAdminTable);
@@ -12559,6 +12611,12 @@
       state.isPremium = !!active;
       info = info || {};
       state.gamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
+    };
+    // Driven by loadMyCodes: the sum of the player's redeemed one-time codes.
+    window.IZZBAH.applyCodes = function (info) {
+      info = info || {};
+      state.codeGamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
+      state.codePremium = !!info.premium;
     };
     window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
@@ -12956,54 +13014,95 @@
               err => { console.warn("entitlement watch failed", err && (err.code || err)); if (window.IZZBAH.applyPremium) window.IZZBAH.applyPremium(false); }
             );
           }
-          // Admin-only: grant an entitlement — either an unlimited subscription
-          // (premium) or a finite games allowance — to a specific player,
-          // identified by their UID. This is the MVP path before automated
-          // billing (a RevenueCat webhook would later write the same doc via
-          // the Admin SDK).
-          window.IZZBAH.grantEntitlement = function (uid, opts) {
+          // ---- One-time play codes -------------------------------------------
+          // The admin generates a code carrying a games allowance (or unlimited
+          // play). A player who receives the code redeems it once; the Firestore
+          // rules make redemption truly one-time (a second redeem is rejected at
+          // the rules layer, not just in the client). The player's balance is
+          // the SUM of all codes they redeemed — the grant lives in docs the
+          // player can't forge, so it's tamper-proof; only the consumed-games
+          // counter stays a soft client counter.
+          const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no O/0, I/1/L
+          function makeCodeString() {
+            let s = "";
+            if (window.crypto && crypto.getRandomValues) {
+              const buf = new Uint32Array(8);
+              crypto.getRandomValues(buf);
+              for (let i = 0; i < 8; i++) s += CODE_CHARS[buf[i] % CODE_CHARS.length];
+            } else {
+              for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+            }
+            return s.slice(0, 4) + "-" + s.slice(4);
+          }
+          // "xx xx", "xxxx-xxxx", lowercase… -> canonical "XXXX-XXXX" doc id.
+          function normalizeCode(raw) {
+            const c = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+            return c.length > 4 ? c.slice(0, 4) + "-" + c.slice(4) : c;
+          }
+          // Admin-only: mint a new one-time code.
+          window.IZZBAH.createCode = function (opts) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             opts = opts || {};
-            uid = String(uid || "").trim();
-            if (!uid) return Promise.reject(new Error("no uid"));
-            const days = Math.max(0, Math.floor(Number(opts.days) || 0));
-            const data = {
-              premium: !!opts.premium,
+            const code = makeCodeString();
+            return db.collection("codes").doc(code).set({
               gamesAllowed: Math.max(0, Math.floor(Number(opts.gamesAllowed) || 0)),
-              source: "manual",
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              expiresAt: days > 0 ? firebase.firestore.Timestamp.fromMillis(Date.now() + days * 86400000) : null
-            };
-            return db.collection("entitlements").doc(uid).set(data, { merge: true });
+              premium: !!opts.premium,
+              used: false, usedBy: "", usedAt: null,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => code);
           };
-          // Back-compat thin wrapper (unlimited-only grant).
-          window.IZZBAH.grantPremium = function (uid, active, days) {
-            return window.IZZBAH.grantEntitlement(uid, { premium: !!active, days: days });
-          };
-          // Admin-only: revoke everything for a user.
-          window.IZZBAH.revokeEntitlement = function (uid) {
+          // Admin-only: list codes newest-first (shows who redeemed what).
+          window.IZZBAH.listCodes = function () {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            return db.collection("entitlements").doc(String(uid || "").trim()).set(
-              { premium: false, gamesAllowed: 0, expiresAt: null, source: "manual", updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
-              { merge: true }
-            );
-          };
-          // Admin-only: list current grantees (needs the admin-read rule on
-          // /entitlements). Returns [{ uid, premium, gamesAllowed, expiresAt }].
-          window.IZZBAH.listEntitlements = function () {
-            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            return db.collection("entitlements").limit(200).get().then(snap => {
+            return db.collection("codes").orderBy("createdAt", "desc").limit(200).get().then(snap => {
               const out = [];
               snap.forEach(doc => {
                 const d = doc.data() || {};
                 out.push({
-                  uid: doc.id,
-                  premium: !!d.premium,
+                  code: doc.id,
                   gamesAllowed: Number(d.gamesAllowed) || 0,
-                  expiresAt: d.expiresAt && typeof d.expiresAt.toMillis === "function" ? d.expiresAt.toMillis() : null
+                  premium: !!d.premium,
+                  used: !!d.used,
+                  usedBy: d.usedBy || "",
+                  usedAt: d.usedAt && typeof d.usedAt.toMillis === "function" ? d.usedAt.toMillis() : null
                 });
               });
               return out;
+            });
+          };
+          // Admin-only: delete a code (unused = void it; used = pull the games
+          // back from the player who redeemed it, since balances sum live).
+          window.IZZBAH.deleteCode = function (code) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("codes").doc(normalizeCode(code)).delete();
+          };
+          // Sum the signed-in player's redeemed codes into their play balance.
+          function loadMyCodes(user) {
+            if (!user) { if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({}); return Promise.resolve(); }
+            return db.collection("codes").where("usedBy", "==", user.uid).get().then(snap => {
+              let games = 0, premium = false;
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                premium = premium || !!d.premium;
+                games += Number(d.gamesAllowed) || 0;
+              });
+              if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({ gamesAllowed: games, premium: premium });
+            }).catch(e => console.warn("load codes failed", e && (e.code || e)));
+          }
+          // Player: redeem a code once. Rejects with "not-found" / "used".
+          window.IZZBAH.redeemCode = function (raw) {
+            if (!currentUser) return Promise.reject(new Error("not-signed-in"));
+            const ref = db.collection("codes").doc(normalizeCode(raw));
+            return ref.get().then(doc => {
+              if (!doc.exists) throw new Error("not-found");
+              const d = doc.data() || {};
+              if (d.used) throw new Error("used");
+              return ref.update({ used: true, usedBy: currentUser.uid, usedAt: firebase.firestore.FieldValue.serverTimestamp() })
+                // Losing a race (someone redeemed it a moment earlier) surfaces
+                // as a rules rejection here — report it as an already-used code.
+                .catch(() => { throw new Error("used"); })
+                .then(() => loadMyCodes(currentUser))
+                .then(() => ({ gamesAllowed: Number(d.gamesAllowed) || 0, premium: !!d.premium }));
             });
           };
           function refreshAdminStatus(user) {
@@ -13266,6 +13365,7 @@
             // approval queue and the member's own submissions load correctly.
             refreshAdminStatus(user).then(loadCommunityCategories);
             watchEntitlement(user); // keep premium status in sync with the cloud
+            loadMyCodes(user);      // sum the player's redeemed one-time codes
             if (!user) return;
             try {
               const snap = await db.collection("users").doc(user.uid).get();

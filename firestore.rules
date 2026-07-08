@@ -92,6 +92,40 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---- One-time play codes ------------------------------------------------
+    // An admin mints a code carrying a games allowance (or unlimited play) and
+    // hands it to a player. The player redeems it ONCE; their play balance is
+    // the sum of the codes they redeemed.
+    //   • get: any signed-in user — but only by knowing the exact code (the doc
+    //     id IS the code). They cannot LIST/browse codes to steal unused ones.
+    //   • list: an admin sees everything; a player may only query the codes
+    //     they themselves redeemed (usedBy == their uid) to compute their balance.
+    //   • redeem (update): only flips used/usedBy/usedAt, only on a code that is
+    //     still unused, and only to the caller's own uid. Firestore serializes
+    //     writes, so two players racing for one code -> exactly one wins.
+    //   • create/delete: admin only, shape-checked.
+    match /codes/{codeId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin()
+        || (isSignedIn() && resource.data.usedBy == request.auth.uid);
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['gamesAllowed', 'premium', 'used', 'usedBy', 'usedAt', 'createdAt'])
+        && request.resource.data.gamesAllowed is int
+        && request.resource.data.gamesAllowed >= 0
+        && request.resource.data.gamesAllowed <= 1000
+        && request.resource.data.premium is bool
+        && request.resource.data.used == false
+        && request.resource.data.usedBy == '';
+      allow delete: if isAdmin();
+      allow update: if isAdmin()
+        || ( isSignedIn()
+          && resource.data.used == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt'])
+          && request.resource.data.used == true
+          && request.resource.data.usedBy == request.auth.uid
+          && request.resource.data.usedAt is timestamp );
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full
