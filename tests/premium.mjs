@@ -210,6 +210,17 @@ try {
   check("redeeming from the library calls the bridge and clears the input",
     redeem.calls.length === 1 && redeem.calls[0] === "ab2d ef4h" && redeem.cleared);
 
+  // tapping the balance line re-queries the cloud balance
+  const refreshTap = await page.evaluate(async () => {
+    let called = 0;
+    window.IZZBAH.refreshMyCodes = () => { called++; return Promise.resolve(true); };
+    state.isAdmin = false; renderPlayBalance();
+    document.getElementById("playBalance").click();
+    await new Promise(r => setTimeout(r, 150));
+    return called;
+  });
+  check("tapping the balance line refreshes it from the cloud", refreshTap === 1);
+
   const badRedeem = await page.evaluate(async () => {
     window.IZZBAH.redeemCode = () => Promise.reject(new Error("used"));
     document.getElementById("redeemInputCats").value = "AB2D-EF4H";
