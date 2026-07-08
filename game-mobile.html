@@ -3929,6 +3929,8 @@
       transition: color .15s ease, opacity .15s ease;
     }
     .wlc-legal-link:hover { color: #f7e6c3; opacity: 1; }
+    #buildTag { opacity: .55; font-size: 11px; }
+    .note-pop-msg { white-space: pre-line; }
     .wlc-legal-dot { color: #9a7f52; font-size: 12px; }
     .wlc-or { display: flex; align-items: center; gap: 14px; width: 260px; }
     .wlc-or-line { flex: 1; height: 1px; background: linear-gradient(to right, rgba(220,189,113,.45), transparent); }
@@ -5192,6 +5194,8 @@
           <button type="button" class="wlc-legal-link" data-legal="terms">شروط الاستخدام</button>
           <span class="wlc-legal-dot">·</span>
           <button type="button" class="wlc-legal-link" data-legal="notices">إشعارات وحقوق</button>
+          <span class="wlc-legal-dot">·</span>
+          <button type="button" class="wlc-legal-link" id="buildTag" title="اضغط لعرض التشخيص"></button>
         </div>
       </div>
     </section>
@@ -8461,6 +8465,9 @@
     };
 
     const $ = selector => document.querySelector(selector);
+    // Bumped on every deploy — shown in the welcome footer so anyone can tell
+    // at a glance whether they're running a stale cached copy of the game.
+    const IZZBAH_BUILD = "2026-07-08.5";
     const saveKey = "izzbah-trivia-settings-v1";
     const savedGamesKey = "izzbah-trivia-saved-games-v1";
     const previewSaveKey = "izzbah-trivia-preview-questions-v1";
@@ -12471,8 +12478,31 @@
       // In consent mode the gate is mandatory: backdrop taps do nothing.
       if (event.target.id === "legalModal" && event.currentTarget.dataset.mode !== "consent") closeLegal();
     });
-    document.querySelectorAll(".wlc-legal-link").forEach(link =>
-      link.addEventListener("click", () => openLegal(link.dataset.legal, "review")));
+    document.querySelectorAll(".wlc-legal-link").forEach(link => {
+      if (link.dataset.legal) link.addEventListener("click", () => openLegal(link.dataset.legal, "review"));
+    });
+    // Version tag + one-tap diagnostics: everything the play gate sees, plus a
+    // live probe of the codes query — screenshot-able for remote debugging.
+    $("#buildTag").textContent = "نسخة " + IZZBAH_BUILD;
+    $("#buildTag").addEventListener("click", async () => {
+      let codesProbe = "غير مسجّل الدخول";
+      if (state.signedIn && window.IZZBAH && window.IZZBAH.refreshMyCodes) {
+        try { codesProbe = (await window.IZZBAH.refreshMyCodes()) ? "يعمل ✅" : "فشل ❌ (تحقّق من قواعد Firestore)"; }
+        catch (e) { codesProbe = "خطأ: " + ((e && (e.code || e.message)) || "?"); }
+      }
+      renderPlayBalance();
+      popNote("تشخيص اللعبة", [
+        "النسخة: " + IZZBAH_BUILD,
+        "الحساب: " + (state.myUid || "غير مسجّل"),
+        "مشرف: " + (state.isAdmin ? "نعم (لعب غير محدود دائماً)" : "لا"),
+        "اللعبة المجانية: " + (state.freeGamePlayed ? "مستهلكة" : "متاحة"),
+        "رصيد الأكواد: " + (state.codeGamesAllowed || 0) + (state.codePremium ? " + اشتراك مفتوح" : ""),
+        "رصيد الاشتراك: " + (state.gamesAllowed || 0) + (state.isPremium ? " + مفتوح" : ""),
+        "الألعاب المستهلكة: " + (state.gamesUsed || 0),
+        "المتبقي للّعب: " + (premiumActive() ? "غير محدود" : gamesRemaining()),
+        "استعلام الأكواد: " + codesProbe
+      ].join("\n"), "🔧");
+    });
     // First-run gate: require agreement before anything else.
     if (!hasLegalConsent()) openLegal("privacy", "consent");
     $("#yourGamesTab").addEventListener("click", () => {

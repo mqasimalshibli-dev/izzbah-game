@@ -221,6 +221,20 @@ try {
   });
   check("tapping the balance line refreshes it from the cloud", refreshTap === 1);
 
+  // the footer version tag opens the diagnostics popup
+  const diag = await page.evaluate(async () => {
+    document.getElementById("buildTag").click();
+    await new Promise(r => setTimeout(r, 300));
+    return {
+      tag: document.getElementById("buildTag").textContent,
+      open: document.getElementById("notePop").classList.contains("open"),
+      msg: document.getElementById("notePopMsg").textContent,
+    };
+  });
+  check("footer shows the build version and opens diagnostics",
+    /نسخة/.test(diag.tag) && diag.open && /النسخة/.test(diag.msg) && /رصيد الأكواد/.test(diag.msg));
+  await page.evaluate(() => document.getElementById("notePop").classList.remove("open"));
+
   const badRedeem = await page.evaluate(async () => {
     window.IZZBAH.redeemCode = () => Promise.reject(new Error("used"));
     document.getElementById("redeemInputCats").value = "AB2D-EF4H";
