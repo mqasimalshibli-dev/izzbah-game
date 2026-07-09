@@ -149,24 +149,25 @@ try {
     delIn.calls === 1 && /الدخول/.test(delIn.note));
   await page.evaluate(() => { document.getElementById("notePop").classList.remove("open"); window.IZZBAH.applyAuth(false); });
 
-  // ---- drawer slides in from the left ----
+  // ---- drawer slides in from the right (same corner as the button) ----
   const drawer = await page.evaluate(async () => {
+    const vw = window.innerWidth;
     document.getElementById("settingsModal").classList.remove("open");
     await new Promise(r => setTimeout(r, 400));
     const sheet = document.querySelector("#settingsModal .settings-sheet");
-    const closedX = sheet.getBoundingClientRect().right; // fully off the left edge
+    const closedX = sheet.getBoundingClientRect().left; // fully past the right edge
     document.getElementById("userSettingsBtn").click();
     await new Promise(r => setTimeout(r, 450));
-    const openX = sheet.getBoundingClientRect().left;
+    const openX = sheet.getBoundingClientRect().right;
     const anim = getComputedStyle(sheet).transitionDuration;
     document.getElementById("settingsClose").click();
     await new Promise(r => setTimeout(r, 450));
-    const backX = sheet.getBoundingClientRect().right;
-    return { closedX, openX, backX, anim };
+    const backX = sheet.getBoundingClientRect().left;
+    return { vw, closedX, openX, backX, anim };
   });
-  check("the sheet is parked off the left edge when closed", drawer.closedX <= 1);
-  check("opening slides it in to the left edge (animated)", drawer.openX === 0 && parseFloat(drawer.anim) > 0);
-  check("closing slides it back out", drawer.backX <= 1);
+  check("the sheet is parked off the right edge when closed", drawer.closedX >= drawer.vw - 1);
+  check("opening slides it in to the right edge (animated)", Math.abs(drawer.openX - drawer.vw) <= 1 && parseFloat(drawer.anim) > 0);
+  check("closing slides it back out", drawer.backX >= drawer.vw - 1);
 
   // ---- contact opens the Instagram/QR modal ----
   await page.evaluate(() => document.getElementById("userSettingsBtn").click());

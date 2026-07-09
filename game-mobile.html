@@ -4218,12 +4218,13 @@
       display: block; background: rgba(27, 58, 47, .58); visibility: visible; pointer-events: auto;
       transition: background .3s ease, visibility 0s;
     }
-    /* Physically anchored to the LEFT edge (RTL-proof), parked off-screen. */
+    /* Physically anchored to the RIGHT edge — the same corner as the settings
+       button — parked off-screen and slid in on open (RTL-proof). */
     .settings-sheet {
-      position: absolute; left: 0; top: 0; bottom: 0;
+      position: absolute; right: 0; top: 0; bottom: 0;
       width: min(370px, 90vw); max-width: none; height: auto; max-height: none;
-      margin: 0; border-radius: 0 22px 22px 0; overflow-y: auto; text-align: right;
-      transform: translateX(-105%);
+      margin: 0; border-radius: 22px 0 0 22px; overflow-y: auto; text-align: right;
+      transform: translateX(105%);
       transition: transform .32s cubic-bezier(.32,.92,.35,1);
     }
     #settingsModal.open .settings-sheet { transform: none; }
@@ -8624,7 +8625,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.2";
+    const IZZBAH_BUILD = "2026-07-09.3";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
