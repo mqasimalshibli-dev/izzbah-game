@@ -8682,7 +8682,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.6";
+    const IZZBAH_BUILD = "2026-07-09.7";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12017,43 +12017,99 @@
     const normAnswer = value => String(value == null ? "" : value).trim().replace(/\s+/g, " ");
     const isNumericAnswer = value => /^[\d٠-٩]+$/.test(normAnswer(value).replace(/\s/g, ""));
 
-    // Generate up to 3 FITTING wrong-answers for a question, drawn ONLY from
-    // the same category's other answers of the same kind (number vs text),
-    // ordered by closeness in length. Returns null when the category can't
-    // supply three same-type options — better to skip than to bake in unrelated
-    // ones (the runtime helper still fills a set from a wider pool when needed).
-    function sameCategoryDistractors(cat, q) {
+    // Arabic-aware text keys for topical matching. Strips harakat, unifies
+    // alef/ya/ta-marbuta, drops the definite article, and removes generic
+    // question words so only the meaningful topic words remain.
+    const AR_STOPWORDS = new Set([
+      "ما","من","في","الى","على","عن","هو","هي","هم","التي","الذي","الذين","اي","كم","اسم",
+      "هذا","هذه","او","به","مع","بين","عند","كان","كانت","اول","اكبر","اشهر","اطول","اقدم","اصغر",
+      "ماذا","لماذا","متى","اين","كيف","التى","عام","سنة","دولة","مدينة","الذى","صاحب","لقب","يسمى","تسمى","يعرف"
+    ]);
+    function arNorm(s) {
+      return String(s == null ? "" : s)
+        .replace(/[ً-ْٰـ]/g, "")           // harakat + tatweel
+        .replace(/[إأآٱا]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي")
+        .replace(/[^ء-يa-zA-Z0-9 ]/g, " ")
+        .toLowerCase();
+    }
+    function topicWords(text) {
+      return arNorm(text).split(/\s+/)
+        // drop the definite article ONLY when a real word remains (so
+        // "العاصمة"→"عاصمه" matches "عاصمة", but a root like "ألّف"→"الف"
+        // isn't mangled down to a single letter)
+        .map(w => { const s = w.replace(/^ال/, ""); return s.length >= 3 ? s : w; })
+        .filter(w => w.length >= 3 && !AR_STOPWORDS.has(w));
+    }
+    // Generate up to 3 FITTING, CHALLENGING wrong-answers for a question by
+    // borrowing answers from SIBLING questions that share topic words with it
+    // (e.g. every "عاصمة …" question yields capitals as each other's options),
+    // same kind (number vs text), never the correct answer. Falls back to the
+    // closest-length same-type answers only to top up to three. Returns null
+    // when the category simply can't supply three same-type options.
+    function relatedDistractors(cat, q) {
       const correct = normAnswer(q && q.a);
       if (!correct) return null;
       const wantNum = isNumericAnswer(correct);
+      // Numeric answers get numeric distractors (near values + same-length
+      // numbers from the category) — a year/count never sits next to a name.
+      if (wantNum) {
+        const numeric = numericChoiceOptions(correct, cat); // [correct, +3] shuffled, or null
+        if (numeric && numeric.length === 4) {
+          const wrong = numeric.filter(o => normAnswer(o) !== correct).slice(0, 3);
+          if (wrong.length === 3) return wrong;
+        }
+        return null; // don't pad a number with unrelated text
+      }
+      const qWords = new Set(topicWords(q.q));
       const seen = new Set([correct]);
-      const pool = [];
-      categoryAnswerPool(cat).forEach(a => {
-        const n = normAnswer(a);
-        if (n && !seen.has(n) && isNumericAnswer(n) === wantNum) { seen.add(n); pool.push(n); }
+      const scored = [];
+      (cat.questions || []).forEach(other => {
+        if (other === q) return;
+        const a = normAnswer(other.a);
+        if (!a || seen.has(a) || isNumericAnswer(a) !== wantNum) return;
+        seen.add(a);
+        let score = 0;
+        topicWords(other.q).forEach(w => { if (qWords.has(w)) score++; });
+        scored.push({ a, score, dl: Math.abs(a.length - correct.length) });
       });
-      if (pool.length < 3) return null;
-      pool.sort((x, y) => Math.abs(x.length - correct.length) - Math.abs(y.length - correct.length));
-      const window = pool.slice(0, Math.max(6, 3));
-      shuffleInPlace(window);
-      return window.slice(0, 3);
+      if (scored.length < 3) return null;
+      // topically-related first (most shared keywords), then closest length
+      scored.sort((x, y) => (y.score - x.score) || (x.dl - y.dl));
+      const related = scored.filter(o => o.score > 0).map(o => o.a);
+      let picks;
+      if (related.length >= 3) {
+        const window = related.slice(0, Math.max(6, 3));  // vary among the top related
+        shuffleInPlace(window);
+        picks = window.slice(0, 3);
+      } else {
+        picks = related.slice();                          // whatever related exists
+        for (const o of scored) { if (picks.length >= 3) break; if (!picks.includes(o.a)) picks.push(o.a); }
+      }
+      return picks.length === 3 ? picks : null;
     }
-    // Admin: fill curated distractors for every question in the current
-    // category that is missing them (fewer than 3), using same-category
-    // options. Records one undo step and publishes.
+    function questionNeedsDistractors(q) {
+      const d = Array.isArray(q.distractors) ? q.distractors.filter(Boolean) : [];
+      return d.length < 3 && (q.a || "").trim();
+    }
+    // Admin: fill curated distractors using topically-related same-category
+    // answers. Fills questions that are MISSING them; if none are missing,
+    // offers to REGENERATE all (to replace a weaker earlier batch). One undo
+    // step; auto-publishes.
     function fillMissingDistractors() {
       const cat = state.adminCat;
       if (!cat) { showToast("اختر فئة أولاً"); return; }
       if (hidesMultipleChoice(cat)) { showToast("هذه الفئة لا تستخدم «أربعة خيارات» — لا حاجة للخيارات"); return; }
-      const targets = cat.questions.filter(q => {
-        const d = Array.isArray(q.distractors) ? q.distractors.filter(Boolean) : [];
-        return d.length < 3 && (q.a || "").trim();
-      });
-      if (!targets.length) { showToast("كل الأسئلة لديها خيارات بالفعل ✅"); return; }
-      pushAdminUndo("توليد الخيارات الناقصة");
+      let targets = cat.questions.filter(questionNeedsDistractors);
+      let label = "توليد الخيارات الناقصة";
+      if (!targets.length) {
+        if (!confirm("كل الأسئلة لديها خيارات بالفعل.\nهل تريد إعادة توليدها كلها بالخوارزمية المحسّنة؟ (سيُستبدل ما وُلّد سابقاً)")) return;
+        targets = cat.questions.filter(q => (q.a || "").trim());
+        label = "إعادة توليد الخيارات";
+      }
+      pushAdminUndo(label);
       let filled = 0;
       targets.forEach(q => {
-        const gen = sameCategoryDistractors(cat, q);
+        const gen = relatedDistractors(cat, q);
         if (gen && gen.length === 3) { q.distractors = gen; filled++; }
       });
       if (!filled) { showToast("تعذّر التوليد — تحتاج الفئة إجابات أكثر من نفس النوع"); return; }
