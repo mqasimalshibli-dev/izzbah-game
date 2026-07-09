@@ -141,6 +141,42 @@ try {
   });
   check("word categories (no four-choices) show no distractors chip", wordChip === 0);
 
+  // ---- 8) bulk "generate missing distractors" from same-category answers ----
+  const bulk = await page.evaluate(async () => {
+    // a category with enough same-type answers; some questions lack distractors
+    state.adminCat = { id: "pub-fill", name: "عواصم", image: "", color: "#9e1322", custom: false, published: true, order: 0,
+      questions: [
+        { points: 100, q: "عاصمة عُمان؟", a: "مسقط", image: "", answerImage: "" },
+        { points: 200, q: "عاصمة مصر؟", a: "القاهرة", image: "", answerImage: "" },
+        { points: 300, q: "عاصمة فرنسا؟", a: "باريس", image: "", answerImage: "" },
+        { points: 400, q: "عاصمة اليابان؟", a: "طوكيو", image: "", answerImage: "", distractors: ["أوساكا", "كيوتو", "ناغويا"] },
+      ] };
+    clearAdminUndo(); populateAdminFilter(); renderAdminTable();
+    fillMissingDistractors();
+    await new Promise(r => setTimeout(r, 200));
+    const qs = state.adminCat.questions;
+    // each of the first three now has 3 distractors, none equal to its answer,
+    // and every distractor is a real other answer from THIS category
+    const answers = new Set(qs.map(q => q.a));
+    const ok = qs.slice(0, 3).every(q =>
+      Array.isArray(q.distractors) && q.distractors.length === 3
+      && !q.distractors.includes(q.a)
+      && q.distractors.every(dd => answers.has(dd)));
+    // the already-curated one is left untouched
+    const untouched = JSON.stringify(qs[3].distractors) === JSON.stringify(["أوساكا", "كيوتو", "ناغويا"]);
+    return { ok, untouched };
+  });
+  check("generate-missing fills fitting distractors from same-category answers", bulk.ok);
+  check("generate-missing leaves already-curated questions untouched", bulk.untouched);
+
+  // undo restores the pre-fill state
+  const bulkUndo = await page.evaluate(async () => {
+    undoAdminStep();
+    await new Promise(r => setTimeout(r, 150));
+    return state.adminCat.questions[0].distractors;
+  });
+  check("undo reverts a bulk distractor fill", bulkUndo === undefined || bulkUndo.length === 0);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
