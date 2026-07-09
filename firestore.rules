@@ -67,6 +67,9 @@ service cloud.firestore {
         && request.resource.data.data is map
         && request.resource.data.data.size() <= 12
         && request.resource.data.updatedAt is timestamp;
+      // Account deletion: a user may erase their OWN saved data (the in-app
+      // "حذف حسابي وبياناتي" flow deletes this doc, then the auth account).
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // ---- Admin registry ----------------------------------------------------

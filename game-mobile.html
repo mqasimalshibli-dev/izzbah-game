@@ -4219,6 +4219,9 @@
     .settings-row:active { transform: scale(.99); }
     .settings-row-primary { background: linear-gradient(180deg, #f6e3ad, #eccb78); border-color: #c9974a; }
     .settings-row-quiet { opacity: .85; }
+    .settings-row-danger { background: #fbe9e9; border-color: #e6b3b3; color: #9a1c1c; }
+    .settings-row-danger .settings-label { color: #9a1c1c; }
+    .settings-row-danger:hover { background: #f6d6d6; }
     .settings-ico { font-size: 20px; line-height: 1; flex: none; width: 24px; text-align: center; }
     .settings-label { flex: 1; min-width: 0; font-weight: 800; font-size: 14.5px; display: flex; flex-direction: column; gap: 2px; }
     .settings-label small { font-weight: 600; font-size: 11.5px; color: #7a6738; }
@@ -5248,10 +5251,13 @@
         <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
       </div>
       <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
+      <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
     </div>
   </div>
 
@@ -8574,7 +8580,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-08.9";
+    const IZZBAH_BUILD = "2026-07-09.1";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11219,6 +11225,60 @@
         "استعلام الأكواد: " + codesProbe
       ].join("\n"), "🔧");
     }
+    // ---- Share the game (the app itself, not a category setup) ------------
+    function shareAppFlow() {
+      const url = location.origin + location.pathname;
+      const text = "جرّب «عزبة» — لعبة تريفيا جماعية 🎪🔥";
+      track("share_app", {});
+      if (navigator.share) { navigator.share({ title: "عزبة", text: text, url: url }).catch(() => {}); return; }
+      const done = () => showToast("تم نسخ رابط اللعبة — شاركه مع أصحابك");
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
+      else done();
+    }
+    // ---- Add to home screen ------------------------------------------------
+    // Chrome fires beforeinstallprompt when the app is installable — capture it
+    // so the row can trigger the native prompt; otherwise show instructions.
+    let deferredInstallPrompt = null;
+    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstallPrompt = e; });
+    function installAppFlow() {
+      track("install_open", {});
+      if (deferredInstallPrompt) {
+        const p = deferredInstallPrompt;
+        deferredInstallPrompt = null;
+        p.prompt();
+        return;
+      }
+      const iOS = /iPhone|iPod|iPad/i.test(navigator.userAgent || "");
+      popNote("أضف عزبة إلى شاشتك",
+        iOS
+          ? "في Safari:\n1. اضغط زر المشاركة ⬆️ في شريط المتصفح.\n2. اختر «إضافة إلى الشاشة الرئيسية».\n3. اضغط «إضافة» — وستجد عزبة بأيقونتها على شاشتك."
+          : "في Chrome:\n1. اضغط قائمة ⋮ أعلى المتصفح.\n2. اختر «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق».\n3. أكّد — وستجد عزبة بأيقونتها على شاشتك.",
+        "📲");
+    }
+    // ---- Delete account (required for future app-store releases) ----------
+    function deleteAccountFlow() {
+      if (!state.signedIn) { showToast("سجّل الدخول أولاً — لا يوجد حساب لحذفه"); return; }
+      if (!confirm("حذف حسابك نهائياً؟\n\nسيُحذف تقدّمك المحفوظ وإعداداتك وبياناتك من السحابة، ولا يمكن التراجع عن ذلك.")) return;
+      if (!confirm("تأكيد أخير: حذف الحساب وكل البيانات نهائياً؟")) return;
+      const bridge = window.IZZBAH && window.IZZBAH.deleteMyAccount;
+      if (!bridge) { showToast("الحذف غير متاح الآن — تحقّق من اتصالك"); return; }
+      showToast("جارٍ حذف الحساب…");
+      bridge().then(() => {
+        // wipe the local copies of the account's data, then start fresh
+        try { Object.keys(localStorage).filter(k => k.indexOf("izzbah-") === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+        alert("تم حذف حسابك وبياناتك نهائياً.");
+        location.reload();
+      }).catch(err => {
+        const code = (err && (err.code || err.message)) || "";
+        if (code === "auth/requires-recent-login") {
+          popNote("أعد تسجيل الدخول أولاً",
+            "لأمان الحساب، يشترط الحذف تسجيل دخول حديثاً:\nسجّل الخروج ثم الدخول مرة أخرى، وكرّر الحذف مباشرة.", "🔐");
+        } else {
+          console.warn("delete account failed", err);
+          showToast("تعذّر حذف الحساب: " + (code || "خطأ"));
+        }
+      });
+    }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
     // pressing the button. Silently skips until the category is publishable.
@@ -12745,6 +12805,9 @@
     $("#redeemBtnSettings").addEventListener("click", () => redeemCodeFlow($("#redeemInputSettings")));
     $("#redeemInputSettings").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputSettings")); });
     $("#settingsSound").addEventListener("click", () => { toggleSound(); renderSettingsSheet(); });
+    $("#settingsShare").addEventListener("click", shareAppFlow);
+    $("#settingsInstall").addEventListener("click", () => { closeSettings(); installAppFlow(); });
+    $("#settingsDelete").addEventListener("click", () => { closeSettings(); deleteAccountFlow(); });
     $("#settingsHowTo").addEventListener("click", () => { closeSettings(); openHowTo(); });
     $("#settingsContact").addEventListener("click", () => { window.location.href = "mailto:izzbahgame@gmail.com?subject=%D8%AF%D8%B9%D9%85%20%D8%B9%D8%B2%D8%A8%D8%A9"; });
     $("#settingsLegal").addEventListener("click", () => { closeSettings(); openLegal("privacy", "review"); });
@@ -13527,6 +13590,16 @@
           window.IZZBAH.refreshMyCodes = function () {
             if (!currentUser) return Promise.resolve(false);
             return loadMyCodes(currentUser);
+          };
+          // Player: permanently delete their account — the cloud save doc, then
+          // the Firebase Auth user itself. Codes they redeemed remain as
+          // business records (they carry no personal data beyond the uid).
+          // May reject with auth/requires-recent-login per Firebase policy.
+          window.IZZBAH.deleteMyAccount = function () {
+            if (!currentUser) return Promise.reject(new Error("not-signed-in"));
+            const user = currentUser;
+            if (entitlementUnsub) { try { entitlementUnsub(); } catch (e) {} entitlementUnsub = null; }
+            return db.collection("users").doc(user.uid).delete().then(() => user.delete());
           };
           // Player: redeem a code once. Rejects with "not-found" / "used".
           window.IZZBAH.redeemCode = function (raw) {
