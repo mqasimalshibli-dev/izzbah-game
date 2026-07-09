@@ -4177,6 +4177,55 @@
     }
     .redeem-btn { padding: 8px 14px; font-size: 14px; }
     .play-balance { font: 700 13.5px 'Cairo', sans-serif; color: #f2d999; margin: 0 0 2px; text-align: center; cursor: pointer; }
+    /* ---- Floating user settings / account button ---- */
+    #userSettingsBtn {
+      position: fixed; top: 14px; right: 14px; z-index: 4;
+      width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(20, 6, 8, .58); border: 1.5px solid rgba(231, 195, 115, .55);
+      color: #e7c373; cursor: pointer; padding: 0; backdrop-filter: blur(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .35); transition: transform .18s ease, background .18s ease, color .18s ease;
+    }
+    #userSettingsBtn svg { width: 22px; height: 22px; }
+    #userSettingsBtn:hover { background: rgba(231, 195, 115, .2); color: #fbe9a8; }
+    #userSettingsBtn:active { transform: scale(.92); }
+    /* Hidden while playing and during game setup (board/question/answer/results/
+       category-pick/team-setup) — visible everywhere else. */
+    body[data-screen="game"] #userSettingsBtn,
+    body[data-screen="questionPage"] #userSettingsBtn,
+    body[data-screen="answerPage"] #userSettingsBtn,
+    body[data-screen="results"] #userSettingsBtn,
+    body[data-screen="categories"] #userSettingsBtn,
+    body[data-screen="setup"] #userSettingsBtn { display: none; }
+    /* ---- Settings sheet ---- */
+    .settings-sheet { max-width: 440px; width: 94%; text-align: right; max-height: 88vh; overflow-y: auto; }
+    .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .settings-head .preview-title { margin: 0; }
+    .settings-close { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(201,151,74,.5); background: #f3ead3; color: #7a1414; font-size: 16px; cursor: pointer; flex: none; }
+    .settings-account {
+      background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 12px;
+      padding: 11px 13px; margin-bottom: 8px; font: 700 13.5px 'Cairo', sans-serif; color: var(--dark);
+    }
+    .settings-account .sa-line { display: block; }
+    .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .settings-account .sa-btn { margin-top: 9px; width: 100%; }
+    .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
+    .settings-row {
+      width: 100%; display: flex; align-items: center; gap: 11px; text-align: right; cursor: pointer;
+      background: #fbf5e6; border: 1px solid rgba(201,151,74,.4); border-radius: 11px;
+      padding: 11px 13px; margin-bottom: 8px; font-family: 'Cairo', sans-serif; color: var(--dark);
+      transition: background .12s, transform .1s;
+    }
+    .settings-row:hover { background: #f3e7c8; }
+    .settings-row:active { transform: scale(.99); }
+    .settings-row-primary { background: linear-gradient(180deg, #f6e3ad, #eccb78); border-color: #c9974a; }
+    .settings-row-quiet { opacity: .85; }
+    .settings-ico { font-size: 20px; line-height: 1; flex: none; width: 24px; text-align: center; }
+    .settings-label { flex: 1; min-width: 0; font-weight: 800; font-size: 14.5px; display: flex; flex-direction: column; gap: 2px; }
+    .settings-label small { font-weight: 600; font-size: 11.5px; color: #7a6738; }
+    .settings-chev { color: #b9925a; font-size: 22px; font-weight: 800; flex: none; }
+    .settings-state { color: #7a6738; font: 800 13px 'Cairo', sans-serif; flex: none; }
+    .settings-redeem { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 2px 0 10px; }
+    .settings-redeem .redeem-label { color: #6a5a2f; }
     /* ---- Paywall: available plans ---- */
     .plans-modal { max-width: 560px; width: 94%; text-align: center; }
     .plans-sub { margin: 0 0 10px; font: 700 14px 'Cairo', sans-serif; color: #6a5a2f; }
@@ -5176,6 +5225,36 @@
       <div class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
   </div>
+  <button id="userSettingsBtn" type="button" aria-label="الإعدادات والحساب" title="الإعدادات والحساب">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
+  </button>
+
+  <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
+    <div class="question-modal settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="settingsTitle">الإعدادات والحساب</h3>
+        <button class="settings-close" id="settingsClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="settings-account" id="settingsAccount"></div>
+      <div class="settings-balance" id="settingsBalance"></div>
+      <button class="settings-row settings-row-primary" id="settingsBuy" type="button">
+        <span class="settings-ico" aria-hidden="true">🎟️</span>
+        <span class="settings-label"><b>شراء ألعاب / النسخة المميّزة</b><small>باقات لعب واشتراك مفتوح</small></span>
+        <span class="settings-chev" aria-hidden="true">‹</span>
+      </button>
+      <div class="settings-redeem">
+        <span class="redeem-label">عندك كود؟</span>
+        <input type="text" id="redeemInputSettings" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
+        <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
+      </div>
+      <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
+      <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+    </div>
+  </div>
+
   <main class="app">
         <section id="menu" class="screen active center">
       <div class="wlc" dir="rtl" lang="ar">
@@ -8495,7 +8574,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-08.8";
+    const IZZBAH_BUILD = "2026-07-08.9";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10999,9 +11078,11 @@
           const rem = gamesRemaining();
           showToast(`🎉 تم التفعيل — رصيدك الآن ${toArabicDigits(rem)} ${rem === 1 ? "لعبة" : "ألعاب"}`);
         }
-        // If they redeemed from the paywall, it has served its purpose.
+        // If they redeemed from the paywall / settings sheet, close it.
         const pm = $("#plansModal");
         if (pm && pm.classList.contains("open")) closePlans();
+        const sm = $("#settingsModal");
+        if (sm && sm.classList.contains("open")) closeSettings();
       }).catch(err => {
         const why = (err && (err.code || err.message)) || "";
         if (why === "not-found") showToast("الكود غير صحيح — تأكّد منه");
@@ -11057,19 +11138,86 @@
     }
     // The balance line on the game library screen: exactly what the play gate
     // sees, so a player always knows why they can (or can't) start a game.
-    function renderPlayBalance() {
-      const el = $("#playBalance");
-      if (!el) return;
-      if (state.isAdmin) { el.style.display = "none"; el.textContent = ""; return; }
-      el.style.display = "";
-      if (premiumActive()) { el.textContent = "⭐ اشتراك مفتوح — لعب غير محدود"; return; }
+    // One source of truth for "what can this player play right now".
+    function playBalanceSummary() {
+      if (state.isAdmin) return "مشرف — لعب غير محدود";
+      if (premiumActive()) return "⭐ اشتراك مفتوح — لعب غير محدود";
       const parts = [];
       if (!state.freeGamePlayed) parts.push("لعبة مجانية");
       const rem = gamesRemaining();
       if (rem > 0) parts.push(rem === 1 ? "لعبة واحدة" : `${toArabicDigits(rem)} ألعاب`);
-      el.textContent = parts.length
-        ? "🎟️ رصيدك: " + parts.join(" + ")
-        : "لا يوجد رصيد ألعاب — فعّل كوداً للّعب";
+      return parts.length ? "رصيدك: " + parts.join(" + ") : "لا يوجد رصيد ألعاب — فعّل كوداً للّعب";
+    }
+    function renderPlayBalance() {
+      const el = $("#playBalance");
+      if (el) {
+        if (state.isAdmin) { el.style.display = "none"; el.textContent = ""; }
+        else { el.style.display = ""; el.textContent = "🎟️ " + playBalanceSummary(); }
+      }
+      // keep the settings sheet's balance line in sync if it's open
+      const sb = $("#settingsBalance");
+      if (sb && $("#settingsModal") && $("#settingsModal").classList.contains("open")) renderSettingsSheet();
+    }
+
+    // ---- User settings / account sheet (top-right button) ------------------
+    function renderSettingsSheet() {
+      // Account block: signed-in shows email/id + sign-out; else a sign-in CTA.
+      const acc = $("#settingsAccount");
+      if (acc) {
+        if (state.signedIn) {
+          acc.innerHTML = `<span class="sa-line">✅ مسجّل الدخول</span>
+            <span class="sa-sub" id="settingsUid" title="اضغط لنسخ معرّف حسابك">معرّف حسابك: ${escapeHtml(state.myUid || "")}</span>
+            <button class="secondary sa-btn" id="settingsAuthBtn" type="button">تسجيل الخروج</button>`;
+        } else {
+          acc.innerHTML = `<span class="sa-line">لم تسجّل الدخول</span>
+            <span class="sa-sub" style="cursor:default">سجّل الدخول لحفظ تقدّمك وتفعيل الأكواد عبر أجهزتك.</span>
+            <button class="primary sa-btn" id="settingsAuthBtn" type="button">تسجيل الدخول بحساب Google</button>`;
+        }
+        const authBtn = $("#settingsAuthBtn");
+        if (authBtn) authBtn.addEventListener("click", () => { closeSettings(); const real = $("#authBtn"); if (real) real.click(); });
+        const uid = $("#settingsUid");
+        if (uid && state.myUid) uid.addEventListener("click", () => {
+          const done = () => showToast("تم نسخ معرّف حسابك");
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(state.myUid).then(done).catch(done); else done();
+        });
+      }
+      const bal = $("#settingsBalance");
+      if (bal) bal.textContent = "🎟️ " + playBalanceSummary();
+      const ss = $("#settingsSoundState");
+      if (ss) ss.textContent = soundOn ? "مفعّل" : "مكتوم";
+    }
+    function openSettings() {
+      renderSettingsSheet();
+      const input = $("#redeemInputSettings");
+      if (input) input.value = "";
+      const m = $("#settingsModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeSettings() {
+      const m = $("#settingsModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    // Version + live-state diagnostics (also reachable from the footer build tag).
+    async function showDiagnostics() {
+      let codesProbe = "غير مسجّل الدخول";
+      if (state.signedIn && window.IZZBAH && window.IZZBAH.refreshMyCodes) {
+        try { codesProbe = (await window.IZZBAH.refreshMyCodes()) ? "يعمل ✅" : "فشل ❌ (تحقّق من قواعد Firestore)"; }
+        catch (e) { codesProbe = "خطأ: " + ((e && (e.code || e.message)) || "?"); }
+      }
+      renderPlayBalance();
+      popNote("تشخيص اللعبة", [
+        "النسخة: " + IZZBAH_BUILD,
+        "الحساب: " + (state.myUid || "غير مسجّل"),
+        "مشرف: " + (state.isAdmin ? "نعم (لعب غير محدود دائماً)" : "لا"),
+        "اللعبة المجانية: " + (state.freeGamePlayed ? "مستهلكة" : "متاحة"),
+        "رصيد الأكواد: " + (state.codeGamesAllowed || 0) + (state.codePremium ? " + اشتراك مفتوح" : ""),
+        "رصيد الاشتراك: " + (state.gamesAllowed || 0) + (state.isPremium ? " + مفتوح" : ""),
+        "الألعاب المستهلكة: " + (state.gamesUsed || 0),
+        "المتبقي للّعب: " + (premiumActive() ? "غير محدود" : gamesRemaining()),
+        "استعلام الأكواد: " + codesProbe
+      ].join("\n"), "🔧");
     }
 
     // Auto-publish: called after every add/edit/delete so changes go live without
@@ -12588,25 +12736,19 @@
     // Version tag + one-tap diagnostics: everything the play gate sees, plus a
     // live probe of the codes query — screenshot-able for remote debugging.
     $("#buildTag").textContent = "نسخة " + IZZBAH_BUILD;
-    $("#buildTag").addEventListener("click", async () => {
-      let codesProbe = "غير مسجّل الدخول";
-      if (state.signedIn && window.IZZBAH && window.IZZBAH.refreshMyCodes) {
-        try { codesProbe = (await window.IZZBAH.refreshMyCodes()) ? "يعمل ✅" : "فشل ❌ (تحقّق من قواعد Firestore)"; }
-        catch (e) { codesProbe = "خطأ: " + ((e && (e.code || e.message)) || "?"); }
-      }
-      renderPlayBalance();
-      popNote("تشخيص اللعبة", [
-        "النسخة: " + IZZBAH_BUILD,
-        "الحساب: " + (state.myUid || "غير مسجّل"),
-        "مشرف: " + (state.isAdmin ? "نعم (لعب غير محدود دائماً)" : "لا"),
-        "اللعبة المجانية: " + (state.freeGamePlayed ? "مستهلكة" : "متاحة"),
-        "رصيد الأكواد: " + (state.codeGamesAllowed || 0) + (state.codePremium ? " + اشتراك مفتوح" : ""),
-        "رصيد الاشتراك: " + (state.gamesAllowed || 0) + (state.isPremium ? " + مفتوح" : ""),
-        "الألعاب المستهلكة: " + (state.gamesUsed || 0),
-        "المتبقي للّعب: " + (premiumActive() ? "غير محدود" : gamesRemaining()),
-        "استعلام الأكواد: " + codesProbe
-      ].join("\n"), "🔧");
-    });
+    $("#buildTag").addEventListener("click", showDiagnostics);
+    // ---- User settings / account sheet wiring ----
+    $("#userSettingsBtn").addEventListener("click", openSettings);
+    $("#settingsClose").addEventListener("click", closeSettings);
+    $("#settingsModal").addEventListener("click", event => { if (event.target.id === "settingsModal") closeSettings(); });
+    $("#settingsBuy").addEventListener("click", () => { closeSettings(); openPlans(); });
+    $("#redeemBtnSettings").addEventListener("click", () => redeemCodeFlow($("#redeemInputSettings")));
+    $("#redeemInputSettings").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputSettings")); });
+    $("#settingsSound").addEventListener("click", () => { toggleSound(); renderSettingsSheet(); });
+    $("#settingsHowTo").addEventListener("click", () => { closeSettings(); openHowTo(); });
+    $("#settingsContact").addEventListener("click", () => { window.location.href = "mailto:izzbahgame@gmail.com?subject=%D8%AF%D8%B9%D9%85%20%D8%B9%D8%B2%D8%A8%D8%A9"; });
+    $("#settingsLegal").addEventListener("click", () => { closeSettings(); openLegal("privacy", "review"); });
+    $("#settingsAbout").addEventListener("click", () => { closeSettings(); showDiagnostics(); });
     // Warn webview players up front that Google sign-in needs a real browser.
     if (typeof isInAppBrowser === "function" && isInAppBrowser()) {
       const wn = $("#webviewNote");
