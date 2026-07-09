@@ -5523,6 +5523,7 @@
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
+          <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
@@ -8681,7 +8682,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.5";
+    const IZZBAH_BUILD = "2026-07-09.6";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12016,6 +12017,56 @@
     const normAnswer = value => String(value == null ? "" : value).trim().replace(/\s+/g, " ");
     const isNumericAnswer = value => /^[\d٠-٩]+$/.test(normAnswer(value).replace(/\s/g, ""));
 
+    // Generate up to 3 FITTING wrong-answers for a question, drawn ONLY from
+    // the same category's other answers of the same kind (number vs text),
+    // ordered by closeness in length. Returns null when the category can't
+    // supply three same-type options — better to skip than to bake in unrelated
+    // ones (the runtime helper still fills a set from a wider pool when needed).
+    function sameCategoryDistractors(cat, q) {
+      const correct = normAnswer(q && q.a);
+      if (!correct) return null;
+      const wantNum = isNumericAnswer(correct);
+      const seen = new Set([correct]);
+      const pool = [];
+      categoryAnswerPool(cat).forEach(a => {
+        const n = normAnswer(a);
+        if (n && !seen.has(n) && isNumericAnswer(n) === wantNum) { seen.add(n); pool.push(n); }
+      });
+      if (pool.length < 3) return null;
+      pool.sort((x, y) => Math.abs(x.length - correct.length) - Math.abs(y.length - correct.length));
+      const window = pool.slice(0, Math.max(6, 3));
+      shuffleInPlace(window);
+      return window.slice(0, 3);
+    }
+    // Admin: fill curated distractors for every question in the current
+    // category that is missing them (fewer than 3), using same-category
+    // options. Records one undo step and publishes.
+    function fillMissingDistractors() {
+      const cat = state.adminCat;
+      if (!cat) { showToast("اختر فئة أولاً"); return; }
+      if (hidesMultipleChoice(cat)) { showToast("هذه الفئة لا تستخدم «أربعة خيارات» — لا حاجة للخيارات"); return; }
+      const targets = cat.questions.filter(q => {
+        const d = Array.isArray(q.distractors) ? q.distractors.filter(Boolean) : [];
+        return d.length < 3 && (q.a || "").trim();
+      });
+      if (!targets.length) { showToast("كل الأسئلة لديها خيارات بالفعل ✅"); return; }
+      pushAdminUndo("توليد الخيارات الناقصة");
+      let filled = 0;
+      targets.forEach(q => {
+        const gen = sameCategoryDistractors(cat, q);
+        if (gen && gen.length === 3) { q.distractors = gen; filled++; }
+      });
+      if (!filled) { showToast("تعذّر التوليد — تحتاج الفئة إجابات أكثر من نفس النوع"); return; }
+      state.adminDirty = true;
+      populateAdminFilter();
+      renderAdminTable();
+      renderAdminCatHead();
+      autoPublishAdmin();
+      const skipped = targets.length - filled;
+      showToast(`✨ تم توليد خيارات لـ ${toArabicDigits(filled)} سؤالاً`
+        + (skipped ? ` (تعذّر ${toArabicDigits(skipped)} — راجعها يدوياً)` : ""));
+    }
+
     // Every answer in a category's pool (full built-in bank, or a custom
     // category's own questions) — used as the source of plausible distractors.
     function categoryAnswerPool(cat) {
@@ -13113,6 +13164,7 @@
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
+    $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
     $("#mediaPreviewModal").addEventListener("click", event => { if (event.target.id === "mediaPreviewModal") closeMediaPreview(); });
