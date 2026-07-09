@@ -4081,6 +4081,32 @@
     .admin-table .q-act button { border: 0; cursor: pointer; border-radius: 9px; padding: 7px 13px; font: 700 13px 'Cairo', sans-serif; color: #fff; }
     .admin-table .q-edit { background: linear-gradient(180deg, #2f80d8, #1d5fad); }
     .admin-table .q-del { background: rgba(255,255,255,.08); color: #e8a3a3; }
+    /* Inline click-to-edit cells (question / answer / points) */
+    .admin-table td.q-editable { cursor: text; }
+    .admin-table td.q-editable:hover { box-shadow: inset 0 0 0 1.5px rgba(231, 195, 115, .55); border-radius: 6px; }
+    .admin-table .q-inline-edit {
+      width: 100%; min-width: 60px; box-sizing: border-box; resize: vertical;
+      font: 600 14px/1.5 'Cairo', sans-serif; color: #1c1710; background: #fdf7e8;
+      border: 2px solid #c9974a; border-radius: 8px; padding: 6px 8px;
+    }
+    .admin-table textarea.q-inline-edit { min-height: 64px; }
+    .admin-table td.col-pts .q-inline-edit { max-width: 90px; text-align: center; }
+    /* Curated wrong-answers chip + its expandable editor row */
+    .admin-table .q-dist-chip { background: linear-gradient(180deg, #b58a3c, #8c6a2e); font-size: 12px; padding: 7px 10px; }
+    .admin-table .q-dist-chip.empty { background: rgba(255, 255, 255, .08); color: #d9c9a7; border: 1px dashed rgba(217, 201, 167, .5); }
+    .admin-table .dist-row td { padding: 8px 10px 12px; }
+    .dist-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .dist-edit input {
+      flex: 1 1 160px; min-width: 130px; font: 600 13.5px 'Cairo', sans-serif;
+      padding: 8px 10px; border-radius: 8px; border: 2px solid rgba(201, 151, 74, .55);
+      background: #fdf7e8; color: #1c1710;
+    }
+    .dist-edit .dist-save { min-height: 0; padding: 8px 18px; }
+    .dist-edit .dist-cancel { min-height: 0; padding: 8px 14px; }
+    /* editor modal: the three wrong-answer fields */
+    .admin-dist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .admin-dist-grid input { min-width: 0; }
+    .dist-note { font-weight: 600; font-size: 11.5px; opacity: .75; }
     .admin-empty { text-align: center; color: #8a7c5e; padding: 30px; }
     .admin-foot { display: flex; justify-content: center; gap: 12px; flex: 0 0 auto; }
     #adminAddQuestion { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
@@ -5512,6 +5538,12 @@
           <textarea id="adminQText" placeholder="نص السؤال"></textarea>
           <label class="field-label">الإجابة الصحيحة</label>
           <input type="text" id="adminQAnswer" placeholder="الإجابة" />
+          <label class="field-label">الخيارات الخاطئة <small class="dist-note">لمساعدة «أربعة خيارات» — اختياري</small></label>
+          <div class="admin-dist-grid">
+            <input type="text" id="adminQDist1" placeholder="خيار خاطئ ١" autocomplete="off" />
+            <input type="text" id="adminQDist2" placeholder="خيار خاطئ ٢" autocomplete="off" />
+            <input type="text" id="adminQDist3" placeholder="خيار خاطئ ٣" autocomplete="off" />
+          </div>
           <div class="admin-q-media">
             <div class="media-item"><div class="file-note">صورة السؤال</div><div id="adminQImage"></div></div>
             <div class="media-item"><div class="file-note">صورة الإجابة</div><div id="adminQAnswerImage"></div></div>
@@ -8649,7 +8681,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.4";
+    const IZZBAH_BUILD = "2026-07-09.5";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10748,10 +10780,59 @@
         tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا نتائج مطابقة.</td></tr>`;
         return;
       }
+      // Click-to-edit directly in a row: swaps the cell for an input, commits
+      // on Enter/blur (Escape cancels), records an undo step and auto-publishes.
+      const commitField = (index, label, apply) => {
+        pushAdminUndo(label);
+        apply(state.adminCat.questions[index]);
+        state.adminDirty = true;
+        populateAdminFilter();
+        renderAdminTable();
+        renderAdminCatHead();
+        autoPublishAdmin();
+      };
+      const makeCellEditable = (cell, index, opts) => {
+        cell.classList.add("q-editable");
+        cell.title = "اضغط للتعديل";
+        cell.addEventListener("click", () => {
+          if (cell.querySelector("input, textarea")) return; // already editing
+          const current = String(opts.get(state.adminCat.questions[index]) ?? "");
+          const prevHtml = cell.innerHTML;
+          cell.innerHTML = "";
+          const ed = document.createElement(opts.multiline ? "textarea" : "input");
+          if (!opts.multiline) ed.type = opts.number ? "number" : "text";
+          if (opts.number) { ed.min = "0"; ed.step = "50"; }
+          ed.className = "q-inline-edit";
+          ed.value = current;
+          cell.appendChild(ed);
+          ed.focus();
+          if (ed.select) ed.select();
+          let settled = false;
+          const finish = save => {
+            if (settled) return; settled = true;
+            const raw = ed.value;
+            const next = opts.number ? String(parseInt(raw, 10) || 0) : raw.trim();
+            if (save && next !== current && (opts.number || next)) {
+              commitField(index, opts.label, qq => opts.set(qq, opts.number ? (parseInt(next, 10) || 0) : next));
+            } else {
+              cell.innerHTML = prevHtml; // unchanged / cancelled — restore as-was
+            }
+          };
+          ed.addEventListener("keydown", ev => {
+            if (ev.key === "Enter" && !(opts.multiline && ev.shiftKey)) { ev.preventDefault(); finish(true); }
+            else if (ev.key === "Escape") finish(false);
+          });
+          ed.addEventListener("blur", () => finish(true));
+        });
+      };
+      // Distractors are only meaningful where the four-choices helper runs.
+      const distEditable = !hidesMultipleChoice(cat);
       rows.forEach(({ q, i }) => {
           const tr = document.createElement("tr");
           const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
           const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
+          makeCellEditable(qCell, i, { label: "تعديل نص سؤال", multiline: true, get: qq => qq.q || "", set: (qq, v) => { qq.q = v; } });
+          makeCellEditable(aCell, i, { label: "تعديل إجابة", get: qq => qq.a || "", set: (qq, v) => { qq.a = v; } });
           const imgCell = document.createElement("td"); imgCell.className = "col-img";
           // Clickable thumbnail → opens a full-size preview (plays video/audio).
           const makeThumb = (src, tag, cls, capLabel) => {
@@ -10780,10 +10861,57 @@
           }
           const ptsCell = document.createElement("td"); ptsCell.className = "col-pts";
           ptsCell.innerHTML = `<span class="q-pts">${escapeHtml(toArabicDigits(q.points))}</span>`;
+          makeCellEditable(ptsCell, i, { label: "تعديل نقاط", number: true, get: qq => qq.points || 0, set: (qq, v) => { qq.points = v; } });
           const actCell = document.createElement("td"); actCell.className = "col-act";
           const act = document.createElement("span"); act.className = "q-act";
           const edit = document.createElement("button"); edit.className = "q-edit"; edit.textContent = "تعديل";
           edit.addEventListener("click", () => openAdminQuestion(i));
+          if (distEditable) {
+            // A chip showing how many curated wrong-answers this question has;
+            // clicking it expands an inline editor row for the three options.
+            const dcount = Array.isArray(q.distractors) ? q.distractors.filter(Boolean).length : 0;
+            const chip = document.createElement("button");
+            chip.className = "q-dist-chip" + (dcount ? "" : " empty");
+            chip.type = "button";
+            chip.title = "الخيارات الخاطئة (أربعة خيارات)";
+            chip.textContent = dcount ? `خيارات ${toArabicDigits(dcount)}` : "+ خيارات";
+            chip.addEventListener("click", () => {
+              const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains("dist-row");
+              document.querySelectorAll("#adminRows .dist-row").forEach(r => r.remove());
+              if (open) return; // second click closes it
+              const drow = document.createElement("tr");
+              drow.className = "dist-row";
+              const td = document.createElement("td");
+              td.colSpan = 5;
+              const wrap = document.createElement("div");
+              wrap.className = "dist-edit";
+              const inputs = [0, 1, 2].map(k => {
+                const inp = document.createElement("input");
+                inp.type = "text";
+                inp.placeholder = `خيار خاطئ ${toArabicDigits(k + 1)}`;
+                inp.value = (Array.isArray(q.distractors) && q.distractors[k]) || "";
+                wrap.appendChild(inp);
+                return inp;
+              });
+              const save = document.createElement("button");
+              save.className = "secondary dist-save"; save.type = "button"; save.textContent = "حفظ";
+              save.addEventListener("click", () => {
+                const vals = inputs.map(inp => inp.value.trim()).filter(Boolean);
+                commitField(i, "تعديل الخيارات الخاطئة", qq => {
+                  if (vals.length) qq.distractors = vals; else delete qq.distractors;
+                });
+              });
+              const cancel = document.createElement("button");
+              cancel.className = "ghost dist-cancel"; cancel.type = "button"; cancel.textContent = "إلغاء";
+              cancel.addEventListener("click", () => drow.remove());
+              wrap.append(save, cancel);
+              td.appendChild(wrap);
+              drow.appendChild(td);
+              tr.after(drow);
+              inputs[0].focus();
+            });
+            act.appendChild(chip);
+          }
           const del = document.createElement("button"); del.className = "q-del"; del.textContent = "حذف";
           del.addEventListener("click", () => {
             if (window.confirm("حذف هذا السؤال؟")) {
@@ -10973,6 +11101,10 @@
       $("#adminQPoints").value = q.points;
       $("#adminQText").value = q.q;
       $("#adminQAnswer").value = q.a;
+      const dists = Array.isArray(q.distractors) ? q.distractors : [];
+      $("#adminQDist1").value = dists[0] || "";
+      $("#adminQDist2").value = dists[1] || "";
+      $("#adminQDist3").value = dists[2] || "";
       state.adminQDraft = { image: q.image || "", answerImage: q.answerImage || "" };
       renderAdminQImages();
       $("#adminQModal").classList.add("open");
@@ -10985,15 +11117,13 @@
       if (!qText && !aText) { alert("أدخل نص السؤال أو الإجابة."); return; }
       pushAdminUndo(state.adminQIndex >= 0 ? "تعديل سؤال" : "إضافة سؤال");
       const obj = { points, q: qText, a: aText, image: state.adminQDraft.image || "", answerImage: state.adminQDraft.answerImage || "" };
-      if (state.adminQIndex >= 0) {
-        // preserve the question's curated four-choices wrong-answers (the
-        // editor has no field for them, so an edit must not strip them)
-        const prev = state.adminCat.questions[state.adminQIndex];
-        if (prev && Array.isArray(prev.distractors) && prev.distractors.length) obj.distractors = prev.distractors;
-        state.adminCat.questions[state.adminQIndex] = obj;
-      } else {
-        state.adminCat.questions.push(obj);
-      }
+      // The editor now carries explicit distractor fields — what's in them IS
+      // the curated four-choices set (cleared inputs remove it).
+      const dists = [$("#adminQDist1").value, $("#adminQDist2").value, $("#adminQDist3").value]
+        .map(v => (v || "").trim()).filter(Boolean);
+      if (dists.length) obj.distractors = dists;
+      if (state.adminQIndex >= 0) state.adminCat.questions[state.adminQIndex] = obj;
+      else state.adminCat.questions.push(obj);
       state.adminDirty = true;
       $("#adminQModal").classList.remove("open");
       populateAdminFilter();
