@@ -4196,8 +4196,37 @@
     body[data-screen="results"] #userSettingsBtn,
     body[data-screen="categories"] #userSettingsBtn,
     body[data-screen="setup"] #userSettingsBtn { display: none; }
-    /* ---- Settings sheet ---- */
-    .settings-sheet { max-width: 440px; width: 94%; text-align: right; max-height: 88vh; overflow-y: auto; }
+    /* ---- Contact modal (Instagram QR + email) ---- */
+    .contact-modal { max-width: 400px; width: 92%; text-align: center; }
+    .contact-sub { margin: 0 0 10px; font: 700 14px 'Cairo', sans-serif; color: #6a5a2f; }
+    .contact-qr-wrap { display: block; margin: 0 auto 12px; max-width: 250px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(201,151,74,.5); box-shadow: 0 8px 22px -10px rgba(80,20,20,.4); }
+    .contact-qr { display: block; width: 100%; height: auto; }
+    .contact-row {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: #fbf5e6; border: 1px solid rgba(201,151,74,.4); border-radius: 11px;
+      padding: 10px 13px; margin-bottom: 8px; font: 800 14px 'Cairo', sans-serif;
+      color: var(--dark); text-decoration: none; direction: ltr;
+    }
+    .contact-row:hover { background: #f3e7c8; }
+    /* ---- Settings drawer: slides in from the left edge -------------------- */
+    #settingsModal {
+      display: block; padding: 0;
+      background: rgba(27, 58, 47, 0); visibility: hidden; pointer-events: none;
+      transition: background .3s ease, visibility 0s linear .34s;
+    }
+    #settingsModal.open {
+      display: block; background: rgba(27, 58, 47, .58); visibility: visible; pointer-events: auto;
+      transition: background .3s ease, visibility 0s;
+    }
+    /* Physically anchored to the LEFT edge (RTL-proof), parked off-screen. */
+    .settings-sheet {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: min(370px, 90vw); max-width: none; height: auto; max-height: none;
+      margin: 0; border-radius: 0 22px 22px 0; overflow-y: auto; text-align: right;
+      transform: translateX(-105%);
+      transition: transform .32s cubic-bezier(.32,.92,.35,1);
+    }
+    #settingsModal.open .settings-sheet { transform: none; }
     .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
     .settings-head .preview-title { margin: 0; }
     .settings-close { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(201,151,74,.5); background: #f3ead3; color: #7a1414; font-size: 16px; cursor: pointer; flex: none; }
@@ -5258,6 +5287,21 @@
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="contactModal" aria-hidden="true">
+    <div class="question-modal contact-modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+      <h3 class="preview-title" id="contactTitle">تواصل معنا</h3>
+      <p class="contact-sub">تابعنا على إنستقرام — امسح الكود أو اضغط عليه:</p>
+      <a class="contact-qr-wrap" href="https://www.instagram.com/izzbahgame" target="_blank" rel="noopener">
+        <img class="contact-qr" src="assets/img/insta-qr.webp" alt="إنستقرام عزبة — @izzbahgame" />
+      </a>
+      <a class="contact-row" href="https://www.instagram.com/izzbahgame" target="_blank" rel="noopener"><span aria-hidden="true">📸</span> @izzbahgame على إنستقرام</a>
+      <a class="contact-row" href="mailto:izzbahgame@gmail.com?subject=%D8%AF%D8%B9%D9%85%20%D8%B9%D8%B2%D8%A8%D8%A9"><span aria-hidden="true">✉️</span> izzbahgame@gmail.com</a>
+      <div class="actions">
+        <button class="ghost" id="contactClose" type="button">إغلاق</button>
+      </div>
     </div>
   </div>
 
@@ -8580,7 +8624,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.1";
+    const IZZBAH_BUILD = "2026-07-09.2";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11235,17 +11279,27 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
       else done();
     }
-    // ---- Add to home screen ------------------------------------------------
-    // Chrome fires beforeinstallprompt when the app is installable — capture it
-    // so the row can trigger the native prompt; otherwise show instructions.
+    // ---- Add to home screen (PWA install) ----------------------------------
+    // The service worker + manifest make the game installable. Chrome/Android
+    // fire beforeinstallprompt — we capture it so the settings row triggers the
+    // NATIVE one-tap install dialog. iOS Safari has no install API at all, so
+    // there (and only there) we fall back to add-to-home-screen instructions.
+    if ("serviceWorker" in navigator) {
+      try { navigator.serviceWorker.register("sw.js"); } catch (e) {}
+    }
     let deferredInstallPrompt = null;
     window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstallPrompt = e; });
+    window.addEventListener("appinstalled", () => { track("app_installed", {}); showToast("تم تثبيت عزبة على جهازك 🎉"); });
     function installAppFlow() {
       track("install_open", {});
       if (deferredInstallPrompt) {
         const p = deferredInstallPrompt;
         deferredInstallPrompt = null;
-        p.prompt();
+        p.prompt(); // the browser's real install dialog — one tap and it's on the home screen
+        return;
+      }
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+        showToast("عزبة مثبّتة على جهازك بالفعل 🎉");
         return;
       }
       const iOS = /iPhone|iPod|iPad/i.test(navigator.userAgent || "");
@@ -11258,6 +11312,14 @@
     // ---- Delete account (required for future app-store releases) ----------
     function deleteAccountFlow() {
       if (!state.signedIn) { showToast("سجّل الدخول أولاً — لا يوجد حساب لحذفه"); return; }
+      // Admin accounts are protected: deleting one would orphan the admins/{uid}
+      // registry entry and permanently lock the admin center (a re-created
+      // Google sign-in gets a NEW uid). Admins can never self-delete in-app.
+      if (state.isAdmin) {
+        popNote("حساب مشرف محمي 🛡️",
+          "حساب المشرف لا يمكن حذفه أو تصفيره من داخل اللعبة، حفاظاً على الوصول إلى مركز الإدارة.\n\nلإزالة صلاحية مشرف أو حذف حسابه، يتم ذلك يدوياً من لوحة Firebase.", "🛡️");
+        return;
+      }
       if (!confirm("حذف حسابك نهائياً؟\n\nسيُحذف تقدّمك المحفوظ وإعداداتك وبياناتك من السحابة، ولا يمكن التراجع عن ذلك.")) return;
       if (!confirm("تأكيد أخير: حذف الحساب وكل البيانات نهائياً؟")) return;
       const bridge = window.IZZBAH && window.IZZBAH.deleteMyAccount;
@@ -12809,7 +12871,19 @@
     $("#settingsInstall").addEventListener("click", () => { closeSettings(); installAppFlow(); });
     $("#settingsDelete").addEventListener("click", () => { closeSettings(); deleteAccountFlow(); });
     $("#settingsHowTo").addEventListener("click", () => { closeSettings(); openHowTo(); });
-    $("#settingsContact").addEventListener("click", () => { window.location.href = "mailto:izzbahgame@gmail.com?subject=%D8%AF%D8%B9%D9%85%20%D8%B9%D8%B2%D8%A8%D8%A9"; });
+    function openContact() {
+      const m = $("#contactModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeContact() {
+      const m = $("#contactModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    $("#settingsContact").addEventListener("click", () => { closeSettings(); openContact(); });
+    $("#contactClose").addEventListener("click", closeContact);
+    $("#contactModal").addEventListener("click", event => { if (event.target.id === "contactModal") closeContact(); });
     $("#settingsLegal").addEventListener("click", () => { closeSettings(); openLegal("privacy", "review"); });
     $("#settingsAbout").addEventListener("click", () => { closeSettings(); showDiagnostics(); });
     // Warn webview players up front that Google sign-in needs a real browser.
@@ -13597,6 +13671,10 @@
           // May reject with auth/requires-recent-login per Firebase policy.
           window.IZZBAH.deleteMyAccount = function () {
             if (!currentUser) return Promise.reject(new Error("not-signed-in"));
+            // Backstop for the UI-level guard: an admin account must never be
+            // deletable from inside the game (it would orphan the admin registry
+            // entry and lock the admin center forever).
+            if (cloudIsAdmin) return Promise.reject(new Error("admin-protected"));
             const user = currentUser;
             // Stop everything that could write the doc back mid-deletion: the
             // debounced settings push and the entitlement listener.

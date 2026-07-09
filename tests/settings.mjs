@@ -149,6 +149,57 @@ try {
     delIn.calls === 1 && /الدخول/.test(delIn.note));
   await page.evaluate(() => { document.getElementById("notePop").classList.remove("open"); window.IZZBAH.applyAuth(false); });
 
+  // ---- drawer slides in from the left ----
+  const drawer = await page.evaluate(async () => {
+    document.getElementById("settingsModal").classList.remove("open");
+    await new Promise(r => setTimeout(r, 400));
+    const sheet = document.querySelector("#settingsModal .settings-sheet");
+    const closedX = sheet.getBoundingClientRect().right; // fully off the left edge
+    document.getElementById("userSettingsBtn").click();
+    await new Promise(r => setTimeout(r, 450));
+    const openX = sheet.getBoundingClientRect().left;
+    const anim = getComputedStyle(sheet).transitionDuration;
+    document.getElementById("settingsClose").click();
+    await new Promise(r => setTimeout(r, 450));
+    const backX = sheet.getBoundingClientRect().right;
+    return { closedX, openX, backX, anim };
+  });
+  check("the sheet is parked off the left edge when closed", drawer.closedX <= 1);
+  check("opening slides it in to the left edge (animated)", drawer.openX === 0 && parseFloat(drawer.anim) > 0);
+  check("closing slides it back out", drawer.backX <= 1);
+
+  // ---- contact opens the Instagram/QR modal ----
+  await page.evaluate(() => document.getElementById("userSettingsBtn").click());
+  await page.waitForTimeout(200);
+  await page.evaluate(() => document.getElementById("settingsContact").click());
+  await page.waitForTimeout(250);
+  const contact = await page.evaluate(() => ({
+    open: document.getElementById("contactModal").classList.contains("open"),
+    qr: !!document.querySelector("#contactModal img.contact-qr[src*='insta-qr']"),
+    insta: !!document.querySelector('#contactModal a[href*="instagram.com/izzbahgame"]'),
+    mail: !!document.querySelector('#contactModal a[href^="mailto:izzbahgame"]'),
+  }));
+  check("contact opens a modal with the Instagram QR, profile link, and email",
+    contact.open && contact.qr && contact.insta && contact.mail);
+  await page.evaluate(() => document.getElementById("contactClose").click());
+
+  // ---- admin accounts cannot delete themselves ----
+  const adminGuard = await page.evaluate(async () => {
+    let calls = 0;
+    window.IZZBAH.applyAuth(true, "adm1");
+    window.IZZBAH.applyAdmin(true);
+    window.IZZBAH.deleteMyAccount = () => { calls++; return Promise.resolve(); };
+    document.getElementById("userSettingsBtn").click();
+    document.getElementById("settingsDelete").click();
+    await new Promise(r => setTimeout(r, 250));
+    const note = document.getElementById("notePopMsg").textContent;
+    window.IZZBAH.applyAdmin(false); window.IZZBAH.applyAuth(false);
+    document.getElementById("notePop").classList.remove("open");
+    return { calls, note };
+  });
+  check("an admin account is protected from in-game deletion (bridge never called)",
+    adminGuard.calls === 0 && /المشرف/.test(adminGuard.note));
+
   // ---- about row opens diagnostics ----
   await page.evaluate(() => document.getElementById("userSettingsBtn").click());
   await page.waitForTimeout(150);
