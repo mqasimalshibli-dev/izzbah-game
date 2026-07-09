@@ -13598,6 +13598,9 @@
           window.IZZBAH.deleteMyAccount = function () {
             if (!currentUser) return Promise.reject(new Error("not-signed-in"));
             const user = currentUser;
+            // Stop everything that could write the doc back mid-deletion: the
+            // debounced settings push and the entitlement listener.
+            clearTimeout(pushTimer);
             if (entitlementUnsub) { try { entitlementUnsub(); } catch (e) {} entitlementUnsub = null; }
             return db.collection("users").doc(user.uid).delete().then(() => user.delete());
           };
