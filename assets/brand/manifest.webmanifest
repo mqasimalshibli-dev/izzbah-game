@@ -1,11 +1,11 @@
 {
   "name": "عَزْبَة",
   "short_name": "عَزْبَة",
-  "description": "لعبة ترفيهية جماعية",
+  "description": "لعبة تريفيا جماعية: فرق، فئات، مساعدات، وضحك بلا حدود.",
   "lang": "ar",
   "dir": "rtl",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#F3E1C0",
   "theme_color": "#9E1C1C",
   "icons": [
@@ -35,5 +35,6 @@
     }
   ],
   "start_url": "../../game-mobile.html",
-  "scope": "../../"
+  "scope": "../../",
+  "id": "../../game-mobile.html"
 }

@@ -6,11 +6,15 @@ on:
   push:
     paths:
       - "game-mobile.html"
+      - "sw.js"
+      - "assets/brand/manifest.webmanifest"
       - "tests/**"
       - ".github/workflows/smoke.yml"
   pull_request:
     paths:
       - "game-mobile.html"
+      - "sw.js"
+      - "assets/brand/manifest.webmanifest"
       - "tests/**"
   workflow_dispatch:
 
@@ -116,3 +120,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node settings.mjs
+
+      - name: Run PWA test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node pwa.mjs
