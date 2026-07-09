@@ -95,6 +95,60 @@ try {
   });
   check("redeeming from the sheet while signed-out prompts sign-in", /الدخول/.test(redeem));
 
+  // ---- share / install / delete rows ----
+  const rows = await page.evaluate(() => ({
+    share: !!document.getElementById("settingsShare"),
+    install: !!document.getElementById("settingsInstall"),
+    del: !!document.getElementById("settingsDelete"),
+  }));
+  check("share / install / delete rows exist", rows.share && rows.install && rows.del);
+
+  // install (no beforeinstallprompt in the harness) -> instructions popup
+  await page.evaluate(() => document.getElementById("settingsInstall").click());
+  await page.waitForTimeout(200);
+  check("install row shows add-to-home-screen instructions", await page.evaluate(() =>
+    document.getElementById("notePop").classList.contains("open")
+    && /الشاشة الرئيسية/.test(document.getElementById("notePopMsg").textContent)));
+  await page.evaluate(() => document.getElementById("notePop").classList.remove("open"));
+
+  // share (no navigator.share in the harness) -> clipboard fallback toast
+  const shared = await page.evaluate(async () => {
+    let toasted = "";
+    const orig = window.showToast; window.showToast = m => { toasted = m; if (orig) orig(m); };
+    delete navigator.share;
+    document.getElementById("userSettingsBtn").click();
+    document.getElementById("settingsShare").click();
+    await new Promise(r => setTimeout(r, 250));
+    window.showToast = orig;
+    return toasted;
+  });
+  check("share row copies the game link (fallback toast)", /رابط اللعبة/.test(shared));
+
+  // delete while signed out -> prompt to sign in, nothing destructive
+  const delOut = await page.evaluate(() => {
+    let toasted = "";
+    const orig = window.showToast; window.showToast = m => { toasted = m; if (orig) orig(m); };
+    document.getElementById("settingsDelete").click();
+    window.showToast = orig;
+    return toasted;
+  });
+  check("delete while signed out asks to sign in first", /الدخول/.test(delOut));
+
+  // delete while signed in: confirms auto-accepted; a requires-recent-login
+  // rejection shows the re-login popup (avoids reload in the harness)
+  const delIn = await page.evaluate(async () => {
+    let calls = 0;
+    window.IZZBAH.applyAuth(true, "u1");
+    window.IZZBAH.deleteMyAccount = () => { calls++; return Promise.reject({ code: "auth/requires-recent-login" }); };
+    document.getElementById("userSettingsBtn").click();
+    document.getElementById("settingsDelete").click();
+    await new Promise(r => setTimeout(r, 300));
+    return { calls, note: document.getElementById("notePopMsg").textContent };
+  });
+  check("confirmed delete calls the bridge; recent-login case explains itself",
+    delIn.calls === 1 && /الدخول/.test(delIn.note));
+  await page.evaluate(() => { document.getElementById("notePop").classList.remove("open"); window.IZZBAH.applyAuth(false); });
+
   // ---- about row opens diagnostics ----
   await page.evaluate(() => document.getElementById("userSettingsBtn").click());
   await page.waitForTimeout(150);
