@@ -69,6 +69,9 @@
 
     * { box-sizing: border-box; }
 
+    /* Never let a scroll gesture rubber-band the whole page (iOS Safari). */
+    html { overscroll-behavior: none; }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -170,6 +173,7 @@
        fit inside the card, so the page must never scroll, drag, or rubber-band.
        The short-landscape media query already pins these; this extends the lock
        to portrait and tall phones/desktops so they can't "slide" either. */
+    body[data-screen="game"],
     body[data-screen="questionPage"],
     body[data-screen="answerPage"] {
       position: fixed;
@@ -177,16 +181,34 @@
       width: 100%;
       height: var(--game-vh, 100svh);
       max-height: var(--game-vh, 100svh);
+      min-height: 0;
       overflow: hidden;
       overscroll-behavior: none;
       touch-action: manipulation;
     }
+    body[data-screen="game"] .app,
     body[data-screen="questionPage"] .app,
     body[data-screen="answerPage"] .app {
       height: var(--game-vh, 100svh);
       max-height: var(--game-vh, 100svh);
+      /* CRITICAL: the base .app carries min-height:100vh. On iOS Safari 100vh
+         is the LARGEST viewport (toolbars hidden) while --game-vh is the
+         actually visible height — without this override the layout is taller
+         than the screen and the bottom action buttons get clipped. */
+      min-height: 0;
       overflow: hidden;
     }
+    /* The board screen must never scroll on ANY viewport size (the ≤600px
+       landscape query below has its own grid; this covers taller screens).
+       Flex-fill the locked .app so padding is respected. */
+    body[data-screen="game"] #game {
+      flex: 1 1 auto;
+      height: auto;
+      max-height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+    body[data-screen="game"] #game .board-scroll { min-height: 0; }
 
     .center {
       align-items: center;
@@ -1551,6 +1573,7 @@
       width: min(900px, 100%);
       align-self: center;
       margin-top: 4px;
+      margin-bottom: env(safe-area-inset-bottom, 0px);
       direction: ltr;
     }
 
@@ -2818,7 +2841,7 @@
       }
       .question-main-card #questionActions {
         left: 14px;
-        bottom: 6px;
+        bottom: calc(6px + env(safe-area-inset-bottom, 0px));
       }
       .answer-card {
         min-height: 0;
@@ -2953,7 +2976,8 @@
         position: absolute;
         left: 14px;
         right: 172px;
-        bottom: 6px;
+        /* keep clear of the iOS home-indicator strip */
+        bottom: calc(6px + env(safe-area-inset-bottom, 0px));
         gap: 8px;
         margin-top: 0;
         width: auto;
@@ -4808,7 +4832,7 @@
       line-height: 1.5 !important; color: #1f5237 !important; max-width: 800px; margin: 0 auto !important; text-wrap: balance;
     }
     /* reveal button: hang from bottom edge (inline-end = left) */
-    #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: 0 !important; }
+    #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
       min-height: 0 !important; padding: 13px 30px 15px !important; border: 2px solid #e6c869 !important; border-bottom: none !important;
       background: linear-gradient(180deg, #cc2531, #9e1322) !important; color: #fff !important;
@@ -8625,7 +8649,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.3";
+    const IZZBAH_BUILD = "2026-07-09.4";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10961,8 +10985,15 @@
       if (!qText && !aText) { alert("أدخل نص السؤال أو الإجابة."); return; }
       pushAdminUndo(state.adminQIndex >= 0 ? "تعديل سؤال" : "إضافة سؤال");
       const obj = { points, q: qText, a: aText, image: state.adminQDraft.image || "", answerImage: state.adminQDraft.answerImage || "" };
-      if (state.adminQIndex >= 0) state.adminCat.questions[state.adminQIndex] = obj;
-      else state.adminCat.questions.push(obj);
+      if (state.adminQIndex >= 0) {
+        // preserve the question's curated four-choices wrong-answers (the
+        // editor has no field for them, so an edit must not strip them)
+        const prev = state.adminCat.questions[state.adminQIndex];
+        if (prev && Array.isArray(prev.distractors) && prev.distractors.length) obj.distractors = prev.distractors;
+        state.adminCat.questions[state.adminQIndex] = obj;
+      } else {
+        state.adminCat.questions.push(obj);
+      }
       state.adminDirty = true;
       $("#adminQModal").classList.remove("open");
       populateAdminFilter();
@@ -13119,6 +13150,22 @@
       "pub-1783189666048-7547": "assets/img/cat-wrestling.webp",    // مصارعة حره
       "pub-1783189684453-7350": "assets/img/cat-memes.webp"         // ميمز
     };
+    // Curated distractors for a built-in question, looked up by exact text +
+    // answer. Heals published overrides saved before distractors survived the
+    // publish pipeline: any unmodified question gets its bank set back.
+    const bankDistractorMaps = {};
+    function bankDistractorsFor(catId, q, a) {
+      const bank = builtinQuestionBanks[catId];
+      if (!bank) return null;
+      if (!bankDistractorMaps[catId]) {
+        const m = new Map();
+        Object.values(bank).forEach(list => (list || []).forEach(qa => {
+          if (qa && Array.isArray(qa[2]) && qa[2].length) m.set((qa[0] || "") + "" + (qa[1] || ""), qa[2]);
+        }));
+        bankDistractorMaps[catId] = m;
+      }
+      return bankDistractorMaps[catId].get((q || "") + "" + (a || "")) || null;
+    }
     function normalizePublishedCategory(c) {
       // Word-game overrides published before the QR images existed store their
       // questions with image:"" — backfill each unmodified word's built-in QR
@@ -13127,12 +13174,22 @@
       return {
         id: c.id, name: c.name || "", image: c.image || publishedCoverFallbacks[c.id] || "", color: c.color || "",
         custom: false, published: true, order: c.order || 0,
-        questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => ({
-          points: q.points || pointValues[i] || 100,
-          q: q.q || "", a: q.a || "",
-          image: q.image || (wordCat ? wordQrFor(c.id, q.a) : "") || "",
-          answerImage: q.answerImage || ""
-        }))
+        questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => {
+          const out = {
+            points: q.points || pointValues[i] || 100,
+            q: q.q || "", a: q.a || "",
+            image: q.image || (wordCat ? wordQrFor(c.id, q.a) : "") || "",
+            answerImage: q.answerImage || ""
+          };
+          // keep the curated four-choices wrong-answers through normalization;
+          // for unmodified built-in questions, restore them from the bank
+          if (Array.isArray(q.distractors) && q.distractors.length) out.distractors = q.distractors.slice(0, 3);
+          else {
+            const bankD = bankDistractorsFor(c.id, out.q, out.a);
+            if (bankD) out.distractors = bankD.slice(0, 3);
+          }
+          return out;
+        })
       };
     }
     window.IZZBAH = window.IZZBAH || {};
@@ -13487,7 +13544,12 @@
                   ? inline
                   : qsnap.docs.map(q => q.data())
                       .sort((a, b) => (a.idx || 0) - (b.idx || 0))
-                      .map(q => ({ points: q.points || 0, q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || "" }));
+                      .map(q => {
+                        const out = { points: q.points || 0, q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || "" };
+                        // curated wrong-answers for the four-choices helper
+                        if (Array.isArray(q.distractors) && q.distractors.length) out.distractors = q.distractors.slice(0, 3);
+                        return out;
+                      });
                 return Object.assign({ id: d.id }, data, { questions });
               })
               .catch(() => Object.assign({ id: d.id }, data, { questions: inline }));
@@ -13724,7 +13786,10 @@
             const meta = {
               name: cat.name || "",
               image: cat.image || "",
-              questions: list.map(q => ({ points: q.points || 0, q: q.q || "", a: q.a || "" })),
+              questions: list.map(q => ({
+                points: q.points || 0, q: q.q || "", a: q.a || "",
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+              })),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (cat.color) meta.color = cat.color;
@@ -13744,11 +13809,14 @@
                 const id = "q" + i; keep.add(id);
                 const data = {
                   points: q.points || 0, q: q.q || "", a: q.a || "",
-                  image: q.image || "", answerImage: q.answerImage || "", idx: i
+                  image: q.image || "", answerImage: q.answerImage || "", idx: i,
+                  distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
                 };
                 const prev = prevById.get(id);
+                const prevD = JSON.stringify((prev && prev.distractors) || []);
                 if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
-                    || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {
+                    || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx
+                    || prevD !== JSON.stringify(data.distractors)) {
                   batch.set(qcol.doc(id), data);
                   changed++;
                 }
@@ -13882,7 +13950,8 @@
               name: cat.name || "", image: cat.image || "", color: cat.color || "",
               questions: (cat.questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
-                image: q.image || "", answerImage: q.answerImage || ""
+                image: q.image || "", answerImage: q.answerImage || "",
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
               })),
               authorUid: currentUser.uid,
               authorName: currentUser.displayName || currentUser.email || "عضو",
