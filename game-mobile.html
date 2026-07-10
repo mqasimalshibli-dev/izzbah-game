@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.google-analytics.com https://*.google-analytics.com; media-src 'self' data: blob: https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.google-analytics.com https://*.google-analytics.com; media-src 'self' data: blob: https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.wikipedia.org https://*.wikimedia.org; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <script>
     /* Clickjacking guard — GitHub Pages can't send X-Frame-Options /
        CSP frame-ancestors headers, so break out of any foreign frame here. */
@@ -5526,6 +5526,7 @@
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
           <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
+          <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
           <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
@@ -8698,7 +8699,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.2";
+    const IZZBAH_BUILD = "2026-07-10.3";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12143,6 +12144,117 @@
         + (skipped ? ` (تعذّر ${toArabicDigits(skipped)} — راجعها يدوياً)` : ""));
     }
 
+    // ---- Auto-fetch answer photos from Wikipedia / Wikimedia Commons --------
+    // Free, no API key, works from the browser (Wikimedia serves CORS + the API
+    // supports origin=*). We look up the ANSWER's page image (a real photo of
+    // the real subject — not a generated guess) and store it on `answerImage`
+    // (the reveal), so it never spoils the question. Results are downscaled to a
+    // data URL so the category stays self-contained and offline-capable.
+    function wikiSearchImage(query, lang) {
+      const api = "https://" + lang + ".wikipedia.org/w/api.php";
+      const params = new URLSearchParams({
+        action: "query", format: "json", origin: "*",
+        prop: "pageimages", piprop: "thumbnail", pithumbsize: "800",
+        generator: "search", gsrsearch: query, gsrlimit: "3", gsrnamespace: "0",
+      });
+      return fetch(api + "?" + params.toString(), { referrerPolicy: "no-referrer" })
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          const pages = data && data.query && data.query.pages;
+          if (!pages) return "";
+          const arr = Object.keys(pages).map(k => pages[k])
+            .sort((a, b) => (a.index || 0) - (b.index || 0));
+          for (const p of arr) {
+            const src = p.thumbnail && p.thumbnail.source;
+            if (src) return src;
+          }
+          return "";
+        })
+        .catch(() => "");
+    }
+
+    // Find the best real photo for an answer: Arabic Wikipedia first (matches the
+    // game's language), then English as a fallback for global topics.
+    async function findAnswerImageUrl(query) {
+      const q = (query || "").trim();
+      if (!q) return "";
+      const hasArabic = /[؀-ۿ]/.test(q);
+      const langs = hasArabic ? ["ar", "en"] : ["en", "ar"];
+      for (const lang of langs) {
+        const url = await wikiSearchImage(q, lang);
+        if (url) return url;
+      }
+      return "";
+    }
+
+    // Fetch a remote image as a downscaled data URL (so it lives inline in the
+    // category, works offline, and keeps the per-question doc small).
+    async function remoteImageToDataUrl(url) {
+      const res = await fetch(url, { referrerPolicy: "no-referrer" });
+      if (!res.ok) throw new Error("image fetch failed");
+      const blob = await res.blob();
+      const raw = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error("read failed"));
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(blob);
+      });
+      if (typeof raw !== "string" || !/^data:image\//.test(raw)) throw new Error("not an image");
+      return await recompressDataUrl(raw, 800, 0.82);
+    }
+
+    // A question "needs" a fetched photo if it has an answer to search for and
+    // no answer image yet.
+    function questionNeedsImage(q) {
+      return !!(q && (q.a || "").trim() && !(q.answerImage || "").trim());
+    }
+
+    // Admin: fill missing answer photos across the current category. Sequential
+    // (polite to Wikipedia), capped per run, one undo step, auto-publishes. The
+    // admin then reviews the thumbnails in the table and can swap/remove any.
+    async function fetchMissingImages() {
+      const cat = state.adminCat;
+      if (!cat) { showToast("اختر فئة أولاً"); return; }
+      // Word-guess / reaction categories use special media (QR / video) — leave
+      // their images alone.
+      if (hidesMultipleChoice(cat)) { showToast("هذه الفئة تستخدم وسائط خاصة — لا يُجلب لها صور"); return; }
+      const CAP = 40;
+      let targets = cat.questions.filter(questionNeedsImage);
+      if (!targets.length) { showToast("كل الأسئلة لديها صورة إجابة بالفعل"); return; }
+      const capped = targets.length > CAP;
+      if (capped) targets = targets.slice(0, CAP);
+      if (!confirm("جلب صور الإجابات من ويكيبيديا لـ " + toArabicDigits(targets.length) + " سؤالاً؟\n"
+        + "تُوضع الصورة على «صورة الإجابة» (لا تكشف السؤال). راجعها بعد الجلب — قد لا تكون كل صورة دقيقة، ويمكنك حذف أي صورة غير مناسبة.")) return;
+
+      const btn = $("#adminFetchImages");
+      const orig = btn ? btn.textContent : "";
+      if (btn) btn.disabled = true;
+      pushAdminUndo("جلب صور الإجابات");
+      let filled = 0, failed = 0, done = 0;
+      for (const q of targets) {
+        done++;
+        if (btn) btn.textContent = "⏳ جلب الصور… " + toArabicDigits(done) + "/" + toArabicDigits(targets.length);
+        try {
+          const url = await findAnswerImageUrl(q.a);
+          if (url) { q.answerImage = await remoteImageToDataUrl(url); filled++; }
+          else failed++;
+        } catch (e) { failed++; }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+
+      if (!filled) {
+        showToast("تعذّر جلب أي صورة — تحقّق من الاتصال أو جرّب لاحقاً");
+        return;
+      }
+      state.adminDirty = true;
+      renderAdminTable();
+      renderAdminCatHead();
+      autoPublishAdmin();
+      showToast("🖼 تم جلب " + toArabicDigits(filled) + " صورة"
+        + (failed ? " (تعذّر " + toArabicDigits(failed) + " — راجعها يدوياً)" : "")
+        + (capped ? " — كرّر العملية لجلب الباقي" : ""));
+    }
+
     // Admin: wipe every question in the current category (double-confirmed).
     // The empty category stays; the deletion is one undo step and auto-publishes.
     function clearAllQuestions() {
@@ -13268,6 +13380,7 @@
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
+    $("#adminFetchImages").addEventListener("click", fetchMissingImages);
     $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
