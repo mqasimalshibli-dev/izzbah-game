@@ -5534,7 +5534,7 @@
         <h3 class="preview-title" id="adminQTitle">تعديل السؤال</h3>
         <div class="admin-q-grid">
           <label class="field-label">النقاط</label>
-          <input type="number" id="adminQPoints" min="0" step="50" />
+          <input type="text" id="adminQPoints" inputmode="numeric" pattern="[0-9]*" />
           <label class="field-label">نص السؤال</label>
           <textarea id="adminQText" placeholder="نص السؤال"></textarea>
           <label class="field-label">الإجابة الصحيحة</label>
@@ -5576,7 +5576,7 @@
           </label>
           <label class="import-ctl" id="importFixedWrap" style="display:none">
             <span>القيمة</span>
-            <input type="number" id="importFixedPoints" min="0" step="50" value="300" />
+            <input type="text" id="importFixedPoints" inputmode="numeric" pattern="[0-9]*" value="300" />
           </label>
           <label class="import-ctl">
             <span>الوجهة</span>
@@ -5974,6 +5974,19 @@
     const pointValues = [100, 200, 300, 400, 500];
     const maxTotalScore = 10000;
     const toArabicDigits = value => String(value);
+    // Parse an integer that may contain Arabic-Indic (٠-٩) or Persian (۰-۹)
+    // digits — an iOS Arabic keyboard types those, and a native type="number"
+    // input silently drops them (which used to make points edits look like they
+    // reverted). Convert to Western digits first, then parse.
+    function toWesternDigits(s) {
+      return String(s == null ? "" : s)
+        .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+        .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+    }
+    function parseIntLoose(v) {
+      const n = parseInt(toWesternDigits(v).replace(/[^\d-]/g, ""), 10);
+      return Number.isFinite(n) ? n : 0;
+    }
     const builtinQuestionBanks = {
       charades: {
         100: [
@@ -8682,7 +8695,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.7";
+    const IZZBAH_BUILD = "2026-07-09.8";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10801,8 +10814,11 @@
           const prevHtml = cell.innerHTML;
           cell.innerHTML = "";
           const ed = document.createElement(opts.multiline ? "textarea" : "input");
-          if (!opts.multiline) ed.type = opts.number ? "number" : "text";
-          if (opts.number) { ed.min = "0"; ed.step = "50"; }
+          if (!opts.multiline) ed.type = "text";
+          // Numeric fields use a TEXT input with a numeric keypad (not
+          // type="number", which drops Arabic-Indic digits on iOS) and are
+          // parsed leniently so ٥٠٠ / 500 both work.
+          if (opts.number) { ed.inputMode = "numeric"; ed.setAttribute("pattern", "[0-9]*"); }
           ed.className = "q-inline-edit";
           ed.value = current;
           cell.appendChild(ed);
@@ -10812,9 +10828,9 @@
           const finish = save => {
             if (settled) return; settled = true;
             const raw = ed.value;
-            const next = opts.number ? String(parseInt(raw, 10) || 0) : raw.trim();
+            const next = opts.number ? String(parseIntLoose(raw)) : raw.trim();
             if (save && next !== current && (opts.number || next)) {
-              commitField(index, opts.label, qq => opts.set(qq, opts.number ? (parseInt(next, 10) || 0) : next));
+              commitField(index, opts.label, qq => opts.set(qq, opts.number ? parseIntLoose(next) : next));
             } else {
               cell.innerHTML = prevHtml; // unchanged / cancelled — restore as-was
             }
@@ -10999,7 +11015,7 @@
     function assignImportPoints(valid) {
       const mode = $("#importPointsMode").value;
       if (mode === "fixed") {
-        const v = parseInt($("#importFixedPoints").value, 10) || 0;
+        const v = parseIntLoose($("#importFixedPoints").value);
         valid.forEach(r => { r.points = v; });
       } else if (mode === "column") {
         valid.forEach(r => { r.points = Number.isFinite(r.points) ? r.points : 0; });
@@ -11112,7 +11128,7 @@
     }
 
     function saveAdminQuestion() {
-      const points = parseInt($("#adminQPoints").value, 10) || 0;
+      const points = parseIntLoose($("#adminQPoints").value);
       const qText = $("#adminQText").value.trim();
       const aText = $("#adminQAnswer").value.trim();
       if (!qText && !aText) { alert("أدخل نص السؤال أو الإجابة."); return; }

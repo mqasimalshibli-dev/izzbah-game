@@ -199,6 +199,28 @@ try {
   });
   check("undo reverts a bulk distractor operation", bulkUndo === undefined || bulkUndo.length === 0 || JSON.stringify(bulkUndo) !== JSON.stringify(["مسقط", "القاهرة", "طوكيو"]));
 
+  // ---- 9) points cell is iOS-safe: text/numeric keypad + Arabic-Indic parse
+  // (the real cause of "points revert" on iPhone). Self-contained category.
+  const arabicPts = await page.evaluate(async () => {
+    state.adminCat = { id: "pub-ar", name: "نقاط", image: "", color: "#9e1322", custom: false, published: true, order: 0,
+      questions: [{ points: 100, q: "سؤال؟", a: "جواب", image: "", answerImage: "" }] };
+    clearAdminUndo(); populateAdminFilter(); renderAdminTable();
+    const cell = document.querySelector("#adminRows tr td.col-pts");
+    cell.click();
+    const ed = cell.querySelector("input.q-inline-edit");
+    const info = { type: ed.type, inputmode: ed.getAttribute("inputmode") };
+    ed.value = "٤٠٠"; // Arabic-Indic 400, as an iOS Arabic keyboard types
+    ed.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    info.stored = state.adminCat.questions[0].points;
+    return info;
+  });
+  check("points cell is a numeric-keypad text input (iOS-safe, not type=number)",
+    arabicPts.type === "text" && arabicPts.inputmode === "numeric");
+  check("Arabic-Indic digits (٤٠٠) commit as 400 — no revert", arabicPts.stored === 400);
+  check("parseIntLoose converts Arabic/Persian numerals",
+    await page.evaluate(() => parseIntLoose("٥٠٠") === 500 && parseIntLoose("۳۲۰") === 320 && parseIntLoose("250") === 250));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
