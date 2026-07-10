@@ -4116,6 +4116,8 @@
     .admin-q-media { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
 
     .admin-undo-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .admin-clear-btn { background: rgba(158, 19, 34, .14); color: #d98a8a; border: 1px solid rgba(158, 19, 34, .4); }
+    .admin-clear-btn:hover { background: rgba(158, 19, 34, .24); color: #f0b3b3; }
 
     /* ---- Media preview (click a question thumbnail to view/play it) ---- */
     .q-thumb-wrap.q-thumb-clickable { cursor: zoom-in; }
@@ -5524,6 +5526,7 @@
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
           <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
+          <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
@@ -8695,7 +8698,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-09.8";
+    const IZZBAH_BUILD = "2026-07-10.1";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11533,11 +11536,12 @@
 
     function publishAdminCategory(opts) {
       const auto = !!(opts && opts.auto);
+      const allowEmpty = !!(opts && opts.allowEmpty); // "delete all questions" persists an empty category
       const cat = state.adminCat;
       if (!cat) return;
       cat.name = (cat.name || "").trim();
       if (!cat.name) { if (!auto) showToast("أدخل اسم الفئة"); return; }
-      if (!cat.questions.length) { if (!auto) showToast("أضف سؤالاً واحداً على الأقل"); return; }
+      if (!cat.questions.length && !allowEmpty) { if (!auto) showToast("أضف سؤالاً واحداً على الأقل"); return; }
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { if (!auto) showToast("الحفظ السحابي غير متاح — سجّل الدخول"); return; }
       if (adminPublishing) { adminPublishPending = true; return; } // coalesce rapid edits
@@ -12137,6 +12141,33 @@
       const skipped = targets.length - filled;
       showToast(`✨ تم توليد خيارات لـ ${toArabicDigits(filled)} سؤالاً`
         + (skipped ? ` (تعذّر ${toArabicDigits(skipped)} — راجعها يدوياً)` : ""));
+    }
+
+    // Admin: wipe every question in the current category (double-confirmed).
+    // The empty category stays; the deletion is one undo step and auto-publishes.
+    function clearAllQuestions() {
+      const cat = state.adminCat;
+      if (!cat) { showToast("اختر فئة أولاً"); return; }
+      const n = cat.questions.length;
+      if (!n) { showToast("لا توجد أسئلة لحذفها"); return; }
+      if (!confirm(`حذف كل الأسئلة (${toArabicDigits(n)}) من فئة «${cat.name || ""}»؟\nستبقى الفئة فارغة، ويمكنك التراجع بزر «تراجع».`)) return;
+      if (!confirm("تأكيد أخير: حذف كل الأسئلة نهائياً؟")) return;
+      // A built-in category can't truly be emptied — the app falls back to its
+      // bundled question bank on reload — so steer the admin to "إخفاء الفئة".
+      const isBuiltin = builtinCategories.some(b => b.id === cat.id);
+      if (isBuiltin) {
+        showToast("الفئات الأساسية لا يمكن تفريغها (ستعود أسئلتها). استخدم «إخفاء الفئة».");
+        return;
+      }
+      pushAdminUndo(`حذف كل الأسئلة (${toArabicDigits(n)})`);
+      cat.questions = [];
+      state.adminDirty = true;
+      populateAdminFilter();
+      renderAdminTable();
+      renderAdminCatHead();
+      // Persist the now-empty category (the normal auto-publish skips empties).
+      publishAdminCategory({ auto: true, allowEmpty: true });
+      showToast(`تم حذف ${toArabicDigits(n)} سؤالاً`);
     }
 
     // Every answer in a category's pool (full built-in bank, or a custom
@@ -13237,6 +13268,7 @@
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
+    $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
     $("#mediaPreviewModal").addEventListener("click", event => { if (event.target.id === "mediaPreviewModal") closeMediaPreview(); });

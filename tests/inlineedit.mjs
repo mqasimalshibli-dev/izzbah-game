@@ -221,6 +221,50 @@ try {
   check("parseIntLoose converts Arabic/Persian numerals",
     await page.evaluate(() => parseIntLoose("٥٠٠") === 500 && parseIntLoose("۳۲۰") === 320 && parseIntLoose("250") === 250));
 
+  // ---- 10) delete all questions (double-confirm, undoable, publishes empty)
+  const clearAll = await page.evaluate(async () => {
+    let published = null;
+    window.IZZBAH.cloudPublish = (c) => { published = JSON.parse(JSON.stringify(c)); return Promise.resolve(); };
+    state.adminCat = { id: "pub-clear", name: "للحذف", image: "", color: "#9e1322", custom: false, published: true, order: 0,
+      questions: [
+        { points: 100, q: "أ", a: "١", image: "", answerImage: "" },
+        { points: 200, q: "ب", a: "٢", image: "", answerImage: "" },
+        { points: 300, q: "ج", a: "٣", image: "", answerImage: "" },
+      ] };
+    clearAdminUndo(); populateAdminFilter(); renderAdminTable();
+    clearAllQuestions(); // both confirms auto-accepted by the harness dialog handler
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      count: state.adminCat.questions.length,
+      emptyRow: !!document.querySelector("#adminRows .admin-empty"),
+      publishedEmpty: published && published.questions.length === 0,
+      canUndo: !document.getElementById("adminUndo").disabled,
+    };
+  });
+  check("delete-all empties the category's questions", clearAll.count === 0 && clearAll.emptyRow);
+  check("delete-all publishes the empty category (persists)", clearAll.publishedEmpty);
+  check("delete-all is undoable", clearAll.canUndo);
+
+  const clearUndo = await page.evaluate(async () => {
+    undoAdminStep();
+    await new Promise(r => setTimeout(r, 150));
+    return state.adminCat.questions.length;
+  });
+  check("undo restores all deleted questions", clearUndo === 3);
+
+  // built-in categories can't be emptied (they'd fall back to their bank)
+  const builtinClear = await page.evaluate(async () => {
+    let toast = "";
+    const o = window.showToast; window.showToast = m => { toast = m; if (o) o(m); };
+    state.adminCat = { id: "history", name: "تاريخ", image: "", color: "", custom: false, published: false, order: 0,
+      questions: [{ points: 100, q: "س", a: "ج", image: "", answerImage: "" }] };
+    clearAdminUndo(); renderAdminTable();
+    clearAllQuestions();
+    window.showToast = o;
+    return { count: state.adminCat.questions.length, toast };
+  });
+  check("built-in categories are protected from delete-all", builtinClear.count === 1 && /الأساسية/.test(builtinClear.toast));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
