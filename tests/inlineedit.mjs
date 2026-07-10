@@ -191,13 +191,15 @@ try {
   });
   check("regenerate-all replaces a weak set with related options", regen.changed);
 
-  // undo restores the pre-fill state
+  // undo reverts the regenerate-all step: questions[0] was explicitly set to
+  // ["س","ص","ع"] before regenerating, so undo must restore exactly that
+  // (deterministic — independent of the generator's shuffle order).
   const bulkUndo = await page.evaluate(async () => {
     undoAdminStep();
     await new Promise(r => setTimeout(r, 150));
-    return state.adminCat.questions.find(q => q.q.includes("فرنسا")).distractors;
+    return state.adminCat.questions[0].distractors;
   });
-  check("undo reverts a bulk distractor operation", bulkUndo === undefined || bulkUndo.length === 0 || JSON.stringify(bulkUndo) !== JSON.stringify(["مسقط", "القاهرة", "طوكيو"]));
+  check("undo reverts a bulk distractor operation", JSON.stringify(bulkUndo) === JSON.stringify(["س", "ص", "ع"]));
 
   // ---- 9) points cell is iOS-safe: text/numeric keypad + Arabic-Indic parse
   // (the real cause of "points revert" on iPhone). Self-contained category.
