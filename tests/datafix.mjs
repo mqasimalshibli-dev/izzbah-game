@@ -53,7 +53,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 
 const waitFix = async () => {
   for (let i = 0; i < 30; i++) {
-    const done = await page.evaluate(() => !!window.__pubCount || !!localStorage.getItem("izzbah-datafix-geo-dist-v1"));
+    const done = await page.evaluate(() => !!window.__pubCount || !!localStorage.getItem("izzbah-datafix-geo-dist-v2"));
     if (done) break;
     await page.waitForTimeout(100);
   }
@@ -71,17 +71,47 @@ try {
     qs.forEach(q => { out[q.a] = relatedDistractors(cat, q); });
     return out;
   }, GEO_QUESTIONS);
+  // capitals have no geographic "family", so they exercise the sibling-borrow
+  // path — distractors must be other capitals FROM THE CATEGORY.
   const within = (a, pool) => Array.isArray(gen[a]) && gen[a].length === 3 && gen[a].every(d => pool.includes(d)) && !gen[a].includes(a);
+  // typed families are on-KIND (drawn from the curated pool + category), so
+  // assert the feature type, not membership of the tiny category set.
+  const onKind = (a, rx) => Array.isArray(gen[a]) && gen[a].length === 3 && gen[a].every(d => rx.test(d)) && !gen[a].includes(a);
   check("capital question gets only other capitals (template clustering)",
     within("باريس", CAPITALS) && within("طوكيو", CAPITALS));
-  check("continent question gets only other continents", within("أفريقيا", CONTINENTS) && within("آسيا", CONTINENTS));
-  check("river question gets only other rivers (same-kind answers)", within("نهر النيل", RIVERS) && within("نهر التايمز", RIVERS));
-  check("island question gets only other islands (rare-word weighting)", within("غرينلاند", ISLANDS) && within("كوبا", ISLANDS));
-  check("sea/lake question gets only other seas", within("البحر الأحمر", SEAS) && within("بحر قزوين", SEAS));
+  check("continent question gets only other continents", onKind("أفريقيا", /آسيا|أفريقيا|أوروبا|أمريكا|أستراليا|أنتاركتيكا/) && onKind("آسيا", /آسيا|أفريقيا|أوروبا|أمريكا|أستراليا|أنتاركتيكا/));
+  check("river question gets only other rivers (same-kind answers)", onKind("نهر النيل", /نهر|دجلة|الفرات/) && onKind("نهر التايمز", /نهر|دجلة|الفرات/));
+  check("island question gets only other islands (rare-word weighting)", onKind("غرينلاند", /غرينلاند|صقلية|هونشو|كوبا|مدغشقر|بورنيو|أيسلندا/) && onKind("كوبا", /غرينلاند|صقلية|هونشو|كوبا|مدغشقر|بورنيو|أيسلندا/));
+  check("sea question gets only other seas", onKind("البحر الأحمر", /بحر/));
+  check("lake question gets only other lakes (not seas)", onKind("بحر قزوين", /بحيرة|قزوين/));
   check("«عالم» is a stopword (boilerplate «في العالم» never links questions)",
     await page.evaluate(() => !topicWords("ما أطول نهر في العالم؟").includes("عالم")));
   // «ما عاصمة اليابان؟» must NOT pull «هونشو» from «ما أكبر جزيرة في اليابان؟»
   check("a shared proper noun does not cross-link question types", !(gen["طوكيو"] || []).includes("هونشو"));
+
+  // ---- 1b) curated family pools cover SINGLETON geographic subtypes ----
+  const fam = await page.evaluate(() => {
+    // a category with exactly ONE ocean / desert / gulf / mountain-range /
+    // continent-count question — no same-kind sibling to borrow, so the curated
+    // pool must supply three on-type distractors instead of a random other kind.
+    const cat = { id: "geo", name: "جغرافيا", questions: [
+      { points: 100, q: "ما أكبر محيط في العالم؟", a: "المحيط الهادئ" },
+      { points: 100, q: "ما هي أكبر صحراء حارة في العالم؟", a: "الصحراء الكبرى" },
+      { points: 100, q: "ما الخليج الذي تقع عليه مدينة دبي؟", a: "الخليج العربي" },
+      { points: 100, q: "ما أطول سلسلة جبال في العالم؟", a: "جبال الأنديز" },
+      { points: 100, q: "كم عدد القارات في العالم؟", a: "سبع قارات" },
+      { points: 100, q: "ما عاصمة فرنسا؟", a: "باريس" },
+    ]};
+    const out = {};
+    cat.questions.forEach(q => { out[q.a] = relatedDistractors(cat, q); });
+    return out;
+  });
+  const allMatch = (a, rx) => Array.isArray(fam[a]) && fam[a].length === 3 && fam[a].every(d => rx.test(d)) && !fam[a].includes(a);
+  check("a lone ocean question gets other oceans", allMatch("المحيط الهادئ", /محيط/));
+  check("a lone desert question gets other deserts", allMatch("الصحراء الكبرى", /صحراء|الربع الخالي/));
+  check("a lone gulf question gets other gulfs", allMatch("الخليج العربي", /خليج/));
+  check("a lone mountain-range question gets other ranges", allMatch("جبال الأنديز", /جبال/));
+  check("a continent-count question gets other counts (not place names)", allMatch("سبع قارات", /قارات/));
 
   // ---- 2) the one-time data fix: admin device regenerates + republishes ----
   await page.evaluate((qs) => {
@@ -95,7 +125,7 @@ try {
   await waitFix();
   const fix = await page.evaluate(() => ({
     count: window.__pubCount,
-    marker: localStorage.getItem("izzbah-datafix-geo-dist-v1"),
+    marker: localStorage.getItem("izzbah-datafix-geo-dist-v2"),
     id: window.__published && window.__published.id,
     first: window.__published && window.__published.questions[0].distractors,
     all: window.__published && window.__published.questions.every(q => Array.isArray(q.distractors) && q.distractors.length === 3),
@@ -116,7 +146,7 @@ try {
 
   // ---- 3) guards: no admin / failed publish ----
   const guarded = await page.evaluate((qs) => {
-    localStorage.removeItem("izzbah-datafix-geo-dist-v1");
+    localStorage.removeItem("izzbah-datafix-geo-dist-v2");
     window.__pubCount = 0;
     window.IZZBAH.applyAdmin(false);
     window.IZZBAH.applyPublished([{ id: "geo", name: "جغرافيا", questions: qs }]);
@@ -129,7 +159,7 @@ try {
     window.IZZBAH.cloudPublish = () => { window.__pubCount++; return Promise.reject(new Error("offline")); };
     window.IZZBAH.applyAdmin(true);
     await new Promise(r => setTimeout(r, 400));
-    return { count: window.__pubCount, marker: localStorage.getItem("izzbah-datafix-geo-dist-v1") };
+    return { count: window.__pubCount, marker: localStorage.getItem("izzbah-datafix-geo-dist-v2") };
   }, GEO_QUESTIONS);
   check("a failed publish leaves no marker (retries next visit)", failed.count === 1 && failed.marker === null);
 

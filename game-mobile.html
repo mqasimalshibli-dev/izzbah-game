@@ -8699,7 +8699,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.5";
+    const IZZBAH_BUILD = "2026-07-10.6";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12070,6 +12070,47 @@
     // same kind (number vs text), never the correct answer. Falls back to the
     // closest-length same-type answers only to top up to three. Returns null
     // when the category simply can't supply three same-type options.
+    // Well-known members of common geographic FAMILIES. A category often holds
+    // only ONE question of a given kind (a single "أكبر محيط", one "أطول سلسلة
+    // جبال"), so there's no same-kind sibling to borrow — and padding with a
+    // random other answer gives a sea as a wrong answer to an ocean question.
+    // These curated pools keep such distractors on-type. `test` detects the
+    // family from the question/answer; `kind` recognizes an in-family answer so
+    // the category's OWN same-kind answers are used too (and off-type siblings
+    // are dropped). Order matters — more specific families come first.
+    const GEO_FAMILIES = [
+      { test: /عدد ?ال?قارات|كم .*قارات/, pool: ["خمس قارات","ست قارات","سبع قارات","ثماني قارات"] },
+      { test: /محيط/, pool: ["المحيط الهادئ","المحيط الأطلسي","المحيط الهندي","المحيط المتجمد الشمالي","المحيط المتجمد الجنوبي"] },
+      { test: /صحراء|صحاري/, pool: ["الصحراء الكبرى","الربع الخالي","صحراء غوبي","صحراء أتاكاما","صحراء كالاهاري","صحراء ناميب"] },
+      { test: /شلال/, pool: ["شلال آنجل","شلالات نياجرا","شلالات فيكتوريا","شلالات إجوازو"] },
+      { test: /مضيق/, pool: ["مضيق هرمز","مضيق جبل طارق","مضيق البوسفور","مضيق ملقا","باب المندب","مضيق الدردنيل","مضيق بيرنغ"] },
+      { test: /خليج/, pool: ["الخليج العربي","خليج البنغال","خليج المكسيك","خليج عدن","خليج غينيا","خليج هدسون"] },
+      { test: /سلسلة جبال|سلاسل جبال/, pool: ["جبال الأنديز","جبال الهيمالايا","جبال الألب","جبال روكي","جبال الأطلس","جبال الأورال"] },
+      { test: /قمة|أعلى جبل|الجبل الأعلى|أعلى قمة/, pool: ["إفرست","كي2","كليمنجارو","أكونكاغوا","مون بلان","دينالي"] },
+      { test: /بحيرة|بحيرات/, pool: ["بحر قزوين","بحيرة سوبيريور","بحيرة فيكتوريا","بحيرة بايكال","بحيرة تنجانيقا","بحيرة ملاوي"] },
+      { test: /جزيرة|جزر/, pool: ["غرينلاند","صقلية","هونشو","كوبا","مدغشقر","بورنيو","أيسلندا"] },
+      { test: /قارة|القارات|قارات/, pool: ["آسيا","أفريقيا","أوروبا","أمريكا الشمالية","أمريكا الجنوبية","أستراليا","أنتاركتيكا"] },
+      { test: /نهر|أنهار/, pool: ["نهر النيل","نهر الأمازون","نهر اليانغتسي","نهر المسيسيبي","نهر الفولغا","نهر الدانوب","نهر التايمز","نهر السين","نهر التيبر","دجلة","الفرات"] },
+      { test: /بحر/, pool: ["البحر المتوسط","البحر الأحمر","البحر الأسود","بحر العرب","بحر الشمال","البحر الكاريبي","البحر الأدرياتيكي"] },
+    ];
+    // Two labels naming the SAME place (e.g. «باب المندب» vs «مضيق باب المندب»)
+    // must never appear together — compare on the normalized form, substring-
+    // tolerant so a bare name matches its prefixed variant.
+    function sameGeoThing(x, y) {
+      const a = arNorm(x), b = arNorm(y);
+      if (!a || !b) return false;
+      if (a === b) return true;
+      return a.length >= 4 && b.length >= 4 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0);
+    }
+    function geoFamilyFor(question, answer) {
+      // Test the RAW text — the family signatures («سلسلة جبال», «قمة»,
+      // «بحيرة», «جزيرة», «قارة») carry ة/أ/ى that arNorm would strip, so
+      // normalizing here would silently stop them matching.
+      const hay = String(question || "") + " " + String(answer || "");
+      for (const f of GEO_FAMILIES) { if (f.test.test(hay)) return f; }
+      return null;
+    }
+
     function relatedDistractors(cat, q) {
       const correct = normAnswer(q && q.a);
       if (!correct) return null;
@@ -12119,9 +12160,29 @@
         if (topicWords(other.a).some(w => aWords.has(w))) score += 1.5;
         scored.push({ a, score, dl: Math.abs(a.length - correct.length) });
       });
-      if (scored.length < 3) return null;
       // topically-related first (highest weighted score), then closest length
       scored.sort((x, y) => (y.score - x.score) || (x.dl - y.dl));
+
+      // Geographic family: keep every distractor the SAME KIND as the answer.
+      // Use the category's own same-kind answers first, then top up from the
+      // curated pool — so a lone "أكبر محيط" question still offers three real
+      // oceans instead of a sea and a strait.
+      const fam = geoFamilyFor(q.q, q.a);
+      const inFamily = fam ? (a => fam.pool.some(p => sameGeoThing(p, a))) : null;
+      // Only when the ANSWER is itself a member of the family (so «كم عدد
+      // القارات؟ => سبع قارات» or a country answer like «تقع صحراء غوبي =>
+      // منغوليا» don't get continent/desert options — the question mentions the
+      // family, but the answer isn't one of its members).
+      if (fam && inFamily(correct)) {
+        const cand = [];
+        const add = x => { if (!sameGeoThing(x, correct) && !cand.some(c => sameGeoThing(c, x))) cand.push(x); };
+        scored.filter(o => o.score > 0 && inFamily(o.a)).forEach(o => add(o.a)); // category's own
+        const curated = fam.pool.slice(); shuffleInPlace(curated); curated.forEach(add);
+        if (cand.length >= 3) { shuffleInPlace(cand); return cand.slice(0, 3); }
+        // pool couldn't supply three — fall through to the generic logic
+      }
+
+      if (scored.length < 3) return null;
       const related = scored.filter(o => o.score > 0);
       let picks;
       if (related.length >= 3) {
@@ -12181,7 +12242,7 @@
     // distractors-only change rewrites just the small meta doc (per-question
     // docs, with their images, are diffed and left untouched). If the publish
     // fails it simply retries on the next visit.
-    const GEO_DISTRACTOR_FIX_KEY = "izzbah-datafix-geo-dist-v1";
+    const GEO_DISTRACTOR_FIX_KEY = "izzbah-datafix-geo-dist-v2";
     let geoFixBusy = false;
     function maybeFixGeoDistractors() {
       try {
