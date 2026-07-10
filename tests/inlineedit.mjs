@@ -201,8 +201,8 @@ try {
   });
   check("undo reverts a bulk distractor operation", JSON.stringify(bulkUndo) === JSON.stringify(["س", "ص", "ع"]));
 
-  // ---- 9) points cell is iOS-safe: text/numeric keypad + Arabic-Indic parse
-  // (the real cause of "points revert" on iPhone). Self-contained category.
+  // ---- 9) points cell keeps native up/down arrows (type=number, step 50)
+  // and commits reliably. Self-contained category.
   const arabicPts = await page.evaluate(async () => {
     state.adminCat = { id: "pub-ar", name: "نقاط", image: "", color: "#9e1322", custom: false, published: true, order: 0,
       questions: [{ points: 100, q: "سؤال؟", a: "جواب", image: "", answerImage: "" }] };
@@ -210,17 +210,17 @@ try {
     const cell = document.querySelector("#adminRows tr td.col-pts");
     cell.click();
     const ed = cell.querySelector("input.q-inline-edit");
-    const info = { type: ed.type, inputmode: ed.getAttribute("inputmode") };
-    ed.value = "٤٠٠"; // Arabic-Indic 400, as an iOS Arabic keyboard types
+    const info = { type: ed.type, step: ed.step };
+    ed.value = "400";
     ed.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await new Promise(r => setTimeout(r, 200));
     info.stored = state.adminCat.questions[0].points;
     return info;
   });
-  check("points cell is a numeric-keypad text input (iOS-safe, not type=number)",
-    arabicPts.type === "text" && arabicPts.inputmode === "numeric");
-  check("Arabic-Indic digits (٤٠٠) commit as 400 — no revert", arabicPts.stored === 400);
-  check("parseIntLoose converts Arabic/Persian numerals",
+  check("points cell keeps the native up/down arrows (type=number, step 50)",
+    arabicPts.type === "number" && arabicPts.step === "50");
+  check("points edit commits (no revert)", arabicPts.stored === 400);
+  check("parseIntLoose converts Arabic/Persian numerals (iOS keypad safety)",
     await page.evaluate(() => parseIntLoose("٥٠٠") === 500 && parseIntLoose("۳۲۰") === 320 && parseIntLoose("250") === 250));
 
   // ---- 10) delete all questions (double-confirm, undoable, publishes empty)
