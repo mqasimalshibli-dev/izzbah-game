@@ -5537,7 +5537,7 @@
         <h3 class="preview-title" id="adminQTitle">تعديل السؤال</h3>
         <div class="admin-q-grid">
           <label class="field-label">النقاط</label>
-          <input type="text" id="adminQPoints" inputmode="numeric" pattern="[0-9]*" />
+          <input type="number" id="adminQPoints" min="0" step="50" inputmode="numeric" />
           <label class="field-label">نص السؤال</label>
           <textarea id="adminQText" placeholder="نص السؤال"></textarea>
           <label class="field-label">الإجابة الصحيحة</label>
@@ -5579,7 +5579,7 @@
           </label>
           <label class="import-ctl" id="importFixedWrap" style="display:none">
             <span>القيمة</span>
-            <input type="text" id="importFixedPoints" inputmode="numeric" pattern="[0-9]*" value="300" />
+            <input type="number" id="importFixedPoints" min="0" step="50" inputmode="numeric" value="300" />
           </label>
           <label class="import-ctl">
             <span>الوجهة</span>
@@ -8698,7 +8698,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.1";
+    const IZZBAH_BUILD = "2026-07-10.2";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10817,11 +10817,11 @@
           const prevHtml = cell.innerHTML;
           cell.innerHTML = "";
           const ed = document.createElement(opts.multiline ? "textarea" : "input");
-          if (!opts.multiline) ed.type = "text";
-          // Numeric fields use a TEXT input with a numeric keypad (not
-          // type="number", which drops Arabic-Indic digits on iOS) and are
-          // parsed leniently so ٥٠٠ / 500 both work.
-          if (opts.number) { ed.inputMode = "numeric"; ed.setAttribute("pattern", "[0-9]*"); }
+          if (!opts.multiline) ed.type = opts.number ? "number" : "text";
+          // Numeric fields keep the native up/down spinner arrows (type=number,
+          // step 50) and are parsed leniently so both Western and Arabic-Indic
+          // digits work.
+          if (opts.number) { ed.min = "0"; ed.step = "50"; ed.inputMode = "numeric"; }
           ed.className = "q-inline-edit";
           ed.value = current;
           cell.appendChild(ed);
@@ -13832,8 +13832,13 @@
                       .sort((a, b) => (a.idx || 0) - (b.idx || 0))
                       .map(q => {
                         const out = { points: q.points || 0, q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || "" };
-                        // curated wrong-answers for the four-choices helper
-                        if (Array.isArray(q.distractors) && q.distractors.length) out.distractors = q.distractors.slice(0, 3);
+                        // Curated distractors come from the meta doc's questions
+                        // array (by index); fall back to a legacy per-question
+                        // copy if one was written by an older build.
+                        const meta = inline[q.idx || 0];
+                        const d = (meta && Array.isArray(meta.distractors) && meta.distractors.length) ? meta.distractors
+                          : (Array.isArray(q.distractors) && q.distractors.length ? q.distractors : null);
+                        if (d) out.distractors = d.slice(0, 3);
                         return out;
                       });
                 return Object.assign({ id: d.id }, data, { questions });
@@ -14093,16 +14098,17 @@
               let changed = 0;
               list.forEach((q, i) => {
                 const id = "q" + i; keep.add(id);
+                // Curated distractors live in the META doc's questions array
+                // (which the rules don't field-validate), NOT here — so the
+                // per-question doc keeps its original shape and publishing works
+                // under the deployed rules without a rules change.
                 const data = {
                   points: q.points || 0, q: q.q || "", a: q.a || "",
-                  image: q.image || "", answerImage: q.answerImage || "", idx: i,
-                  distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+                  image: q.image || "", answerImage: q.answerImage || "", idx: i
                 };
                 const prev = prevById.get(id);
-                const prevD = JSON.stringify((prev && prev.distractors) || []);
                 if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
-                    || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx
-                    || prevD !== JSON.stringify(data.distractors)) {
+                    || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {
                   batch.set(qcol.doc(id), data);
                   changed++;
                 }

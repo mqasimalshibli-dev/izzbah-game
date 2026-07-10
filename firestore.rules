@@ -146,7 +146,7 @@ service cloud.firestore {
       match /questions/{questionId} {
         allow read: if true;
         allow write: if isAdmin()
-          && request.resource.data.keys().hasOnly(['points', 'q', 'a', 'image', 'answerImage', 'idx', 'distractors'])
+          && request.resource.data.keys().hasOnly(['points', 'q', 'a', 'image', 'answerImage', 'idx'])
           && request.resource.data.points is number
           && request.resource.data.q is string
           && request.resource.data.q.size() <= 2000
@@ -154,11 +154,7 @@ service cloud.firestore {
           && request.resource.data.a.size() <= 2000
           && request.resource.data.image is string
           && request.resource.data.answerImage is string
-          && request.resource.data.idx is number
-          // curated wrong-answers for the four-choices helper (optional)
-          && (!request.resource.data.keys().hasAny(['distractors'])
-              || (request.resource.data.distractors is list
-                  && request.resource.data.distractors.size() <= 6));
+          && request.resource.data.idx is number;
         allow delete: if isAdmin();
       }
     }
