@@ -8699,7 +8699,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.4";
+    const IZZBAH_BUILD = "2026-07-10.5";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12044,7 +12044,10 @@
     const AR_STOPWORDS = new Set([
       "ما","من","في","الى","على","عن","هو","هي","هم","التي","الذي","الذين","اي","كم","اسم",
       "هذا","هذه","او","به","مع","بين","عند","كان","كانت","اول","اكبر","اشهر","اطول","اقدم","اصغر",
-      "ماذا","لماذا","متى","اين","كيف","التى","عام","سنة","دولة","مدينة","الذى","صاحب","لقب","يسمى","تسمى","يعرف"
+      "ماذا","لماذا","متى","اين","كيف","التى","عام","سنة","دولة","مدينة","الذى","صاحب","لقب","يسمى","تسمى","يعرف",
+      // «في العالم» is trivia boilerplate — it appears in dozens of unrelated
+      // questions and, if kept, matches them ALL to each other.
+      "عالم"
     ]);
     function arNorm(s) {
       return String(s == null ? "" : s)
@@ -12081,7 +12084,24 @@
         }
         return null; // don't pad a number with unrelated text
       }
-      const qWords = new Set(topicWords(q.q));
+      const qTopic = topicWords(q.q);
+      const qWords = new Set(qTopic);
+      const aWords = new Set(topicWords(q.a));
+      // The question's TEMPLATE word — the first topic word, i.e. the noun
+      // right after the interrogative («ما عاصمة…» → عاصمة, «أي نهر…» → نهر).
+      // Questions sharing it ask for the same KIND of thing, so their answers
+      // are the right kind of wrong answer. Without this, a shared proper noun
+      // cross-links types: «ما عاصمة اليابان؟» would pull «هونشو» from
+      // «ما أكبر جزيرة في اليابان؟».
+      const tpl = qTopic[0] || "";
+      // How often each topic word appears across the category's questions —
+      // a shared RARE word («جزيرة», «مضيق») is a much stronger topical signal
+      // than a shared common one («بحر», «تقع»), so matches are weighted by
+      // 1/frequency instead of counted flat.
+      const wordFreq = new Map();
+      (cat.questions || []).forEach(other => {
+        new Set(topicWords(other.q)).forEach(w => wordFreq.set(w, (wordFreq.get(w) || 0) + 1));
+      });
       const seen = new Set([correct]);
       const scored = [];
       (cat.questions || []).forEach(other => {
@@ -12089,21 +12109,30 @@
         const a = normAnswer(other.a);
         if (!a || seen.has(a) || isNumericAnswer(a) !== wantNum) return;
         seen.add(a);
+        const otherTopic = topicWords(other.q);
         let score = 0;
-        topicWords(other.q).forEach(w => { if (qWords.has(w)) score++; });
+        new Set(otherTopic).forEach(w => { if (qWords.has(w)) score += 1 / (wordFreq.get(w) || 1); });
+        if (tpl && otherTopic[0] === tpl) score += 1;   // same question template
+        // Same-KIND answers («نهر النيل» ↔ «نهر السين», «البحر الأحمر» ↔
+        // «البحر الأسود») are the strongest signal of all — even when the two
+        // questions share no words.
+        if (topicWords(other.a).some(w => aWords.has(w))) score += 1.5;
         scored.push({ a, score, dl: Math.abs(a.length - correct.length) });
       });
       if (scored.length < 3) return null;
-      // topically-related first (most shared keywords), then closest length
+      // topically-related first (highest weighted score), then closest length
       scored.sort((x, y) => (y.score - x.score) || (x.dl - y.dl));
-      const related = scored.filter(o => o.score > 0).map(o => o.a);
+      const related = scored.filter(o => o.score > 0);
       let picks;
       if (related.length >= 3) {
-        const window = related.slice(0, Math.max(6, 3));  // vary among the top related
+        // vary among the options at least as related as the 3rd-best — never
+        // dilute with weaker matches just to fill a fixed-size window
+        const cut = related[2].score;
+        const window = related.filter(o => o.score >= cut).slice(0, 8).map(o => o.a);
         shuffleInPlace(window);
         picks = window.slice(0, 3);
       } else {
-        picks = related.slice();                          // whatever related exists
+        picks = related.map(o => o.a);                    // whatever related exists
         for (const o of scored) { if (picks.length >= 3) break; if (!picks.includes(o.a)) picks.push(o.a); }
       }
       return picks.length === 3 ? picks : null;
@@ -12142,6 +12171,44 @@
       const skipped = targets.length - filled;
       showToast(`✨ تم توليد خيارات لـ ${toArabicDigits(filled)} سؤالاً`
         + (skipped ? ` (تعذّر ${toArabicDigits(skipped)} — راجعها يدوياً)` : ""));
+    }
+
+    // ---- One-time data fix: جغرافيا distractors ------------------------------
+    // The published «جغرافيا» category still carries distractors generated by
+    // the old length-based picker (unrelated options: a river next to a
+    // mountain). Once, on an ADMIN device — the only place with write access —
+    // regenerate them with the topical generator and republish. Publishing a
+    // distractors-only change rewrites just the small meta doc (per-question
+    // docs, with their images, are diffed and left untouched). If the publish
+    // fails it simply retries on the next visit.
+    const GEO_DISTRACTOR_FIX_KEY = "izzbah-datafix-geo-dist-v1";
+    let geoFixBusy = false;
+    function maybeFixGeoDistractors() {
+      try {
+        if (geoFixBusy || !state.isAdmin) return;
+        if (localStorage.getItem(GEO_DISTRACTOR_FIX_KEY)) return;
+        const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
+        if (!cloud) return;
+        const cat = (state.publishedCategories || []).find(c => c.id === "geo");
+        // wait until the fully-loaded category is in (subcollection questions,
+        // not a stub) — this runs again on the next applyPublished/applyAdmin
+        if (!cat || !Array.isArray(cat.questions) || cat.questions.length < 20) return;
+        geoFixBusy = true;
+        let changed = 0;
+        cat.questions.forEach(q => {
+          if (!(q.a || "").trim()) return;
+          const gen = relatedDistractors(cat, q);
+          if (gen && gen.length === 3) { q.distractors = gen; changed++; }
+        });
+        if (!changed) { try { localStorage.setItem(GEO_DISTRACTOR_FIX_KEY, "1"); } catch (e) {} geoFixBusy = false; return; }
+        cloud(cat)
+          .then(() => {
+            try { localStorage.setItem(GEO_DISTRACTOR_FIX_KEY, "1"); } catch (e) {}
+            showToast("✨ تم تحديث خيارات فئة «جغرافيا» تلقائياً");
+          })
+          .catch(() => {})
+          .then(() => { geoFixBusy = false; });
+      } catch (e) { geoFixBusy = false; }
     }
 
     // ---- Auto-fetch answer photos from Wikipedia / Wikimedia Commons --------
@@ -13636,6 +13703,7 @@
       const btn = $("#adminEntry");
       if (btn) btn.style.display = state.isAdmin ? "" : "none";
       renderPlayBalance();
+      maybeFixGeoDistractors();
     };
     // Driven by watchEntitlement from the cloud entitlement doc. `active` = an
     // unlimited subscription; `info.gamesAllowed` = a finite granted allowance.
@@ -13703,6 +13771,7 @@
       // A resumed game may reference published categories that only just loaded;
       // refresh the board so their columns appear.
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
+      maybeFixGeoDistractors();
     };
     window.IZZBAH.applyCommunity = function (cats) {
       // Public pool = APPROVED categories only, most-voted first.
