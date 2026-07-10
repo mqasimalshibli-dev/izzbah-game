@@ -35,7 +35,10 @@ const installFetchStub = () => page.evaluate(() => {
     if (u.includes("wikipedia.org") || u.includes("wikimedia.org")) {
       window.__fetchLog.push(u);
       if (u.includes("/w/api.php")) {
-        const noHit = decodeURIComponent(u).includes("لا_يوجد");
+        // no result for the "not found" answer, and for any query that carries
+        // the "الغامض" keyword (so tier-1 misses and tier-2 must rescue it)
+        const dec = decodeURIComponent(u);
+        const noHit = dec.includes("لا_يوجد") || dec.includes("الغامض");
         const body = noHit
           ? { query: { pages: {} } }
           : { query: { pages: { "1": { index: 1, thumbnail: { source: "https://upload.wikimedia.org/fake.jpg" } } } } };
@@ -77,6 +80,19 @@ try {
   check("questionNeedsImage: false when an answer image already exists", pred.skipWhenHasImage);
   check("questionNeedsImage: false when there is no answer to search", pred.skipWhenNoAnswer);
 
+  // ---- question understanding: keyword extraction unit checks ----
+  const kw = await page.evaluate(() => ({
+    director: questionKeywords("من مخرج فيلم Inception؟", "نولان"),
+    stopOnly: questionKeywords("ما هو من في؟", "جواب"),
+    noAnswerEcho: questionKeywords("أين تقع مدينة مسقط الجميلة؟", "مسقط"),
+  }));
+  check("keywords carry the question's context (مخرج, فيلم, Inception)",
+    kw.director.includes("مخرج") && kw.director.includes("فيلم") && kw.director.includes("Inception")
+    && !kw.director.includes("من"));
+  check("a question of pure stopwords yields no keywords", kw.stopOnly.length === 0);
+  check("words already in the answer are not repeated in the keywords",
+    !kw.noAnswerEcho.some(w => w.includes("مسقط")));
+
   // enter the admin CMS
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "adm"); window.IZZBAH.applyAdmin(true); });
   await page.evaluate(() => { document.getElementById("adminEntry").click(); });
@@ -84,6 +100,16 @@ try {
   await page.evaluate(() => document.getElementById("adminChoiceContent").click());
   await page.waitForTimeout(400);
   await installFetchStub();
+
+  // a bare numeric answer with no question context is never searched (a search
+  // for "1975" alone lands on an arbitrary year page)
+  const numericGuard = await page.evaluate(async () => {
+    window.__fetchLog = [];
+    const url = await findAnswerImageUrl({ q: "", a: "1975" });
+    return { url, calls: window.__fetchLog.length };
+  });
+  check("numeric answers are never searched without question context",
+    numericGuard.url === "" && numericGuard.calls === 0);
 
   // ---- 1) bulk fetch fills only the questions that need it ----
   await page.evaluate(() => {
@@ -96,6 +122,9 @@ try {
         { points: 300, q: "سؤال بلا جواب؟", a: "", image: "", answerImage: "" },
         { points: 400, q: "سؤال له صورة؟", a: "جواب", image: "", answerImage: "data:image/jpeg;base64,keepme" },
         { points: 500, q: "غير موجود؟", a: "لا_يوجد", image: "", answerImage: "" },
+        // tier-1 (answer + keywords) misses for this one — the stub rejects any
+        // query carrying "الغامض" — so tier-2 (answer alone) must rescue it
+        { points: 600, q: "سؤال الغامض تماماً؟", a: "جواب_خاص", image: "", answerImage: "" },
       ] };
     clearAdminUndo(); populateAdminFilter(); renderAdminTable(); renderAdminCatHead();
     fetchMissingImages(); // confirm auto-accepted by the dialog handler
@@ -106,6 +135,7 @@ try {
     return {
       q0: q[0].answerImage.slice(0, 11), q1: q[1].answerImage.slice(0, 11),
       q2: q[2].answerImage, q3: q[3].answerImage, q4: q[4].answerImage,
+      q5: q[5].answerImage.slice(0, 11),
       canUndo: !document.getElementById("adminUndo").disabled,
       log: window.__fetchLog,
     };
@@ -117,9 +147,14 @@ try {
   check("leaves a question with no Wikipedia hit empty (q4)", res.q4 === "");
   check("the fetch step is a single undoable operation", res.canUndo);
 
-  // ---- 2) Arabic answers query Arabic Wikipedia FIRST ----
-  const firstApi = res.log.find(u => u.includes("/w/api.php"));
-  check("Arabic answers hit ar.wikipedia.org first", !!firstApi && firstApi.includes("//ar.wikipedia.org"));
+  // ---- 2) the search UNDERSTANDS the question ----
+  const apiQueries = res.log.filter(u => u.includes("/w/api.php")).map(u => decodeURIComponent(u));
+  check("the query combines the answer with the question's keywords (مسقط + عاصمة)",
+    apiQueries.some(u => u.includes("مسقط") && u.includes("عاصمة")));
+  check("tier-2 fallback searches the answer alone when the contextual query misses",
+    res.q5 === "data:image/" && apiQueries.some(u => u.includes("جواب_خاص") && !u.includes("الغامض")));
+  check("Arabic answers hit ar.wikipedia.org first",
+    apiQueries.length > 0 && res.log.find(u => u.includes("/w/api.php")).includes("//ar.wikipedia.org"));
 
   // ---- 3) undo restores the pre-fetch state ----
   const undo = await page.evaluate(async () => {
