@@ -4842,6 +4842,10 @@
       font-family: 'Lalezar', cursive; font-size: 260px; color: rgba(181, 31, 43, .045); z-index: 0 !important; pointer-events: none;
     }
     #questionPage .question-main-card { padding: 110px 44px !important; min-height: 560px; }
+    /* Reserve room on the (physical) right for the lifeline bar so a long
+       question never renders BEHIND it. Applied only while the bar actually
+       carries slots — the class is toggled in renderTeamHelpBar. */
+    #questionPage .question-main-card.has-helpbar { padding-right: 98px !important; }
     #answerPage .answer-card { padding: 110px 40px 60px !important; min-height: 520px; justify-content: center; }
     /* points badge (top, inline-start = right) hanging from the top edge */
     #questionPage .meta-points, #answerPage .answer-points {
@@ -8707,7 +8711,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.9";
+    const IZZBAH_BUILD = "2026-07-10.10";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12737,6 +12741,13 @@
         if (!used && allowed) btn.addEventListener("click", () => useHelper(id, teamIndex));
         container.appendChild(btn);
       });
+      // On the question card the bar is absolutely positioned over the right
+      // edge; flag the card so it reserves room and long questions don't hide
+      // behind the bar. (No slots → no reservation.)
+      if (screenPhase === "question") {
+        const card = container.closest(".question-main-card");
+        if (card) card.classList.toggle("has-helpbar", container.children.length > 0);
+      }
     }
 
     function updateHelpBars() {
