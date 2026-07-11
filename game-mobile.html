@@ -8707,7 +8707,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.7";
+    const IZZBAH_BUILD = "2026-07-10.8";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9747,6 +9747,26 @@
         if (!(await fitQuestionForDoc(q))) return false;
       }
       return true;
+    }
+
+    // Split a list of Firestore write ops into commit-sized groups so no single
+    // commit approaches Firestore's limits (~10 MiB payload / 500 writes per
+    // commit). An image-heavy category (e.g. ثقافة عامة grew past ~10 MB of
+    // photos) overflows one commit — which is exactly why "can't upload more
+    // pictures" appeared even though each PHOTO is well under the 1 MiB per-doc
+    // limit. Each op carries a `bytes` estimate; a lone op above the budget
+    // still gets its own group (the real per-doc ceiling is enforced elsewhere).
+    function planCommitChunks(ops, maxBytes, maxOps) {
+      const chunks = [];
+      let cur = [], bytes = 0;
+      for (const op of ops) {
+        if (cur.length && (cur.length >= maxOps || bytes + (op.bytes || 0) > maxBytes)) {
+          chunks.push(cur); cur = []; bytes = 0;
+        }
+        cur.push(op); bytes += (op.bytes || 0);
+      }
+      if (cur.length) chunks.push(cur);
+      return chunks;
     }
 
     // Non-image media (audio/video) is stored as-is — no canvas compression.
@@ -14471,12 +14491,14 @@
             // made publishing slow — with the diff below, editing one question in a
             // big category uploads one small doc instead of the whole set.
             return qcol.get().then(existing => {
-              const batch = db.batch();
-              batch.set(catRef, meta);
               const keep = new Set();
               const prevById = new Map();
               existing.forEach(d => prevById.set(d.id, d.data() || {}));
-              let changed = 0;
+              // Collect the writes. Changed question docs + deletes go FIRST, the
+              // parent (version) doc LAST — so if a chunk fails partway, the
+              // category isn't marked "fresh" before its questions are all in;
+              // the next publish simply re-diffs and finishes the rest.
+              const ops = [];
               list.forEach((q, i) => {
                 const id = "q" + i; keep.add(id);
                 // Curated distractors live in the META doc's questions array
@@ -14490,14 +14512,23 @@
                 const prev = prevById.get(id);
                 if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
                     || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {
-                  batch.set(qcol.doc(id), data);
-                  changed++;
+                  ops.push({ ref: qcol.doc(id), data: data, bytes: JSON.stringify(data).length });
                 }
               });
-              existing.forEach(d => { if (!keep.has(d.id)) { batch.delete(d.ref); changed++; } });
-              // Our own cached copy is now stale (new updatedAt) — drop it so
-              // the next load refetches this category once and re-caches it.
-              return batch.commit().then(r => { catCache.remove(cat.id); return r; });
+              existing.forEach(d => { if (!keep.has(d.id)) ops.push({ ref: d.ref, del: true, bytes: 0 }); });
+              ops.push({ ref: catRef, data: meta, bytes: JSON.stringify(Object.assign({}, meta, { updatedAt: 0 })).length });
+              // Commit in chunks that stay under Firestore's ~10 MiB / 500-write
+              // per-commit limits, so a large image-heavy category (which
+              // overflows a single commit) still publishes.
+              const chunks = planCommitChunks(ops, 8 * 1024 * 1024, 400);
+              return chunks.reduce((p, chunk) => p.then(() => {
+                const batch = db.batch();
+                chunk.forEach(op => { if (op.del) batch.delete(op.ref); else batch.set(op.ref, op.data); });
+                return batch.commit();
+              }), Promise.resolve())
+                // Our own cached copy is now stale (new updatedAt) — drop it so
+                // the next load refetches this category once and re-caches it.
+                .then(r => { catCache.remove(cat.id); return r; });
             });
             // NOTE: no full re-download here — both callers already update the
             // local publishedCategories via upsertPublished, so re-reading every
