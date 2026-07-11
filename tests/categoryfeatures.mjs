@@ -101,6 +101,52 @@ try {
   });
   check("a category with progress shows a % badge on its card", badge.ok && badge.hasPill && /%/.test(badge.text));
 
+  // ---- 3) empty categories are locked and shown as "coming soon" ----
+  const soon = await page.evaluate(() => {
+    // inject cloud categories: one with real questions, one with only blank
+    // placeholders, one with an empty questions array.
+    window.IZZBAH.applyPublished([
+      { id: "pub-full",  name: "فئة كاملة",  color: "#123", order: 1, questions: [{ points: 100, q: "سؤال؟", a: "جواب", image: "", answerImage: "" }] },
+      { id: "pub-blank", name: "فئة فارغة",  color: "#123", order: 2, questions: [{ points: 100, q: "", a: "", image: "", answerImage: "" }, { points: 200, q: "", a: "", image: "", answerImage: "" }] },
+      { id: "pub-none",  name: "بدون أسئلة", color: "#123", order: 3, questions: [] },
+    ]);
+    state.categoryMode = "game";
+    state.selected = new Set();
+    renderCategories();
+    const cardFor = nm => [...document.querySelectorAll("#categoryGrid .category")]
+      .find(c => (c.querySelector(".cat-name-pill") || {}).textContent === nm);
+    const info = nm => {
+      const c = cardFor(nm);
+      if (!c) return { present: false };
+      return {
+        present: true,
+        locked: c.classList.contains("empty-bank"),
+        soon: !!c.querySelector(".cat-soon") && /قريبا/.test(c.querySelector(".cat-soon").textContent),
+      };
+    };
+    // predicate directly
+    const has = (qs) => categoryHasQuestions({ id: "x", questions: qs });
+    // try to click a locked card — it must NOT become selected
+    const blankCard = cardFor("فئة فارغة");
+    if (blankCard) blankCard.click();
+    const full = info("فئة كاملة"), blank = info("فئة فارغة"), none = info("بدون أسئلة");
+    // a real built-in bank category must stay available
+    const builtin = allCategories().find(c => c.id === "history");
+    return {
+      full, blank, none,
+      blankSelected: state.selected.has("pub-blank"),
+      predFull: has([{ q: "س", a: "ج" }]), predBlank: has([{ q: "", a: "" }]), predEmpty: has([]),
+      builtinPlayable: categoryHasQuestions(builtin),
+    };
+  });
+  check("a category WITH questions is not locked", soon.full.present && !soon.full.locked && !soon.full.soon);
+  check("a category with only blank questions is locked + «قريباً»", soon.blank.present && soon.blank.locked && soon.blank.soon);
+  check("a category with an empty questions array is locked + «قريباً»", soon.none.present && soon.none.locked && soon.none.soon);
+  check("clicking a locked (coming-soon) card does not select it", soon.blankSelected === false);
+  check("categoryHasQuestions: true for real, false for blank/empty",
+    soon.predFull === true && soon.predBlank === false && soon.predEmpty === false);
+  check("a built-in bank category stays available (not falsely locked)", soon.builtinPlayable === true);
+
   // progress survives a reload via the synced key
   const persist = await page.evaluate(() => {
     const before = JSON.stringify(state.progress);

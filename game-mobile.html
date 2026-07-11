@@ -8707,7 +8707,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.8";
+    const IZZBAH_BUILD = "2026-07-10.9";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9151,7 +9151,14 @@
     }
 
     function categoryHasQuestions(cat) {
-      return !cat.empty && (cat.questions || []).some(question => question.q?.trim() || question.a?.trim());
+      if (!cat || cat.empty === true) return false;
+      // real questions in the category's own list (published / community / custom,
+      // and built-ins once refreshBuiltinQuestions has populated them)
+      if ((cat.questions || []).some(question => question.q?.trim() || question.a?.trim())) return true;
+      // built-in bank fallback: a bank category is playable even if its questions
+      // array hasn't been materialized yet, so it never falsely shows "coming soon".
+      const bank = builtinQuestionBanks[cat.id];
+      return !!bank && pointValues.some(p => (bank[p] || []).some(qa => (qa[0] && String(qa[0]).trim()) || (qa[1] && String(qa[1]).trim())));
     }
 
     // ---- Per-category answered progress (persistent + cloud-synced) --------
@@ -10111,7 +10118,10 @@
       const INFO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.6v5.4" stroke-linecap="round"/><circle cx="12" cy="16.7" r="1.05" fill="#fff" stroke="none"/></svg>`;
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
-        const unavailable = cat.empty === true;
+        // Lock ANY category with no playable questions (not just ones flagged
+        // `empty`) — an empty published/community category, or one whose
+        // questions were all cleared — and show it as "قريباً" (coming soon).
+        const unavailable = !categoryHasQuestions(cat);
         if (unavailable) state.selected.delete(cat.id);
         const pct = unavailable ? 0 : categoryProgressPercent(cat);
         card.className = "category"
