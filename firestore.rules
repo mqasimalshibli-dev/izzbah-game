@@ -129,6 +129,24 @@ service cloud.firestore {
           && request.resource.data.usedAt is timestamp );
     }
 
+    // ---- Per-player game usage (soft consumed-count, admin-visible) ---------
+    // A player writes ONLY their own usage doc — how many allowance games they
+    // have consumed. An admin may read every player's doc to show each player's
+    // REMAINING balance (granted − used) in the subscription panel. It holds no
+    // personal data beyond the count. Client-updated, so not billing-grade — it
+    // matches the free-plan soft-counter model used elsewhere.
+    match /usage/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['gamesUsed', 'updatedAt'])
+        && request.resource.data.gamesUsed is int
+        && request.resource.data.gamesUsed >= 0
+        && request.resource.data.gamesUsed <= 100000
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full
