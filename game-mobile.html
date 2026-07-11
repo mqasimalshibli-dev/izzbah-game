@@ -4207,6 +4207,11 @@
     .prem-badge { display: inline-block; background: #9e1322; color: #fff; border-radius: 6px; padding: 1px 7px; font: 800 11.5px 'Cairo', sans-serif; }
     .prem-badge.games { background: #1b6a3f; }
     .prem-badge.expired { background: #8a7550; }
+    .prem-badge.used { background: #6a5a2f; }
+    .prem-badge.left { background: #1b6a3f; }
+    .prem-badge.left0 { background: #9a1c1c; }
+    .prem-badge.unlimited { background: #7a1414; }
+    .prem-row-sub .prem-badge { margin-inline-start: 5px; }
     .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-revoke:hover { background: #f6d6d6; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
@@ -5675,9 +5680,12 @@
         <div class="prem-status" id="premStatus" aria-live="polite"></div>
 
         <div class="prem-list-head">
-          <span>الأكواد</span>
+          <span>اللاعبون ورصيدهم</span>
           <button class="ghost prem-refresh" id="premRefresh" type="button">تحديث ↻</button>
         </div>
+        <div class="prem-list" id="premPlayers"></div>
+
+        <div class="prem-list-head"><span>الأكواد</span></div>
         <div class="prem-list" id="premList"></div>
       </div>
     </div>
@@ -8699,7 +8707,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.6";
+    const IZZBAH_BUILD = "2026-07-10.7";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -8770,6 +8778,12 @@
     function consumeAllowanceGame() {
       state.gamesUsed = (state.gamesUsed || 0) + 1;
       try { localStorage.setItem(gamesUsedKey, String(state.gamesUsed)); } catch (e) {}
+      syncUsageToCloud();
+    }
+    // Publish the player's consumed-game count to the cloud so the admin panel's
+    // per-player "games left" stays live. Best-effort; no-op when signed out.
+    function syncUsageToCloud() {
+      try { if (window.IZZBAH && window.IZZBAH.pushUsage) window.IZZBAH.pushUsage(state.gamesUsed || 0); } catch (e) {}
     }
     // Unlimited play: an active entitlement OR a redeemed unlimited code.
     function premiumActive() { return !!state.isPremium || !!state.codePremium; }
@@ -11253,43 +11267,106 @@
       bridge(code).then(() => { premSetStatus("تم الحذف.", "ok"); refreshPremiumList(); })
         .catch(err => { console.warn("delete code failed", err); premSetStatus("تعذّر الحذف.", "err"); });
     }
+    // Render the per-CODE list (who redeemed what).
+    function renderCodeList(list, rows) {
+      if (!rows.length) { list.innerHTML = '<div class="prem-empty">لا توجد أكواد بعد — أنشئ أول كود أعلاه.</div>'; return; }
+      list.innerHTML = "";
+      rows.forEach(r => {
+        const row = document.createElement("div");
+        row.className = "prem-row";
+        const main = document.createElement("div");
+        main.className = "prem-row-main";
+        const id = document.createElement("div");
+        id.className = "prem-code";
+        id.textContent = r.code;
+        const sub = document.createElement("div");
+        sub.className = "prem-row-sub";
+        const badge = r.premium
+          ? '<span class="prem-badge">اشتراك مفتوح</span>'
+          : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`;
+        const status = r.used
+          ? ` · ✅ فعّله: <span dir="ltr">${r.usedBy}</span>` + (r.usedAt ? ` · ${new Date(r.usedAt).toLocaleDateString("ar")}` : "")
+          : " · ⏳ غير مستخدم";
+        sub.innerHTML = badge + status;
+        main.appendChild(id); main.appendChild(sub);
+        const btn = document.createElement("button");
+        btn.className = "prem-revoke"; btn.type = "button";
+        btn.textContent = r.used ? "إلغاء" : "حذف";
+        btn.addEventListener("click", () => deleteCodeFromAdmin(r.code, r.used));
+        row.appendChild(main); row.appendChild(btn);
+        list.appendChild(row);
+      });
+    }
+
+    // Render the per-PLAYER balance: group redeemed codes by the account that
+    // used them, then subtract that player's live consumed-game count (usage
+    // map) to show how many games they have LEFT. Unlimited subscribers show ∞.
+    function renderPlayers(container, rows, usage) {
+      if (!container) return;
+      const byUser = new Map();
+      rows.forEach(r => {
+        if (!r.used || !r.usedBy) return;
+        const u = byUser.get(r.usedBy) || { uid: r.usedBy, granted: 0, unlimited: false, codes: 0 };
+        u.unlimited = u.unlimited || !!r.premium;
+        if (!r.premium) u.granted += Number(r.gamesAllowed) || 0;
+        u.codes++;
+        byUser.set(r.usedBy, u);
+      });
+      if (!byUser.size) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعبون فعّلوا أكواداً بعد.</div>'; return; }
+      // most games granted first
+      const players = [...byUser.values()].sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
+      container.innerHTML = "";
+      players.forEach(u => {
+        const used = Math.max(0, Math.floor(Number(usage[u.uid]) || 0));
+        const left = u.unlimited ? Infinity : Math.max(0, u.granted - used);
+        const row = document.createElement("div");
+        row.className = "prem-row";
+        const main = document.createElement("div");
+        main.className = "prem-row-main";
+        const id = document.createElement("div");
+        id.className = "prem-row-id";
+        id.textContent = u.uid;
+        const sub = document.createElement("div");
+        sub.className = "prem-row-sub";
+        const grantBadge = u.unlimited
+          ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
+          : `<span class="prem-badge games">${toArabicDigits(u.granted)} ممنوحة</span>`;
+        const usedBadge = `<span class="prem-badge used">استهلك ${toArabicDigits(used)}</span>`;
+        const leftBadge = u.unlimited
+          ? '<span class="prem-badge left">متبقٍ ∞</span>'
+          : `<span class="prem-badge ${left > 0 ? "left" : "left0"}">متبقٍ ${toArabicDigits(left)}</span>`;
+        sub.innerHTML = grantBadge + usedBadge + leftBadge;
+        main.appendChild(id); main.appendChild(sub);
+        row.appendChild(main);
+        container.appendChild(row);
+      });
+    }
+
     function refreshPremiumList() {
       const list = $("#premList");
-      const bridge = window.IZZBAH && window.IZZBAH.listCodes;
+      const players = $("#premPlayers");
+      const listBridge = window.IZZBAH && window.IZZBAH.listCodes;
+      const usageBridge = window.IZZBAH && window.IZZBAH.listUsage;
       if (!list) return;
-      if (!bridge) { list.innerHTML = '<div class="prem-empty">سجّل الدخول كمشرف لعرض القائمة.</div>'; return; }
+      if (!listBridge) {
+        list.innerHTML = '<div class="prem-empty">سجّل الدخول كمشرف لعرض القائمة.</div>';
+        if (players) players.innerHTML = "";
+        return;
+      }
       list.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
-      bridge().then(rows => {
-        if (!rows.length) { list.innerHTML = '<div class="prem-empty">لا توجد أكواد بعد — أنشئ أول كود أعلاه.</div>'; return; }
-        list.innerHTML = "";
-        rows.forEach(r => {
-          const row = document.createElement("div");
-          row.className = "prem-row";
-          const main = document.createElement("div");
-          main.className = "prem-row-main";
-          const id = document.createElement("div");
-          id.className = "prem-code";
-          id.textContent = r.code;
-          const sub = document.createElement("div");
-          sub.className = "prem-row-sub";
-          const badge = r.premium
-            ? '<span class="prem-badge">اشتراك مفتوح</span>'
-            : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`;
-          const status = r.used
-            ? ` · ✅ فعّله: <span dir="ltr">${r.usedBy}</span>` + (r.usedAt ? ` · ${new Date(r.usedAt).toLocaleDateString("ar")}` : "")
-            : " · ⏳ غير مستخدم";
-          sub.innerHTML = badge + status;
-          main.appendChild(id); main.appendChild(sub);
-          const btn = document.createElement("button");
-          btn.className = "prem-revoke"; btn.type = "button";
-          btn.textContent = r.used ? "إلغاء" : "حذف";
-          btn.addEventListener("click", () => deleteCodeFromAdmin(r.code, r.used));
-          row.appendChild(main); row.appendChild(btn);
-          list.appendChild(row);
-        });
+      if (players) players.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
+      // Codes + usage in parallel; a usage failure (e.g. rules not yet
+      // published) still lets the code list and a used=0 view render.
+      Promise.all([
+        listBridge(),
+        usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({})
+      ]).then(([rows, usage]) => {
+        renderCodeList(list, rows);
+        renderPlayers(players, rows, usage || {});
       }).catch(err => {
         console.warn("list codes failed", err);
         list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (مجموعة الأكواد).</div>';
+        if (players) players.innerHTML = "";
       });
     }
 
@@ -13792,6 +13869,9 @@
         try { localStorage.setItem(gamesUsedKey, String(granted)); } catch (e) {}
       }
       renderPlayBalance();
+      // Backfill/refresh the cloud usage counter on sign-in and balance loads so
+      // existing players show up in the admin panel without needing a new game.
+      syncUsageToCloud();
     };
     // Fallback used right after a redeem if the cloud balance reload fails:
     // credit just the redeemed code so the player can play immediately.
@@ -14293,6 +14373,30 @@
             if (!currentUser) return Promise.resolve(false);
             return loadMyCodes(currentUser);
           };
+          // Player: publish their own soft consumed-game counter to usage/{uid}
+          // so the admin panel can show each player's remaining balance. Deduped
+          // — only writes when the value actually changed.
+          let lastUsagePushed = -1;
+          window.IZZBAH.pushUsage = function (n) {
+            if (!currentUser) return Promise.resolve(false);
+            const v = Math.max(0, Math.floor(Number(n) || 0));
+            if (v === lastUsagePushed) return Promise.resolve(true);
+            lastUsagePushed = v;
+            return db.collection("usage").doc(currentUser.uid)
+              .set({ gamesUsed: v, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(() => true)
+              .catch(e => { console.warn("usage push failed", e && (e.code || e)); lastUsagePushed = -1; return false; });
+          };
+          // Admin-only: every player's consumed-game count (uid -> gamesUsed),
+          // used to compute their remaining balance in the subscription panel.
+          window.IZZBAH.listUsage = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("usage").limit(1000).get().then(snap => {
+              const map = {};
+              snap.forEach(doc => { const d = doc.data() || {}; map[doc.id] = Number(d.gamesUsed) || 0; });
+              return map;
+            });
+          };
           // Player: permanently delete their account — the cloud save doc, then
           // the Firebase Auth user itself. Codes they redeemed remain as
           // business records (they carry no personal data beyond the uid).
@@ -14308,7 +14412,10 @@
             // debounced settings push and the entitlement listener.
             clearTimeout(pushTimer);
             if (entitlementUnsub) { try { entitlementUnsub(); } catch (e) {} entitlementUnsub = null; }
-            return db.collection("users").doc(user.uid).delete().then(() => user.delete());
+            return db.collection("users").doc(user.uid).delete()
+              // Also drop their usage counter (best-effort — never block deletion).
+              .then(() => db.collection("usage").doc(user.uid).delete().catch(() => {}))
+              .then(() => user.delete());
           };
           // Player: redeem a code once. Rejects with "not-found" / "used".
           window.IZZBAH.redeemCode = function (raw) {

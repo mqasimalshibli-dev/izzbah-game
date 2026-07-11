@@ -209,6 +209,38 @@ try {
   });
   check("a redeemed code shows the player's id in the admin list", /qka67ZMefQXfitti2BJ2SVVCKYU2/.test(redeemedList));
 
+  // ---- per-player balance: granted − used = games LEFT, live ----
+  const playersView = await page.evaluate(async () => {
+    window.IZZBAH.listCodes = () => Promise.resolve([
+      { code: "AAAA-1111", gamesAllowed: 5,  premium: false, used: true,  usedBy: "userAAA", usedAt: 1750000000000 },
+      { code: "BBBB-2222", gamesAllowed: 10, premium: false, used: true,  usedBy: "userAAA", usedAt: 1750000000000 },
+      { code: "CCCC-3333", gamesAllowed: 0,  premium: true,  used: true,  usedBy: "userBBB", usedAt: 1750000000000 },
+      { code: "EEEE-5555", gamesAllowed: 2,  premium: false, used: true,  usedBy: "userCCC", usedAt: 1750000000000 },
+      { code: "DDDD-4444", gamesAllowed: 3,  premium: false, used: false, usedBy: "" },
+    ]);
+    window.IZZBAH.listUsage = () => Promise.resolve({ userAAA: 6, userBBB: 99, userCCC: 5 });
+    document.getElementById("premRefresh").click();
+    await new Promise(r => setTimeout(r, 200));
+    const rowText = uid => ([...document.querySelectorAll("#premPlayers .prem-row")]
+      .find(r => r.textContent.includes(uid)) || {}).textContent || "";
+    const rowClasses = uid => ([...document.querySelectorAll("#premPlayers .prem-row")]
+      .find(r => r.textContent.includes(uid)) || {}).innerHTML || "";
+    return {
+      all: document.getElementById("premPlayers").textContent,
+      a: rowText("userAAA"), b: rowText("userBBB"), c: rowText("userCCC"),
+      cHtml: rowClasses("userCCC"),
+    };
+  });
+  check("per-player row sums granted games across a user's codes (5+10=15)",
+    playersView.a.includes("15") && playersView.a.includes("ممنوحة"));
+  check("per-player row shows games used from the usage map (6)",
+    playersView.a.includes("استهلك") && playersView.a.includes("6"));
+  check("per-player row shows games LEFT = granted − used (15−6=9)",
+    playersView.a.includes("متبقٍ") && playersView.a.includes("9"));
+  check("an unlimited player shows ∞ remaining", playersView.b.includes("∞") && playersView.b.includes("مفتوح"));
+  check("a depleted player shows 0 left in red", playersView.c.includes("متبقٍ") && playersView.c.includes("0") && /left0/.test(playersView.cHtml));
+  check("unused codes contribute no player row", !playersView.all.includes("DDDD"));
+
   // ---- Player side: redeem boxes on the game library + new-game screens ----
   const boxes = await page.evaluate(() => ({
     lib: !!document.getElementById("redeemInputLib") && !!document.getElementById("redeemBtnLib"),
