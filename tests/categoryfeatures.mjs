@@ -147,6 +147,30 @@ try {
     soon.predFull === true && soon.predBlank === false && soon.predEmpty === false);
   check("a built-in bank category stays available (not falsely locked)", soon.builtinPlayable === true);
 
+  // ---- 4) picked categories are SHADED (dark overlay + ✓), not just ringed ----
+  const shade = await page.evaluate(() => {
+    state.categoryMode = "game";
+    state.selected = new Set(["history"]);
+    renderCategories();
+    const card = [...document.querySelectorAll("#categoryGrid .category")].find(c => c.classList.contains("selected"));
+    if (!card) return null;
+    const ring = card.querySelector(".cat-ring");
+    const cs = getComputedStyle(ring);
+    const after = getComputedStyle(ring, "::after");
+    const other = [...document.querySelectorAll("#categoryGrid .category:not(.selected)")][0];
+    return {
+      display: cs.display,
+      bg: cs.backgroundImage + " " + cs.backgroundColor,
+      mark: after.content || "",
+      pillZ: +getComputedStyle(card.querySelector(".cat-name-pill")).zIndex || 0,
+      otherRing: other ? getComputedStyle(other.querySelector(".cat-ring")).display : "none",
+    };
+  });
+  check("a picked category shows the dark shade overlay", !!shade && shade.display === "block" && /gradient|rgba/.test(shade.bg));
+  check("the shade carries a gold ✓ mark", !!shade && shade.mark.includes("✓"));
+  check("the name pill stays readable above the shade", !!shade && shade.pillZ >= 2);
+  check("unpicked categories show no shade", !!shade && shade.otherRing === "none");
+
   // progress survives a reload via the synced key
   const persist = await page.evaluate(() => {
     const before = JSON.stringify(state.progress);
