@@ -757,17 +757,41 @@
       border-color: #e6c869;
     }
 
+    /* Selected state: SHADE the whole card (dark overlay + gold ✓) instead of
+       only a gold ring — the ring alone blended into the warm background and
+       made picked cards hard to tell apart. */
     .cat-ring {
       display: none;
       position: absolute;
       inset: 0;
+      z-index: 1;
       border: 3px solid #e6c869;
       border-radius: 14px;
-      box-shadow: inset 0 0 0 2px rgba(230, 200, 105, .4);
+      background: linear-gradient(180deg, rgba(12, 3, 5, .52), rgba(12, 3, 5, .68));
       pointer-events: none;
+    }
+    .cat-ring::after {
+      content: "✓";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #e7c46a, #c9973f);
+      border: 2px solid #fff3c4;
+      color: #5a0f0f;
+      font: 900 30px/1 'Cairo', sans-serif;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
     }
 
     .category.selected .cat-ring { display: block; }
+    /* keep the name pill and the (!) button readable above the shade */
+    .cat-name-pill { z-index: 2; }
+    .category-eye { z-index: 3; }
 
     .cat-soon {
       position: absolute;
@@ -8724,7 +8748,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.11";
+    const IZZBAH_BUILD = "2026-07-10.12";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9626,7 +9650,33 @@
       if (id === "setup") renderTeamSetup();
       if (id === "customManager") renderCustomManager();
       if (id === "game") centerBoardScroll();
+      // Long questions: shrink the font until the whole question fits its box
+      // (second pass after fonts/layout settle).
+      if (id === "questionPage") requestAnimationFrame(() => { fitQuestionText(); setTimeout(fitQuestionText, 150); });
     }
+
+    // A long question must be READ, not scrolled: its box is bounded to the
+    // card's safe area (clear of the badges / reveal button), and instead of
+    // sliding up and down inside it, the font steps down until the full text
+    // fits. Resets to the CSS base size first, so short questions keep the
+    // normal large type and each new question re-fits from scratch.
+    function fitQuestionText() {
+      const el = $("#modalQuestion");
+      if (!el || !String(el.textContent || "").trim()) return;
+      if (document.body.dataset.screen !== "questionPage") return;
+      // the stylesheet size uses !important, so the override must too
+      el.style.removeProperty("font-size");
+      const MIN = 17;
+      let size = parseFloat(getComputedStyle(el).fontSize) || 40;
+      let guard = 30;
+      while (guard-- > 0 && size > MIN && el.scrollHeight > el.clientHeight + 1) {
+        size = Math.max(MIN, size - 2);
+        el.style.setProperty("font-size", size + "px", "important");
+      }
+    }
+    window.addEventListener("resize", () => {
+      if (document.body.dataset.screen === "questionPage") fitQuestionText();
+    });
 
     function centerBoardScroll() {
       const scroller = document.querySelector("#game .board-scroll");
@@ -12680,6 +12730,9 @@
         box.appendChild(item);
       });
       box.classList.add("visible");
+      // The choices take vertical room from the question's box — re-fit the
+      // font so a long question stays fully visible above them.
+      requestAnimationFrame(fitQuestionText);
     }
 
     // Which screen each helper may be pressed on. four-choices / first-letter

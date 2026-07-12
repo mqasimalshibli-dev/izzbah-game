@@ -68,6 +68,33 @@ try {
   check(`phone: long question clears the reveal button (${p.reveal}px)`, p.reveal === 0);
   check(`phone: long question clears the top badges (${p.category}/${p.points}px)`, p.category === 0 && p.points === 0);
 
+  // ---- dynamic font fit: long questions shrink until they fully fit ----
+  await phone.waitForTimeout(400); // let the second fit pass run
+  const fit = await phone.evaluate(() => {
+    const el = document.getElementById("modalQuestion");
+    // the element's base (stylesheet) size, measured with the override lifted
+    const applied = el.style.getPropertyValue("font-size");
+    el.style.removeProperty("font-size");
+    const base = parseFloat(getComputedStyle(el).fontSize);
+    if (applied) el.style.setProperty("font-size", applied, "important");
+    return { size: parseFloat(getComputedStyle(el).fontSize), base, overflow: el.scrollHeight - el.clientHeight };
+  });
+  check(`phone: long question font is shrunk (${fit.size}px < base ${fit.base}px) until it fully fits (overflow=${fit.overflow}px)`,
+    fit.size < fit.base && fit.overflow <= 1);
+
+  // a SHORT question keeps the normal large type (no shrink applied)
+  const short = await phone.evaluate(async () => {
+    const cat = { id: "pub-x", name: "تاريخ" };
+    const q = { q: "ما عاصمة عمان؟", a: "مسقط", points: 100 };
+    state.activeQuestion = { cat, q, key: "t", team: 0 };
+    fillQuestionContent(cat, q);
+    showScreen("questionPage", { keepQuestion: true });
+    await new Promise(r => setTimeout(r, 400));
+    const el = document.getElementById("modalQuestion");
+    return { inline: el.style.getPropertyValue("font-size"), overflow: el.scrollHeight - el.clientHeight };
+  });
+  check("phone: a short question keeps the base font size (no shrink applied)", short.inline === "" && short.overflow <= 1);
+
   // proof the guard works: without the horizontal reservation the text overlaps the bar
   const wouldOverlap = await phone.evaluate(() => {
     const card = document.querySelector("#questionPage .question-main-card");
