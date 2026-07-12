@@ -8813,7 +8813,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.18";
+    const IZZBAH_BUILD = "2026-07-10.19";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12380,6 +12380,34 @@
       { test: /نهر|أنهار/, pool: ["نهر النيل","نهر الأمازون","نهر اليانغتسي","نهر المسيسيبي","نهر الفولغا","نهر الدانوب","نهر التايمز","نهر السين","نهر التيبر","دجلة","الفرات"] },
       { test: /بحر/, pool: ["البحر المتوسط","البحر الأحمر","البحر الأسود","بحر العرب","بحر الشمال","البحر الكاريبي","البحر الأدرياتيكي"] },
     ];
+    // Gaming / entertainment families — detected by which pool the ANSWER
+    // belongs to (a gaming question says «لعبة» whatever the answer type, so the
+    // question wording can't tell a title from a console). Keeps every distractor
+    // the same KIND: a company answer gets other companies, a character other
+    // characters, a console other consoles, a game title other titles — instead
+    // of the generic mix (سوني ↔ فيفا) the sibling logic produced.
+    const GAMING_FAMILIES = [
+      // consoles/platforms (checked before companies: «نينتندو سويتش» is a console)
+      ["بلايستيشن","بلايستيشن 5","بلايستيشن 4","إكس بوكس","إكس بوكس سيريس","نينتندو سويتش","نينتندو واي","نينتندو 64","سيجا","أتاري","بلايستيشن بورتابل","نينتندو دي إس"],
+      // companies / studios
+      ["سوني","مايكروسوفت","نينتندو","سيجا","روكستار","إلكترونيك آرتس","يوبي سوفت","بليزارد","فالف","إيبك جيمز","أكتيفجن","كابكوم","سكوير إنيكس","بانداي نامكو"],
+      // characters
+      ["ماريو","سونيك","لينك","كراتوس","ماستر تشيف","لارا كروفت","بيكاتشو","لويجي","دونكي كونغ","ساموس","كيربي","زيلدا"],
+      // game titles
+      ["ماينكرافت","فورتنايت","كول أوف ديوتي","فيفا","ببجي","جراند ثفت أوتو","بوكيمون","كاندي كراش","أنجري بيردز","تيتريس","سوبر ماريو","روبلوكس","أمونج أص","فول جارد","ليج أوف ليجندز","فالورانت","أوفرواتش","ذا ويتشر","إلدن رينغ","كلاش أوف كلانس","كلاش رويال","فري فاير","سبيس إنفيدرز","باك مان"],
+    ];
+    // Which gaming pool (if any) the answer belongs to. Answer-driven, so it
+    // works regardless of how the question is phrased. EXACT (normalized) match —
+    // NOT substring — so «سوني» (Sony, a company) and «سونيك» (Sonic, a
+    // character) never collide.
+    function sameGameName(x, y) { return arNorm(x) === arNorm(y); }
+    function gamingFamilyFor(answer) {
+      const n = arNorm(answer);
+      for (const pool of GAMING_FAMILIES) {
+        if (pool.some(p => arNorm(p) === n)) return pool;
+      }
+      return null;
+    }
     // Two labels naming the SAME place (e.g. «باب المندب» vs «مضيق باب المندب»)
     // must never appear together — compare on the normalized form, substring-
     // tolerant so a bare name matches its prefixed variant.
@@ -12450,10 +12478,21 @@
       // topically-related first (highest weighted score), then closest length
       scored.sort((x, y) => (y.score - x.score) || (x.dl - y.dl));
 
-      // Geographic family: keep every distractor the SAME KIND as the answer.
-      // Use the category's own same-kind answers first, then top up from the
-      // curated pool — so a lone "أكبر محيط" question still offers three real
-      // oceans instead of a sea and a strait.
+      // Family pools keep every distractor the SAME KIND as the answer (a lone
+      // "أكبر محيط" question still gets three real oceans; a gaming company gets
+      // other companies, not a game title).
+      // Shared helper: build 3 same-KIND distractors from a curated pool — the
+      // category's own in-pool answers first, then the pool itself.
+      const fillFromPool = (pool, isMember, same) => {
+        same = same || sameGeoThing;
+        const cand = [];
+        const add = x => { if (!same(x, correct) && !cand.some(c => same(c, x))) cand.push(x); };
+        scored.filter(o => o.score > 0 && isMember(o.a)).forEach(o => add(o.a)); // category's own
+        const curated = pool.slice(); shuffleInPlace(curated); curated.forEach(add);
+        if (cand.length >= 3) { shuffleInPlace(cand); return cand.slice(0, 3); }
+        return null;
+      };
+
       const fam = geoFamilyFor(q.q, q.a);
       const inFamily = fam ? (a => fam.pool.some(p => sameGeoThing(p, a))) : null;
       // Only when the ANSWER is itself a member of the family (so «كم عدد
@@ -12461,12 +12500,15 @@
       // منغوليا» don't get continent/desert options — the question mentions the
       // family, but the answer isn't one of its members).
       if (fam && inFamily(correct)) {
-        const cand = [];
-        const add = x => { if (!sameGeoThing(x, correct) && !cand.some(c => sameGeoThing(c, x))) cand.push(x); };
-        scored.filter(o => o.score > 0 && inFamily(o.a)).forEach(o => add(o.a)); // category's own
-        const curated = fam.pool.slice(); shuffleInPlace(curated); curated.forEach(add);
-        if (cand.length >= 3) { shuffleInPlace(cand); return cand.slice(0, 3); }
-        // pool couldn't supply three — fall through to the generic logic
+        const picks = fillFromPool(fam.pool, inFamily);
+        if (picks) return picks;
+      }
+
+      // Gaming/entertainment: pool chosen by the answer's own kind (exact match).
+      const gamePool = gamingFamilyFor(correct);
+      if (gamePool) {
+        const picks = fillFromPool(gamePool, a => gamePool.some(p => sameGameName(p, a)), sameGameName);
+        if (picks) return picks;
       }
 
       if (scored.length < 3) return null;

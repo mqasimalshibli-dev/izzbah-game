@@ -89,6 +89,44 @@ try {
   // «ما عاصمة اليابان؟» must NOT pull «هونشو» from «ما أكبر جزيرة في اليابان؟»
   check("a shared proper noun does not cross-link question types", !(gen["طوكيو"] || []).includes("هونشو"));
 
+  // ---- 1d) GAMING category: distractors stay the same KIND as the answer ----
+  const gaming = await page.evaluate(() => {
+    const cat = { id: "pub-games", name: "العاب", questions: [
+      { q: "لعبة بناء المكعبات؟", a: "ماينكرافت", points: 100 },
+      { q: "لعبة الباتل رويال من إيبك؟", a: "فورتنايت", points: 100 },
+      { q: "بطل سوبر ماريو؟", a: "ماريو", points: 200 },
+      { q: "القنفذ الأزرق في ألعاب سيجا؟", a: "سونيك", points: 200 },
+      { q: "شركة أجهزة بلايستيشن؟", a: "سوني", points: 200 },
+      { q: "شركة أجهزة إكس بوكس؟", a: "مايكروسوفت", points: 200 },
+      { q: "جهاز نينتندو المحمول الهجين؟", a: "نينتندو سويتش", points: 300 },
+    ]};
+    const out = {}; cat.questions.forEach(q => { out[q.a] = relatedDistractors(cat, q); });
+    // pools mirror GAMING_FAMILIES in the app
+    const P = {
+      consoles: ["بلايستيشن","بلايستيشن 5","بلايستيشن 4","إكس بوكس","إكس بوكس سيريس","نينتندو سويتش","نينتندو واي","نينتندو 64","سيجا","أتاري","بلايستيشن بورتابل","نينتندو دي إس"],
+      companies: ["سوني","مايكروسوفت","نينتندو","سيجا","روكستار","إلكترونيك آرتس","يوبي سوفت","بليزارد","فالف","إيبك جيمز","أكتيفجن","كابكوم","سكوير إنيكس","بانداي نامكو"],
+      characters: ["ماريو","سونيك","لينك","كراتوس","ماستر تشيف","لارا كروفت","بيكاتشو","لويجي","دونكي كونغ","ساموس","كيربي","زيلدا"],
+      titles: ["ماينكرافت","فورتنايت","كول أوف ديوتي","فيفا","ببجي","جراند ثفت أوتو","بوكيمون","كاندي كراش","أنجري بيردز","تيتريس","سوبر ماريو","روبلوكس","أمونج أص","فول جارد","ليج أوف ليجندز","فالورانت","أوفرواتش","ذا ويتشر","إلدن رينغ","كلاش أوف كلانس","كلاش رويال","فري فاير","سبيس إنفيدرز","باك مان"],
+    };
+    // "same kind" = the answer and the distractor share ANY pool (سيجا / Sega is
+    // legitimately both a company AND a console brand, so it lives in two pools).
+    const sameKind = (a, d) => Object.values(P).some(pool => pool.includes(a) && pool.includes(d));
+    const allSame = a => Array.isArray(out[a]) && out[a].length === 3 && out[a].every(d => sameKind(a, d)) && !out[a].includes(a);
+    return {
+      title: allSame("ماينكرافت") && allSame("فورتنايت"),
+      character: allSame("ماريو") && allSame("سونيك"),
+      company: allSame("سوني") && allSame("مايكروسوفت"),
+      console: allSame("نينتندو سويتش"),
+      // the Sony/Sonic substring trap: Sonic (character) must NOT get companies
+      sonicNotCompany: (out["سونيك"] || []).every(d => P.characters.includes(d)),
+    };
+  });
+  check("gaming: a game TITLE gets other titles", gaming.title);
+  check("gaming: a CHARACTER gets other characters", gaming.character);
+  check("gaming: a COMPANY gets other companies", gaming.company);
+  check("gaming: a CONSOLE gets other consoles", gaming.console);
+  check("gaming: «سونيك» (Sonic) is not confused with «سوني» (Sony)", gaming.sonicNotCompany);
+
   // ---- 1b) curated family pools cover SINGLETON geographic subtypes ----
   const fam = await page.evaluate(() => {
     // a category with exactly ONE ocean / desert / gulf / mountain-range /
