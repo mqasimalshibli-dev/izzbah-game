@@ -3439,6 +3439,23 @@
         radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
         radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
         linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%) !important;
+      background-color: #2a0709 !important; /* paints even where the images don't */
+    }
+    /* Phones: the landscape lock makes <body> position:fixed, and Chromium then
+       SKIPS the canvas-propagated background-image layers (a solid color still
+       paints — gradients don't), leaving this screen white. Painting the same
+       red stack on a real fixed layer renders everywhere, so the phone final
+       screen matches the web one. */
+    body[data-screen="results"]::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 8%, rgba(150, 26, 30, .55), transparent 42%),
+        radial-gradient(circle at 50% 108%, rgba(60, 8, 10, .7), transparent 60%),
+        linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%);
     }
     #results.screen { color: #fff; }
     .results-screen {
@@ -8748,7 +8765,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.12";
+    const IZZBAH_BUILD = "2026-07-10.13";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
