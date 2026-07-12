@@ -106,6 +106,44 @@ try {
     Array.isArray(distractors.opts) && distractors.opts.length === 4
     && ["خطأ1", "خطأ2", "خطأ3"].every(d => distractors.opts.includes(d)));
 
+  // ---- 4) a question WITH a picture must still show the question text ----
+  // (a global flex:1 on the text once made it collapse to 0 behind the image)
+  await page.evaluate(() => {
+    const IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='%23c8431b'/%3E%3C/svg%3E";
+    const cat = allCategories().find(c => c.id === "history");
+    const q = { q: "من هو أول من مشى على القمر؟", a: "نيل أرمسترونغ", points: 100, image: IMG, answerImage: "" };
+    state.activeQuestion = { cat, q, key: "t", team: 0 };
+    fillQuestionContent(cat, q);
+    showScreen("questionPage", { keepQuestion: true });
+  });
+  await page.waitForTimeout(300); // let the image decode
+  const withImage = await page.evaluate(() => {
+    const t = document.getElementById("modalQuestion").getBoundingClientRect();
+    const im = document.getElementById("modalQuestionImage");
+    return { textH: t.height, imgShown: getComputedStyle(im).display !== "none", imgH: im.getBoundingClientRect().height };
+  });
+  check(`a question picture does not hide the question text (text ${Math.round(withImage.textH)}px, img ${Math.round(withImage.imgH)}px)`,
+    withImage.textH > 8 && withImage.imgShown && withImage.imgH > 4);
+
+  // ---- 5) tablet-landscape (>600px tall): the game fills edge-to-edge ----
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await page.evaluate(() => {
+    state.selected = new Set(["history", "geo", "science", "culture"]);
+    refreshBuiltinQuestions(); state.gameActive = true; renderGame(); showScreen("game");
+  });
+  await page.waitForTimeout(200);
+  const fill = await page.evaluate(() => {
+    const gs = document.querySelector("#game.game-screen").getBoundingClientRect();
+    const app = getComputedStyle(document.querySelector(".app"));
+    return {
+      left: Math.round(gs.left), top: Math.round(gs.top),
+      right: Math.round(gs.right), bottom: Math.round(gs.bottom),
+      w: window.innerWidth, h: window.innerHeight, pad: app.paddingLeft,
+    };
+  });
+  check(`tablet: the game screen spans the full viewport (no framing padding)`,
+    fill.left === 0 && fill.top === 0 && fill.right === fill.w && fill.bottom === fill.h && fill.pad === "0px");
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
