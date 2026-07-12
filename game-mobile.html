@@ -8656,9 +8656,28 @@
     const builtinCatQuestionImage = {
       khareef: "assets/img/khareef-darbat.webp"
     };
+    // Prefer a question the player has NEVER answered (per the persistent,
+    // cloud-synced progress store) — random among the unseen; only when every
+    // question in the pool has already been played does it fall back to plain
+    // random. Pure Math.random re-served recently-played questions constantly
+    // (with a 10-question tier, back-to-back repeats are the NORM, not the
+    // exception) — this makes the whole pool cycle before anything repeats.
+    function pickUnseen(catId, pool, sigOf) {
+      if (!pool || !pool.length) return null;
+      // The first draws happen while the script is still booting (built-ins
+      // build their question sets at load, before `state` is initialized) —
+      // treat that as "no history yet" instead of dying in the TDZ.
+      let played = [];
+      try { played = (state.progress && state.progress[catId]) || []; } catch (e) {}
+      const seen = new Set(played);
+      const fresh = pool.filter(item => !seen.has(sigOf(item)));
+      const from = fresh.length ? fresh : pool;
+      return from[Math.floor(Math.random() * from.length)];
+    }
+
     function randomQuestion(categoryId, points) {
       const bank = builtinQuestionBanks[categoryId]?.[points] || [];
-      const qa = bank[Math.floor(Math.random() * bank.length)] || ["", ""];
+      const qa = pickUnseen(categoryId, bank, t => questionSig({ q: t[0], a: t[1] })) || ["", ""];
       return { points, q: qa[0], a: qa[1], distractors: Array.isArray(qa[2]) ? qa[2].slice() : null, image: qa[3] || builtinCatQuestionImage[categoryId] || "", answerImage: "" };
     }
 
@@ -8765,7 +8784,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.13";
+    const IZZBAH_BUILD = "2026-07-10.14";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12205,7 +12224,9 @@
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(points);
           cell.disabled = used;
-          cell.addEventListener("click", () => openQuestion(cat, pool[Math.floor(Math.random() * pool.length)] || pool[0], key));
+          // draw an UNSEEN question from the tier first (see pickUnseen) — plain
+          // random kept re-serving recently played ones
+          cell.addEventListener("click", () => openQuestion(cat, pickUnseen(cat.id, pool, questionSig) || pool[0], key));
           pointsRow.appendChild(cell);
         });
         card.append(title, pointsRow);
