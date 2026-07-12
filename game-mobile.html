@@ -4927,17 +4927,15 @@
       font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; font-size: clamp(30px, 4.4vw, 50px) !important;
       line-height: 1.5 !important; color: #1f5237 !important; max-width: 800px; margin: 0 auto !important; text-wrap: balance;
     }
-    /* Keep a long question inside the card's SAFE area — below the top badges,
-       above the reveal button. A definite max-height (independent of the flex
-       container) bounds the text on every viewport; the font auto-shrinks
-       (fitQuestionText) to fit, and it scrolls within its OWN box only in the
-       extreme case. NOTE: no `flex` here on purpose — each breakpoint controls
-       the text's flex. Forcing flex:1 made it fight a flex:1 question IMAGE and
-       collapse to zero (min-height:0), so a picture "ate" the question. */
+    /* fitQuestionText shrinks the font (by real geometry) until the question
+       clears the badges and the reveal button on any viewport; a generous
+       max-height + overflow only provide a scroll fallback for the extreme case.
+       NOTE: no `flex` — forcing flex:1 made the text fight a flex:1 question
+       IMAGE and vanish. */
     #questionPage .question-main-card .question-text {
       min-height: 0; overflow-y: auto; overscroll-behavior: contain;
       width: 100%;
-      max-height: calc(var(--game-vh, 100dvh) - 290px);
+      max-height: calc(var(--game-vh, 100dvh) * 0.72);
     }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
@@ -9723,12 +9721,29 @@
       const el = $("#modalQuestion");
       if (!el || !String(el.textContent || "").trim()) return;
       if (document.body.dataset.screen !== "questionPage") return;
-      // the stylesheet size uses !important, so the override must too
+      // Shrink the font until the question actually CLEARS the overlaid
+      // controls — the top badges and the bottom reveal button — measured by
+      // real geometry, so it works on every viewport regardless of how the card
+      // is sized (a phone's fixed 280px card, a tablet's flex-filled one, …).
+      // The stylesheet size uses !important, so the override must too.
+      const reveal = document.getElementById("questionActions") || document.getElementById("revealAnswer");
+      const badges = [document.getElementById("modalCategory"), document.getElementById("modalPoints")];
       el.style.removeProperty("font-size");
-      const MIN = 17;
+      const overlaps = () => {
+        if (el.scrollHeight > el.clientHeight + 1) return true; // exceeds its own box
+        const t = el.getBoundingClientRect();
+        if (reveal) { const r = reveal.getBoundingClientRect(); if (r.height && t.bottom > r.top + 1 && t.top < r.bottom) return true; }
+        for (const bEl of badges) {
+          if (!bEl) continue;
+          const b = bEl.getBoundingClientRect();
+          if (b.height && t.top < b.bottom - 1 && t.bottom > b.top) return true;
+        }
+        return false;
+      };
+      const MIN = 15;
       let size = parseFloat(getComputedStyle(el).fontSize) || 40;
       let guard = 30;
-      while (guard-- > 0 && size > MIN && el.scrollHeight > el.clientHeight + 1) {
+      while (guard-- > 0 && size > MIN && overlaps()) {
         size = Math.max(MIN, size - 2);
         el.style.setProperty("font-size", size + "px", "important");
       }
@@ -9736,6 +9751,14 @@
     window.addEventListener("resize", () => {
       if (document.body.dataset.screen === "questionPage") fitQuestionText();
     });
+    // A question image loading shifts the layout — re-fit once it's in so a slow
+    // (e.g. remote) picture can't push the text back over the reveal button.
+    (function () {
+      const qImg = $("#modalQuestionImage");
+      if (qImg) qImg.addEventListener("load", () => {
+        if (document.body.dataset.screen === "questionPage") fitQuestionText();
+      });
+    })();
 
     function centerBoardScroll() {
       const scroller = document.querySelector("#game .board-scroll");

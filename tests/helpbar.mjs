@@ -34,6 +34,7 @@ async function probe(page, helpers, repeat) {
     fillQuestionContent(cat, q);
     showScreen("questionPage", { keepQuestion: true });
     renderTeamHelpBar(document.getElementById("questionHelpBar"), 0, "question");
+    fitQuestionText(); // the font-fit that showScreen schedules async — run it now
     const R = id => document.getElementById(id).getBoundingClientRect();
     const t = R("modalQuestion");
     const overlap = r => {
