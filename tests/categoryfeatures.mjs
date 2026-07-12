@@ -183,6 +183,32 @@ try {
   check("a fully-played pool falls back to random (still returns a question)", unseen.fallbackOk);
   check("built-in bank draws prefer the never-played question too", unseen.bankFresh);
 
+  // ---- 3c) every category gets a real description (no bland placeholder) ----
+  const desc = await page.evaluate(() => {
+    const d = (cat) => categoryDescription(cat);
+    return {
+      // a community/custom category with no curated entry: name-aware, NOT the
+      // old "فئة · تحتوي على N سؤالًا" placeholder
+      custom: d({ id: "pub-newxyz", name: "أساطير", custom: true, questions: [{ q: "س", a: "ج" }, { q: "س2", a: "ج2" }] }),
+      // an explicit description field wins
+      explicit: d({ id: "pub-e", name: "خ", description: "وصف مخصّص من المشرف" }),
+      // a known built-in keeps its curated description
+      known: d({ id: "history", name: "تاريخ" }),
+      // word-guess and reaction get their fitting text
+      word: d({ id: "charadesArabic", name: "وش الكلمة عربي" }),
+      reaction: d({ id: "pub-r", name: "رياكشنات عمانية", questions: [{ q: "", a: "x" }] }),
+      // empty category still gets a sentence
+      empty: d({ id: "pub-empty", name: "جديدة", custom: true, questions: [] }),
+    };
+  });
+  check("a community/custom category gets a real name-aware description",
+    desc.custom.includes("أساطير") && !/تحتوي على/.test(desc.custom) && desc.custom.length > 12);
+  check("an explicit description field is used verbatim", desc.explicit === "وصف مخصّص من المشرف");
+  check("a known category keeps its curated description", /التاريخ|حضارات/.test(desc.known));
+  check("word-guess categories describe the charades flow", /تمثيل صامت|QR/.test(desc.word));
+  check("reaction categories get a reaction-flavoured description", desc.reaction.includes("رياكشنات"));
+  check("an empty category still gets a full sentence", desc.empty.includes("جديدة") && desc.empty.length > 12);
+
   // ---- 4) picked categories are SHADED (dark overlay + ✓), not just ringed ----
   const shade = await page.evaluate(() => {
     state.categoryMode = "game";
