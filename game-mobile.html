@@ -2831,11 +2831,14 @@
         padding: 6px;
       }
       .question-main-card {
-        flex: 0 0 min(280px, calc(var(--game-vh, 100dvh) - 78px));
-        height: min(280px, calc(var(--game-vh, 100dvh) - 78px));
+        /* fill the grid's 1fr row instead of a fixed 280px box that left a big
+           empty area below; the old 172px right margin (legacy helper-bar gap)
+           left a huge empty strip on wide phones — the bar clearance is now the
+           has-helpbar padding-right instead. */
+        height: auto;
         min-height: 0;
-        margin: 0 172px 8px 8px;
-        padding: 32px 10px 34px;
+        margin: 0 6px;
+        padding: 26px 12px;
         align-self: stretch;
         justify-content: center;
         gap: 6px;
@@ -5300,6 +5303,12 @@
             action bar as a non-shrinking last row, so the buttons can never be
             pushed below the fold regardless of content or a few px of drift. */
     @media (orientation: landscape) and (min-height: 601px) {
+      /* Flex-fill the screen so the red card fills the viewport instead of
+         floating in the top half with empty cream below (the "box in a box"). */
+      body[data-screen="questionPage"] #questionPage,
+      body[data-screen="answerPage"] #answerPage {
+        flex: 1 1 auto !important; height: auto !important; max-height: 100% !important; min-height: 0 !important;
+      }
       #questionPage .question-page, #answerPage.question-page { min-height: 0 !important; }
       #questionPage .question-main-card {
         flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important;
@@ -8800,7 +8809,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.16";
+    const IZZBAH_BUILD = "2026-07-10.17";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
