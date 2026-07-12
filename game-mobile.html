@@ -210,6 +210,24 @@
     }
     body[data-screen="game"] #game .board-scroll { min-height: 0; }
 
+    /* TABLETS / laptops in landscape (taller than the ≤600px phone lock): the
+       game still framed itself with the .app's 18px padding + a rounded, bordered
+       card, so it never reached the screen edges — on an ~11" tablet that reads
+       as "doesn't fill the screen". Go edge-to-edge like phones do: drop the app
+       padding and the card's border/radius, and let the screen span full width. */
+    @media (orientation: landscape) and (min-height: 601px) {
+      body[data-screen="game"] .app,
+      body[data-screen="questionPage"] .app,
+      body[data-screen="answerPage"] .app,
+      body[data-screen="results"] .app { padding: 0 !important; }
+      body[data-screen="game"] .game-screen,
+      body[data-screen="questionPage"] .game-screen,
+      body[data-screen="answerPage"] .game-screen {
+        width: 100% !important; max-width: 100% !important;
+        border-width: 0 !important; border-radius: 0 !important;
+      }
+    }
+
     .center {
       align-items: center;
       justify-content: center;
@@ -4910,16 +4928,15 @@
       line-height: 1.5 !important; color: #1f5237 !important; max-width: 800px; margin: 0 auto !important; text-wrap: balance;
     }
     /* Keep a long question inside the card's SAFE area — below the top badges,
-       above the reveal button. The card is viewport-height-locked, so instead of
-       spilling behind those (absolutely-positioned) buttons, the text fills the
-       space between the reserved top/bottom padding and, only if it still can't
-       fit, scrolls within its OWN box (never the page). */
+       above the reveal button. A definite max-height (independent of the flex
+       container) bounds the text on every viewport; the font auto-shrinks
+       (fitQuestionText) to fit, and it scrolls within its OWN box only in the
+       extreme case. NOTE: no `flex` here on purpose — each breakpoint controls
+       the text's flex. Forcing flex:1 made it fight a flex:1 question IMAGE and
+       collapse to zero (min-height:0), so a picture "ate" the question. */
     #questionPage .question-main-card .question-text {
-      flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      min-height: 0; overflow-y: auto; overscroll-behavior: contain;
       width: 100%;
-      /* a definite ceiling (independent of the flex container) so the text is
-         bounded even where the card isn't height-locked — keeps it clear of the
-         top badges and the bottom reveal button on every viewport */
       max-height: calc(var(--game-vh, 100dvh) - 290px);
     }
     /* reveal button: hang from bottom edge (inline-end = left) */
@@ -8778,13 +8795,14 @@
       holdTimer: null,
       holdDelay: null,
       gameActive: false,
+      gameCounted: false, // has THIS game already spent a play credit (on finish)
       randomizedCats: new Set()
     };
 
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.15";
+    const IZZBAH_BUILD = "2026-07-10.16";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -8963,7 +8981,8 @@
           used: [...state.used],
           activeTeam: state.activeTeam,
           history: state.history,
-          currentGameName: state.currentGameName
+          currentGameName: state.currentGameName,
+          counted: !!state.gameCounted
         }));
       } catch (error) { /* quota / private mode — resume just won't be available */ }
     }
@@ -9020,6 +9039,10 @@
       state.history = Array.isArray(saved.history) ? saved.history : [];
       if (typeof saved.currentGameName === "string") state.currentGameName = saved.currentGameName;
       state.gameActive = true;
+      // Leaving and re-entering an unfinished game must NOT re-charge — the
+      // credit is spent only when the game FINISHES (renderResults). Carry the
+      // "already counted" flag so a resumed-after-finish game isn't recharged.
+      state.gameCounted = !!saved.counted;
       renderGame();
       showScreen("game");
       return true;
@@ -12101,10 +12124,10 @@
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
       state.gameActive = true;
+      state.gameCounted = false; // the credit is spent on FINISH, not on start
       renderGame();
       showScreen("game");
       saveLiveGame();
-      spendGameCredit(); // this game is now spent (free game, then allowance); resuming it is still allowed
       track("game_start", { teams: state.teamCount, categories: state.selected.size });
     }
 
@@ -13291,6 +13314,15 @@
       stage.appendChild(trophy);
       ranked.slice(1).forEach((team, i) => stage.appendChild(buildCard(team, i + 1)));
       renderResultsStats();
+
+      // Spend the play credit HERE — the game is finished. Entering a game and
+      // leaving (without reaching this screen) never charges; only a completed
+      // game does, and the guard makes it exactly once per game.
+      if (!state.gameCounted) {
+        state.gameCounted = true;
+        spendGameCredit();
+        saveLiveGame(); // persist the "counted" flag so a resume can't recharge
+      }
 
       showScreen("results");
       playResultsIntro(() => {
