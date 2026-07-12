@@ -87,6 +87,35 @@ try {
   });
   check("share sends the image file + text through the share sheet", !!shared && shared.files === 1 && shared.type === "image/jpeg" && shared.hasText);
 
+  // ---- phone-landscape: the final screen keeps the DARK RED background ----
+  // The landscape lock makes <body> position:fixed and Chromium then skips the
+  // canvas-propagated background-image layers — the screen rendered WHITE on
+  // phones. The red now also paints on a fixed body::before layer; verify by
+  // sampling real pixels at a phone viewport.
+  const phone = await browser.newPage({ viewport: { width: 820, height: 400 } });
+  await phone.route("**/firebasejs/**", route => route.abort());
+  await phone.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+  await phone.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await phone.waitForTimeout(1500);
+  await phone.evaluate(() => {
+    state.teamCount = 2;
+    state.teams = [{ name: "أ", helpers: [], helpUsed: {}, score: 300 }, { name: "ب", helpers: [], helpUsed: {}, score: 100 }];
+    showScreen("results");
+  });
+  await phone.waitForTimeout(400);
+  const shot = await phone.screenshot();
+  const px = await phone.evaluate(async (b64) => {
+    const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    // sample background spots away from the title and buttons
+    return [[40, Math.round(img.height * .55)], [Math.round(img.width * .5), Math.round(img.height * .93)], [Math.round(img.width * .93), Math.round(img.height * .5)]]
+      .map(([x, y]) => [...g.getImageData(x, y, 1, 1).data.slice(0, 3)]);
+  }, shot.toString("base64"));
+  const darkRed = ([r, g2, b]) => r < 110 && g2 < 60 && b < 60 && r >= g2 && r >= b;
+  check(`phone final screen background is the dark red (${JSON.stringify(px)})`, px.every(darkRed));
+  await phone.close();
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
