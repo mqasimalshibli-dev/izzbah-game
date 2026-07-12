@@ -147,6 +147,42 @@ try {
     soon.predFull === true && soon.predBlank === false && soon.predEmpty === false);
   check("a built-in bank category stays available (not falsely locked)", soon.builtinPlayable === true);
 
+  // ---- 3b) question draws prefer NEVER-PLAYED questions ----
+  // Plain random re-served recently played questions constantly; the picker
+  // must exhaust the unseen pool before anything can repeat.
+  const unseen = await page.evaluate(() => {
+    const qs = [1, 2, 3, 4, 5].map(i => ({ q: "سؤال" + i, a: "جواب" + i, points: 100 }));
+    const cat = { id: "pub-fresh", name: "ف", questions: qs };
+    const snapshot = JSON.stringify(state.progress || {}); // restore afterwards
+    state.progress = {};
+    // play 4 of the 5 — 40 draws must ALL return the remaining one
+    [0, 1, 2, 3].forEach(i => markQuestionAnswered(cat, qs[i]));
+    let alwaysFresh = true;
+    for (let i = 0; i < 40; i++) {
+      const pick = pickUnseen("pub-fresh", qs, questionSig);
+      if (pick !== qs[4]) alwaysFresh = false;
+    }
+    // whole pool played -> falls back to random (never null / never sticks)
+    markQuestionAnswered(cat, qs[4]);
+    const fallback = pickUnseen("pub-fresh", qs, questionSig);
+    // built-in banks go through the same picker: mark every 100-tier history
+    // question except ONE, then draw repeatedly — must always get that one
+    const bank = builtinQuestionBanks.history[100];
+    const histCat = { id: "history" };
+    bank.slice(1).forEach(t => markQuestionAnswered(histCat, { q: t[0], a: t[1] }));
+    let bankFresh = true;
+    for (let i = 0; i < 20; i++) {
+      const drawn = randomQuestion("history", 100);
+      if (drawn.q !== bank[0][0]) bankFresh = false;
+    }
+    localStorage.setItem("izzbah-progress-v1", snapshot);
+    loadProgress(); // put the pre-test progress back for the later checks
+    return { alwaysFresh, fallbackOk: !!fallback && qs.includes(fallback), bankFresh };
+  });
+  check("cloud draws always serve a never-played question while one exists", unseen.alwaysFresh);
+  check("a fully-played pool falls back to random (still returns a question)", unseen.fallbackOk);
+  check("built-in bank draws prefer the never-played question too", unseen.bankFresh);
+
   // ---- 4) picked categories are SHADED (dark overlay + ✓), not just ringed ----
   const shade = await page.evaluate(() => {
     state.categoryMode = "game";
