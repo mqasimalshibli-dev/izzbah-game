@@ -167,6 +167,29 @@ try {
   check(`wide phone: the question card fills width+height (no huge empty margin)`,
     phoneCard.bottom >= phoneCard.h - 40 && phoneCard.right >= phoneCard.w - 120);
 
+  // ---- 7) all SIX categories fit the board (no clipped 2nd row / scroll) ----
+  const boardFit = async (w, h) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.evaluate(() => {
+      state.selected = new Set(["foreignSeries", "footballMix", "sports", "history", "omaniFootball", "culture"]);
+      refreshBuiltinQuestions(); state.teamCount = 2;
+      state.teams[0].score = 3000; state.teams[1].score = 1700;
+      state.gameActive = true; renderGame(); showScreen("game");
+    });
+    await page.waitForTimeout(250);
+    return page.evaluate(() => {
+      const game = document.getElementById("game").getBoundingClientRect();
+      const cards = [...document.querySelectorAll(".board-category-card")].map(c => c.getBoundingClientRect());
+      return { count: cards.length, maxBottom: Math.max(...cards.map(c => c.bottom)), gameBottom: game.bottom };
+    });
+  };
+  const tb = await boardFit(1600, 700); // tablet with browser chrome eating height
+  check(`tablet: all 6 categories fit the board (bottom ${Math.round(tb.maxBottom)} ≤ ${Math.round(tb.gameBottom)})`,
+    tb.count === 6 && tb.maxBottom <= tb.gameBottom + 2);
+  const shortTb = await boardFit(1600, 600);
+  check(`short tablet: all 6 categories still fit (no clipped row)`,
+    shortTb.count === 6 && shortTb.maxBottom <= shortTb.gameBottom + 2);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
