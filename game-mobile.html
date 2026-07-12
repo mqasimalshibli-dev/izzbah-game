@@ -8784,7 +8784,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.14";
+    const IZZBAH_BUILD = "2026-07-10.15";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10528,11 +10528,27 @@
     };
     function categoryDescription(cat) {
       if (!cat) return "";
+      // 1) an explicit description on the category (future admin-authored field)
+      if (cat.description && String(cat.description).trim()) return String(cat.description).trim();
+      // 2) a hand-written description for a known category
       const known = categoryDescriptions[cat.id];
       if (known) return known;
+      // 3) a real, name-aware fallback so NO category is ever left description-less
+      //    (community / custom / newly-published categories used to show a bland
+      //    "فئة · N سؤالًا" placeholder — this reads like an actual description).
+      const name = (cat.name || "").trim();
       const n = (cat.questions || []).filter(q => (q && q.q || "").trim() || (q && q.a || "").trim()).length;
-      const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "فئة";
-      return n ? `${who} · تحتوي على ${toArabicDigits(n)} سؤالًا.` : `${who} · لا توجد أسئلة بعد.`;
+      if (isWordGuessCategory(cat)) {
+        return "تمثيل صامت — امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.";
+      }
+      if (isReactionCategory(cat)) {
+        return name ? `رياكشنات «${name}» — شاهد الموقف وخمّن ردّة الفعل مع فريقك.`
+                    : "رياكشنات — شاهد الموقف وخمّن ردّة الفعل مع فريقك.";
+      }
+      const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "";
+      const lead = name ? `أسئلة منوّعة في «${name}»` : "أسئلة منوّعة ممتعة";
+      const tail = n ? ` — ${toArabicDigits(n)} سؤالًا بانتظار فريقك.` : " — قريباً، لا توجد أسئلة بعد.";
+      return (who ? who + " · " : "") + lead + tail;
     }
 
     function openCategoryPreview(cat) {
