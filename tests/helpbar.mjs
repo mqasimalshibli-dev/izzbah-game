@@ -63,7 +63,7 @@ try {
   await phone.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
   await phone.waitForTimeout(1400);
 
-  const p = await probe(phone, ["fourChoices", "firstLetter", "doublePoints"], 28);
+  const p = await probe(phone, ["fourChoices", "firstLetter", "doublePoints"], 55); // very long → must shrink even in the now-full-height card
   check("the lifeline bar renders with slots and the card reserves room", p.slots >= 1 && p.hasClass);
   check(`phone: long question clears the lifeline bar (${p.bar}px)`, p.bar === 0);
   check(`phone: long question clears the reveal button (${p.reveal}px)`, p.reveal === 0);

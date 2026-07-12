@@ -144,6 +144,29 @@ try {
   check(`tablet: the game screen spans the full viewport (no framing padding)`,
     fill.left === 0 && fill.top === 0 && fill.right === fill.w && fill.bottom === fill.h && fill.pad === "0px");
 
+  // ---- 6) the question card FILLS the screen (no floating card in a frame) ----
+  const cardFill = async (w, h) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.evaluate(() => {
+      const cat = allCategories().find(c => c.id === "history");
+      const q = { q: "سؤال قصير؟", a: "ج", points: 100, image: "", answerImage: "" };
+      state.activeQuestion = { cat, q, key: "t", team: 0 };
+      fillQuestionContent(cat, q);
+      showScreen("questionPage", { keepQuestion: true });
+    });
+    await page.waitForTimeout(250);
+    return page.evaluate(() => {
+      const c = document.querySelector("#questionPage .question-main-card").getBoundingClientRect();
+      return { top: c.top, bottom: c.bottom, left: c.left, right: c.right, w: window.innerWidth, h: window.innerHeight };
+    });
+  };
+  const tabletCard = await cardFill(1024, 700);
+  check(`tablet: the question card fills the height (bottom ${Math.round(tabletCard.bottom)} vs ${tabletCard.h})`,
+    tabletCard.bottom >= tabletCard.h - 40 && tabletCard.right >= tabletCard.w - 40 && tabletCard.left <= 40);
+  const phoneCard = await cardFill(986, 444);
+  check(`wide phone: the question card fills width+height (no huge empty margin)`,
+    phoneCard.bottom >= phoneCard.h - 40 && phoneCard.right >= phoneCard.w - 120);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
