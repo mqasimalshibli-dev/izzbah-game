@@ -241,6 +241,30 @@ try {
   check("a depleted player shows 0 left in red", playersView.c.includes("متبقٍ") && playersView.c.includes("0") && /left0/.test(playersView.cHtml));
   check("unused codes contribute no player row", !playersView.all.includes("DDDD"));
 
+  // ---- each player row has a "clear" (delete) option that clears that player ----
+  const clearOpt = await page.evaluate(async () => {
+    const row = [...document.querySelectorAll("#premPlayers .prem-row")].find(r => r.textContent.includes("userAAA"));
+    const btn = row && row.querySelector(".prem-revoke");
+    const calls = [];
+    window.IZZBAH.clearPlayer = (uid) => { calls.push(uid); return Promise.resolve(true); };
+    // after a clear, the list reloads without that player
+    window.IZZBAH.listCodes = () => Promise.resolve([
+      { code: "CCCC-3333", gamesAllowed: 0, premium: true, used: true, usedBy: "userBBB", usedAt: 1750000000000 },
+    ]);
+    window.IZZBAH.listUsage = () => Promise.resolve({ userBBB: 0 });
+    const hadBtn = !!btn && /مسح/.test(btn.textContent);
+    if (btn) btn.click();               // confirm() auto-accepted by the dialog handler
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      hadBtn, calls,
+      goneAfter: !document.getElementById("premPlayers").textContent.includes("userAAA"),
+      status: document.getElementById("premStatus").textContent,
+    };
+  });
+  check("every player row has a clear (delete) button", clearOpt.hadBtn);
+  check("clicking clear calls the bridge with that player's uid", clearOpt.calls.length === 1 && clearOpt.calls[0] === "userAAA");
+  check("after clearing, the player is gone from the list", clearOpt.goneAfter);
+
   // ---- Player side: redeem boxes on the game library + new-game screens ----
   const boxes = await page.evaluate(() => ({
     lib: !!document.getElementById("redeemInputLib") && !!document.getElementById("redeemBtnLib"),

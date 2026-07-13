@@ -8848,7 +8848,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.24";
+    const IZZBAH_BUILD = "2026-07-10.25";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11599,8 +11599,26 @@
         sub.innerHTML = grantBadge + usedBadge + leftBadge;
         main.appendChild(id); main.appendChild(sub);
         row.appendChild(main);
+        // Per-player clear: removes this player's record (usage + redeemed
+        // codes) so the row disappears. The admin chooses when to use it.
+        const del = document.createElement("button");
+        del.className = "prem-revoke"; del.type = "button";
+        del.textContent = "مسح";
+        del.title = "مسح سجل هذا اللاعب";
+        del.addEventListener("click", () => clearPlayerFromAdmin(u.uid));
+        row.appendChild(del);
         container.appendChild(row);
       });
+    }
+    // Admin: clear a player's record from the subscription panel.
+    function clearPlayerFromAdmin(uid) {
+      const bridge = window.IZZBAH && window.IZZBAH.clearPlayer;
+      if (!bridge) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!confirm("مسح سجل هذا اللاعب؟\nسيُحذف عدّاد ألعابه والأكواد التي فعّلها، وسيختفي من القائمة.")) return;
+      premSetStatus("جارٍ المسح…", "busy");
+      bridge(uid)
+        .then(() => { premSetStatus("تم مسح سجل اللاعب.", "ok"); refreshPremiumList(); })
+        .catch(err => { console.warn("clear player failed", err); premSetStatus("تعذّر المسح — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
 
     function refreshPremiumList() {
@@ -14760,6 +14778,24 @@
           window.IZZBAH.deleteCode = function (code) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("codes").doc(normalizeCode(code)).delete();
+          };
+          // Admin-only: clear a player's whole record from the subscription
+          // panel — drop their consumed-game counter (usage doc), then delete
+          // every code they redeemed (which is what lists them), so the row
+          // disappears. Best-effort on usage (never blocks the code cleanup).
+          window.IZZBAH.clearPlayer = function (uid) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const u = String(uid || "");
+            if (!u) return Promise.reject(new Error("no-uid"));
+            return db.collection("usage").doc(u).delete().catch(() => {})
+              .then(() => db.collection("codes").where("usedBy", "==", u).get())
+              .then(snap => {
+                if (snap.empty) return null;
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                return batch.commit();
+              })
+              .then(() => true);
           };
           // Sum the signed-in player's redeemed codes into their play balance.
           // Resolves true when the (authoritative) query succeeded, false when

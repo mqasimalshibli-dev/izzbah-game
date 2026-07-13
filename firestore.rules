@@ -144,7 +144,9 @@ service cloud.firestore {
         && request.resource.data.gamesUsed >= 0
         && request.resource.data.gamesUsed <= 100000
         && request.resource.data.updatedAt is timestamp;
-      allow delete: if isSignedIn() && request.auth.uid == uid;
+      // A player may delete their own usage doc; an admin may delete any
+      // player's, to CLEAR that player's record from the subscription panel.
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
     // ---- Official game content (admin CMS) ---------------------------------
