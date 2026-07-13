@@ -755,13 +755,16 @@
       inset: 0;
       z-index: 2;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 44px 15px 16px;
+      /* «safe center» keeps a long description centered when it fits but pins it
+         to the top (reachable + scrollable) instead of clipping both ends when
+         it doesn't — the classic centered-overflow bug that hid the last line. */
+      align-items: safe center;
+      justify-content: safe center;
+      padding: 40px 14px 14px;
       text-align: center;
       background: linear-gradient(180deg, rgba(20, 4, 6, .93), rgba(20, 4, 6, .97));
       color: #f7ecd6;
-      font: 600 14px/1.65 'Cairo', sans-serif;
+      font: 600 14px/1.6 'Cairo', sans-serif;
       opacity: 0;
       visibility: hidden;
       overflow-y: auto;
@@ -8845,7 +8848,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.22";
+    const IZZBAH_BUILD = "2026-07-10.23";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10356,7 +10359,8 @@
         // (!) flips the card between its cover and its description, in place.
         card.querySelector(".category-eye").addEventListener("click", event => {
           event.stopPropagation();
-          card.classList.toggle("showing-info");
+          const showing = card.classList.toggle("showing-info");
+          if (showing) fitCatInfo(card.querySelector(".cat-info"));
         });
         // Tapping the description panel flips back too (and never selects).
         card.querySelector(".cat-info").addEventListener("click", event => {
@@ -10640,6 +10644,23 @@
       const lead = name ? `أسئلة منوّعة في «${name}»` : "أسئلة منوّعة ممتعة";
       const tail = n ? ` — ${toArabicDigits(n)} سؤالًا بانتظار فريقك.` : " — قريباً، لا توجد أسئلة بعد.";
       return (who ? who + " · " : "") + lead + tail;
+    }
+
+    // Shrink a category-card's (!) description until it fits the card's height —
+    // a long description used to overflow and get its last line clipped. The
+    // panel is always laid out (only its visibility toggles), so it measures
+    // reliably even before the flip animation finishes.
+    function fitCatInfo(panel) {
+      if (!panel) return;
+      const p = panel.querySelector("p");
+      if (!p) return;
+      p.style.fontSize = ""; // back to the stylesheet size, then shrink to fit
+      let size = parseFloat(getComputedStyle(p).fontSize) || 14;
+      let guard = 0;
+      while (panel.scrollHeight > panel.clientHeight + 1 && size > 9 && guard++ < 60) {
+        size -= 0.5;
+        p.style.fontSize = size + "px";
+      }
     }
 
     function openCategoryPreview(cat) {
