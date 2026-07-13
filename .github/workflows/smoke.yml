@@ -31,7 +31,7 @@ jobs:
       - name: Install test deps
         working-directory: tests
         run: |
-          npm install --no-save playwright-core playwright
+          npm install --no-save playwright-core playwright jsqr
 
       - name: Install Chromium
         working-directory: tests
@@ -168,3 +168,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node publishchunk.mjs
+
+      - name: Run word-guess QR test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node wordqr.mjs

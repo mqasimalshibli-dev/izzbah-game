@@ -15,7 +15,11 @@ const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL
 // jsQR UMD bundle lives in the scratchpad node_modules (dev-only decoder).
 const SP = process.env.IZZBAH_SCRATCH || join(ROOT, "..", "izzbah-game", "scratchpad");
 let jsqrSrc = "";
-for (const p of [join(SP, "node_modules/jsqr/dist/jsQR.js"), join(ROOT, "node_modules/jsqr/dist/jsQR.js")]) {
+for (const p of [
+  join(SP, "node_modules/jsqr/dist/jsQR.js"),
+  join(ROOT, "tests/node_modules/jsqr/dist/jsQR.js"), // CI installs deps in tests/
+  join(ROOT, "node_modules/jsqr/dist/jsQR.js"),
+]) {
   try { jsqrSrc = readFileSync(p, "utf8"); break; } catch (e) {}
 }
 if (!jsqrSrc) { console.log("SKIP  jsQR bundle not found — install jsqr to run the decode check"); }
