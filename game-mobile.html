@@ -8848,7 +8848,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.23";
+    const IZZBAH_BUILD = "2026-07-10.24";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13409,14 +13409,11 @@
       state.activeQuestion = null;
     }
 
-    // Back out of an opened question WITHOUT consuming it. openQuestion marks
-    // the tile used immediately, so the plain back arrow used to permanently
-    // burn the tile AND rotate the turn on an accidental tap (and recorded
-    // nothing). Cancelling restores the tile and leaves the turn untouched, so
-    // it's fully recoverable; to record a genuine skip, the host uses "لا أحد".
+    // Back out of an opened question, CONSUMING it — the tile is taken off the
+    // board. openQuestion marks the tile used immediately, so backing out simply
+    // keeps it that way (it used to restore the tile). The turn is left
+    // untouched; to award points, reveal the answer and use the award row.
     function cancelQuestion() {
-      const active = state.activeQuestion;
-      if (active && active.key) state.used.delete(active.key);
       clearQuestionView();
       renderGame();
       showScreen("game", { keepQuestion: true });

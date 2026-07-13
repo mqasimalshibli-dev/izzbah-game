@@ -40,7 +40,7 @@ try {
   await page.waitForTimeout(1600);
   await startNormalGame();
 
-  // ---- back arrow cancels (tile restored, turn unchanged) ----
+  // ---- back arrow (X) consumes the tile — taken off the board, turn unchanged ----
   const before = await page.evaluate(() => ({ used: state.used.size, team: state.activeTeam }));
   await openCell();
   await page.waitForTimeout(300);
@@ -49,7 +49,7 @@ try {
   await page.evaluate(() => document.getElementById("questionBackTop").click());
   await page.waitForTimeout(300);
   const afterBack = await page.evaluate(() => ({ used: state.used.size, team: state.activeTeam, active: !!state.activeQuestion, onBoard: document.getElementById("game").classList.contains("active") }));
-  check("back arrow restores the tile (not burned)", afterBack.used === before.used);
+  check("back arrow (X) consumes the tile — taken off the board", afterBack.used === before.used + 1);
   check("back arrow does NOT rotate the turn", afterBack.team === before.team);
   check("back arrow returns to the board", afterBack.onBoard && !afterBack.active);
 
