@@ -8813,7 +8813,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.19";
+    const IZZBAH_BUILD = "2026-07-10.20";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12408,6 +12408,45 @@
       }
       return null;
     }
+
+    // FRANCHISE-AWARE distractors: a question about a CHARACTER should be
+    // answered with other characters FROM THE SAME UNIVERSE (a Zelda question
+    // gets Zelda characters, not Mario). `keys` = words that name the franchise
+    // in the question (game/movie/show title); `members` = its characters.
+    // Curated so the wrong answers are plausible-but-wrong within that world.
+    const FRANCHISE_GROUPS = [
+      { keys: ["زيلدا"], members: ["لينك","زيلدا","غانون","غانوندورف","نافي","إمبو"] },
+      { keys: ["ماريو","سوبر ماريو"], members: ["ماريو","لويجي","الأميرة بيتش","بيتش","باوزر","يوشي","تود","واريو","دونكي كونغ","ديزي"] },
+      { keys: ["سونيك"], members: ["سونيك","تيلز","نكلز","إيمي","شادو","دكتور إيغمان","روبوتنيك","سيلفر"] },
+      { keys: ["بوكيمون"], members: ["بيكاتشو","تشارمندر","بلباصور","سكويرتل","تشاريزارد","إيفي","ميوتو","جيغليبوف","آش","سنورلاكس"] },
+      { keys: ["جود أوف وور","god of war","كراتوس"], members: ["كراتوس","أتريوس","فريا","بالدور","زيوس","أثينا","ميميير"] },
+      { keys: ["هالو","halo"], members: ["ماستر تشيف","كورتانا","الأربيتر","جونسون","نوبل سيكس"] },
+      { keys: ["جراند ثفت أوتو","gta"], members: ["مايكل","فرانكلين","تريفور","سي جي","نيكو بيليك","تومي فيرسيتي","كارل جونسون"] },
+      { keys: ["ستريت فايتر","street fighter"], members: ["ريو","كين","تشون لي","غايل","بليزون","إم بايسون","ساجات","كامي"] },
+      { keys: ["مورتال كومبات","mortal kombat"], members: ["سكوربيون","سب زيرو","رايدن","ليو كانغ","كيتانا","شاو كان","جوني كيج","سونيا"] },
+      { keys: ["أساسنز كريد","assassin"], members: ["إزيو","ألتير","كونور","إدوارد كينواي","هيثم","بايك","كساندرا"] },
+      { keys: ["ريزدنت إيفل","resident evil"], members: ["ليون","كريس","جيل","آدا وونغ","كلير","ألبرت ويسكر"] },
+      { keys: ["فاينل فانتاسي","final fantasy"], members: ["كلاود","سيفيروث","تيفا","أريث","سكوال","نوكتيس","بارت"] },
+      { keys: ["ذا لاست أوف أص","last of us"], members: ["جول","إيلي","تيس","آبي","تومي","مارلين"] },
+      { keys: ["كراش بانديكوت","crash"], members: ["كراش","كوكو","دكتور نيو كورتيكس","آكو آكو","كرنكي كونغ"] },
+      { keys: ["أنجري بيردز","angry birds"], members: ["ريد","تشاك","بومب","ماتيلدا","تيرنس","الخنازير الخضراء"] },
+      { keys: ["باتمان","أركام","batman"], members: ["باتمان","الجوكر","هارلي كوين","بين","را الغول","المعضلة"] },
+      { keys: ["أوفرواتش","overwatch"], members: ["تريسر","رينهارت","مرسي","جينجي","دي في إيه","ريبر","وينستون"] },
+      { keys: ["ذا ويتشر","witcher"], members: ["جيرالت","يينيفير","سيري","تريس","دانديليون","فيسيمير"] },
+      { keys: ["بورتال","portal"], members: ["تشيل","جلادوس","ويتلي"] },
+    ];
+    // The franchise (if any) a character question belongs to: the answer is one
+    // of a franchise's members, OR the question names the franchise AND the
+    // answer is a game character (so a company/console answer never franchises).
+    function franchiseFor(question, answer) {
+      const a = arNorm(answer);
+      for (const g of FRANCHISE_GROUPS) if (g.members.some(m => arNorm(m) === a)) return g;
+      const q = arNorm(question) + " " + a;
+      const isChar = !!(gamingFamilyFor(answer) === GAMING_FAMILIES[2]) // in the characters pool
+        || FRANCHISE_GROUPS.some(g => g.members.some(m => arNorm(m) === a));
+      if (isChar) for (const g of FRANCHISE_GROUPS) if (g.keys.some(k => q.indexOf(arNorm(k)) >= 0)) return g;
+      return null;
+    }
     // Two labels naming the SAME place (e.g. «باب المندب» vs «مضيق باب المندب»)
     // must never appear together — compare on the normalized form, substring-
     // tolerant so a bare name matches its prefixed variant.
@@ -12504,7 +12543,15 @@
         if (picks) return picks;
       }
 
-      // Gaming/entertainment: pool chosen by the answer's own kind (exact match).
+      // Franchise-aware (most specific): a character question gets other
+      // characters from the SAME universe (Zelda → Zelda, not Mario).
+      const franchise = franchiseFor(q.q, q.a);
+      if (franchise) {
+        const picks = fillFromPool(franchise.members, a => franchise.members.some(m => sameGameName(m, a)), sameGameName);
+        if (picks) return picks;
+      }
+      // Gaming/entertainment: pool chosen by the answer's own kind (exact match)
+      // — the fallback when the character's franchise isn't known.
       const gamePool = gamingFamilyFor(correct);
       if (gamePool) {
         const picks = fillFromPool(gamePool, a => gamePool.some(p => sameGameName(p, a)), sameGameName);

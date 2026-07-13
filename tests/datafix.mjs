@@ -112,13 +112,18 @@ try {
     // legitimately both a company AND a console brand, so it lives in two pools).
     const sameKind = (a, d) => Object.values(P).some(pool => pool.includes(a) && pool.includes(d));
     const allSame = a => Array.isArray(out[a]) && out[a].length === 3 && out[a].every(d => sameKind(a, d)) && !out[a].includes(a);
+    // characters (ماريو/سونيك) now get SAME-UNIVERSE characters (بيتش/شادو…) that
+    // aren't in the generic pool — so a character's distractors are validated as
+    // "not a company / console / title" rather than pool membership.
+    const nonCharPools = [...P.companies, ...P.consoles, ...P.titles];
+    const areCharacters = a => Array.isArray(out[a]) && out[a].length === 3 && out[a].every(d => !nonCharPools.includes(d)) && !out[a].includes(a);
     return {
       title: allSame("ماينكرافت") && allSame("فورتنايت"),
-      character: allSame("ماريو") && allSame("سونيك"),
+      character: areCharacters("ماريو") && areCharacters("سونيك"),
       company: allSame("سوني") && allSame("مايكروسوفت"),
       console: allSame("نينتندو سويتش"),
-      // the Sony/Sonic substring trap: Sonic (character) must NOT get companies
-      sonicNotCompany: (out["سونيك"] || []).every(d => P.characters.includes(d)),
+      // the Sony/Sonic substring trap: Sonic (a character) must NOT get companies
+      sonicNotCompany: (out["سونيك"] || []).every(d => !P.companies.includes(d)),
     };
   });
   check("gaming: a game TITLE gets other titles", gaming.title);
@@ -126,6 +131,42 @@ try {
   check("gaming: a COMPANY gets other companies", gaming.company);
   check("gaming: a CONSOLE gets other consoles", gaming.console);
   check("gaming: «سونيك» (Sonic) is not confused with «سوني» (Sony)", gaming.sonicNotCompany);
+
+  // ---- 1e) FRANCHISE-aware: a character gets others from the SAME universe ----
+  const fr = await page.evaluate(() => {
+    const cat = { id: "pub-games", name: "العاب", questions: [
+      { q: "من هو بطل سلسلة زيلدا؟", a: "لينك" },
+      { q: "بطل سوبر ماريو؟", a: "ماريو" },
+      { q: "بطل جود أوف وور؟", a: "كراتوس" },
+      { q: "أشهر بوكيمون؟", a: "بيكاتشو" },
+      { q: "الشرير ذو الزي الأصفر في مورتال كومبات؟", a: "سكوربيون" },
+      { q: "أي شركة طورت ماريو؟", a: "نينتندو" }, // control: company, must NOT franchise
+    ]};
+    const out = {}; cat.questions.forEach(q => out[q.a] = relatedDistractors(cat, q));
+    const VERSE = {
+      zelda: ["لينك","زيلدا","غانون","غانوندورف","نافي","إمبو"],
+      mario: ["ماريو","لويجي","الأميرة بيتش","بيتش","باوزر","يوشي","تود","واريو","دونكي كونغ","ديزي"],
+      gow: ["كراتوس","أتريوس","فريا","بالدور","زيوس","أثينا","ميميير"],
+      pokemon: ["بيكاتشو","تشارمندر","بلباصور","سكويرتل","تشاريزارد","إيفي","ميوتو","جيغليبوف","آش","سنورلاكس"],
+      mk: ["سكوربيون","سب زيرو","رايدن","ليو كانغ","كيتانا","شاو كان","جوني كيج","سونيا"],
+      companies: ["سوني","مايكروسوفت","نينتندو","سيجا","روكستار","إلكترونيك آرتس","يوبي سوفت","بليزارد","فالف","إيبك جيمز","أكتيفجن","كابكوم","سكوير إنيكس","بانداي نامكو"],
+    };
+    const within = (a, pool) => Array.isArray(out[a]) && out[a].length === 3 && out[a].every(d => pool.includes(d)) && !out[a].includes(a);
+    return {
+      zelda: within("لينك", VERSE.zelda),
+      mario: within("ماريو", VERSE.mario),
+      gow: within("كراتوس", VERSE.gow),
+      pokemon: within("بيكاتشو", VERSE.pokemon),
+      mk: within("سكوربيون", VERSE.mk),
+      companyControl: within("نينتندو", VERSE.companies), // stays a company, not franchised
+    };
+  });
+  check("franchise: a Zelda character gets other Zelda characters", fr.zelda);
+  check("franchise: a Mario character gets other Mario characters", fr.mario);
+  check("franchise: a God of War character gets other GoW characters", fr.gow);
+  check("franchise: a Pokémon gets other Pokémon", fr.pokemon);
+  check("franchise: a Mortal Kombat fighter gets other MK fighters", fr.mk);
+  check("franchise: a company answer is NOT franchised (stays companies)", fr.companyControl);
 
   // ---- 1b) curated family pools cover SINGLETON geographic subtypes ----
   const fam = await page.evaluate(() => {
