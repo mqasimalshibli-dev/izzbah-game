@@ -101,14 +101,11 @@ try {
     /buyer@example\.com/.test(adminView.text) && /باقة ٥ ألعاب/.test(adminView.text));
   check("the order row offers fulfil (code+email) and delete options", adminView.hasFulfil && adminView.hasDelete);
 
-  // ---- 5) fulfil: mints the pack's code + opens the confirmation email ----
+  // ---- 5) fulfil: mints the pack's code + opens Gmail compose FROM izzbah ----
   const fulfil = await page.evaluate(async () => {
     const created = [], deleted = [];
-    window.__mailto = "";
-    document.addEventListener("click", e => {
-      const a = e.target.closest && e.target.closest('a[href^="mailto:"]');
-      if (a) { window.__mailto = a.getAttribute("href"); e.preventDefault(); }
-    }, true);
+    window.__gmail = "";
+    window.open = (url) => { window.__gmail = url; return { closed: false }; }; // capture the compose window
     window.IZZBAH.createCode = (opts) => { created.push(opts); return Promise.resolve("PACK-CODE"); };
     window.IZZBAH.deleteOrder = (uid) => { deleted.push(uid); return Promise.resolve(true); };
     window.IZZBAH.listOrders = () => Promise.resolve([]); // queue empties after fulfil
@@ -116,21 +113,43 @@ try {
     await new Promise(r => setTimeout(r, 300));
     return {
       created, deleted,
-      mailto: window.__mailto,
+      gmail: window.__gmail,
       status: document.getElementById("premStatus").textContent,
       ordersNow: document.getElementById("premOrders").textContent,
     };
   });
   check("fulfil mints a code matching the ordered pack (5 games, not premium)",
     fulfil.created.length === 1 && fulfil.created[0].gamesAllowed === 5 && fulfil.created[0].premium === false);
-  const mail = decodeURIComponent(fulfil.mailto || "");
-  check("the confirmation email goes TO the buyer", mail.startsWith("mailto:buyer@example.com"));
-  check("the email carries the activation code and a payment line",
-    /PACK-CODE/.test(mail) && /طريقة الدفع/.test(mail) && /كود التفعيل/.test(mail));
+  const mail = decodeURIComponent(fulfil.gmail || "");
+  check("the email opens in Gmail compose pinned to the izzbah account",
+    mail.startsWith("https://mail.google.com/mail/") && mail.includes("authuser=izzbahgame@gmail.com"));
+  check("the confirmation email goes TO the buyer", mail.includes("to=buyer@example.com"));
+  check("the email is organized: order summary, payment section, code, steps",
+    /ملخص الطلب/.test(mail) && /طريقة الدفع/.test(mail) && /كود التفعيل/.test(mail)
+    && /PACK-CODE/.test(mail) && /خطوات التفعيل/.test(mail)
+    && /الباقة: باقة ٥ ألعاب/.test(mail) && /izzbah-game\//.test(mail));
   check("the fulfilled order is removed from the queue",
     fulfil.deleted.length === 1 && fulfil.deleted[0] === "buyer1" && /لا توجد طلبات/.test(fulfil.ordersNow));
-  check("the admin sees a clear next step (complete payment details, send)",
-    /أكمل تفاصيل الدفع/.test(fulfil.status));
+  check("the admin sees a clear next step (complete price/payment, send)",
+    /من حساب izzbah/.test(fulfil.status) && /أكمل السعر/.test(fulfil.status));
+
+  // ---- 6) popup blocked -> falls back to a plain mail draft ----
+  const fallback = await page.evaluate(async () => {
+    window.__mailto = "";
+    window.open = () => null; // popup blocked
+    document.addEventListener("click", e => {
+      const a = e.target.closest && e.target.closest('a[href^="mailto:"]');
+      if (a) { window.__mailto = a.getAttribute("href"); e.preventDefault(); }
+    }, true);
+    window.IZZBAH.createCode = () => Promise.resolve("FB-CODE");
+    window.IZZBAH.deleteOrder = () => Promise.resolve(true);
+    window.IZZBAH.listOrders = () => Promise.resolve([]);
+    fulfilOrderFromAdmin({ uid: "buyer2", email: "fb@example.com", pack: "باقة ١٠ ألعاب", games: 10, premium: false });
+    await new Promise(r => setTimeout(r, 250));
+    return decodeURIComponent(window.__mailto || "");
+  });
+  check("a blocked popup falls back to a mail draft with the same content",
+    fallback.startsWith("mailto:fb@example.com") && /FB-CODE/.test(fallback) && /ملخص الطلب/.test(fallback));
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

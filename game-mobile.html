@@ -8915,7 +8915,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.28";
+    const IZZBAH_BUILD = "2026-07-10.29";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11889,32 +11889,78 @@
         container.appendChild(row);
       });
     }
+    const IZZBAH_MAIL = "izzbahgame@gmail.com";
+    // The professional confirmation email sent to a pack buyer: a clear order
+    // summary, the payment section (the admin completes price/details before
+    // sending), the activation code, and numbered activation steps.
+    function orderConfirmationEmail(o, code) {
+      const line = "──────────────────────";
+      const packLine = o.premium
+        ? "اشتراك مفتوح — لعب غير محدود"
+        : `${toArabicDigits(o.games)} ${o.games === 1 ? "لعبة" : "ألعاب"} كاملة`;
+      const subject = `تأكيد طلبك — ${o.pack} | لعبة عِزبة`;
+      const body = [
+        "مرحباً،",
+        "",
+        "شكراً لاختيارك لعبة عِزبة! تم استلام طلبك، وتجدون أدناه تفاصيله وخطوات إتمامه.",
+        "",
+        line,
+        "📋 ملخص الطلب",
+        line,
+        `• الباقة: ${o.pack}`,
+        `• المحتوى: ${packLine}`,
+        "• السعر: (أكمل السعر قبل الإرسال)",
+        "",
+        line,
+        "💳 طريقة الدفع",
+        line,
+        "(أكمل تفاصيل الدفع هنا قبل الإرسال — تحويل بنكي / دفع إلكتروني)",
+        "",
+        line,
+        "🎟️ كود التفعيل",
+        line,
+        code,
+        "",
+        "خطوات التفعيل:",
+        "١. افتحوا اللعبة وسجّلوا الدخول بنفس حساب Google الذي أرسلتم به الطلب.",
+        "٢. من شاشة «الألعاب» أو «الإعدادات»، اكتبوا الكود في خانة «عندك كود؟».",
+        "٣. اضغطوا «تفعيل» — يُضاف الرصيد إلى حسابكم فوراً.",
+        "",
+        "رابط اللعبة: https://mqasimalshibli-dev.github.io/izzbah-game/",
+        "",
+        "لأي استفسار يسعدنا ردّكم على هذه الرسالة مباشرة.",
+        "",
+        "مع أطيب التحيات،",
+        "فريق عِزبة",
+        IZZBAH_MAIL + " · إنستقرام @izzbahgame"
+      ].join("\n");
+      return { subject, body };
+    }
     function fulfilOrderFromAdmin(o) {
       const create = window.IZZBAH && window.IZZBAH.createCode;
       if (!create) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
       premSetStatus("جارٍ إنشاء الكود وتجهيز بريد التأكيد…", "busy");
       create({ premium: !!o.premium, gamesAllowed: o.games || 0 }).then(code => {
-        const subject = `تأكيد طلبك في عِزبة — ${o.pack}`;
-        const body = [
-          "مرحباً،",
-          "",
-          `شكراً لطلبك «${o.pack}» في لعبة عِزبة 🎉`,
-          "",
-          "طريقة الدفع: (أكمل تفاصيل الدفع هنا قبل الإرسال — تحويل بنكي / دفع إلكتروني)",
-          "",
-          `كود التفعيل: ${code}`,
-          "فعّله من شاشة الألعاب — خانة «عندك كود؟» — بعد تسجيل الدخول بنفس حسابك.",
-          "",
-          "مع التحية،",
-          "فريق عِزبة — izzbahgame@gmail.com"
-        ].join("\n");
-        // Open the admin's mail app with the confirmation email ready to send.
-        const a = document.createElement("a");
-        a.href = "mailto:" + (o.email || "") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-        document.body.appendChild(a); a.click(); a.remove();
+        const mail = orderConfirmationEmail(o, code);
+        // Open Gmail compose PINNED to the izzbah account (authuser), so the
+        // confirmation is sent FROM izzbahgame@gmail.com — not the device's
+        // default mail account. Falls back to a plain mail draft if the popup
+        // is blocked or Gmail isn't available.
+        const gmail = "https://mail.google.com/mail/?view=cm&fs=1"
+          + "&authuser=" + encodeURIComponent(IZZBAH_MAIL)
+          + "&to=" + encodeURIComponent(o.email || "")
+          + "&su=" + encodeURIComponent(mail.subject)
+          + "&body=" + encodeURIComponent(mail.body);
+        let opened = null;
+        try { opened = window.open(gmail, "_blank", "noopener"); } catch (e) {}
+        if (!opened) {
+          const a = document.createElement("a");
+          a.href = "mailto:" + (o.email || "") + "?subject=" + encodeURIComponent(mail.subject) + "&body=" + encodeURIComponent(mail.body);
+          document.body.appendChild(a); a.click(); a.remove();
+        }
         const del = window.IZZBAH && window.IZZBAH.deleteOrder;
         return (del ? del(o.uid).catch(() => {}) : Promise.resolve()).then(() => {
-          premSetStatus(`✅ أُنشئ الكود ${code} وفُتح بريد التأكيد — أكمل تفاصيل الدفع واضغط إرسال.`, "ok");
+          premSetStatus(`✅ أُنشئ الكود ${code} وفُتح بريد التأكيد من حساب izzbah — أكمل السعر وتفاصيل الدفع ثم أرسل.`, "ok");
           refreshPremiumList();
         });
       }).catch(err => {
