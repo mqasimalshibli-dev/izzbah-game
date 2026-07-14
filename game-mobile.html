@@ -4300,6 +4300,13 @@
     .stats-bar-fill { height: 100%; background: linear-gradient(90deg, #1b6a3f, #2f9e5e); border-radius: 6px; min-width: 3px; }
     .stats-bar-row.rank-1 .stats-bar-fill { background: linear-gradient(90deg, #b8860b, #e7b54b); }
     .stats-modal { max-height: 88vh; overflow-y: auto; }
+    .fetchimg-modal { max-width: 480px; width: 94%; text-align: right; }
+    .fetchimg-opt {
+      display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+      background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 10px;
+      padding: 10px 12px; margin: 8px 0 4px; font: 600 13px/1.6 'Cairo', sans-serif; color: var(--dark);
+    }
+    .fetchimg-opt input { margin-top: 4px; accent-color: #9e1322; width: 17px; height: 17px; flex: none; }
     .stats-tile-sub { font: 700 11px 'Cairo', sans-serif; color: #8a7550; margin-top: 2px; }
     .stats-tile-num .trend-up { color: #1b6a3f; font-size: 15px; }
     .stats-tile-num .trend-down { color: #9a1c1c; font-size: 15px; }
@@ -5842,6 +5849,22 @@
 
         <div class="actions">
           <button class="ghost" id="statsCancel" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="fetchImagesModal" aria-hidden="true">
+      <div class="question-modal fetchimg-modal" role="dialog" aria-modal="true" aria-labelledby="fetchImagesTitle">
+        <h3 class="preview-title" id="fetchImagesTitle">🖼 جلب الصور تلقائياً</h3>
+        <p class="import-help">تُجلب الصور من ويكيبيديا وتوضع على الأسئلة الناقصة. راجعها بعد الجلب — قد لا تكون كل صورة دقيقة، ويمكنك حذف أي صورة غير مناسبة.</p>
+        <label class="fetchimg-opt">
+          <input type="checkbox" id="fetchImagesBoth" />
+          <span><b>توليد صور للأسئلة أيضاً</b> — سؤال + جواب معاً. صورة السؤال تُبحث من كلمات السؤال فقط (لا تكشف الإجابة أبداً).</span>
+        </label>
+        <p class="import-note" id="fetchImagesCount"></p>
+        <div class="actions">
+          <button class="ghost" id="fetchImagesCancel" type="button">إلغاء</button>
+          <button class="primary" id="fetchImagesStart" type="button">🖼 بدء الجلب</button>
         </div>
       </div>
     </div>
@@ -8924,7 +8947,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.31";
+    const IZZBAH_BUILD = "2026-07-10.32";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13286,41 +13309,107 @@
       return await recompressDataUrl(raw, 800, 0.82);
     }
 
-    // A question "needs" a fetched photo if it has an answer to search for and
-    // no answer image yet.
+    // A question "needs" a fetched ANSWER photo if it has an answer to search
+    // for and no answer image yet.
     function questionNeedsImage(q) {
       return !!(q && (q.a || "").trim() && !(q.answerImage || "").trim());
     }
+    // ...and it "needs" a QUESTION photo if it has question text but no image.
+    function questionNeedsQuestionImage(q) {
+      return !!(q && (q.q || "").trim() && !(q.image || "").trim());
+    }
 
-    // Admin: fill missing answer photos across the current category. Sequential
-    // (polite to Wikipedia), capped per run, one undo step, auto-publishes. The
-    // admin then reviews the thumbnails in the table and can swap/remove any.
-    async function fetchMissingImages() {
+    // A picture for the QUESTION side — searched from the question's OWN
+    // keywords only (the answer's words are excluded by questionKeywords), so
+    // the fetched image can never spoil the answer. Same deep pipeline:
+    // exact-title lookup of the topic phrase, then a scored full-text search,
+    // with disambiguation pages and wiki icons filtered out.
+    async function findQuestionImageUrl(q) {
+      const kw = questionKeywords(q && q.q, q && q.a);
+      if (!kw.length) return "";
+      const phrase = kw.join(" ");
+      const hasArabic = /[؀-ۿ]/.test(phrase);
+      const langs = hasArabic ? ["ar", "en"] : ["en", "ar"];
+      const tiers = [
+        { params: { titles: phrase, redirects: "1" }, strict: false },
+        { params: { generator: "search", gsrsearch: phrase, gsrlimit: "5", gsrnamespace: "0" }, strict: false },
+      ];
+      for (const tier of tiers) {
+        for (const lang of langs) {
+          const data = await wikiApi(lang, tier.params);
+          const url = pickAccurateImage(wikiCandidates(data), phrase, tier.strict);
+          if (url) return url;
+        }
+      }
+      return "";
+    }
+
+    // Admin: the fetch-images button opens an OPTIONS dialog first — by default
+    // only missing ANSWER photos are fetched; a checkbox activates generating
+    // pictures for BOTH the question and the answer.
+    function updateFetchImagesCount() {
+      const cat = state.adminCat;
+      const el = $("#fetchImagesCount");
+      if (!cat || !el) return;
+      const both = !!($("#fetchImagesBoth") && $("#fetchImagesBoth").checked);
+      const ansN = cat.questions.filter(questionNeedsImage).length;
+      const qN = cat.questions.filter(questionNeedsQuestionImage).length;
+      el.textContent = "سيُجلب: " + toArabicDigits(ansN) + " صورة إجابة"
+        + (both ? " + " + toArabicDigits(qN) + " صورة سؤال" : "")
+        + " (بحد أقصى ٤٠ صورة في كل تشغيل)";
+    }
+    function fetchMissingImages() {
       const cat = state.adminCat;
       if (!cat) { showToast("اختر فئة أولاً"); return; }
       // Word-guess / reaction categories use special media (QR / video) — leave
       // their images alone.
       if (hidesMultipleChoice(cat)) { showToast("هذه الفئة تستخدم وسائط خاصة — لا يُجلب لها صور"); return; }
+      const ansN = cat.questions.filter(questionNeedsImage).length;
+      const qN = cat.questions.filter(questionNeedsQuestionImage).length;
+      if (!ansN && !qN) { showToast("كل الأسئلة لديها صورها بالفعل"); return; }
+      const box = $("#fetchImagesBoth");
+      if (box) box.checked = false; // answers-only is the safe default
+      updateFetchImagesCount();
+      const m = $("#fetchImagesModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+    }
+    function closeFetchImagesDialog() {
+      const m = $("#fetchImagesModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+
+    // The actual fetch run. Sequential (polite to Wikipedia), capped per run,
+    // one undo step, auto-publishes. The admin then reviews the thumbnails in
+    // the table and can swap/remove any.
+    async function runFetchImages(both) {
+      const cat = state.adminCat;
+      if (!cat) return;
       const CAP = 40;
-      let targets = cat.questions.filter(questionNeedsImage);
-      if (!targets.length) { showToast("كل الأسئلة لديها صورة إجابة بالفعل"); return; }
-      const capped = targets.length > CAP;
-      if (capped) targets = targets.slice(0, CAP);
-      if (!confirm("جلب صور الإجابات من ويكيبيديا لـ " + toArabicDigits(targets.length) + " سؤالاً؟\n"
-        + "تُوضع الصورة على «صورة الإجابة» (لا تكشف السؤال). راجعها بعد الجلب — قد لا تكون كل صورة دقيقة، ويمكنك حذف أي صورة غير مناسبة.")) return;
+      let jobs = [];
+      cat.questions.forEach(q => { if (questionNeedsImage(q)) jobs.push({ q, kind: "answer" }); });
+      if (both) cat.questions.forEach(q => { if (questionNeedsQuestionImage(q)) jobs.push({ q, kind: "question" }); });
+      if (!jobs.length) { showToast(both ? "كل الأسئلة لديها صورها بالفعل" : "كل الأسئلة لديها صورة إجابة بالفعل"); return; }
+      const capped = jobs.length > CAP;
+      if (capped) jobs = jobs.slice(0, CAP);
 
       const btn = $("#adminFetchImages");
       const orig = btn ? btn.textContent : "";
       if (btn) btn.disabled = true;
-      pushAdminUndo("جلب صور الإجابات");
-      let filled = 0, failed = 0, done = 0;
-      for (const q of targets) {
+      pushAdminUndo(both ? "جلب صور الأسئلة والإجابات" : "جلب صور الإجابات");
+      let filled = 0, filledQ = 0, failed = 0, done = 0;
+      for (const job of jobs) {
         done++;
-        if (btn) btn.textContent = "⏳ جلب الصور… " + toArabicDigits(done) + "/" + toArabicDigits(targets.length);
+        if (btn) btn.textContent = "⏳ جلب الصور… " + toArabicDigits(done) + "/" + toArabicDigits(jobs.length);
         try {
-          const url = await findAnswerImageUrl(q);
-          if (url) { q.answerImage = await remoteImageToDataUrl(url); filled++; }
-          else failed++;
+          const url = job.kind === "answer" ? await findAnswerImageUrl(job.q) : await findQuestionImageUrl(job.q);
+          if (url) {
+            const data = await remoteImageToDataUrl(url);
+            if (job.kind === "answer") job.q.answerImage = data;
+            else { job.q.image = data; filledQ++; }
+            filled++;
+          } else failed++;
         } catch (e) { failed++; }
       }
       if (btn) { btn.disabled = false; btn.textContent = orig; }
@@ -13334,6 +13423,7 @@
       renderAdminCatHead();
       autoPublishAdmin();
       showToast("🖼 تم جلب " + toArabicDigits(filled) + " صورة"
+        + (filledQ ? " (منها " + toArabicDigits(filledQ) + " صورة سؤال)" : "")
         + (failed ? " (تعذّر " + toArabicDigits(failed) + " — راجعها يدوياً)" : "")
         + (capped ? " — كرّر العملية لجلب الباقي" : ""));
     }
@@ -14485,6 +14575,14 @@
     $("#adminImportQuestions").addEventListener("click", openImportModal);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
+    $("#fetchImagesBoth").addEventListener("change", updateFetchImagesCount);
+    $("#fetchImagesCancel").addEventListener("click", closeFetchImagesDialog);
+    $("#fetchImagesStart").addEventListener("click", () => {
+      const both = !!$("#fetchImagesBoth").checked;
+      closeFetchImagesDialog();
+      runFetchImages(both);
+    });
+    $("#fetchImagesModal").addEventListener("click", event => { if (event.target.id === "fetchImagesModal") closeFetchImagesDialog(); });
     $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);

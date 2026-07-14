@@ -129,8 +129,19 @@ try {
         { points: 600, q: "سؤال الغامض تماماً؟", a: "جواب_خاص", image: "", answerImage: "" },
       ] };
     clearAdminUndo(); populateAdminFilter(); renderAdminTable(); renderAdminCatHead();
-    fetchMissingImages(); // confirm auto-accepted by the dialog handler
+    fetchMissingImages(); // opens the options dialog
   });
+  // ---- 0b) the options dialog appears BEFORE any generation ----
+  const dialog = await page.evaluate(() => ({
+    open: document.getElementById("fetchImagesModal").classList.contains("open"),
+    bothOff: !document.getElementById("fetchImagesBoth").checked,
+    count: document.getElementById("fetchImagesCount").textContent,
+    calls: window.__fetchLog.length,
+  }));
+  check("an options dialog opens before generating (no network yet)", dialog.open && dialog.calls === 0);
+  check("the question+answer option exists and defaults to OFF (answers only)", dialog.bothOff);
+  check("the dialog shows how many answer photos will be fetched", /صورة إجابة/.test(dialog.count));
+  await page.evaluate(() => document.getElementById("fetchImagesStart").click());
   await waitDone();
   const res = await page.evaluate(() => {
     const q = state.adminCat.questions;
@@ -148,6 +159,8 @@ try {
   check("never overwrites an existing answer image (q3 kept)", res.q3 === "data:image/jpeg;base64,keepme");
   check("leaves a question with no Wikipedia hit empty (q4)", res.q4 === "");
   check("the fetch step is a single undoable operation", res.canUndo);
+  const noQImages = await page.evaluate(() => state.adminCat.questions.every(q => (q.image || "") === ""));
+  check("answers-only mode never touches QUESTION images", noQImages);
 
   // ---- 2) ANSWER-FIRST deep search ----
   const apiQueries = res.log.filter(u => u.includes("/w/api.php")).map(u => decodeURIComponent(u));
@@ -177,13 +190,35 @@ try {
   check("strict (title) tiers reject pages that merely mention the answer", accurate.strictWeak === "");
   check("generic wiki icons are never used as the answer photo", accurate.junkOnly === "");
 
+  // ---- 2c) BOTH mode: activating the option fetches question pictures too ----
+  await page.evaluate(() => {
+    window.__fetchLog = [];
+    fetchMissingImages();                                        // reopen the dialog
+    document.getElementById("fetchImagesBoth").checked = true;   // activate question+answer
+    document.getElementById("fetchImagesBoth").dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  const bothCount = await page.evaluate(() => document.getElementById("fetchImagesCount").textContent);
+  check("enabling the option adds question photos to the plan", /صورة سؤال/.test(bothCount));
+  await page.evaluate(() => document.getElementById("fetchImagesStart").click());
+  await waitDone();
+  const both = await page.evaluate(() => ({
+    q0img: state.adminCat.questions[0].image.slice(0, 11),
+    q0ans: state.adminCat.questions[0].answerImage.slice(0, 11), // kept from the first run
+    log: window.__fetchLog.filter(u => u.includes("/w/api.php")).map(u => decodeURIComponent(u)),
+  }));
+  check("both-mode fetches a QUESTION picture (q0.image filled)", both.q0img === "data:image/");
+  check("both-mode never re-fetches answers that already have photos", both.q0ans === "data:image/");
+  check("the question-picture search NEVER includes the answer (no spoilers)",
+    both.log.some(u => u.includes("عاصمة")) && !both.log.some(u => u.includes("عاصمة") && u.includes("مسقط")));
+
   // ---- 3) undo restores the pre-fetch state ----
   const undo = await page.evaluate(async () => {
-    undoAdminStep();
+    undoAdminStep();      // undoes the both-mode run (question images)
+    undoAdminStep();      // undoes the first answers-only run
     await new Promise(r => setTimeout(r, 150));
-    return { q0: state.adminCat.questions[0].answerImage, q1: state.adminCat.questions[1].answerImage };
+    return { q0: state.adminCat.questions[0].answerImage, q1: state.adminCat.questions[1].answerImage, q0img: state.adminCat.questions[0].image };
   });
-  check("undo removes the fetched photos", undo.q0 === "" && undo.q1 === "");
+  check("undo removes the fetched photos", undo.q0 === "" && undo.q1 === "" && undo.q0img === "");
 
   // ---- 4) when nothing needs an image, it says so and fetches nothing ----
   const none = await page.evaluate(async () => {
@@ -191,15 +226,18 @@ try {
     let toast = "";
     const o = window.showToast; window.showToast = m => { toast = m; if (o) o(m); };
     state.adminCat = { id: "pub-full", name: "مكتملة", image: "", color: "", custom: false, published: true, order: 0,
-      questions: [{ points: 100, q: "س", a: "ج", image: "", answerImage: "data:image/jpeg;base64,x" }] };
+      questions: [{ points: 100, q: "س", a: "ج", image: "data:image/jpeg;base64,y", answerImage: "data:image/jpeg;base64,x" }] };
     clearAdminUndo(); renderAdminTable();
     fetchMissingImages();
     await new Promise(r => setTimeout(r, 200));
     window.showToast = o;
-    return { toast, calls: window.__fetchLog.length };
+    return {
+      toast, calls: window.__fetchLog.length,
+      dialogOpen: document.getElementById("fetchImagesModal").classList.contains("open"),
+    };
   });
-  check("does nothing (no network) when every answer already has a photo",
-    none.calls === 0 && /بالفعل/.test(none.toast));
+  check("does nothing (no network, no dialog) when every photo already exists",
+    none.calls === 0 && /بالفعل/.test(none.toast) && !none.dialogOpen);
 
   // ---- 5) special-media (word / reaction) categories are left alone ----
   const word = await page.evaluate(async () => {
