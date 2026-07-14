@@ -4283,6 +4283,8 @@
     .prem-row-sub .prem-badge { margin-inline-start: 5px; }
     .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-revoke:hover { background: #f6d6d6; }
+    .prem-fulfil { flex: none; background: #e6f3e9; color: #1b6a3f; border: 1px solid #a9d4b4; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
+    .prem-fulfil:hover { background: #d3ecd9; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
     /* ---- Admin insights (stats) ---- */
     .stats-tiles { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
@@ -4409,8 +4411,14 @@
     .plan-card {
       background: #f7efd9; border: 2px solid rgba(201,151,74,.5); border-radius: 14px;
       padding: 14px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
+    .plan-card:hover { transform: translateY(-2px); border-color: #c9974a; box-shadow: 0 8px 20px -10px rgba(154,28,28,.4); }
     .plan-card.plan-featured { background: #f3e7c8; border-color: #c9974a; box-shadow: 0 6px 18px -8px rgba(154,28,28,.35); }
+    .plan-cta {
+      margin-top: 6px; background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff;
+      border-radius: 8px; padding: 5px 12px; font: 800 12.5px 'Cairo', sans-serif;
+    }
     .plan-ico { font-size: 26px; line-height: 1; }
     .plan-name { font: 800 15px 'Cairo', sans-serif; color: var(--dark); }
     .plan-price { font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; }
@@ -5744,9 +5752,9 @@
     <div class="modal-backdrop" id="plansModal" aria-hidden="true">
       <div class="question-modal plans-modal" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
         <h3 class="preview-title" id="plansTitle">🎟️ باقات اللعب</h3>
-        <p class="plans-sub">انتهى رصيد ألعابك — اختر الباقة المناسبة واحصل على كود تفعيلها.</p>
+        <p class="plans-sub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
         <div class="plans-grid" id="plansGrid"></div>
-        <div class="plans-contact">للحصول على كود باقة راسلنا: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
+        <div class="plans-contact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
         <div class="redeem-row plans-redeem">
           <span class="redeem-label">عندك كود؟</span>
           <input type="text" id="redeemInputPlans" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
@@ -5789,6 +5797,9 @@
         </div>
 
         <div class="prem-status" id="premStatus" aria-live="polite"></div>
+
+        <div class="prem-list-head"><span>طلبات شراء الباقات</span></div>
+        <div class="prem-list" id="premOrders"></div>
 
         <div class="prem-list-head">
           <span>اللاعبون ورصيدهم</span>
@@ -8904,7 +8915,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.27";
+    const IZZBAH_BUILD = "2026-07-10.28";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11838,6 +11849,80 @@
         container.appendChild(row);
       });
     }
+    // ---- Pack purchase orders: player taps a pack -> order lands here; the
+    // admin fulfils it with ONE button that mints the code and opens a
+    // prefilled confirmation email to the buyer (payment details + the code).
+    function renderOrders(container, rows) {
+      if (!container) return;
+      if (!rows.length) { container.innerHTML = '<div class="prem-empty">لا توجد طلبات شراء حالياً — تظهر هنا عندما يضغط لاعب على باقة.</div>'; return; }
+      container.innerHTML = "";
+      rows.forEach(o => {
+        const row = document.createElement("div");
+        row.className = "prem-row";
+        const main = document.createElement("div");
+        main.className = "prem-row-main";
+        const id = document.createElement("div");
+        id.className = "prem-row-id";
+        id.textContent = o.email || o.uid;
+        const sub = document.createElement("div");
+        sub.className = "prem-row-sub";
+        const badge = o.premium
+          ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
+          : `<span class="prem-badge games">${toArabicDigits(o.games)} ألعاب</span>`;
+        sub.innerHTML = `${escapeHtml(o.pack)} ${badge}` + (o.createdAt ? ` · ${new Date(o.createdAt).toLocaleDateString("ar")}` : "");
+        main.appendChild(id); main.appendChild(sub);
+        const ok = document.createElement("button");
+        ok.className = "prem-fulfil"; ok.type = "button";
+        ok.textContent = "✉️ كود + بريد التأكيد";
+        ok.title = "إنشاء كود الباقة وفتح بريد التأكيد للمشتري";
+        ok.addEventListener("click", () => fulfilOrderFromAdmin(o));
+        const del = document.createElement("button");
+        del.className = "prem-revoke"; del.type = "button";
+        del.textContent = "حذف";
+        del.addEventListener("click", () => {
+          if (!confirm("حذف هذا الطلب دون تنفيذه؟")) return;
+          const bridge = window.IZZBAH && window.IZZBAH.deleteOrder;
+          if (!bridge) return;
+          bridge(o.uid).then(() => refreshPremiumList()).catch(() => premSetStatus("تعذّر حذف الطلب.", "err"));
+        });
+        row.appendChild(main); row.appendChild(ok); row.appendChild(del);
+        container.appendChild(row);
+      });
+    }
+    function fulfilOrderFromAdmin(o) {
+      const create = window.IZZBAH && window.IZZBAH.createCode;
+      if (!create) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      premSetStatus("جارٍ إنشاء الكود وتجهيز بريد التأكيد…", "busy");
+      create({ premium: !!o.premium, gamesAllowed: o.games || 0 }).then(code => {
+        const subject = `تأكيد طلبك في عِزبة — ${o.pack}`;
+        const body = [
+          "مرحباً،",
+          "",
+          `شكراً لطلبك «${o.pack}» في لعبة عِزبة 🎉`,
+          "",
+          "طريقة الدفع: (أكمل تفاصيل الدفع هنا قبل الإرسال — تحويل بنكي / دفع إلكتروني)",
+          "",
+          `كود التفعيل: ${code}`,
+          "فعّله من شاشة الألعاب — خانة «عندك كود؟» — بعد تسجيل الدخول بنفس حسابك.",
+          "",
+          "مع التحية،",
+          "فريق عِزبة — izzbahgame@gmail.com"
+        ].join("\n");
+        // Open the admin's mail app with the confirmation email ready to send.
+        const a = document.createElement("a");
+        a.href = "mailto:" + (o.email || "") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+        document.body.appendChild(a); a.click(); a.remove();
+        const del = window.IZZBAH && window.IZZBAH.deleteOrder;
+        return (del ? del(o.uid).catch(() => {}) : Promise.resolve()).then(() => {
+          premSetStatus(`✅ أُنشئ الكود ${code} وفُتح بريد التأكيد — أكمل تفاصيل الدفع واضغط إرسال.`, "ok");
+          refreshPremiumList();
+        });
+      }).catch(err => {
+        console.warn("fulfil order failed", err);
+        premSetStatus("تعذّر تنفيذ الطلب: " + ((err && (err.code || err.message)) || "خطأ"), "err");
+      });
+    }
+
     // Admin: clear a player's record from the subscription panel.
     function clearPlayerFromAdmin(uid) {
       const bridge = window.IZZBAH && window.IZZBAH.clearPlayer;
@@ -11862,18 +11947,24 @@
       }
       list.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
       if (players) players.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
-      // Codes + usage in parallel; a usage failure (e.g. rules not yet
-      // published) still lets the code list and a used=0 view render.
+      const orders = $("#premOrders");
+      if (orders) orders.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
+      // Codes + usage + orders in parallel; a usage/orders failure (e.g. rules
+      // not yet published) still lets the code list and a used=0 view render.
+      const ordersBridge = window.IZZBAH && window.IZZBAH.listOrders;
       Promise.all([
         listBridge(),
-        usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({})
-      ]).then(([rows, usage]) => {
+        usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({}),
+        ordersBridge ? ordersBridge().catch(() => []) : Promise.resolve([])
+      ]).then(([rows, usage, orderRows]) => {
         renderCodeList(list, rows);
         renderPlayers(players, rows, usage || {});
+        renderOrders(orders, orderRows || []);
       }).catch(err => {
         console.warn("list codes failed", err);
         list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (مجموعة الأكواد).</div>';
         if (players) players.innerHTML = "";
+        if (orders) orders.innerHTML = "";
       });
     }
 
@@ -11915,24 +12006,49 @@
     // the actual grant is the one-time code the admin generates and sends after
     // the player picks a plan (price shows only when set, e.g. "٢ ر.ع").
     const PLAY_PLANS = [
-      { icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "" },
-      { icon: "🏆", name: "باقة ١٠ ألعاب", desc: "عشر جولات — الأنسب للعزبات المتكررة", price: "" },
-      { icon: "⭐", name: "اشتراك مفتوح", desc: "لعب غير محدود بلا عدّاد", price: "", featured: true, tag: "الأفضل قيمة" },
+      { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "", games: 5, premium: false },
+      { id: "g10", icon: "🏆", name: "باقة ١٠ ألعاب", desc: "عشر جولات — الأنسب للعزبات المتكررة", price: "", games: 10, premium: false },
+      { id: "unl", icon: "⭐", name: "اشتراك مفتوح", desc: "لعب غير محدود بلا عدّاد", price: "", games: 0, premium: true, featured: true, tag: "الأفضل قيمة" },
     ];
     function renderPlans() {
       const grid = $("#plansGrid");
       if (!grid) return;
       grid.innerHTML = "";
       PLAY_PLANS.forEach(p => {
-        const card = document.createElement("div");
+        const card = document.createElement("button");
+        card.type = "button";
         card.className = "plan-card" + (p.featured ? " plan-featured" : "");
         if (p.tag) { const t = document.createElement("div"); t.className = "plan-tag"; t.textContent = p.tag; card.appendChild(t); }
         const ico = document.createElement("div"); ico.className = "plan-ico"; ico.textContent = p.icon; card.appendChild(ico);
         const nm = document.createElement("div"); nm.className = "plan-name"; nm.textContent = p.name; card.appendChild(nm);
         if (p.price) { const pr = document.createElement("div"); pr.className = "plan-price"; pr.textContent = p.price; card.appendChild(pr); }
         const ds = document.createElement("div"); ds.className = "plan-desc"; ds.textContent = p.desc; card.appendChild(ds);
+        const cta = document.createElement("div"); cta.className = "plan-cta"; cta.textContent = "اطلب هذه الباقة"; card.appendChild(cta);
+        card.addEventListener("click", () => orderPlan(p));
         grid.appendChild(card);
       });
+    }
+    // Tapping a pack places a purchase ORDER: it lands in the admin's
+    // subscription panel, and the admin replies with a confirmation email
+    // (prefilled: payment details + the activation code) to the buyer.
+    function orderPlan(p) {
+      if (!state.signedIn) {
+        showToast("سجّل الدخول بحساب Google أولاً لإرسال الطلب");
+        return;
+      }
+      const bridge = window.IZZBAH && window.IZZBAH.placeOrder;
+      if (!bridge) { showToast("الطلب غير متاح الآن — تحقّق من اتصالك"); return; }
+      showToast("جارٍ إرسال الطلب…");
+      bridge({ pack: p.name, games: p.games || 0, premium: !!p.premium })
+        .then(() => {
+          track("pack_order", { pack: p.id });
+          closePlans();
+          showToast(`✅ تم استلام طلبك «${p.name}» — ستصلك رسالة على بريدك فيها طريقة الدفع وكود التفعيل`);
+        })
+        .catch(err => {
+          console.warn("place order failed", err);
+          showToast("تعذّر إرسال الطلب — تأكّد من نشر قواعد Firestore المحدّثة أو راسلنا: izzbahgame@gmail.com");
+        });
     }
     function openPlans() {
       renderPlans();
@@ -15030,6 +15146,44 @@
                 return batch.commit();
               })
               .then(() => true);
+          };
+          // ---- Pack purchase orders ------------------------------------------
+          // Player: place (or replace) their ONE pending order — the doc id is
+          // their uid, so a player can never spam the queue. The admin fulfils
+          // it from the subscription panel (mint code + confirmation email).
+          window.IZZBAH.placeOrder = function (o) {
+            if (!currentUser) return Promise.reject(new Error("not-signed-in"));
+            o = o || {};
+            return db.collection("orders").doc(currentUser.uid).set({
+              email: currentUser.email || "",
+              pack: String(o.pack || "").slice(0, 80),
+              games: Math.max(0, Math.min(1000, Math.floor(Number(o.games) || 0))),
+              premium: !!o.premium,
+              status: "new",
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => true);
+          };
+          // Admin-only: the pending purchase orders, newest first.
+          window.IZZBAH.listOrders = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("orders").limit(200).get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  uid: doc.id, email: d.email || "", pack: d.pack || "",
+                  games: Number(d.games) || 0, premium: !!d.premium,
+                  createdAt: d.createdAt && typeof d.createdAt.toMillis === "function" ? d.createdAt.toMillis() : null
+                });
+              });
+              out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              return out;
+            });
+          };
+          // Admin-only: remove an order (after fulfilling it, or to reject it).
+          window.IZZBAH.deleteOrder = function (uid) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("orders").doc(String(uid || "")).delete();
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,
           // holds a total games counter + a map of per-category play counts.

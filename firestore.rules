@@ -149,6 +149,31 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
+    // ---- Pack purchase orders (player-placed, admin-fulfilled) --------------
+    // Tapping a game pack places an order: ONE pending order per player (the
+    // doc id IS the buyer's uid, so the queue can't be spammed), carrying only
+    // the pack name/size and the buyer's email for the confirmation reply. The
+    // admin reads the queue in the subscription panel, mints the code, sends
+    // the confirmation email, and deletes the order. A player may also cancel
+    // (delete) their own pending order.
+    match /orders/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'pack', 'games', 'premium', 'status', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.pack is string
+        && request.resource.data.pack.size() > 0
+        && request.resource.data.pack.size() <= 80
+        && request.resource.data.games is int
+        && request.resource.data.games >= 0
+        && request.resource.data.games <= 1000
+        && request.resource.data.premium is bool
+        && request.resource.data.status == 'new';
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+    }
+
     // ---- Global usage insights (admin-visible counters) --------------------
     // One small doc (stats/global) holds a total games-played counter and a map
     // of per-category play counts. Every signed-in player increments it once per
