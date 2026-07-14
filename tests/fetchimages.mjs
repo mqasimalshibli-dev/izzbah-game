@@ -35,10 +35,12 @@ const installFetchStub = () => page.evaluate(() => {
     if (u.includes("wikipedia.org") || u.includes("wikimedia.org")) {
       window.__fetchLog.push(u);
       if (u.includes("/w/api.php")) {
-        // no result for the "not found" answer, and for any query that carries
-        // the "الغامض" keyword (so tier-1 misses and tier-2 must rescue it)
         const dec = decodeURIComponent(u);
-        const noHit = dec.includes("لا_يوجد") || dec.includes("الغامض");
+        // no result for the "not found" answer; and for جواب_خاص every
+        // answer-only tier misses — ONLY the contextual query (carrying the
+        // question keyword الغامض) hits, so the deep fallback must rescue it
+        const noHit = dec.includes("لا_يوجد")
+          || (dec.includes("جواب_خاص") && !dec.includes("الغامض"));
         const body = noHit
           ? { query: { pages: {} } }
           : { query: { pages: { "1": { index: 1, thumbnail: { source: "https://upload.wikimedia.org/fake.jpg" } } } } };
@@ -147,14 +149,33 @@ try {
   check("leaves a question with no Wikipedia hit empty (q4)", res.q4 === "");
   check("the fetch step is a single undoable operation", res.canUndo);
 
-  // ---- 2) the search UNDERSTANDS the question ----
+  // ---- 2) ANSWER-FIRST deep search ----
   const apiQueries = res.log.filter(u => u.includes("/w/api.php")).map(u => decodeURIComponent(u));
-  check("the query combines the answer with the question's keywords (مسقط + عاصمة)",
-    apiQueries.some(u => u.includes("مسقط") && u.includes("عاصمة")));
-  check("tier-2 fallback searches the answer alone when the contextual query misses",
-    res.q5 === "data:image/" && apiQueries.some(u => u.includes("جواب_خاص") && !u.includes("الغامض")));
+  const firstMuscat = apiQueries.find(u => u.includes("مسقط"));
+  check("the ANSWER is searched first: exact-title lookup, no question words",
+    !!firstMuscat && firstMuscat.includes("titles=مسقط") && !firstMuscat.includes("عاصمة"));
+  check("the deep contextual fallback rescues an answer the bare tiers miss",
+    res.q5 === "data:image/" && apiQueries.some(u => u.includes("جواب_خاص") && u.includes("الغامض")));
   check("Arabic answers hit ar.wikipedia.org first",
     apiQueries.length > 0 && res.log.find(u => u.includes("/w/api.php")).includes("//ar.wikipedia.org"));
+
+  // ---- 2b) accuracy: best-title scoring skips disambig pages + junk icons ----
+  const accurate = await page.evaluate(() => {
+    const cands = [
+      { title: "مسقط (توضيح)", url: "https://upload.wikimedia.org/Disambig_gray.svg.png", disambig: true },
+      { title: "مسقط رأس", url: "https://upload.wikimedia.org/other_topic.jpg", disambig: false },
+      { title: "مسقط", url: "https://upload.wikimedia.org/real_muscat.jpg", disambig: false },
+      { title: "صفحة", url: "https://upload.wikimedia.org/Commons-logo.svg.png", disambig: false },
+    ];
+    return {
+      best: pickAccurateImage(cands, "مسقط", false),
+      strictWeak: pickAccurateImage([{ title: "شيء آخر تماماً", url: "https://upload.wikimedia.org/x.jpg", disambig: false }], "مسقط", true),
+      junkOnly: pickAccurateImage([{ title: "مسقط", url: "https://upload.wikimedia.org/Question_book.png", disambig: false }], "مسقط", false),
+    };
+  });
+  check("the exact-title page beats higher-ranked partial matches", accurate.best === "https://upload.wikimedia.org/real_muscat.jpg");
+  check("strict (title) tiers reject pages that merely mention the answer", accurate.strictWeak === "");
+  check("generic wiki icons are never used as the answer photo", accurate.junkOnly === "");
 
   // ---- 3) undo restores the pre-fetch state ----
   const undo = await page.evaluate(async () => {
