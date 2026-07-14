@@ -1,6 +1,8 @@
-// E2E for the admin "insights" panel: a finished game tallies its categories
-// into the global counters, and the admin panel renders games-played + a ranked
-// most-played-categories board from that data.
+// E2E for the admin "insights" panel: a finished game tallies a full stats
+// payload (categories, teams, credit type, lifelines, answer stats) into the
+// global counters, and the admin panel renders the complete overview —
+// games/trend tiles, ranked categories, community votes, content health,
+// players & subscriptions, and play-style stats.
 //
 // Runs OFFLINE (Firebase SDK aborted); the cloud bridges are stubbed, so we
 // exercise the same UI + recording code paths the live bridges drive.
@@ -28,23 +30,38 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
-  // ---- 1) finishing a game tallies its categories exactly once ----
+  // ---- 1) finishing a game tallies a full payload exactly once ----
   const record = await page.evaluate(() => {
     const calls = [];
-    window.IZZBAH.recordGamePlay = (ids) => { calls.push(ids); return Promise.resolve(true); };
+    window.IZZBAH.recordGamePlay = (p) => { calls.push(p); return Promise.resolve(true); };
     window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(false);
     state.selected = new Set(["history", "geo", "science"]);
     refreshBuiltinQuestions();
-    state.teamCount = 2; state.teams.forEach(t => { t.score = 0; });
+    state.teamCount = 2; state.teams.forEach(t => { t.score = 0; t.helpUsed = {}; });
     state.teams[0].score = 300;
+    state.teams[0].helpUsed = { fourChoices: true };
+    state.history = [
+      { winnerIndex: 0, seconds: 12 },
+      { winnerIndex: null, seconds: 30 },   // «لا أحد» — no one answered
+      { winnerIndex: 1, seconds: 8 },
+    ];
+    state.gameStartedAt = Date.now() - 15 * 60000; // a 15-minute game
+    state.freeGamePlayed = false; state.gamesUsed = 0; state.isPremium = false; state.codePremium = false;
     state.gameCounted = false;
     renderResults();                 // reaches the results screen -> records once
     renderResults();                 // re-opening must NOT record again
-    return { calls, count: calls.length, ids: calls[0] || [] };
+    return { count: calls.length, p: calls[0] || {} };
   });
   check("finishing a game records exactly once (guarded like the credit spend)", record.count === 1);
-  check("the recorded play carries the game's category ids",
-    Array.isArray(record.ids) && ["history", "geo", "science"].every(id => record.ids.includes(id)));
+  check("the payload carries the game's category ids",
+    Array.isArray(record.p.catIds) && ["history", "geo", "science"].every(id => record.p.catIds.includes(id)));
+  check("the payload carries teams, credit type and duration",
+    record.p.teams === 2 && record.p.credit === "free"
+    && record.p.durationSec >= 14 * 60 && record.p.durationSec <= 16 * 60);
+  check("the payload tallies answered vs no-answer and answer times",
+    record.p.answered === 2 && record.p.noAnswer === 1
+    && record.p.timedCount === 3 && record.p.secsSum === 50);
+  check("the payload tallies lifeline usage", record.p.helpers && record.p.helpers.fourChoices === 1);
 
   // ---- 2) the admin chooser exposes an Insights option ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "adm"); window.IZZBAH.applyAdmin(true); });
@@ -57,46 +74,87 @@ try {
   }));
   check("the admin chooser shows an Insights (الإحصائيات) option", chooser.open && chooser.hasStats);
 
-  // ---- 3) opening Insights renders games-played + a ranked category board ----
+  // ---- 3) opening Insights renders the FULL overview ----
   const view = await page.evaluate(async () => {
+    const p2 = n => String(n).padStart(2, "0");
+    const key = back => { const d = new Date(Date.now() - back * 86400000); return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); };
+    const days = {}; days[key(0)] = 4; days[key(2)] = 3; days[key(9)] = 2; // 7 this week vs 2 last week
     window.IZZBAH.loadStats = () => Promise.resolve({
       gamesPlayed: 42,
       categoryPlays: { seerah: 10, geo: 25, history: 5, culture: 25 },
+      days,
+      teamCounts: { "2": 30, "4": 10 },
+      durationSum: 40 * 1200, durationCount: 40,          // avg 20 min
+      helpers: { fourChoices: 18, firstLetter: 7, doublePoints: 4 },
+      answers: { answered: 300, noAnswer: 100 },           // 25% no-answer
+      answerSecsSum: 4500, answerTimedCount: 300,          // avg 15s
+      credits: { free: 12, allowance: 25, premium: 5 },
     });
+    window.IZZBAH.listCodes = () => Promise.resolve([
+      { code: "AAAA-1111", gamesAllowed: 5, premium: false, used: true, usedBy: "uA" },
+      { code: "BBBB-2222", gamesAllowed: 10, premium: false, used: true, usedBy: "uA" },
+      { code: "CCCC-3333", gamesAllowed: 0, premium: true, used: true, usedBy: "uB" },
+      { code: "DDDD-4444", gamesAllowed: 3, premium: false, used: false, usedBy: "" },
+    ]);
+    window.IZZBAH.listUsage = () => Promise.resolve({ uA: 6, uB: 2 });
+    state.communityCategories = [
+      { name: "فئة المجتمع الأولى", votes: 9, approved: true },
+      { name: "فئة المجتمع الثانية", votes: 4, approved: true },
+    ];
+    state.pendingCommunity = [{ id: "p1" }];
     document.getElementById("adminChoiceStats").click();
-    await new Promise(r => setTimeout(r, 250));
-    const modalOpen = document.getElementById("statsModal").classList.contains("open");
-    const chooserClosed = !document.getElementById("adminChoiceModal").classList.contains("open");
-    const tiles = document.getElementById("statsTiles").textContent;
+    await new Promise(r => setTimeout(r, 300));
+    const txt = id => document.getElementById(id).textContent;
     const rows = [...document.querySelectorAll("#statsCats .stats-bar-row")];
-    const first = rows[0];
     return {
-      modalOpen, chooserClosed, tiles,
+      modalOpen: document.getElementById("statsModal").classList.contains("open"),
+      chooserClosed: !document.getElementById("adminChoiceModal").classList.contains("open"),
+      tiles: txt("statsTiles"), cats: txt("statsCats"), community: txt("statsCommunity"),
+      health: txt("statsHealth"), players: txt("statsPlayers"), play: txt("statsPlay"),
       rowCount: rows.length,
-      firstText: first ? first.textContent : "",
-      firstIsRank1: first ? first.classList.contains("rank-1") : false,
-      firstFillPct: first ? first.querySelector(".stats-bar-fill").style.width : "",
-      allText: document.getElementById("statsCats").textContent,
+      firstIsRank1: rows[0] ? rows[0].classList.contains("rank-1") : false,
+      firstFillPct: rows[0] ? rows[0].querySelector(".stats-bar-fill").style.width : "",
+      tilesHtml: document.getElementById("statsTiles").innerHTML,
     };
   });
   check("choosing Insights opens the stats modal and closes the chooser", view.modalOpen && view.chooserClosed);
-  check("the tiles show the total games played (42)", /٤٢|42/.test(view.tiles) && /لعبة/.test(view.tiles));
-  check("all four played categories are ranked", view.rowCount === 4);
-  check("the top category is one of the most-played (25 plays) at 100% width",
-    view.firstIsRank1 && view.firstFillPct === "100%" && (/٢٥|25/.test(view.firstText)));
-  check("categories are shown by NAME, not raw id", /السيرة النبوية|جغرافيا|تاريخ/.test(view.allText) && !/seerah|geo/.test(view.allText));
+  check("overview shows totals + weekly trend + avg duration + avg teams",
+    /٤٢|42/.test(view.tiles) && /هذا الأسبوع/.test(view.tiles) && /٧|7/.test(view.tiles)
+    && /٢٠|20/.test(view.tiles) && /متوسط عدد الفرق/.test(view.tiles) && /trend-up/.test(view.tilesHtml));
+  check("all four played categories are ranked, top at 100%",
+    view.rowCount === 4 && view.firstIsRank1 && view.firstFillPct === "100%");
+  check("categories are shown by NAME, not raw id",
+    /السيرة النبوية|جغرافيا|تاريخ/.test(view.cats) && !/seerah|geo/.test(view.cats));
+  check("community section ranks top-voted categories",
+    /فئة المجتمع الأولى/.test(view.community) && /٩|9/.test(view.community));
+  check("content health shows question total, unplayed, no-cover and pending counts",
+    /سؤالاً منشوراً/.test(view.health) && /لم تُلعب/.test(view.health)
+    && /بلا غلاف/.test(view.health) && /بانتظار المراجعة/.test(view.health) && /١(?![٠-٩])|(?<![0-9])1(?![0-9])/.test(view.health));
+  check("players section shows redeemers, granted vs consumed, and unused codes",
+    /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
+    && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
+    && /كوداً غير مستخدم/.test(view.players));
+  check("play-style shows lifelines, no-answer rate and the free-vs-paid mix",
+    /١٨|18/.test(view.play) && /أول حرف/.test(view.play)
+    && /٢٥٪|25٪/.test(view.play) && /١٥ ث|15 ث/.test(view.play)
+    && /رصيد ٢٥|رصيد 25/.test(view.play));
 
-  // ---- 4) empty stats render a friendly placeholder, not a broken board ----
+  // ---- 4) empty stats render friendly placeholders, not a broken board ----
   const empty = await page.evaluate(async () => {
     window.IZZBAH.loadStats = () => Promise.resolve({});
+    window.IZZBAH.listCodes = () => Promise.resolve([]);
+    window.IZZBAH.listUsage = () => Promise.resolve({});
+    state.communityCategories = [];
     document.getElementById("statsRefresh").click();
     await new Promise(r => setTimeout(r, 200));
     return {
       cats: document.getElementById("statsCats").textContent,
       tiles: document.getElementById("statsTiles").textContent,
+      community: document.getElementById("statsCommunity").textContent,
     };
   });
-  check("no data yet shows a friendly placeholder + zero counts", /لا توجد بيانات/.test(empty.cats) && /٠|0/.test(empty.tiles));
+  check("no data yet shows friendly placeholders + zero counts",
+    /لا توجد بيانات/.test(empty.cats) && /٠|0/.test(empty.tiles) && /لا توجد فئات مجتمع/.test(empty.community));
 
   // ---- 5) without the cloud bridge (signed out) it explains, not crashes ----
   const noBridge = await page.evaluate(async () => {
