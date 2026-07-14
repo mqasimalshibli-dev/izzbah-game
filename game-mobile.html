@@ -4297,6 +4297,10 @@
     .stats-bar-track { height: 9px; background: #e7dabb; border-radius: 6px; overflow: hidden; }
     .stats-bar-fill { height: 100%; background: linear-gradient(90deg, #1b6a3f, #2f9e5e); border-radius: 6px; min-width: 3px; }
     .stats-bar-row.rank-1 .stats-bar-fill { background: linear-gradient(90deg, #b8860b, #e7b54b); }
+    .stats-modal { max-height: 88vh; overflow-y: auto; }
+    .stats-tile-sub { font: 700 11px 'Cairo', sans-serif; color: #8a7550; margin-top: 2px; }
+    .stats-tile-num .trend-up { color: #1b6a3f; font-size: 15px; }
+    .stats-tile-num .trend-down { color: #9a1c1c; font-size: 15px; }
     .code-result {
       display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
       background: #f3ead3; border: 2px dashed #c9974a; border-radius: 12px; padding: 12px 14px; margin: 10px 0 4px;
@@ -5798,17 +5802,30 @@
     </div>
 
     <div class="modal-backdrop" id="statsModal" aria-hidden="true">
-      <div class="question-modal premium-modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+      <div class="question-modal premium-modal stats-modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
         <h3 class="preview-title" id="statsTitle">📊 الإحصائيات</h3>
-        <p class="import-help">نظرة على استخدام اللعبة: عدد الألعاب المكتملة والفئات الأكثر لعباً. تُحتسب الألعاب التي وصلت إلى شاشة النتائج للاعبين المسجّلين.</p>
-
-        <div class="stats-tiles" id="statsTiles"></div>
+        <p class="import-help">نظرة كاملة على استخدام اللعبة. تُحتسب الألعاب التي وصلت إلى شاشة النتائج للاعبين المسجّلين.</p>
 
         <div class="prem-list-head">
-          <span>الفئات الأكثر لعباً</span>
+          <span>نظرة عامة</span>
           <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
         </div>
+        <div class="stats-tiles" id="statsTiles"></div>
+
+        <div class="prem-list-head"><span>الفئات الأكثر لعباً</span></div>
         <div class="stats-bars" id="statsCats"></div>
+
+        <div class="prem-list-head"><span>فئات المجتمع الأعلى تصويتاً</span></div>
+        <div class="stats-bars" id="statsCommunity"></div>
+
+        <div class="prem-list-head"><span>صحة المحتوى</span></div>
+        <div class="stats-tiles" id="statsHealth"></div>
+
+        <div class="prem-list-head"><span>اللاعبون والاشتراكات</span></div>
+        <div class="stats-tiles" id="statsPlayers"></div>
+
+        <div class="prem-list-head"><span>أسلوب اللعب</span></div>
+        <div class="stats-tiles" id="statsPlay"></div>
 
         <div class="prem-status" id="statsStatus" aria-live="polite"></div>
 
@@ -8887,7 +8904,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.26";
+    const IZZBAH_BUILD = "2026-07-10.27";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -8978,11 +8995,16 @@
       return state.isAdmin || premiumActive() || !state.freeGamePlayed || gamesRemaining() > 0;
     }
     // Spend one play right, in order: the free game first, then the allowance.
+    // Returns WHAT was spent ("admin"/"premium"/"free"/"allowance"/"none") so
+    // the insights tally can record the free-vs-paid mix.
     function spendGameCredit() {
-      if (state.isAdmin || premiumActive()) return;
-      if (!state.freeGamePlayed) markFreeGamePlayed();
-      else if (gamesRemaining() > 0) consumeAllowanceGame();
+      if (state.isAdmin) return "admin";
+      if (premiumActive()) return "premium";
+      let kind = "none";
+      if (!state.freeGamePlayed) { markFreeGamePlayed(); kind = "free"; }
+      else if (gamesRemaining() > 0) { consumeAllowanceGame(); kind = "allowance"; }
       renderPlayBalance();
+      return kind;
     }
 
     function saveGameSettings() {
@@ -9067,7 +9089,8 @@
           activeTeam: state.activeTeam,
           history: state.history,
           currentGameName: state.currentGameName,
-          counted: !!state.gameCounted
+          counted: !!state.gameCounted,
+          startedAt: state.gameStartedAt || 0
         }));
       } catch (error) { /* quota / private mode — resume just won't be available */ }
     }
@@ -9128,6 +9151,7 @@
       // credit is spent only when the game FINISHES (renderResults). Carry the
       // "already counted" flag so a resumed-after-finish game isn't recharged.
       state.gameCounted = !!saved.counted;
+      state.gameStartedAt = saved.startedAt || 0;
       renderGame();
       showScreen("game");
       return true;
@@ -11508,8 +11532,8 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
-      $("#statsTiles").innerHTML = "";
-      $("#statsCats").innerHTML = "";
+      ["statsTiles", "statsCats", "statsCommunity", "statsHealth", "statsPlayers", "statsPlay"]
+        .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
       const m = $("#statsModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
@@ -11524,50 +11548,143 @@
       const c = (typeof allCategories === "function" ? allCategories() : []).find(x => x.id === id);
       return (c && c.name) || id;
     }
-    function renderStatsView(stats) {
-      const tiles = $("#statsTiles");
-      const cats = $("#statsCats");
-      const games = Math.max(0, Math.floor(Number(stats && stats.gamesPlayed) || 0));
-      const plays = (stats && stats.categoryPlays) || {};
-      const rows = Object.keys(plays)
-        .map(id => ({ id, n: Math.max(0, Math.floor(Number(plays[id]) || 0)) }))
-        .filter(r => r.n > 0)
-        .sort((a, b) => b.n - a.n)
-        .slice(0, 30);
-      tiles.innerHTML =
-        `<div class="stats-tile"><div class="stats-tile-num">${toArabicDigits(games)}</div><div class="stats-tile-lbl">لعبة مكتملة</div></div>`
-        + `<div class="stats-tile"><div class="stats-tile-num">${toArabicDigits(rows.length)}</div><div class="stats-tile-lbl">فئة لُعبت</div></div>`;
-      if (!rows.length) {
-        cats.innerHTML = '<div class="prem-empty">لا توجد بيانات بعد — ستظهر بعد أن يُكمل اللاعبون ألعابهم.</div>';
-        return;
-      }
+    function statsTileHtml(num, label, sub) {
+      return `<div class="stats-tile"><div class="stats-tile-num">${num}</div><div class="stats-tile-lbl">${label}</div>`
+        + (sub ? `<div class="stats-tile-sub">${sub}</div>` : "") + `</div>`;
+    }
+    function statsRankedBars(container, rows, emptyMsg) {
+      if (!rows.length) { container.innerHTML = `<div class="prem-empty">${emptyMsg}</div>`; return; }
       const max = rows[0].n || 1;
-      cats.innerHTML = "";
+      container.innerHTML = "";
       rows.forEach((r, i) => {
         const row = document.createElement("div");
         row.className = "stats-bar-row" + (i === 0 ? " rank-1" : "");
         const pct = Math.max(3, Math.round((r.n / max) * 100));
         row.innerHTML =
-          `<div class="stats-bar-head"><span class="stats-bar-name">${toArabicDigits(i + 1)}. ${escapeHtml(catNameFromId(r.id))}</span>`
+          `<div class="stats-bar-head"><span class="stats-bar-name">${toArabicDigits(i + 1)}. ${escapeHtml(r.name)}</span>`
           + `<span class="stats-bar-count">${toArabicDigits(r.n)}</span></div>`
           + `<div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>`;
-        cats.appendChild(row);
+        container.appendChild(row);
       });
+    }
+    function renderStatsView(stats, codes, usage) {
+      stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
+      const N = v => Math.max(0, Math.floor(Number(v) || 0));
+
+      // ---- overview: totals, weekly trend, avg duration, avg teams ----
+      const games = N(stats.gamesPlayed);
+      const days = stats.days || {};
+      const dayKey = back => {
+        const d = new Date(Date.now() - back * 86400000), p2 = n => String(n).padStart(2, "0");
+        return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+      };
+      let thisWeek = 0, lastWeek = 0;
+      for (let i = 0; i < 7; i++) thisWeek += N(days[dayKey(i)]);
+      for (let i = 7; i < 14; i++) lastWeek += N(days[dayKey(i)]);
+      const trend = thisWeek > lastWeek ? ' <span class="trend-up">▲</span>' : (thisWeek < lastWeek ? ' <span class="trend-down">▼</span>' : "");
+      const avgDurMin = N(stats.durationCount) ? Math.round(N(stats.durationSum) / N(stats.durationCount) / 60) : 0;
+      const tc = stats.teamCounts || {};
+      let teamsSum = 0, teamsGames = 0;
+      Object.keys(tc).forEach(k => { const n = N(tc[k]); teamsSum += n * (parseInt(k, 10) || 0); teamsGames += n; });
+      const avgTeams = teamsGames ? (teamsSum / teamsGames).toFixed(1) : "";
+      $("#statsTiles").innerHTML =
+        statsTileHtml(toArabicDigits(games), "لعبة مكتملة")
+        + statsTileHtml(toArabicDigits(thisWeek) + trend, "هذا الأسبوع", `الأسبوع الماضي ${toArabicDigits(lastWeek)}`)
+        + (avgDurMin ? statsTileHtml(toArabicDigits(avgDurMin) + " د", "متوسط مدة اللعبة") : "")
+        + (avgTeams ? statsTileHtml(toArabicDigits(avgTeams), "متوسط عدد الفرق") : "");
+
+      // ---- most-played categories (ranked bars) ----
+      const plays = stats.categoryPlays || {};
+      const catRows = Object.keys(plays)
+        .map(id => ({ id, name: catNameFromId(id), n: N(plays[id]) }))
+        .filter(r => r.n > 0).sort((a, b) => b.n - a.n).slice(0, 30);
+      statsRankedBars($("#statsCats"), catRows, "لا توجد بيانات بعد — ستظهر بعد أن يُكمل اللاعبون ألعابهم.");
+
+      // ---- top community categories by votes (already loaded locally) ----
+      const commRows = (state.communityCategories || [])
+        .map(c => ({ name: c.name || "", n: N(c.votes) }))
+        .filter(r => r.n > 0).sort((a, b) => b.n - a.n).slice(0, 5);
+      statsRankedBars($("#statsCommunity"), commRows, "لا توجد فئات مجتمع بأصوات بعد.");
+
+      // ---- content health (computed from the loaded categories, no reads) ----
+      const cats = (typeof allCategories === "function" ? allCategories() : []).filter(c => !c.community && !c.custom);
+      const noCover = cats.filter(c => !c.image && categoryHasQuestions(c)).length;
+      const neverPlayed = cats.filter(c => categoryHasQuestions(c) && !N(plays[c.id])).length;
+      const pending = (state.pendingCommunity || []).length;
+      const totalQs = cats.reduce((s, c) => s + ((c.questions || []).filter(q => (q && q.q || "").trim() || (q && q.a || "").trim()).length), 0);
+      $("#statsHealth").innerHTML =
+        statsTileHtml(toArabicDigits(totalQs), "سؤالاً منشوراً")
+        + statsTileHtml(toArabicDigits(neverPlayed), "فئة لم تُلعب بعد")
+        + statsTileHtml(toArabicDigits(noCover), "فئة بلا غلاف")
+        + statsTileHtml(toArabicDigits(pending), "بانتظار المراجعة");
+
+      // ---- players & subscriptions (from the codes + usage the admin loads) ----
+      const redeemed = codes.filter(c => c.used && c.usedBy);
+      const players = new Set(redeemed.map(c => c.usedBy));
+      const unlimited = new Set(redeemed.filter(c => c.premium).map(c => c.usedBy));
+      const granted = redeemed.filter(c => !c.premium).reduce((s, c) => s + N(c.gamesAllowed), 0);
+      const consumed = Object.keys(usage).reduce((s, k) => s + N(usage[k]), 0);
+      $("#statsPlayers").innerHTML =
+        statsTileHtml(toArabicDigits(players.size), "لاعباً فعّل أكواداً", `${toArabicDigits(unlimited.size)} اشتراك مفتوح`)
+        + statsTileHtml(toArabicDigits(granted), "لعبة ممنوحة", `استُهلك ${toArabicDigits(consumed)}`)
+        + statsTileHtml(toArabicDigits(Math.max(0, granted - consumed)), "لعبة متبقية للاعبين")
+        + statsTileHtml(toArabicDigits(codes.filter(c => !c.used).length), "كوداً غير مستخدم", `من أصل ${toArabicDigits(codes.length)}`);
+
+      // ---- play style: lifelines, answer stats, free-vs-paid mix ----
+      const H = stats.helpers || {};
+      const ans = stats.answers || {};
+      const answered = N(ans.answered), noAnswer = N(ans.noAnswer);
+      const noAnsPct = (answered + noAnswer) ? Math.round(noAnswer * 100 / (answered + noAnswer)) : 0;
+      const avgAns = N(stats.answerTimedCount) ? Math.round(N(stats.answerSecsSum) / N(stats.answerTimedCount)) : 0;
+      const cr = stats.credits || {};
+      $("#statsPlay").innerHTML =
+        statsTileHtml(toArabicDigits(N(H.fourChoices)), "أربعة خيارات")
+        + statsTileHtml(toArabicDigits(N(H.firstLetter)), "أول حرف")
+        + statsTileHtml(toArabicDigits(N(H.doublePoints)), "مضاعفة النقاط")
+        + statsTileHtml(toArabicDigits(noAnsPct) + "٪", "أسئلة بلا إجابة", avgAns ? `متوسط زمن الإجابة ${toArabicDigits(avgAns)} ث` : "")
+        + statsTileHtml(toArabicDigits(N(cr.free)), "ألعاب مجانية", `رصيد ${toArabicDigits(N(cr.allowance))} · اشتراك ${toArabicDigits(N(cr.premium))}`);
     }
     function refreshStats() {
       const bridge = window.IZZBAH && window.IZZBAH.loadStats;
       if (!bridge) { statsSetStatus("سجّل الدخول كمشرف لعرض الإحصائيات.", "err"); return; }
       statsSetStatus("جارٍ التحميل…", "busy");
-      bridge()
-        .then(stats => { statsSetStatus("", ""); renderStatsView(stats || {}); })
+      // codes + usage feed the players section; either failing (rules not yet
+      // published) still renders the rest with zeros.
+      const codesP = (window.IZZBAH.listCodes ? window.IZZBAH.listCodes() : Promise.resolve([])).catch(() => []);
+      const usageP = (window.IZZBAH.listUsage ? window.IZZBAH.listUsage() : Promise.resolve({})).catch(() => ({}));
+      Promise.all([bridge(), codesP, usageP])
+        .then(([stats, codes, usage]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}); })
         .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
-    // Tally a FINISHED game (+ each category it used) into the global counters.
-    // Called once per game from renderResults, alongside the credit spend.
-    function recordGameStats() {
+    // Tally a FINISHED game into the global counters — categories, team count,
+    // duration, lifeline usage, answered/no-answer split, answer times and the
+    // credit type spent. Called once per game from renderResults, alongside the
+    // credit spend, so it all stays a single cheap Firestore write.
+    function recordGameStats(credit) {
       try {
-        const ids = [...(state.selected || [])].filter(Boolean).slice(0, 40);
-        if (window.IZZBAH && window.IZZBAH.recordGamePlay) window.IZZBAH.recordGamePlay(ids);
+        if (!window.IZZBAH || !window.IZZBAH.recordGamePlay) return;
+        const hist = state.history || [];
+        const timed = hist.filter(h => typeof h.seconds === "number" && h.seconds >= 0);
+        const helpers = {};
+        (state.teams || []).slice(0, state.teamCount).forEach(t => {
+          Object.keys(t.helpUsed || {}).forEach(k => { if (t.helpUsed[k]) helpers[k] = (helpers[k] || 0) + 1; });
+        });
+        let durationSec = 0;
+        if (state.gameStartedAt) {
+          const d = (Date.now() - state.gameStartedAt) / 1000;
+          if (d > 30 && d < 6 * 3600) durationSec = Math.round(d); // sanity window
+        }
+        window.IZZBAH.recordGamePlay({
+          catIds: [...(state.selected || [])].filter(Boolean).slice(0, 40),
+          teams: state.teamCount,
+          durationSec,
+          credit: credit || "",
+          answered: hist.filter(h => typeof h.winnerIndex === "number").length,
+          noAnswer: hist.filter(h => h.winnerIndex === null || h.winnerIndex === undefined).length,
+          secsSum: Math.round(timed.reduce((s, h) => s + h.seconds, 0)),
+          timedCount: timed.length,
+          helpers
+        });
       } catch (e) {}
     }
 
@@ -12343,6 +12460,7 @@
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
       state.gameActive = true;
       state.gameCounted = false; // the credit is spent on FINISH, not on start
+      state.gameStartedAt = Date.now(); // feeds the avg-game-duration insight
       renderGame();
       showScreen("game");
       saveLiveGame();
@@ -13663,8 +13781,8 @@
       // game does, and the guard makes it exactly once per game.
       if (!state.gameCounted) {
         state.gameCounted = true;
-        spendGameCredit();
-        recordGameStats(); // tally this finished game + its categories (global insights)
+        const credit = spendGameCredit();
+        recordGameStats(credit); // tally this finished game + its categories (global insights)
         saveLiveGame(); // persist the "counted" flag so a resume can't recharge
       }
 
@@ -14919,15 +15037,36 @@
           // it stays cheap: one write per game, one read to render the panel.
           // Signed-in players only (an unauthenticated device can't write it) —
           // it's a soft counter, same trust model as the usage counters.
-          window.IZZBAH.recordGamePlay = function (catIds) {
+          window.IZZBAH.recordGamePlay = function (payload) {
             if (!currentUser || !db) return Promise.resolve(false);
-            const ids = (Array.isArray(catIds) ? catIds : []).map(String).filter(Boolean).slice(0, 40);
-            const inc = firebase.firestore.FieldValue.increment(1);
-            const data = { gamesPlayed: inc, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            const p = Array.isArray(payload) ? { catIds: payload } : (payload || {});
+            const inc = n => firebase.firestore.FieldValue.increment(n);
+            const num = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
+            const data = { gamesPlayed: inc(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            const ids = (Array.isArray(p.catIds) ? p.catIds : []).map(String).filter(Boolean).slice(0, 40);
             if (ids.length) {
               const catObj = {};
-              ids.forEach(id => { catObj[id] = inc; });
+              ids.forEach(id => { catObj[id] = inc(1); });
               data.categoryPlays = catObj; // nested increments via set-merge
+            }
+            // per-day bucket (local date) -> weekly trend in the panel
+            const d = new Date(), p2 = n => String(n).padStart(2, "0");
+            data.days = {}; data.days[d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())] = inc(1);
+            const teams = num(p.teams, 8);
+            if (teams >= 2) { data.teamCounts = {}; data.teamCounts[String(teams)] = inc(1); }
+            const dur = num(p.durationSec, 6 * 3600);
+            if (dur > 0) { data.durationSum = inc(dur); data.durationCount = inc(1); }
+            if (["free", "allowance", "premium", "admin"].indexOf(p.credit) >= 0) {
+              data.credits = {}; data.credits[p.credit] = inc(1);
+            }
+            const answered = num(p.answered, 500), noAnswer = num(p.noAnswer, 500);
+            if (answered || noAnswer) data.answers = { answered: inc(answered), noAnswer: inc(noAnswer) };
+            const timedCount = num(p.timedCount, 500);
+            if (timedCount > 0) { data.answerSecsSum = inc(num(p.secsSum, 500 * 600)); data.answerTimedCount = inc(timedCount); }
+            if (p.helpers && typeof p.helpers === "object") {
+              const hm = {};
+              ["fourChoices", "firstLetter", "doublePoints"].forEach(k => { const n = num(p.helpers[k], 10); if (n > 0) hm[k] = inc(n); });
+              if (Object.keys(hm).length) data.helpers = hm;
             }
             return db.collection("stats").doc("global").set(data, { merge: true })
               .then(() => true)
