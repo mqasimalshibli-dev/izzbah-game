@@ -186,3 +186,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catinfo.mjs
+
+      - name: Run admin insights (stats) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node stats.mjs

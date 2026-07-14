@@ -4284,6 +4284,19 @@
     .prem-revoke { flex: none; background: #fbe9e9; color: #9a1c1c; border: 1px solid #e6b3b3; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-revoke:hover { background: #f6d6d6; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
+    /* ---- Admin insights (stats) ---- */
+    .stats-tiles { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
+    .stats-tile { flex: 1 1 130px; background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 11px; padding: 12px 14px; text-align: center; }
+    .stats-tile-num { font: 900 26px 'Cairo', sans-serif; color: #7a1414; line-height: 1.1; }
+    .stats-tile-lbl { font: 700 12.5px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; }
+    .stats-bars { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .stats-bar-row { background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 9px; padding: 8px 11px; }
+    .stats-bar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .stats-bar-name { font: 700 13.5px 'Cairo', sans-serif; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stats-bar-count { flex: none; font: 800 12.5px 'Cairo', sans-serif; color: #7a6738; }
+    .stats-bar-track { height: 9px; background: #e7dabb; border-radius: 6px; overflow: hidden; }
+    .stats-bar-fill { height: 100%; background: linear-gradient(90deg, #1b6a3f, #2f9e5e); border-radius: 6px; min-width: 3px; }
+    .stats-bar-row.rank-1 .stats-bar-fill { background: linear-gradient(90deg, #b8860b, #e7b54b); }
     .code-result {
       display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
       background: #f3ead3; border: 2px dashed #c9974a; border-radius: 12px; padding: 12px 14px; margin: 10px 0 4px;
@@ -5712,6 +5725,11 @@
             <span class="admin-choice-name">إدارة الاشتراكات</span>
             <span class="admin-choice-sub">منح اللاعبين اشتراكات وألعاباً</span>
           </button>
+          <button class="admin-choice-btn" id="adminChoiceStats" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">📊</span>
+            <span class="admin-choice-name">الإحصائيات</span>
+            <span class="admin-choice-sub">الفئات الأكثر لعباً وعدد الألعاب</span>
+          </button>
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
@@ -5776,6 +5794,27 @@
 
         <div class="prem-list-head"><span>الأكواد</span></div>
         <div class="prem-list" id="premList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="statsModal" aria-hidden="true">
+      <div class="question-modal premium-modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+        <h3 class="preview-title" id="statsTitle">📊 الإحصائيات</h3>
+        <p class="import-help">نظرة على استخدام اللعبة: عدد الألعاب المكتملة والفئات الأكثر لعباً. تُحتسب الألعاب التي وصلت إلى شاشة النتائج للاعبين المسجّلين.</p>
+
+        <div class="stats-tiles" id="statsTiles"></div>
+
+        <div class="prem-list-head">
+          <span>الفئات الأكثر لعباً</span>
+          <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
+        </div>
+        <div class="stats-bars" id="statsCats"></div>
+
+        <div class="prem-status" id="statsStatus" aria-live="polite"></div>
+
+        <div class="actions">
+          <button class="ghost" id="statsCancel" type="button">إغلاق</button>
+        </div>
       </div>
     </div>
 
@@ -8848,7 +8887,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.25";
+    const IZZBAH_BUILD = "2026-07-10.26";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11460,6 +11499,78 @@
       m.setAttribute("aria-hidden", "true");
     }
 
+    // ---- Admin: usage insights (most-played categories, games played) ------
+    function statsSetStatus(msg, kind) {
+      const el = $("#statsStatus");
+      if (!el) return;
+      el.textContent = msg || "";
+      el.className = "prem-status" + (kind ? " " + kind : "");
+    }
+    function openStatsModal() {
+      statsSetStatus("", "");
+      $("#statsTiles").innerHTML = "";
+      $("#statsCats").innerHTML = "";
+      const m = $("#statsModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+      refreshStats();
+    }
+    function closeStatsModal() {
+      const m = $("#statsModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    function catNameFromId(id) {
+      const c = (typeof allCategories === "function" ? allCategories() : []).find(x => x.id === id);
+      return (c && c.name) || id;
+    }
+    function renderStatsView(stats) {
+      const tiles = $("#statsTiles");
+      const cats = $("#statsCats");
+      const games = Math.max(0, Math.floor(Number(stats && stats.gamesPlayed) || 0));
+      const plays = (stats && stats.categoryPlays) || {};
+      const rows = Object.keys(plays)
+        .map(id => ({ id, n: Math.max(0, Math.floor(Number(plays[id]) || 0)) }))
+        .filter(r => r.n > 0)
+        .sort((a, b) => b.n - a.n)
+        .slice(0, 30);
+      tiles.innerHTML =
+        `<div class="stats-tile"><div class="stats-tile-num">${toArabicDigits(games)}</div><div class="stats-tile-lbl">لعبة مكتملة</div></div>`
+        + `<div class="stats-tile"><div class="stats-tile-num">${toArabicDigits(rows.length)}</div><div class="stats-tile-lbl">فئة لُعبت</div></div>`;
+      if (!rows.length) {
+        cats.innerHTML = '<div class="prem-empty">لا توجد بيانات بعد — ستظهر بعد أن يُكمل اللاعبون ألعابهم.</div>';
+        return;
+      }
+      const max = rows[0].n || 1;
+      cats.innerHTML = "";
+      rows.forEach((r, i) => {
+        const row = document.createElement("div");
+        row.className = "stats-bar-row" + (i === 0 ? " rank-1" : "");
+        const pct = Math.max(3, Math.round((r.n / max) * 100));
+        row.innerHTML =
+          `<div class="stats-bar-head"><span class="stats-bar-name">${toArabicDigits(i + 1)}. ${escapeHtml(catNameFromId(r.id))}</span>`
+          + `<span class="stats-bar-count">${toArabicDigits(r.n)}</span></div>`
+          + `<div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>`;
+        cats.appendChild(row);
+      });
+    }
+    function refreshStats() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadStats;
+      if (!bridge) { statsSetStatus("سجّل الدخول كمشرف لعرض الإحصائيات.", "err"); return; }
+      statsSetStatus("جارٍ التحميل…", "busy");
+      bridge()
+        .then(stats => { statsSetStatus("", ""); renderStatsView(stats || {}); })
+        .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
+    }
+    // Tally a FINISHED game (+ each category it used) into the global counters.
+    // Called once per game from renderResults, alongside the credit spend.
+    function recordGameStats() {
+      try {
+        const ids = [...(state.selected || [])].filter(Boolean).slice(0, 40);
+        if (window.IZZBAH && window.IZZBAH.recordGamePlay) window.IZZBAH.recordGamePlay(ids);
+      } catch (e) {}
+    }
+
     // ---- Admin: grant player subscriptions / game allowances --------------
     function premSetStatus(msg, kind) {
       const el = $("#premStatus");
@@ -13553,6 +13664,7 @@
       if (!state.gameCounted) {
         state.gameCounted = true;
         spendGameCredit();
+        recordGameStats(); // tally this finished game + its categories (global insights)
         saveLiveGame(); // persist the "counted" flag so a resume can't recharge
       }
 
@@ -14035,8 +14147,12 @@
     $("#adminEntry").addEventListener("click", openAdminChoice);
     $("#adminChoiceContent").addEventListener("click", () => { closeAdminChoice(); openAdminPanel(); });
     $("#adminChoiceSubs").addEventListener("click", () => { closeAdminChoice(); openPremiumModal(); });
+    $("#adminChoiceStats").addEventListener("click", () => { closeAdminChoice(); openStatsModal(); });
     $("#adminChoiceCancel").addEventListener("click", closeAdminChoice);
     $("#adminChoiceModal").addEventListener("click", event => { if (event.target.id === "adminChoiceModal") closeAdminChoice(); });
+    $("#statsCancel").addEventListener("click", closeStatsModal);
+    $("#statsRefresh").addEventListener("click", refreshStats);
+    $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", openImportModal);
@@ -14796,6 +14912,32 @@
                 return batch.commit();
               })
               .then(() => true);
+          };
+          // Global usage insights (admin panel). One tiny doc, stats/global,
+          // holds a total games counter + a map of per-category play counts.
+          // Each finished game increments it once (games + each category), so
+          // it stays cheap: one write per game, one read to render the panel.
+          // Signed-in players only (an unauthenticated device can't write it) —
+          // it's a soft counter, same trust model as the usage counters.
+          window.IZZBAH.recordGamePlay = function (catIds) {
+            if (!currentUser || !db) return Promise.resolve(false);
+            const ids = (Array.isArray(catIds) ? catIds : []).map(String).filter(Boolean).slice(0, 40);
+            const inc = firebase.firestore.FieldValue.increment(1);
+            const data = { gamesPlayed: inc, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            if (ids.length) {
+              const catObj = {};
+              ids.forEach(id => { catObj[id] = inc; });
+              data.categoryPlays = catObj; // nested increments via set-merge
+            }
+            return db.collection("stats").doc("global").set(data, { merge: true })
+              .then(() => true)
+              .catch(e => { console.warn("record game stats failed", e && (e.code || e)); return false; });
+          };
+          // Admin-only: read the global insights doc for the stats panel.
+          window.IZZBAH.loadStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("stats").doc("global").get()
+              .then(doc => (doc.exists ? (doc.data() || {}) : {}));
           };
           // Sum the signed-in player's redeemed codes into their play balance.
           // Resolves true when the (authoritative) query succeeded, false when
