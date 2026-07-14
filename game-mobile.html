@@ -8924,7 +8924,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.30";
+    const IZZBAH_BUILD = "2026-07-10.31";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13164,27 +13164,49 @@
     // the real subject — not a generated guess) and store it on `answerImage`
     // (the reveal), so it never spoils the question. Results are downscaled to a
     // data URL so the category stays self-contained and offline-capable.
-    function wikiSearchImage(query, lang) {
+    function wikiApi(lang, params) {
       const api = "https://" + lang + ".wikipedia.org/w/api.php";
-      const params = new URLSearchParams({
+      const p = new URLSearchParams(Object.assign({
         action: "query", format: "json", origin: "*",
-        prop: "pageimages", piprop: "thumbnail", pithumbsize: "800",
-        generator: "search", gsrsearch: query, gsrlimit: "3", gsrnamespace: "0",
-      });
-      return fetch(api + "?" + params.toString(), { referrerPolicy: "no-referrer" })
+        prop: "pageimages|pageprops", piprop: "thumbnail", pithumbsize: "800",
+      }, params));
+      return fetch(api + "?" + p.toString(), { referrerPolicy: "no-referrer" })
         .then(r => (r.ok ? r.json() : null))
-        .then(data => {
-          const pages = data && data.query && data.query.pages;
-          if (!pages) return "";
-          const arr = Object.keys(pages).map(k => pages[k])
-            .sort((a, b) => (a.index || 0) - (b.index || 0));
-          for (const p of arr) {
-            const src = p.thumbnail && p.thumbnail.source;
-            if (src) return src;
-          }
-          return "";
-        })
-        .catch(() => "");
+        .catch(() => null);
+    }
+    // Flatten an API response into ranked candidates {title, url, disambig}.
+    function wikiCandidates(data) {
+      const pages = data && data.query && data.query.pages;
+      if (!pages) return [];
+      return Object.keys(pages).map(k => pages[k])
+        .sort((a, b) => (a.index || 0) - (b.index || 0))
+        .map(p => ({
+          title: p.title || "",
+          url: (p.thumbnail && p.thumbnail.source) || "",
+          disambig: !!(p.pageprops && ("disambiguation" in p.pageprops)),
+        }));
+    }
+    // Generic wiki-asset images that are never a real photo of the subject
+    // (disambiguation icons, placeholders, logos of the wiki itself).
+    const WIKI_JUNK_IMG = /disambig|commons-logo|question_book|wiki_letter|text_document|edit-clear|red_x|no_image|placeholder|ambox|wikitext|symbol_support/i;
+    // Choose the most ACCURATE candidate: skip disambiguation pages and junk
+    // icons, then prefer the page whose TITLE best matches the answer —
+    // exact (normalized) match beats contains-match beats a mere search hit.
+    // With `strict`, only a real title match is accepted at all.
+    function pickAccurateImage(cands, answer, strict) {
+      const a = arNorm(answer).trim();
+      let best = null, bestScore = -1;
+      cands.forEach(c => {
+        if (!c.url || c.disambig || WIKI_JUNK_IMG.test(c.url)) return;
+        const t = arNorm(c.title).trim();
+        let score = 1; // has a usable image
+        if (t && a && t === a) score = 3;
+        else if (t && a.length >= 3 && (t.indexOf(a) >= 0 || a.indexOf(t) >= 0)) score = 2;
+        if (score > bestScore) { bestScore = score; best = c; }
+      });
+      if (!best) return "";
+      if (strict && bestScore < 2) return "";
+      return best.url;
     }
 
     // Salient words from the QUESTION text (original surface forms, filtered
@@ -13207,25 +13229,41 @@
       return out.slice(0, 4);
     }
 
-    // Find the best real photo for a question's answer. The search UNDERSTANDS
-    // the question: tier 1 is answer + the question's keywords (disambiguates
-    // people, films, places…), tier 2 falls back to the answer alone. A purely
-    // numeric answer (a year / count) is never searched bare — without the
-    // question's context that lands on an arbitrary page. Arabic Wikipedia is
-    // tried first (matches the game's language), then English.
+    // Find the best real photo for a question's answer — a DEEP, answer-first
+    // search. The ANSWER is the subject of the picture, so it is searched
+    // first and hardest, in escalating tiers:
+    //   1. exact article-title lookup of the answer (redirects followed) —
+    //      if the answer IS a Wikipedia article, its lead image is the
+    //      definitive picture;
+    //   2. title search (intitle:"answer") — pages NAMED after the answer,
+    //      accepted only when the title truly matches;
+    //   3. full-text search of the answer, best candidate by title match;
+    //   4. answer + the question's keywords — the disambiguation fallback
+    //      (and the only tier for purely numeric answers, which are never
+    //      searched bare: "1975" alone lands on an arbitrary year page).
+    // Every tier skips disambiguation pages and generic wiki icons, and picks
+    // the candidate whose TITLE best matches the answer — not merely the
+    // first search hit with any image. Arabic Wikipedia first, then English.
     async function findAnswerImageUrl(q) {
       const answer = ((q && q.a) || "").trim();
       if (!answer) return "";
       const kw = questionKeywords(q && q.q, answer);
       const numeric = /^[\d\s.,،%]+$/.test(answer);
-      const queries = [];
-      if (kw.length) queries.push(answer + " " + kw.join(" "));
-      if (!numeric) queries.push(answer);
       const hasArabic = /[؀-ۿ]/.test(answer + " " + kw.join(" "));
       const langs = hasArabic ? ["ar", "en"] : ["en", "ar"];
-      for (const query of queries) {
+      const tiers = [];
+      if (!numeric) {
+        tiers.push({ params: { titles: answer, redirects: "1" }, strict: false });
+        tiers.push({ params: { generator: "search", gsrsearch: 'intitle:"' + answer + '"', gsrlimit: "5", gsrnamespace: "0" }, strict: true });
+        tiers.push({ params: { generator: "search", gsrsearch: answer, gsrlimit: "5", gsrnamespace: "0" }, strict: false });
+      }
+      if (kw.length) {
+        tiers.push({ params: { generator: "search", gsrsearch: answer + " " + kw.join(" "), gsrlimit: "5", gsrnamespace: "0" }, strict: false });
+      }
+      for (const tier of tiers) {
         for (const lang of langs) {
-          const url = await wikiSearchImage(query, lang);
+          const data = await wikiApi(lang, tier.params);
+          const url = pickAccurateImage(wikiCandidates(data), answer, tier.strict);
           if (url) return url;
         }
       }
