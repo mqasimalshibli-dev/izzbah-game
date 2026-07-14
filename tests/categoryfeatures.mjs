@@ -60,6 +60,27 @@ try {
   check("on a رياكشنات question the four-choices slot is disabled", barGating.four === true);
   check("on a رياكشنات question the first-letter slot stays enabled", barGating.first === false);
 
+  // «من الي سجل؟» (voice-guess) is choice-free too — matched by id AND by name
+  const voiceGating = await page.evaluate(() => {
+    const byId = { id: "pub-1784043823835-6035", name: "اسم جديد تماماً" };   // renamed -> id still catches it
+    const byName = { id: "pub-777", name: "من اللي سجل؟" };                   // spelling variant -> name catches it
+    state.activeQuestion = { cat: byId, q: { q: "؟", a: "x", points: 100 }, team: 0 };
+    const bar = document.createElement("div");
+    renderTeamHelpBar(bar, 0, "question");
+    const slots = [...bar.querySelectorAll(".qhelp-slot")];
+    return {
+      byId: hidesMultipleChoice(byId),
+      byName: hidesMultipleChoice(byName),
+      keepsFirst: !isWordGuessCategory(byId),
+      four: slots[0] ? slots[0].disabled : null,
+      first: slots[1] ? slots[1].disabled : null,
+    };
+  });
+  check("«من الي سجل؟» hides multiple choice (by id, survives a rename)", voiceGating.byId);
+  check("«من اللي سجل؟» name variant hides multiple choice too", voiceGating.byName);
+  check("on a «من الي سجل؟» question the four-choices slot is disabled, first-letter stays",
+    voiceGating.four === true && voiceGating.first === false && voiceGating.keepsFirst);
+
   // ---- 2) per-category progress badge ----
   const prog = await page.evaluate(() => {
     // A cloud category with 5 questions; answer 2 of them.
