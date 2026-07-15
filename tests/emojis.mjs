@@ -139,7 +139,12 @@ try {
   const leading = await measure({ q: "😱🎬 خمن اسم الفيلم", a: "Scary Movie", points: 400 });
   check("an emojis-first question (the published shape) also splits",
     leading.ok && leading.split && /خمن اسم الفيلم/.test(leading.promptText) && !/🎬/u.test(leading.promptText)
-    && /🎬|😱/u.test(leading.emojiText) && leading.emojiBelow && leading.emojiPx >= 50);
+    && /🎬|😱/u.test(leading.emojiText) && leading.emojiBelow);
+  // Size canary: on a roomy desktop a normal clue must render at FULL size —
+  // if the fitter spuriously shrinks (e.g. platform font metrics making the
+  // fit loop never converge), this catches it.
+  check(`on a roomy desktop the emoji clue stays big (${Math.round(leading.emojiPx)}px)`,
+    leading.ok && leading.emojiPx >= 140);
 
   // (ii-b) a stray trailing RTL/invisible mark must NOT defeat the split
   const marked = await measure({ q: "خمن اسم الفيلم 🎬 😱‏", a: "فيلم", points: 100 });
@@ -168,7 +173,7 @@ try {
   check(`a long clue on a cramped screen fits its box with NO scrolling (${fit.overflow}px overflow)`,
     fit.split && fit.overflow <= 1);
   check("when shrunk to fit, the emojis stay proportionally bigger than the words",
-    fit.split && fit.emojiPx >= fit.promptPx * 1.2);
+    fit.split && fit.emojiPx >= fit.promptPx * 1.8);
   await page.setViewportSize({ width: 1280, height: 820 });
 
   // (iii) a PURE-emoji question renders WHOLE — no invented prompt line
