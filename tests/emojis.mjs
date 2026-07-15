@@ -146,6 +146,31 @@ try {
   check("a trailing invisible mark still splits (robust parser)",
     marked.ok && marked.split && /خمن اسم الفيلم/.test(marked.promptText) && /🎬|😱/u.test(marked.emojiText));
 
+  // (ii-c) everything FITS inside the question box — no scrolling. The emoji
+  //        line is em-based so the question fitter shrinks words+emojis
+  //        together on a cramped screen until the whole block fits.
+  await page.setViewportSize({ width: 900, height: 540 });
+  const fit = await page.evaluate(async () => {
+    const cat = { id: "emojis", name: "خمّن الإيموجي" };
+    const q = { q: "🦁👑🎬🍿🌍🎈🔥🥠 خمن اسم الفيلم من كل هذه الرموز الكثيرة في هذا السؤال الطويل جداً", a: "x", points: 500 };
+    state.activeQuestion = { cat, q, key: "t", team: 0 };
+    fillQuestionContent(cat, q);
+    showScreen("questionPage", { keepQuestion: true });
+    await new Promise(r => setTimeout(r, 450)); // let fitQuestionText's 2nd pass run
+    const el = document.getElementById("modalQuestion");
+    return {
+      split: !!document.querySelector("#modalQuestion .q-emojis"),
+      overflow: el.scrollHeight - el.clientHeight,
+      emojiPx: parseFloat(getComputedStyle(document.querySelector("#modalQuestion .q-emojis")).fontSize),
+      promptPx: parseFloat(getComputedStyle(document.querySelector("#modalQuestion .q-prompt")).fontSize),
+    };
+  });
+  check(`a long clue on a cramped screen fits its box with NO scrolling (${fit.overflow}px overflow)`,
+    fit.split && fit.overflow <= 1);
+  check("when shrunk to fit, the emojis stay proportionally bigger than the words",
+    fit.split && fit.emojiPx >= fit.promptPx * 3);
+  await page.setViewportSize({ width: 1280, height: 820 });
+
   // (iii) a PURE-emoji question renders WHOLE — no invented prompt line
   const pure = await measure({ q: "🦁👑", a: "الأسد الملك", points: 100 });
   check("a pure-emoji question is rendered whole with NO invented prompt",
