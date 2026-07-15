@@ -100,6 +100,49 @@ try {
   check(`the emoji question is vertically centered in the card (${Math.round(centered.offsetFromCenter)}px off, not ${Math.round(centered.fromTop)}px from top)`,
     centered.offsetFromCenter < centered.cardHeight * 0.18);
 
+  // ---- 4c) a prompt+emoji question puts the emojis on their own line BELOW ----
+  const split = await page.evaluate(() => {
+    const cat = { id: "pub-emoji-x", name: "خمّن الإيموجي (أجنبي)" };
+    const q = { q: "خمن اسم الشيء 🎨👶", a: "لوحة", points: 100 };
+    state.activeQuestion = { cat, q, key: "t", team: 0 };
+    fillQuestionContent(cat, q);
+    showScreen("questionPage", { keepQuestion: true });
+    const card = document.querySelector("#questionPage .question-main-card");
+    const prompt = document.querySelector("#modalQuestion .q-prompt");
+    const em = document.querySelector("#modalQuestion .q-emojis");
+    if (!prompt || !em) return { ok: false };
+    const pr = prompt.getBoundingClientRect(), er = em.getBoundingClientRect();
+    return {
+      ok: true,
+      split: card.classList.contains("emoji-split"),
+      promptText: prompt.textContent,
+      emojiText: em.textContent,
+      emojiIsBlock: getComputedStyle(em).display === "block",
+      emojiBelow: er.top >= pr.bottom - 2, // emoji line starts at/after the prompt ends
+      emojiBigger: parseFloat(getComputedStyle(em).fontSize) > parseFloat(getComputedStyle(prompt).fontSize),
+    };
+  });
+  check("a prompt+emoji question is split into prompt + emoji spans", split.ok && split.split);
+  check("the prompt keeps the words and the emoji line carries the emojis",
+    split.ok && /خمن اسم الشيء/.test(split.promptText) && /🎨|👶/u.test(split.emojiText) && !/🎨/u.test(split.promptText));
+  check("the emojis sit on their OWN line BELOW the prompt, and larger",
+    split.ok && split.emojiIsBlock && split.emojiBelow && split.emojiBigger);
+
+  // a pure-emoji / rebus question is NOT split (rendered whole)
+  const noSplit = await page.evaluate(() => {
+    const cat = { id: "emojis", name: "خمّن الإيموجي" };
+    const results = {};
+    [["🦁👑", "pure"], ["🐦🤲 خير من 🔟🌳", "rebus"]].forEach(([qtext, k]) => {
+      fillQuestionContent(cat, { q: qtext, a: "x", points: 100 });
+      const card = document.querySelector("#questionPage .question-main-card");
+      results[k] = { split: card.classList.contains("emoji-split"), hasEmojiSpan: !!document.querySelector("#modalQuestion .q-emojis"), text: document.getElementById("modalQuestion").textContent };
+    });
+    return results;
+  });
+  check("a pure-emoji question is NOT split (shown whole)", noSplit.pure.split === false && noSplit.pure.hasEmojiSpan === false);
+  check("an interleaved rebus (proverb) is NOT split (order preserved)",
+    noSplit.rebus.split === false && noSplit.rebus.text.includes("خير من"));
+
   // ---- 5) four-choices for an emoji question yields 4 distinct options ----
   const opts = await page.evaluate(() => {
     const c = { id: "emojis", name: "خمّن الإيموجي" };

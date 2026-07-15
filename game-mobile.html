@@ -4985,6 +4985,10 @@
       margin-top: auto !important; margin-bottom: auto !important;
       font-size: clamp(40px, 6vw, 74px) !important;
     }
+    /* Prompt + emojis-on-their-own-line: readable prompt, big emoji clue below. */
+    #questionPage .question-main-card.emoji-split .question-text { font-size: clamp(24px, 3.2vw, 38px) !important; }
+    #questionPage .question-main-card.emoji-split .q-prompt { display: block; }
+    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .4em; font-size: 2em; line-height: 1.15; }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
@@ -8875,6 +8879,21 @@
       if (String(cat.id || "") === "emojis") return true;
       return /إيموجي|ايموجي|إيموجى|emoji/i.test(String(cat.name || ""));
     }
+    // Split an emoji-category question into a text PROMPT + a trailing EMOJI run,
+    // so the emojis can be shown big on their own line under the prompt. Only
+    // splits when there's real prompt text AND trailing emojis and the prompt
+    // itself has no emoji — a pure-emoji or interleaved rebus (e.g. a proverb)
+    // returns null and is rendered as-is.
+    const HAS_EMOJI = /\p{Extended_Pictographic}/u;
+    function emojiQuestionParts(text) {
+      const s = String(text == null ? "" : text);
+      const m = s.match(/([\p{Extended_Pictographic}‍️⃣\u{1f3fb}-\u{1f3ff}\s]+)$/u);
+      if (!m) return null;
+      const emojis = m[1].trim();
+      const prompt = s.slice(0, m.index).trim();
+      if (!prompt || !HAS_EMOJI.test(emojis) || HAS_EMOJI.test(prompt)) return null;
+      return { prompt, emojis };
+    }
     // Categories where the four-choices (multiple choice) helper is hidden.
     function hidesMultipleChoice(cat) {
       return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat);
@@ -8995,7 +9014,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.38";
+    const IZZBAH_BUILD = "2026-07-10.39";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13961,16 +13980,28 @@
       $("#modalPoints").innerHTML = `<span class="clean-number">${escapeHtml(toArabicDigits(q.points))}</span> نقطة${x2}`;
       $("#answerCategory").textContent = toArabicDigits(cat.name);
       $("#answerPoints").innerHTML = `<span class="clean-number">${escapeHtml(toArabicDigits(q.points))}</span> نقطة${x2}`;
-      $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
+      const emojiCat = isEmojiCategory(cat);
+      const qParts = emojiCat ? emojiQuestionParts(q.q || "") : null;
+      if (qParts) {
+        $("#modalQuestion").innerHTML =
+          `<span class="q-prompt">${escapeHtml(toArabicDigits(qParts.prompt))}</span>`
+          + `<span class="q-emojis">${escapeHtml(qParts.emojis)}</span>`;
+      } else {
+        $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
+      }
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
       // Word-game questions with no stored image (e.g. from a published
       // override) fall back to the built-in QR matching this exact word.
       const qImage = q.image || (isWordGuessCategory(cat) ? (wordQrFor(cat.id, q.a) || makeWordQr(q.a)) : "");
       showMedia($("#modalQuestionImage"), qImage, "question");
       showMedia($("#modalAnswerImage"), q.answerImage || "", "answer");
-      // Center a short emoji puzzle in the card instead of anchoring it high.
+      // Center a short emoji puzzle in the card instead of anchoring it high;
+      // `emoji-split` styles the prompt + its own emoji line underneath.
       const qcard = document.querySelector("#questionPage .question-main-card");
-      if (qcard) qcard.classList.toggle("emoji-q", isEmojiCategory(cat));
+      if (qcard) {
+        qcard.classList.toggle("emoji-q", emojiCat);
+        qcard.classList.toggle("emoji-split", !!qParts);
+      }
     }
 
     function openQuestion(cat, q, key) {
