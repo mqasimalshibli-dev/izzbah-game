@@ -224,6 +224,10 @@ try {
   });
   check("a community/custom category gets a real name-aware description",
     desc.custom.includes("أساطير") && !/تحتوي على/.test(desc.custom) && desc.custom.length > 12);
+  // the fallback must NEVER state a question count (no "N سؤالًا")
+  const noCount = s => !/سؤال/.test(s) && !/[٠-٩]/.test(s) && !/\d/.test(s);
+  check("the description never states how many questions are left",
+    noCount(desc.custom) && noCount(desc.empty));
   check("an explicit description field is used verbatim", desc.explicit === "وصف مخصّص من المشرف");
   check("a known category keeps its curated description", /التاريخ|حضارات/.test(desc.known));
   check("word-guess categories describe the charades flow", /تمثيل صامت|QR/.test(desc.word));
