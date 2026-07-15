@@ -4985,10 +4985,11 @@
       margin-top: auto !important; margin-bottom: auto !important;
       font-size: clamp(40px, 6vw, 74px) !important;
     }
-    /* Prompt + emojis-on-their-own-line: readable prompt, big emoji clue below. */
-    #questionPage .question-main-card.emoji-split .question-text { font-size: clamp(24px, 3.2vw, 38px) !important; }
+    /* Prompt + emojis-on-their-own-line: readable question on top, BIG emoji
+       clue on its own line below. */
+    #questionPage .question-main-card.emoji-split .question-text { font-size: clamp(22px, 3vw, 34px) !important; }
     #questionPage .question-main-card.emoji-split .q-prompt { display: block; }
-    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .4em; font-size: 2em; line-height: 1.15; }
+    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .35em; font-size: clamp(58px, 9vw, 116px); line-height: 1.15; }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
@@ -8885,15 +8886,22 @@
     // itself has no emoji — a pure-emoji or interleaved rebus (e.g. a proverb)
     // returns null and is rendered as-is.
     const HAS_EMOJI = /\p{Extended_Pictographic}/u;
-    // Shown as the question line above the emoji puzzle when a question carries
-    // no worded prompt of its own (i.e. it's just emojis / a rebus).
-    const EMOJI_DEFAULT_PROMPT = "خمّنوا الإجابة من الرموز";
     function emojiQuestionParts(text) {
-      const s = String(text == null ? "" : text);
+      // Strip trailing whitespace AND invisible marks (Arabic RTL/LTR marks,
+      // zero-width chars, BOM) first — otherwise a stray directional mark after
+      // the emojis, which RTL editors slip in, would defeat the `$` anchor and
+      // the split would silently fail.
+      const s = String(text == null ? "" : text)
+        .replace(/[\s​-‏‪-‮⁦-⁩﻿]+$/u, "");
+      // Trailing run of emoji glyphs (with their modifiers: ZWJ, variation
+      // selector, keycap combiner, skin-tone) plus the spaces between them.
       const m = s.match(/([\p{Extended_Pictographic}‍️⃣\u{1f3fb}-\u{1f3ff}\s]+)$/u);
       if (!m) return null;
       const emojis = m[1].trim();
       const prompt = s.slice(0, m.index).trim();
+      // Split only when there's a worded question BEFORE the emojis and none
+      // mixed INTO it. Pure-emoji (no prompt) and interleaved rebus (emoji in
+      // the prompt) return null and are rendered whole.
       if (!prompt || !HAS_EMOJI.test(emojis) || HAS_EMOJI.test(prompt)) return null;
       return { prompt, emojis };
     }
@@ -9017,7 +9025,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.40";
+    const IZZBAH_BUILD = "2026-07-10.41";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13984,18 +13992,14 @@
       $("#answerCategory").textContent = toArabicDigits(cat.name);
       $("#answerPoints").innerHTML = `<span class="clean-number">${escapeHtml(toArabicDigits(q.points))}</span> نقطة${x2}`;
       const emojiCat = isEmojiCategory(cat);
+      // In the emoji category, a worded question ("خمن اسم الفيلم 🎬😱") shows
+      // its words on top with the emojis BIG on their own line underneath.
+      // Pure-emoji or rebus questions are rendered whole (already just emojis).
       const qParts = emojiCat ? emojiQuestionParts(q.q || "") : null;
-      if (emojiCat) {
-        // The puzzle IS the emojis, so give the card a real question line and
-        // put the emojis big on their OWN line underneath it. If the question
-        // already has worded text before its emojis, that text is the prompt;
-        // otherwise (pure-emoji or a rebus) show the standard emoji prompt and
-        // render the whole puzzle on the line below.
-        const promptText = qParts ? qParts.prompt : EMOJI_DEFAULT_PROMPT;
-        const emojiText = qParts ? qParts.emojis : (q.q || "");
+      if (qParts) {
         $("#modalQuestion").innerHTML =
-          `<span class="q-prompt">${escapeHtml(toArabicDigits(promptText))}</span>`
-          + `<span class="q-emojis">${escapeHtml(emojiText)}</span>`;
+          `<span class="q-prompt">${escapeHtml(toArabicDigits(qParts.prompt))}</span>`
+          + `<span class="q-emojis">${escapeHtml(qParts.emojis)}</span>`;
       } else {
         $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       }
@@ -14010,7 +14014,7 @@
       const qcard = document.querySelector("#questionPage .question-main-card");
       if (qcard) {
         qcard.classList.toggle("emoji-q", emojiCat);
-        qcard.classList.toggle("emoji-split", emojiCat);
+        qcard.classList.toggle("emoji-split", !!qParts);
       }
     }
 
