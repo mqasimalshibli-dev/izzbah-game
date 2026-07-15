@@ -8947,7 +8947,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.32";
+    const IZZBAH_BUILD = "2026-07-10.33";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13181,6 +13181,63 @@
       } catch (e) { seerahFixBusy = false; }
     }
 
+    // ---- One-time content install: «مواقع في عمان» ---------------------------
+    // The category was published EMPTY (blank placeholder docs). This fills it
+    // once with the agent-authored, fact-checked photo-quiz bank below — every
+    // question pinned to its site's Wikipedia article (w + lang) so the install
+    // fetches an accurate photo of the site for BOTH the question and the
+    // answer side. Guards: admin device only; runs ONLY while the category is
+    // still empty (existing content is never overwritten); photo-ID questions
+    // (pid) are dropped if their photo can't be fetched (they need the image).
+    const OMAN_SITES_CATEGORY_ID = "pub-1783170059396-601";
+    const OMAN_SITES_INSTALL_KEY = "izzbah-datafix-oman-sites-v1";
+    const OMAN_SITES_INSTALL = [
+      /* OMAN_SITES_DATA */
+    ];
+    let omanInstallBusy = false;
+    function maybeInstallOmanSites() {
+      try {
+        if (omanInstallBusy || !state.isAdmin) return;
+        if (!OMAN_SITES_INSTALL.length) return;
+        if (localStorage.getItem(OMAN_SITES_INSTALL_KEY)) return;
+        const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
+        if (!cloud) return;
+        const cat = (state.publishedCategories || []).find(c => c.id === OMAN_SITES_CATEGORY_ID);
+        if (!cat || !Array.isArray(cat.questions)) return;
+        // ONLY-IF-EMPTY: the moment the category carries any real question,
+        // this installer permanently stands down.
+        if (overrideHasQuestions(cat)) { try { localStorage.setItem(OMAN_SITES_INSTALL_KEY, "1"); } catch (e) {} return; }
+        omanInstallBusy = true;
+        installOmanSites(cat, cloud).catch(() => {}).then(() => { omanInstallBusy = false; });
+      } catch (e) { omanInstallBusy = false; }
+    }
+    async function installOmanSites(cat, cloud) {
+      showToast("⏳ جارٍ تجهيز فئة «مواقع في عمان» وجلب صور المواقع…");
+      const out = [];
+      for (const item of OMAN_SITES_INSTALL) {
+        const entry = {
+          points: item.points, q: item.q, a: item.a,
+          distractors: item.d.slice(0, 3), image: "", answerImage: ""
+        };
+        try {
+          const data = await wikiApi(item.lang || "ar", { titles: item.w, redirects: "1" });
+          const url = pickAccurateImage(wikiCandidates(data), item.w, false);
+          if (url) {
+            const img = await remoteImageToDataUrl(url);
+            entry.image = img;        // the site, shown WITH the question
+            entry.answerImage = img;  // and again on the reveal
+          }
+        } catch (e) {}
+        if (item.pid && !entry.image) continue; // photo-ID needs its photo
+        out.push(entry);
+      }
+      if (!out.length) return;
+      cat.questions = out;
+      await cloud(cat);
+      try { localStorage.setItem(OMAN_SITES_INSTALL_KEY, "1"); } catch (e) {}
+      showToast("✅ اكتمل تجهيز فئة «مواقع في عمان» — " + toArabicDigits(out.length) + " سؤالاً بصور المواقع");
+    }
+
     // ---- Auto-fetch answer photos from Wikipedia / Wikimedia Commons --------
     // Free, no API key, works from the browser (Wikimedia serves CORS + the API
     // supports origin=*). We look up the ANSWER's page image (a real photo of
@@ -14809,6 +14866,7 @@
       renderPlayBalance();
       maybeFixGeoDistractors();
       maybeFixSeerahDistractors();
+      maybeInstallOmanSites();
     };
     // Driven by watchEntitlement from the cloud entitlement doc. `active` = an
     // unlimited subscription; `info.gamesAllowed` = a finite granted allowance.
@@ -14881,6 +14939,7 @@
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
       maybeFixGeoDistractors();
       maybeFixSeerahDistractors();
+      maybeInstallOmanSites();
     };
     window.IZZBAH.applyCommunity = function (cats) {
       // Public pool = APPROVED categories only, most-voted first.
