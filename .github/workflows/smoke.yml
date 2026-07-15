@@ -193,6 +193,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node orders.mjs
 
+      - name: Run oman-sites install test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node omansites.mjs
+
       - name: Run admin insights (stats) test
         working-directory: tests
         run: |

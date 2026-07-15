@@ -64,7 +64,7 @@ try {
     window.fetch = function (url, opts) {
       const u = String(url);
       if (u.includes("wikipedia.org/w/api.php")) {
-        const dec = decodeURIComponent(u);
+        const dec = decodeURIComponent(u).replace(/\+/g, " "); // URLSearchParams encodes space as '+'
         const rejected = (window.__rejectPid && dec.includes(window.__rejectPid))
           || (window.__rejectPlain && dec.includes(window.__rejectPlain));
         const m = dec.match(/titles=([^&]+)/);
@@ -100,7 +100,7 @@ try {
       allReal: qs.every(x => x.q && x.a && Array.isArray(x.distractors) && x.distractors.length === 3),
       withImages: qs.filter(x => (x.image || "").startsWith("data:image/")).length,
       bothSides: qs.filter(x => x.image).every(x => x.image === x.answerImage),
-      pidDropped: rejectedPid ? !qs.some(x => x.q === rejectedPid.q) : false,
+      pidDropped: rejectedPid ? !qs.some(x => x.a === rejectedPid.a) : false, // answer is unique per site
       plainKept: !!plainEntry && plainEntry.image === "",
       marker: localStorage.getItem("izzbah-datafix-oman-sites-v1"),
     };
