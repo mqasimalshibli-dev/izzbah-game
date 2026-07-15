@@ -17,28 +17,19 @@
 
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
-Repo-level agents and named workflows exist for the content pipeline. HARD
-RULE from the owner: **never change existing questions or pictures** — every
-audit/review is REPORT-ONLY (findings go to the owner), and the authoring
-pipeline only drafts NEW banks; publishing anything remains a separate,
-explicit owner-approved step.
+Deliberately minimal, per the owner: ONLY the pictures and safety agents are
+kept. The question-authoring/fact-check/audit/insights agents were removed on
+purpose — do NOT re-add or use agents to write, curate, verify, or audit
+questions. HARD RULE: every agent here is REPORT-ONLY and never changes
+existing questions or pictures; findings go to the owner, who acts.
 
-- Workflow `author-category` — draft → adversarial fact-check panel →
-  curate, for ONE new/empty category. args: `{name, guidance?, perTier?,
-  strict?}` (strict auto-enables for religious topics: 3 refuters,
-  zero-tolerance). Invoke when the user says e.g. "generate questions for
-  مواقع في عمان".
-- Workflow `audit-content` — one `content-auditor` per published category,
-  every flagged issue confirmed by two `fact-checker` agents. args:
-  `{categories?: [ids]}`, omit = whole catalog.
 - Workflow `review-images` — one `image-reviewer` (vision) per category over
   the stored question/answer photos; returns a flagged list only.
-- Agent `community-reviewer` — pre-screens ONE pending community submission
-  (caller passes the data in); recommendation only, the admin approves in-game.
-- Agent `insights-analyst` — turns stats/codes/usage data (caller passes it
-  in) into ranked, zero-cost content/business actions.
-- Agents `question-writer` / `fact-checker` — the building blocks the
-  workflows use; also usable standalone for one-off questions.
+- Agent `image-reviewer` — the pictures agent; decodes and LOOKS at stored
+  images, flags mismatches/spoilers. Report-only.
+- Agent `community-reviewer` — the safety agent; pre-screens ONE pending
+  community submission (caller passes the data in) for safety/quality/dupes.
+  Recommendation only — the admin approves in-game.
 
 ## Standing conventions in this repo
 
