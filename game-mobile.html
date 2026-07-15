@@ -4991,11 +4991,13 @@
        until everything fits inside the question box with no scrolling. */
     #questionPage .question-main-card.emoji-split .question-text { font-size: clamp(22px, 3vw, 34px) !important; }
     #questionPage .question-main-card.emoji-split .q-prompt { display: block; }
-    /* line-height 1.4 + padding: color-emoji glyph boxes (esp. Windows Segoe
-       UI Emoji) are TALLER than 1.1em — a tight line box overflows by a few px
-       at EVERY font size, which made the fitter shrink forever until the
-       emojis ended up tiny. Room here lets the fit converge at full size. */
-    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .3em; font-size: 5em; line-height: 1.4; padding: .05em 0 .1em; }
+    /* line-height NORMAL: color-emoji fonts (Noto/Segoe/Apple) have glyph
+       boxes taller than any fixed line-height we pick — a fixed value leaves
+       a few px of PROPORTIONAL overflow at every size, which made the fitter
+       shrink forever until the emojis ended up tiny. `normal` sizes the line
+       box from the actual emoji font's own metrics, so it fits on every
+       platform by construction. */
+    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .3em; font-size: 5em; line-height: normal; }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
@@ -9039,7 +9041,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.47";
+    const IZZBAH_BUILD = "2026-07-10.48";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9978,7 +9980,14 @@
       const emojiLine = el.querySelector(".q-emojis");
       if (emojiLine) emojiLine.style.removeProperty("font-size");
       const overlaps = () => {
-        if (el.scrollHeight > el.clientHeight + 1) return true; // exceeds its own box
+        // Emoji clue: allow a small PROPORTIONAL slack — emoji glyph boxes can
+        // exceed the line box by a few px on some platforms at every size, and
+        // treating that as overflow makes shrinking a death spiral. A real
+        // overflow (an extra wrapped line) is a whole em, far beyond the slack.
+        const slack = emojiLine
+          ? Math.max(6, (parseFloat(getComputedStyle(emojiLine).fontSize) || 0) * 0.15)
+          : 1;
+        if (el.scrollHeight > el.clientHeight + slack) return true; // exceeds its own box
         const t = el.getBoundingClientRect();
         if (reveal) { const r = reveal.getBoundingClientRect(); if (r.height && t.bottom > r.top + 1 && t.top < r.bottom) return true; }
         for (const bEl of badges) {
