@@ -100,17 +100,18 @@ try {
   check(`the emoji question is vertically centered in the card (${Math.round(centered.offsetFromCenter)}px off, not ${Math.round(centered.fromTop)}px from top)`,
     centered.offsetFromCenter < centered.cardHeight * 0.18);
 
-  // ---- 4c) a prompt+emoji question puts the emojis on their own line BELOW ----
-  const split = await page.evaluate(() => {
-    const cat = { id: "pub-emoji-x", name: "خمّن الإيموجي (أجنبي)" };
-    const q = { q: "خمن اسم الشيء 🎨👶", a: "لوحة", points: 100 };
+  // ---- 4c) EVERY emoji question shows a prompt line with the emojis on their
+  //          OWN line below it — the puzzle is the emojis, so the card always
+  //          has a real question line above them. ----
+  const measure = async (q) => page.evaluate((q) => {
+    const cat = { id: "emojis", name: "خمّن الإيموجي" };
     state.activeQuestion = { cat, q, key: "t", team: 0 };
     fillQuestionContent(cat, q);
     showScreen("questionPage", { keepQuestion: true });
     const card = document.querySelector("#questionPage .question-main-card");
     const prompt = document.querySelector("#modalQuestion .q-prompt");
     const em = document.querySelector("#modalQuestion .q-emojis");
-    if (!prompt || !em) return { ok: false };
+    if (!prompt || !em) return { ok: false, split: card.classList.contains("emoji-split") };
     const pr = prompt.getBoundingClientRect(), er = em.getBoundingClientRect();
     return {
       ok: true,
@@ -121,27 +122,28 @@ try {
       emojiBelow: er.top >= pr.bottom - 2, // emoji line starts at/after the prompt ends
       emojiBigger: parseFloat(getComputedStyle(em).fontSize) > parseFloat(getComputedStyle(prompt).fontSize),
     };
-  });
-  check("a prompt+emoji question is split into prompt + emoji spans", split.ok && split.split);
-  check("the prompt keeps the words and the emoji line carries the emojis",
-    split.ok && /خمن اسم الشيء/.test(split.promptText) && /🎨|👶/u.test(split.emojiText) && !/🎨/u.test(split.promptText));
-  check("the emojis sit on their OWN line BELOW the prompt, and larger",
-    split.ok && split.emojiIsBlock && split.emojiBelow && split.emojiBigger);
+  }, q);
 
-  // a pure-emoji / rebus question is NOT split (rendered whole)
-  const noSplit = await page.evaluate(() => {
-    const cat = { id: "emojis", name: "خمّن الإيموجي" };
-    const results = {};
-    [["🦁👑", "pure"], ["🐦🤲 خير من 🔟🌳", "rebus"]].forEach(([qtext, k]) => {
-      fillQuestionContent(cat, { q: qtext, a: "x", points: 100 });
-      const card = document.querySelector("#questionPage .question-main-card");
-      results[k] = { split: card.classList.contains("emoji-split"), hasEmojiSpan: !!document.querySelector("#modalQuestion .q-emojis"), text: document.getElementById("modalQuestion").textContent };
-    });
-    return results;
-  });
-  check("a pure-emoji question is NOT split (shown whole)", noSplit.pure.split === false && noSplit.pure.hasEmojiSpan === false);
-  check("an interleaved rebus (proverb) is NOT split (order preserved)",
-    noSplit.rebus.split === false && noSplit.rebus.text.includes("خير من"));
+  // (i) a worded question keeps its text as the prompt, emojis on the line below
+  const worded = await measure({ q: "خمن اسم الشيء 🎨👶", a: "لوحة", points: 100 });
+  check("a worded emoji question splits into prompt + emoji spans", worded.ok && worded.split);
+  check("its worded text is the prompt and the emoji line carries the emojis",
+    worded.ok && /خمن اسم الشيء/.test(worded.promptText) && /🎨|👶/u.test(worded.emojiText) && !/🎨/u.test(worded.promptText));
+  check("the emojis sit on their OWN line BELOW the prompt, and larger",
+    worded.ok && worded.emojiIsBlock && worded.emojiBelow && worded.emojiBigger);
+
+  // (ii) a PURE-emoji question gets a standard guiding prompt, emojis below it
+  const pure = await measure({ q: "🦁👑", a: "الأسد الملك", points: 100 });
+  check("a pure-emoji question still gets a prompt line with the emojis below",
+    pure.ok && pure.split && pure.promptText.trim().length > 3 && !/[🦁👑]/u.test(pure.promptText)
+    && /🦁|👑/u.test(pure.emojiText) && pure.emojiIsBlock && pure.emojiBelow && pure.emojiBigger);
+
+  // (iii) a rebus proverb (emoji interleaved with words) is shown WHOLE on the
+  //       emoji line (order preserved), still under the guiding prompt
+  const rebus = await measure({ q: "🐦🤲 خير من 🔟🌳", a: "مثل", points: 100 });
+  check("a rebus proverb renders whole on the emoji line, order preserved",
+    rebus.ok && rebus.split && /🐦/u.test(rebus.emojiText) && rebus.emojiText.includes("خير من")
+    && rebus.emojiBelow && !/[🐦🤲]/u.test(rebus.promptText));
 
   // ---- 5) four-choices for an emoji question yields 4 distinct options ----
   const opts = await page.evaluate(() => {
