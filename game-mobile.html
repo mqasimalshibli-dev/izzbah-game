@@ -8947,7 +8947,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.35";
+    const IZZBAH_BUILD = "2026-07-10.36";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10735,11 +10735,11 @@
       // 2) a hand-written description for a known category
       const known = categoryDescriptions[cat.id];
       if (known) return known;
-      // 3) a real, name-aware fallback so NO category is ever left description-less
-      //    (community / custom / newly-published categories used to show a bland
-      //    "فئة · N سؤالًا" placeholder — this reads like an actual description).
+      // 3) a real, name-aware fallback so NO category is ever left description-less.
+      //    It never states a question COUNT — just what the category is about and
+      //    an invite (an empty category gets a "coming soon" note, no number).
       const name = (cat.name || "").trim();
-      const n = (cat.questions || []).filter(q => (q && q.q || "").trim() || (q && q.a || "").trim()).length;
+      const hasQuestions = categoryHasQuestions(cat);
       if (isWordGuessCategory(cat)) {
         return "تمثيل صامت — امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.";
       }
@@ -10749,7 +10749,7 @@
       }
       const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "";
       const lead = name ? `أسئلة منوّعة في «${name}»` : "أسئلة منوّعة ممتعة";
-      const tail = n ? ` — ${toArabicDigits(n)} سؤالًا بانتظار فريقك.` : " — قريباً، لا توجد أسئلة بعد.";
+      const tail = hasQuestions ? " — جهّزوا فرقكم وابدؤوا التحدّي!" : " — قريباً، لا توجد أسئلة بعد.";
       return (who ? who + " · " : "") + lead + tail;
     }
 
