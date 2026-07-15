@@ -4991,7 +4991,11 @@
        until everything fits inside the question box with no scrolling. */
     #questionPage .question-main-card.emoji-split .question-text { font-size: clamp(22px, 3vw, 34px) !important; }
     #questionPage .question-main-card.emoji-split .q-prompt { display: block; }
-    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .35em; font-size: 4em; line-height: 1.1; }
+    /* line-height 1.4 + padding: color-emoji glyph boxes (esp. Windows Segoe
+       UI Emoji) are TALLER than 1.1em — a tight line box overflows by a few px
+       at EVERY font size, which made the fitter shrink forever until the
+       emojis ended up tiny. Room here lets the fit converge at full size. */
+    #questionPage .question-main-card.emoji-split .q-emojis { display: block; margin-top: .3em; font-size: 5em; line-height: 1.4; padding: .05em 0 .1em; }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
@@ -9035,7 +9039,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.46";
+    const IZZBAH_BUILD = "2026-07-10.47";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9997,19 +10001,19 @@
       // ratio itself down until everything fits — words stay legible, the
       // emojis give up size only as a last resort.
       if (emojiLine) {
-        let ratio = 4;
+        // Floors are deliberately conservative: the emojis never drop below
+        // 2x the words, and the words never below 13px — a fit problem the
+        // floors can't solve falls back to the box's own scroll instead of
+        // collapsing the puzzle into unreadably tiny glyphs.
+        let ratio = 5; // must match the .q-emojis stylesheet em ratio
         let g2 = 12;
-        while (g2-- > 0 && ratio > 1.25 && overlaps()) {
+        while (g2-- > 0 && ratio > 2 && overlaps()) {
           ratio -= 0.25;
           emojiLine.style.setProperty("font-size", ratio + "em", "important");
         }
-        // Absolute last resort (tiny screen + heavy clue + wide platform
-        // fonts): take the words slightly below the normal floor. The emoji
-        // line is em-based so it scales down along with them, which is what
-        // finally guarantees the block fits with no scrolling.
-        let g3 = 6;
-        while (g3-- > 0 && size > 11 && overlaps()) {
-          size = Math.max(11, size - 1);
+        let g3 = 4;
+        while (g3-- > 0 && size > 13 && overlaps()) {
+          size = Math.max(13, size - 1);
           el.style.setProperty("font-size", size + "px", "important");
         }
       }
