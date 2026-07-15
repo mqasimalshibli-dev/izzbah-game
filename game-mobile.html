@@ -9035,7 +9035,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.45";
+    const IZZBAH_BUILD = "2026-07-10.46";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9999,9 +9999,18 @@
       if (emojiLine) {
         let ratio = 4;
         let g2 = 12;
-        while (g2-- > 0 && ratio > 1.5 && overlaps()) {
+        while (g2-- > 0 && ratio > 1.25 && overlaps()) {
           ratio -= 0.25;
           emojiLine.style.setProperty("font-size", ratio + "em", "important");
+        }
+        // Absolute last resort (tiny screen + heavy clue + wide platform
+        // fonts): take the words slightly below the normal floor. The emoji
+        // line is em-based so it scales down along with them, which is what
+        // finally guarantees the block fits with no scrolling.
+        let g3 = 6;
+        while (g3-- > 0 && size > 11 && overlaps()) {
+          size = Math.max(11, size - 1);
+          el.style.setProperty("font-size", size + "px", "important");
         }
       }
     }
