@@ -4979,6 +4979,12 @@
       width: 100%;
       max-height: calc(var(--game-vh, 100dvh) * 0.72);
     }
+    /* Emoji puzzle: center it vertically (and enlarge) so a short prompt fills
+       the card instead of hugging the top on wide/desktop screens. */
+    #questionPage .question-main-card.emoji-q .question-text {
+      margin-top: auto !important; margin-bottom: auto !important;
+      font-size: clamp(40px, 6vw, 74px) !important;
+    }
     /* reveal button: hang from bottom edge (inline-end = left) */
     #questionPage .question-main-card #questionActions { left: 36px !important; right: auto !important; bottom: env(safe-area-inset-bottom, 0px) !important; }
     #questionPage #revealAnswer {
@@ -8860,6 +8866,15 @@
       if (CHOICE_FREE_CATEGORY_IDS.has(String(cat.id || ""))) return true;
       return /من\s*الل?ي\s*سجل/.test(String(cat.name || ""));
     }
+    // Emoji-guess categories: the "question" is a short emoji puzzle, so it must
+    // be CENTERED in the question card (a short puzzle would otherwise sit at the
+    // top with a big empty area below on wide/desktop screens). Matched by the
+    // built-in id and by name (covers admin/cloud emoji categories too).
+    function isEmojiCategory(cat) {
+      if (!cat) return false;
+      if (String(cat.id || "") === "emojis") return true;
+      return /إيموجي|ايموجي|إيموجى|emoji/i.test(String(cat.name || ""));
+    }
     // Categories where the four-choices (multiple choice) helper is hidden.
     function hidesMultipleChoice(cat) {
       return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat);
@@ -8980,7 +8995,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.37";
+    const IZZBAH_BUILD = "2026-07-10.38";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13953,6 +13968,9 @@
       const qImage = q.image || (isWordGuessCategory(cat) ? (wordQrFor(cat.id, q.a) || makeWordQr(q.a)) : "");
       showMedia($("#modalQuestionImage"), qImage, "question");
       showMedia($("#modalAnswerImage"), q.answerImage || "", "answer");
+      // Center a short emoji puzzle in the card instead of anchoring it high.
+      const qcard = document.querySelector("#questionPage .question-main-card");
+      if (qcard) qcard.classList.toggle("emoji-q", isEmojiCategory(cat));
     }
 
     function openQuestion(cat, q, key) {

@@ -83,6 +83,23 @@ try {
   check("the emoji puzzle renders as the question text", /🦁|👑/u.test(shown.text));
   check("the reveal shows the worded answer", shown.answer.includes("الأسد الملك"));
 
+  // ---- 4b) on a WIDE desktop the emoji sits CENTERED, not jammed to the top ----
+  const centered = await page.evaluate(() => {
+    const card = document.querySelector("#questionPage .question-main-card");
+    const t = document.getElementById("modalQuestion");
+    const c = card.getBoundingClientRect(), r = t.getBoundingClientRect();
+    const cardMid = c.top + c.height / 2, textMid = r.top + r.height / 2;
+    return {
+      isEmojiClass: card.classList.contains("emoji-q"),
+      offsetFromCenter: Math.abs(textMid - cardMid),
+      cardHeight: c.height,
+      fromTop: r.top - c.top,
+    };
+  });
+  check("the emoji question card is tagged for centering", centered.isEmojiClass);
+  check(`the emoji question is vertically centered in the card (${Math.round(centered.offsetFromCenter)}px off, not ${Math.round(centered.fromTop)}px from top)`,
+    centered.offsetFromCenter < centered.cardHeight * 0.18);
+
   // ---- 5) four-choices for an emoji question yields 4 distinct options ----
   const opts = await page.evaluate(() => {
     const c = { id: "emojis", name: "خمّن الإيموجي" };
