@@ -133,7 +133,15 @@ try {
   check("the emoji line sits BELOW the words and is clearly bigger",
     worded.ok && worded.emojiIsBlock && worded.emojiBelow && worded.emojiPx >= worded.promptPx * 1.8 && worded.emojiPx >= 50);
 
-  // (ii) a stray trailing RTL/invisible mark must NOT defeat the split
+  // (ii) the PUBLISHED questions' real shape — emojis FIRST, words after
+  //      ("😱🎬 خمن اسم الفيلم") — must split the same way: words on top,
+  //      emojis big below.
+  const leading = await measure({ q: "😱🎬 خمن اسم الفيلم", a: "Scary Movie", points: 400 });
+  check("an emojis-first question (the published shape) also splits",
+    leading.ok && leading.split && /خمن اسم الفيلم/.test(leading.promptText) && !/🎬/u.test(leading.promptText)
+    && /🎬|😱/u.test(leading.emojiText) && leading.emojiBelow && leading.emojiPx >= 50);
+
+  // (ii-b) a stray trailing RTL/invisible mark must NOT defeat the split
   const marked = await measure({ q: "خمن اسم الفيلم 🎬 😱‏", a: "فيلم", points: 100 });
   check("a trailing invisible mark still splits (robust parser)",
     marked.ok && marked.split && /خمن اسم الفيلم/.test(marked.promptText) && /🎬|😱/u.test(marked.emojiText));
