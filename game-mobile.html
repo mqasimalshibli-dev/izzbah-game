@@ -772,7 +772,11 @@
       transition: opacity .2s ease;
     }
     .cat-info p { margin: 0; }
-    .category.showing-info .cat-info { opacity: 1; visibility: visible; }
+    /* While the description is open it must cover the WHOLE card face — name
+       pill, badges, vote pill included (they otherwise paint over the text).
+       Only the (!) button stays above it, to flip back. */
+    .category.showing-info .cat-info { opacity: 1; visibility: visible; z-index: 5; }
+    .category.showing-info .category-eye { z-index: 6; }
     .category.showing-info .category-eye {
       background: linear-gradient(180deg, #cc2531, #9e1322);
       border-color: #e6c869;
@@ -9041,7 +9045,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.48";
+    const IZZBAH_BUILD = "2026-07-10.49";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
