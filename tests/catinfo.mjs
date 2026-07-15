@@ -78,6 +78,26 @@ try {
   check(`a long description fits after the fitter runs (overflow ${Math.round(extreme.overflow)}px, font ${extreme.fontSize}px)`,
     extreme.ok && extreme.overflow <= 1 && extreme.fontSize > 9);
 
+  // the OPEN description must paint ABOVE the card's name pill and badges —
+  // it used to share the pill's z-index and the name showed through the text
+  const layering = await page.evaluate(() => {
+    const card = [...document.querySelectorAll(".category")].find(c => c.classList.contains("showing-info"))
+      || document.querySelector(".category");
+    card.classList.add("showing-info");
+    const pill = card.querySelector(".cat-name-pill");
+    const eye = card.querySelector(".category-eye");
+    const r = pill.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const er = eye.getBoundingClientRect();
+    const eyeHit = document.elementFromPoint(er.left + er.width / 2, er.top + er.height / 2);
+    return {
+      overPill: !!(hit && hit.closest(".cat-info")), // the panel covers the pill spot
+      eyeStillOnTop: eyeHit === eye || (eyeHit && eyeHit.closest(".category-eye") === eye),
+    };
+  });
+  check("the open description covers the category name (not behind it)", layering.overPill);
+  check("the (!) button stays clickable above the open description", layering.eyeStillOnTop);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
