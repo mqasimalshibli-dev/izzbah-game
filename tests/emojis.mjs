@@ -168,7 +168,7 @@ try {
   check(`a long clue on a cramped screen fits its box with NO scrolling (${fit.overflow}px overflow)`,
     fit.split && fit.overflow <= 1);
   check("when shrunk to fit, the emojis stay proportionally bigger than the words",
-    fit.split && fit.emojiPx >= fit.promptPx * 3);
+    fit.split && fit.emojiPx >= fit.promptPx * 1.5);
   await page.setViewportSize({ width: 1280, height: 820 });
 
   // (iii) a PURE-emoji question renders WHOLE — no invented prompt line

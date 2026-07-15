@@ -9035,7 +9035,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.44";
+    const IZZBAH_BUILD = "2026-07-10.45";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9971,6 +9971,8 @@
       const reveal = document.getElementById("questionActions") || document.getElementById("revealAnswer");
       const badges = [document.getElementById("modalCategory"), document.getElementById("modalPoints")];
       el.style.removeProperty("font-size");
+      const emojiLine = el.querySelector(".q-emojis");
+      if (emojiLine) emojiLine.style.removeProperty("font-size");
       const overlaps = () => {
         if (el.scrollHeight > el.clientHeight + 1) return true; // exceeds its own box
         const t = el.getBoundingClientRect();
@@ -9988,6 +9990,19 @@
       while (guard-- > 0 && size > MIN && overlaps()) {
         size = Math.max(MIN, size - 2);
         el.style.setProperty("font-size", size + "px", "important");
+      }
+      // Emoji-split questions: the emoji line rides at 4em of the words. If the
+      // words have hit their readable minimum and the block STILL overflows
+      // (emoji glyph fonts vary a lot between platforms), step the emoji
+      // ratio itself down until everything fits — words stay legible, the
+      // emojis give up size only as a last resort.
+      if (emojiLine) {
+        let ratio = 4;
+        let g2 = 12;
+        while (g2-- > 0 && ratio > 1.5 && overlaps()) {
+          ratio -= 0.25;
+          emojiLine.style.setProperty("font-size", ratio + "em", "important");
+        }
       }
     }
     window.addEventListener("resize", () => {
