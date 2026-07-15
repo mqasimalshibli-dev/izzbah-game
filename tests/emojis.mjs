@@ -1,0 +1,104 @@
+// The emoji-guess category: a built-in category whose questions ARE emoji
+// puzzles and whose answers are the words/sayings/characters. It must be live
+// (has a bank), one question per point tier, keep multiple-choice (a real
+// helper here), carry a self-contained cover + description, and render its
+// emoji question text on the question screen.
+import { chromium } from "playwright-core";
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const PORT = 8340;
+const checks = [];
+const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
+
+const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
+await new Promise(r => setTimeout(r, 1200));
+const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
+const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+await page.route("**/firebasejs/**", route => route.abort());
+const errs = [];
+page.on("pageerror", e => errs.push(e.message));
+page.on("dialog", d => d.accept().catch(() => {}));
+await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+
+try {
+  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.waitForTimeout(1500);
+
+  // ---- 1) the category exists, is live, and is well-formed ----
+  const cat = await page.evaluate(() => {
+    const c = allCategories().find(x => x.id === "emojis");
+    if (!c) return null;
+    const tiers = {};
+    Object.keys(builtinQuestionBanks.emojis).forEach(p => { tiers[p] = builtinQuestionBanks.emojis[p].length; });
+    const all = Object.values(builtinQuestionBanks.emojis).flat();
+    return {
+      name: c.name, empty: c.empty === true, hasImage: !!c.image,
+      imageIsData: (c.image || "").startsWith("data:image/svg+xml"),
+      tiers,
+      count: all.length,
+      everyHas3Distractors: all.every(qa => Array.isArray(qa[2]) && qa[2].length === 3),
+      everyHasEmojiQ: all.every(qa => /\p{Extended_Pictographic}/u.test(qa[0]) && qa[1].trim()),
+      answers: all.map(qa => qa[1]),
+    };
+  });
+  check("the emoji category exists and is live (not empty)", !!cat && !cat.empty);
+  check("it is named for the emoji-guess flow", cat && /إيموجي/.test(cat.name));
+  check("it ships a self-contained cover image (svg data URL, no missing asset)", cat && cat.imageIsData);
+  check("it has 5 sample questions, one per point tier",
+    cat && cat.count === 5 && JSON.stringify(Object.keys(cat.tiers).sort()) === JSON.stringify(["100", "200", "300", "400", "500"]));
+  check("every question is an emoji puzzle with a real answer", cat && cat.everyHasEmojiQ);
+  check("every question has 3 same-kind distractors (four-choices stays usable)", cat && cat.everyHas3Distractors);
+  check("the sample spans varied answers (movie, occasion, character, saying)",
+    cat && cat.answers.includes("الأسد الملك") && cat.answers.includes("عيد ميلاد")
+    && cat.answers.includes("الرجل العنكبوت") && cat.answers.some(a => a.includes("عصفور في اليد")));
+
+  // ---- 2) multiple-choice is KEPT (a genuine helper for emoji puzzles) ----
+  const helpers = await page.evaluate(() => {
+    const c = { id: "emojis", name: "خمّن الإيموجي" };
+    return { hidesMC: hidesMultipleChoice(c), isWord: isWordGuessCategory(c) };
+  });
+  check("the emoji category keeps multiple choice (not a word/reaction category)",
+    helpers.hidesMC === false && helpers.isWord === false);
+
+  // ---- 3) it has a curated description (no question count) ----
+  const desc = await page.evaluate(() => categoryDescription({ id: "emojis", name: "خمّن الإيموجي" }));
+  check("it has a curated description about guessing from emojis",
+    /إيموجي/.test(desc) && desc.length > 12 && !/سؤال/.test(desc) && !/[٠-٩]/.test(desc));
+
+  // ---- 4) the emoji question renders on the question screen ----
+  const shown = await page.evaluate(() => {
+    const c = allCategories().find(x => x.id === "emojis");
+    const q = c.questions.find(x => (x.q || "").includes("🦁")) || c.questions[0];
+    state.activeQuestion = { cat: c, q, key: "t", team: 0 };
+    fillQuestionContent(c, q);
+    showScreen("questionPage", { keepQuestion: true });
+    return {
+      text: document.getElementById("modalQuestion").textContent,
+      answer: document.getElementById("modalAnswer").textContent,
+    };
+  });
+  check("the emoji puzzle renders as the question text", /🦁|👑/u.test(shown.text));
+  check("the reveal shows the worded answer", shown.answer.includes("الأسد الملك"));
+
+  // ---- 5) four-choices for an emoji question yields 4 distinct options ----
+  const opts = await page.evaluate(() => {
+    const c = { id: "emojis", name: "خمّن الإيموجي" };
+    const o = buildChoiceOptions(c, { q: "🦁👑", a: "الأسد الملك", distractors: ["كتاب الأدغال", "طرزان", "مدغشقر"] });
+    return { n: o.length, hasAnswer: o.includes("الأسد الملك"), distinct: new Set(o).size };
+  });
+  check("four-choices builds the correct answer + its 3 emoji-puzzle distractors",
+    opts.n === 4 && opts.hasAnswer && opts.distinct === 4);
+
+  check("no uncaught JS errors", errs.length === 0);
+  if (errs.length) console.log("  errors:", errs.slice(0, 4));
+} catch (e) {
+  check("harness completed", false);
+  console.log("  harness error:", e.message);
+} finally {
+  await browser.close();
+  server.kill();
+}
+process.exit(checks.every(Boolean) ? 0 : 1);

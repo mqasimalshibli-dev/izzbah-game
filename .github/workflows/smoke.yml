@@ -199,6 +199,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node omansites.mjs
 
+      - name: Run emoji-category test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node emojis.mjs
+
       - name: Run admin insights (stats) test
         working-directory: tests
         run: |
