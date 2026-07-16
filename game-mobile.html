@@ -4112,6 +4112,11 @@
     .admin-table tbody tr:hover { background: rgba(255,255,255,.03); }
     .admin-table .col-q { width: 46%; }
     .admin-table .col-pts, .admin-table .col-img, .admin-table .col-act { text-align: center; }
+    /* group-select checkboxes: one per row + a select-all in the header */
+    .admin-table .col-sel { width: 36px; text-align: center; padding-inline: 8px; }
+    .admin-table .q-sel { width: 17px; height: 17px; min-height: 0; accent-color: #b51f2b; cursor: pointer; margin: 0; vertical-align: middle; }
+    .admin-table tbody tr.row-selected { background: rgba(230, 200, 105, .10); }
+    .admin-table tbody tr.row-selected:hover { background: rgba(230, 200, 105, .14); }
     .admin-table td.col-q { color: #ece3d2; }
     .admin-table td.col-a { color: #f0c45e; font-weight: 700; }
     .admin-table .q-pts { display: inline-grid; place-items: center; min-width: 44px; padding: 4px 10px; border-radius: 999px;
@@ -5667,13 +5672,15 @@
         </div>
         <div class="admin-table-wrap">
           <table class="admin-table">
-            <thead><tr><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th><th class="col-act">إجراءات</th></tr></thead>
+            <thead><tr><th class="col-sel"><input type="checkbox" class="q-sel" id="adminSelAll" title="تحديد الكل" aria-label="تحديد كل الأسئلة الظاهرة" /></th><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th><th class="col-act">إجراءات</th></tr></thead>
             <tbody id="adminRows"></tbody>
           </table>
         </div>
         <div class="admin-foot">
           <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
           <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
+          <button class="secondary" id="adminSelectAll" type="button">☑ تحديد الكل</button>
+          <button class="secondary admin-clear-btn" id="adminDeleteSelected" type="button" hidden>🗑 حذف المحدد</button>
           <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
           <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
           <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
@@ -9045,7 +9052,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.49";
+    const IZZBAH_BUILD = "2026-07-10.50";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11291,7 +11298,9 @@
       if (!tbody || !cat) return;
       tbody.innerHTML = "";
       if (!cat.questions.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا توجد أسئلة بعد — اضغط «إضافة سؤال جديد».</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">لا توجد أسئلة بعد — اضغط «إضافة سؤال جديد».</td></tr>`;
+        if (state.adminSelected) state.adminSelected.clear();
+        updateAdminSelUI([]);
         return;
       }
       const search = (($("#adminSearch") && $("#adminSearch").value) || "").trim().toLowerCase();
@@ -11307,7 +11316,8 @@
       else if (sortBy === "added-asc") rows.sort(byAdded);
       else if (sortBy === "added-desc") rows.sort((a, b) => byAdded(b, a));
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">لا نتائج مطابقة.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">لا نتائج مطابقة.</td></tr>`;
+        updateAdminSelUI([]);
         return;
       }
       // Click-to-edit directly in a row: swaps the cell for an input, commits
@@ -11360,8 +11370,26 @@
       };
       // Distractors are only meaningful where the four-choices helper runs.
       const distEditable = !hidesMultipleChoice(cat);
+      // Group selection: a Set of question OBJECTS (stable across re-renders
+      // and filter changes); entries pointing at removed/replaced questions
+      // are pruned here, and "select all" acts on the VISIBLE rows only.
+      if (!(state.adminSelected instanceof Set)) state.adminSelected = new Set();
+      state.adminSelected = new Set([...state.adminSelected].filter(q => cat.questions.includes(q)));
+      const visibleQs = rows.map(r => r.q);
       rows.forEach(({ q, i }) => {
           const tr = document.createElement("tr");
+          const selCell = document.createElement("td"); selCell.className = "col-sel";
+          const selBox = document.createElement("input");
+          selBox.type = "checkbox"; selBox.className = "q-sel";
+          selBox.setAttribute("aria-label", "تحديد السؤال");
+          selBox.checked = state.adminSelected.has(q);
+          tr.classList.toggle("row-selected", selBox.checked);
+          selBox.addEventListener("change", () => {
+            if (selBox.checked) state.adminSelected.add(q); else state.adminSelected.delete(q);
+            tr.classList.toggle("row-selected", selBox.checked);
+            updateAdminSelUI(visibleQs);
+          });
+          selCell.appendChild(selBox);
           const qCell = document.createElement("td"); qCell.className = "col-q"; qCell.textContent = q.q || "—";
           const aCell = document.createElement("td"); aCell.className = "col-a"; aCell.textContent = q.a || "—";
           makeCellEditable(qCell, i, { label: "تعديل نص سؤال", multiline: true, get: qq => qq.q || "", set: (qq, v) => { qq.q = v; } });
@@ -11415,7 +11443,7 @@
               const drow = document.createElement("tr");
               drow.className = "dist-row";
               const td = document.createElement("td");
-              td.colSpan = 5;
+              td.colSpan = 6;
               const wrap = document.createElement("div");
               wrap.className = "dist-edit";
               const inputs = [0, 1, 2].map(k => {
@@ -11458,9 +11486,54 @@
             }
           });
           act.append(edit, del); actCell.appendChild(act);
-          tr.append(qCell, aCell, imgCell, ptsCell, actCell);
+          tr.append(selCell, qCell, aCell, imgCell, ptsCell, actCell);
           tbody.appendChild(tr);
         });
+      updateAdminSelUI(visibleQs);
+    }
+
+    // ---- Group selection: select-all + bulk delete over the visible rows ----
+    let adminVisibleQs = [];
+    function updateAdminSelUI(visibleQs) {
+      if (visibleQs) adminVisibleQs = visibleQs;
+      const sel = state.adminSelected instanceof Set ? state.adminSelected : new Set();
+      const visSel = adminVisibleQs.filter(q => sel.has(q)).length;
+      const allVisible = adminVisibleQs.length > 0 && visSel === adminVisibleQs.length;
+      const head = $("#adminSelAll");
+      if (head) {
+        head.checked = allVisible;
+        head.indeterminate = visSel > 0 && !allVisible;
+      }
+      const btn = $("#adminSelectAll");
+      if (btn) {
+        btn.textContent = allVisible ? "☐ إلغاء تحديد الكل" : "☑ تحديد الكل";
+        btn.disabled = adminVisibleQs.length === 0;
+      }
+      const delBtn = $("#adminDeleteSelected");
+      if (delBtn) {
+        delBtn.hidden = sel.size === 0;
+        delBtn.textContent = "🗑 حذف المحدد (" + toArabicDigits(sel.size) + ")";
+      }
+    }
+    function toggleAdminSelectAll() {
+      if (!(state.adminSelected instanceof Set)) state.adminSelected = new Set();
+      const allVisible = adminVisibleQs.length > 0 && adminVisibleQs.every(q => state.adminSelected.has(q));
+      if (allVisible) adminVisibleQs.forEach(q => state.adminSelected.delete(q));
+      else adminVisibleQs.forEach(q => state.adminSelected.add(q));
+      renderAdminTable();
+    }
+    function deleteSelectedQuestions() {
+      const sel = state.adminSelected instanceof Set ? state.adminSelected : new Set();
+      if (!sel.size || !state.adminCat) return;
+      if (!window.confirm("حذف " + toArabicDigits(sel.size) + " من الأسئلة المحددة؟")) return;
+      pushAdminUndo("حذف الأسئلة المحددة");
+      state.adminCat.questions = state.adminCat.questions.filter(q => !sel.has(q));
+      sel.clear();
+      state.adminDirty = true;
+      populateAdminFilter();
+      renderAdminTable();
+      renderAdminCatHead();
+      autoPublishAdmin(); // publish the deletion directly
     }
 
     // ---- Undo: revert the last content change in the open category -----------
@@ -14813,6 +14886,9 @@
     });
     $("#fetchImagesModal").addEventListener("click", event => { if (event.target.id === "fetchImagesModal") closeFetchImagesDialog(); });
     $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
+    $("#adminSelectAll").addEventListener("click", toggleAdminSelectAll);
+    $("#adminSelAll").addEventListener("change", toggleAdminSelectAll);
+    $("#adminDeleteSelected").addEventListener("click", deleteSelectedQuestions);
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
     $("#mediaPreviewModal").addEventListener("click", event => { if (event.target.id === "mediaPreviewModal") closeMediaPreview(); });

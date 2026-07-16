@@ -84,7 +84,7 @@ try {
   // verify distractors + auto points landed on the first question via the table
   const firstRowPts = await page.evaluate(() => {
     const tr = document.querySelector("#adminRows tr");
-    return tr ? tr.querySelector(".col-pts, td:nth-child(4)").textContent.trim() : "";
+    return tr ? tr.querySelector("td.col-pts").textContent.trim() : "";
   });
   check(`first question got an auto points value (${firstRowPts})`, /\d|[٠-٩]/.test(firstRowPts));
 
