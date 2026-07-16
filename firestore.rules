@@ -187,6 +187,19 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // ---- Catalog revision marker (read-cost saver) -------------------------
+    // One tiny public doc, meta/catalog, whose `rev` counter every category
+    // publish/delete bumps. Players read just THIS doc to learn whether the
+    // catalog changed since their device cache — one read instead of one per
+    // category. It holds no content, only a counter + timestamp. Anyone may
+    // read it (same as the categories it tracks); only an admin may bump it.
+    match /meta/{doc} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.data.keys().hasOnly(['rev', 'updatedAt'])
+        && request.resource.data.rev is number;
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full
