@@ -9052,7 +9052,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.50";
+    const IZZBAH_BUILD = "2026-07-10.51";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9537,12 +9537,24 @@
       for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
       return (h >>> 0).toString(36);
     }
-    // Total questions a category offers: the full built-in bank when it has one,
-    // otherwise the stored question list (cloud/admin categories like رياكشنات).
-    function categoryTotalQuestions(cat) {
+    // The pool of questions a category ACTUALLY plays from. A published (or
+    // custom) list with real questions replaces the built-in bank in play
+    // (mergedOfficialCategories), so it is the true total for progress — the
+    // full bank only counts when the category still plays from the bank.
+    // (A built-in's own `questions` array is just the 5 tiles materialized for
+    // the current board, never the total, hence the published/custom guard.)
+    function categoryQuestionPool(cat) {
+      const own = Array.isArray(cat && cat.questions)
+        ? cat.questions.filter(q => q && (String(q.q || "").trim() || String(q.a || "").trim()))
+        : [];
       const bank = builtinQuestionBanks[cat && cat.id];
-      if (bank) return Object.keys(bank).reduce((n, k) => n + ((bank[k] || []).length), 0);
-      return Array.isArray(cat && cat.questions) ? cat.questions.length : 0;
+      if (own.length && (cat.published || cat.custom || !bank)) return own;
+      if (bank) return Object.keys(bank).reduce((arr, k) =>
+        arr.concat((bank[k] || []).map(qa => ({ q: qa[0] || "", a: qa[1] || "" }))), []);
+      return own;
+    }
+    function categoryTotalQuestions(cat) {
+      return categoryQuestionPool(cat).length;
     }
     function markQuestionAnswered(cat, q) {
       if (!cat || !cat.id || !q) return;
@@ -9552,10 +9564,14 @@
       if (list.indexOf(sig) === -1) { list.push(sig); saveProgress(); }
     }
     function categoryProgressPercent(cat) {
-      const total = categoryTotalQuestions(cat);
-      if (!total) return 0;
-      const done = ((state.progress && state.progress[cat.id]) || []).length;
-      return Math.max(0, Math.min(100, Math.round(done / total * 100)));
+      const pool = categoryQuestionPool(cat);
+      if (!pool.length) return 0;
+      // Only signatures that still exist in the current pool count — answers
+      // recorded against questions that were since replaced (e.g. the built-in
+      // samples after a cloud override took over) must not inflate the %.
+      const valid = new Set(pool.map(questionSig));
+      const done = ((state.progress && state.progress[cat.id]) || []).filter(sig => valid.has(sig)).length;
+      return Math.max(0, Math.min(100, Math.round(done / pool.length * 100)));
     }
 
     function activeCategories() {
