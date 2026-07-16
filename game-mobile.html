@@ -9056,7 +9056,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.54";
+    const IZZBAH_BUILD = "2026-07-10.55";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12835,9 +12835,12 @@
               .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
               .catch((e) => {
                 console.warn("community publish failed", e);
+                resetBtn();
+                // Anti-spam throttle: a new submission was sent too soon after
+                // the previous one — a normal, friendly nudge, not an error.
+                if (e && e.throttled) { showToast("مهلًا — انتظر نصف دقيقة قبل نشر فئة جديدة أخرى"); return; }
                 const code = (e && e.code) || "";
                 const denied = code === "permission-denied" || /permission/i.test((e && e.message) || "");
-                resetBtn();
                 if (!denied) { showToast("تعذّر النشر: " + (code || "خطأ")); return; }
                 // permission-denied could be the community rules OR App Check
                 // enforcement. Probe a write the rules certainly allow (the
@@ -15787,8 +15790,16 @@
           // it stays cheap: one write per game, one read to render the panel.
           // Signed-in players only (an unauthenticated device can't write it) —
           // it's a soft counter, same trust model as the usage counters.
+          let lastStatsWrite = 0;
           window.IZZBAH.recordGamePlay = function (payload) {
             if (!currentUser || !db) return Promise.resolve(false);
+            // De-dup guard: a finished game already records exactly once (the
+            // gameCounted flag), but a bridge-level rate cap means no code path
+            // can ever hammer the shared stats doc in a loop. A real game lasts
+            // minutes, so a 3s floor is invisible to legitimate play.
+            const nowMs = Date.now();
+            if (nowMs - lastStatsWrite < 3000) return Promise.resolve(false);
+            lastStatsWrite = nowMs;
             const p = Array.isArray(payload) ? { catIds: payload } : (payload || {});
             const inc = n => firebase.firestore.FieldValue.increment(n);
             const num = (v, max) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
@@ -16130,8 +16141,47 @@
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (isNew) { data.votes = 0; data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
-            const write = isNew ? ref.set(data) : ref.set(data, { merge: true });
-            return write.then(loadCommunityCategories).then(() => ref.id);
+            // Client de-dup guard: block a rapid re-submit locally (before any
+            // network round-trip), so a normal user never even reaches the
+            // server-side throttle rule. The rule is still the real enforcer.
+            const COMM_GAP_MS = 30000;
+            if (isNew) {
+              let last = 0;
+              try { last = Number(localStorage.getItem("izzbah-comm-last") || 0); } catch (e) {}
+              if (last && Date.now() - last < COMM_GAP_MS) {
+                const err = new Error("throttled"); err.throttled = true;
+                return Promise.reject(err);
+              }
+            }
+            // A NEW submission is anti-spam throttled: it batches a stamp to
+            // commThrottle/{uid}, whose rule enforces a 30s gap between new
+            // submissions. Edits to an existing (owned) category aren't throttled.
+            let write;
+            if (isNew) {
+              const batch = db.batch();
+              batch.set(ref, data);
+              batch.set(db.collection("commThrottle").doc(currentUser.uid),
+                { lastAt: firebase.firestore.FieldValue.serverTimestamp() });
+              // FAIL-SAFE for deploy ordering: if the throttle rules aren't
+              // published yet, the batch is denied — fall back to a plain create
+              // so submissions keep working (unthrottled, exactly as before).
+              // Once the new rules are live the plain create is itself denied
+              // (it lacks the throttle stamp), so the throttle can't be bypassed
+              // this way — the fallback only rescues the pre-rules window.
+              write = batch.commit().catch(err => {
+                if (err && err.code === "permission-denied") return ref.set(data);
+                throw err;
+              });
+            } else {
+              write = ref.set(data, { merge: true });
+            }
+            // Stamp the local guard only on a genuine success, so the next
+            // submission is spaced by the same 30s the server enforces. (The
+            // friendly "wait" message comes from the pre-check above, before any
+            // network — a server-side denial keeps the existing diagnosis.)
+            return write
+              .then(() => { if (isNew) { try { localStorage.setItem("izzbah-comm-last", String(Date.now())); } catch (e) {} } })
+              .then(loadCommunityCategories).then(() => ref.id);
           };
           // Admin only: approve a pending submission (or un-approve to pull it).
           window.IZZBAH.communityApprove = function (id, approved) {
