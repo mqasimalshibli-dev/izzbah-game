@@ -267,6 +267,79 @@ try {
   });
   check("built-in categories are protected from delete-all", builtinClear.count === 1 && /الأساسية/.test(builtinClear.toast));
 
+  // ---- 11) group selection: row checkboxes, select-all, bulk delete ----
+  const groupSel = await page.evaluate(async () => {
+    let published = null;
+    window.IZZBAH.cloudPublish = (c) => { published = JSON.parse(JSON.stringify(c)); return Promise.resolve(); };
+    state.adminCat = { id: "pub-sel", name: "تحديد", image: "", color: "#9e1322", custom: false, published: true, order: 0,
+      questions: [
+        { points: 100, q: "أ", a: "١", image: "", answerImage: "" },
+        { points: 100, q: "ب", a: "٢", image: "", answerImage: "" },
+        { points: 200, q: "ج", a: "٣", image: "", answerImage: "" },
+        { points: 300, q: "د", a: "٤", image: "", answerImage: "" },
+      ] };
+    state.adminSelected = new Set();
+    document.getElementById("adminFilter").value = "all";
+    clearAdminUndo(); populateAdminFilter(); renderAdminTable();
+    const boxes = [...document.querySelectorAll("#adminRows .q-sel")];
+    const out = { rowBoxes: boxes.length, delHiddenAtStart: document.getElementById("adminDeleteSelected").hidden };
+    // tick two rows by hand
+    boxes[0].click(); boxes[2].click();
+    await new Promise(r => setTimeout(r, 100));
+    out.selectedAfterTwo = state.adminSelected.size;
+    out.delBtnShows2 = !document.getElementById("adminDeleteSelected").hidden
+      && /[2٢]/.test(document.getElementById("adminDeleteSelected").textContent);
+    out.headIndeterminate = document.getElementById("adminSelAll").indeterminate;
+    out.rowHighlights = document.querySelectorAll("#adminRows tr.row-selected").length;
+    return out;
+  });
+  check("every question row gets a checkbox (bulk delete hidden until a pick)",
+    groupSel.rowBoxes === 4 && groupSel.delHiddenAtStart);
+  check("ticking rows selects them (button shows the count, header goes indeterminate)",
+    groupSel.selectedAfterTwo === 2 && groupSel.delBtnShows2 && groupSel.headIndeterminate && groupSel.rowHighlights === 2);
+
+  const selectAll = await page.evaluate(async () => {
+    document.getElementById("adminSelectAll").click();
+    await new Promise(r => setTimeout(r, 100));
+    const all = state.adminSelected.size;
+    const headChecked = document.getElementById("adminSelAll").checked;
+    const btnLabel = document.getElementById("adminSelectAll").textContent;
+    document.getElementById("adminSelectAll").click(); // toggles back off
+    await new Promise(r => setTimeout(r, 100));
+    return { all, headChecked, btnLabel, none: state.adminSelected.size };
+  });
+  check("the select-all button selects every visible question (and toggles back off)",
+    selectAll.all === 4 && selectAll.headChecked && /إلغاء/.test(selectAll.btnLabel) && selectAll.none === 0);
+
+  // select-all honors the points FILTER (group selection by tier)
+  const filtered = await page.evaluate(async () => {
+    document.getElementById("adminFilter").value = "100";
+    renderAdminTable();
+    document.getElementById("adminSelectAll").click();
+    await new Promise(r => setTimeout(r, 100));
+    const picked = [...state.adminSelected].map(q => q.points);
+    document.getElementById("adminFilter").value = "all";
+    renderAdminTable();
+    return { n: picked.length, all100: picked.every(p => p === 100), stillSelected: state.adminSelected.size };
+  });
+  check("select-all with a filter selects ONLY the visible tier (group selection)",
+    filtered.n === 2 && filtered.all100 && filtered.stillSelected === 2);
+
+  const bulkDel = await page.evaluate(async () => {
+    deleteSelectedQuestions(); // confirm auto-accepted
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      left: state.adminCat.questions.map(q => q.points),
+      selCleared: state.adminSelected.size === 0,
+      canUndo: !document.getElementById("adminUndo").disabled,
+    };
+  });
+  check("bulk delete removes exactly the selected questions (and publishes)",
+    JSON.stringify(bulkDel.left) === JSON.stringify([200, 300]) && bulkDel.selCleared);
+  check("bulk delete is undoable", bulkDel.canUndo);
+  const bulkUndoSel = await page.evaluate(async () => { undoAdminStep(); await new Promise(r => setTimeout(r, 150)); return state.adminCat.questions.length; });
+  check("undo restores the bulk-deleted questions", bulkUndoSel === 4);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
