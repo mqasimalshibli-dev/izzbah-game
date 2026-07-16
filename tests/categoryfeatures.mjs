@@ -122,6 +122,23 @@ try {
   });
   check("a category with progress shows a % badge on its card", badge.ok && badge.hasPill && /%/.test(badge.text));
 
+  // A PUBLISHED override replaces a built-in bank in play (the emoji category:
+  // 5 bank samples, 9 published) — the % must divide by the override's count,
+  // and answers recorded against the replaced built-in samples must not count.
+  const overrideProg = await page.evaluate(() => {
+    window.IZZBAH.applyPublished([{ id: "emojis", name: "خمّن الإيموجي(اجنبي)", color: "#123", order: 9,
+      questions: Array.from({ length: 9 }, (_, i) => ({ points: ((i % 5) + 1) * 100, q: "إيموجي س" + i, a: "ج" + i, image: "", answerImage: "" })) }]);
+    const cat = allCategories().find(c => c.id === "emojis");
+    state.progress = {};
+    markQuestionAnswered(cat, { q: "🦁👑", a: "الأسد الملك" }); // a built-in sample, now replaced
+    const stalePct = categoryProgressPercent(cat);
+    [0, 1, 2].forEach(i => markQuestionAnswered(cat, cat.questions[i]));
+    return { total: categoryTotalQuestions(cat), stalePct, pct: categoryProgressPercent(cat) };
+  });
+  check("a published override's own count is the total (9, not the 5-question bank)", overrideProg.total === 9);
+  check("answers against the replaced built-in samples don't count (0%)", overrideProg.stalePct === 0);
+  check("3 of 9 published questions shows 33%", overrideProg.pct === 33);
+
   // ---- 3) empty categories are locked and shown as "coming soon" ----
   const soon = await page.evaluate(() => {
     // inject cloud categories: one with real questions, one with only blank
