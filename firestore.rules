@@ -182,9 +182,38 @@ service cloud.firestore {
     // and, like the usage counters, is a client-updated soft counter (not
     // billing-grade). Writes are open to any signed-in user so the tally works
     // for everyone; reads are admin-only.
+    // The write is field-locked: only the known counter fields may be touched
+    // (checked via affectedKeys, so a pre-existing field never blocks a legit
+    // write). This stops a signed-in abuser from injecting arbitrary/huge
+    // fields — i.e. using the shared insights doc as free storage. Magnitudes
+    // stay client-bounded; App Check enforcement is the defense against a pure
+    // write-flood.
+    function validStatsKeys(ks) {
+      return ks.hasOnly(['gamesPlayed', 'updatedAt', 'categoryPlays', 'days',
+                         'teamCounts', 'durationSum', 'durationCount', 'credits',
+                         'answers', 'answerSecsSum', 'answerTimedCount', 'helpers']);
+    }
     match /stats/{doc} {
       allow read: if isAdmin();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && validStatsKeys(request.resource.data.keys());
+      allow update: if isSignedIn()
+        && validStatsKeys(request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    // ---- Community-submission throttle (anti-spam) -------------------------
+    // A per-member marker holding the timestamp of their last NEW community
+    // submission. A submission batches a write here alongside the new category;
+    // the update rule enforces a minimum gap, so the community queue can't be
+    // spam-flooded. First submission (create) has no prior time to gate on.
+    match /commThrottle/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastAt'])
+        && request.resource.data.lastAt == request.time;
+      allow update: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastAt'])
+        && request.resource.data.lastAt == request.time
+        && request.time > resource.data.lastAt + duration.value(30, 's');
     }
 
     // ---- Catalog revision marker (read-cost saver) -------------------------
@@ -244,11 +273,15 @@ service cloud.firestore {
       // SUBMIT a new category: any signed-in member, as themselves, and it
       // starts UNAPPROVED with zero votes. A member can't publish it live or
       // pre-set votes — only an admin can approve it (see update rule (a)).
+      // The submission MUST also stamp commThrottle/{uid} to request.time in the
+      // same batch (getAfter), and that doc's own rule enforces the 30s gap —
+      // so a member can't rapid-fire new submissions to flood the queue.
       allow create: if isSignedIn()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.approved == false
         && request.resource.data.votes == 0
-        && validCommunity(request.resource.data);
+        && validCommunity(request.resource.data)
+        && getAfter(/databases/$(database)/documents/commThrottle/$(request.auth.uid)).data.lastAt == request.time;
 
       // UPDATE — three separate, tightly-scoped cases:
       allow update: if isSignedIn() && (
