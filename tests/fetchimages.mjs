@@ -134,12 +134,13 @@ try {
   // ---- 0b) the options dialog appears BEFORE any generation ----
   const dialog = await page.evaluate(() => ({
     open: document.getElementById("fetchImagesModal").classList.contains("open"),
-    bothOff: !document.getElementById("fetchImagesBoth").checked,
+    ansOn: document.getElementById("fetchImagesAnswers").checked,
+    qOff: !document.getElementById("fetchImagesQuestions").checked,
     count: document.getElementById("fetchImagesCount").textContent,
     calls: window.__fetchLog.length,
   }));
   check("an options dialog opens before generating (no network yet)", dialog.open && dialog.calls === 0);
-  check("the question+answer option exists and defaults to OFF (answers only)", dialog.bothOff);
+  check("independent options: answers default ON, questions default OFF", dialog.ansOn && dialog.qOff);
   check("the dialog shows how many answer photos will be fetched", /صورة إجابة/.test(dialog.count));
   await page.evaluate(() => document.getElementById("fetchImagesStart").click());
   await waitDone();
@@ -190,12 +191,12 @@ try {
   check("strict (title) tiers reject pages that merely mention the answer", accurate.strictWeak === "");
   check("generic wiki icons are never used as the answer photo", accurate.junkOnly === "");
 
-  // ---- 2c) BOTH mode: activating the option fetches question pictures too ----
+  // ---- 2c) BOTH mode: ticking questions too fetches question pictures as well ----
   await page.evaluate(() => {
     window.__fetchLog = [];
-    fetchMissingImages();                                        // reopen the dialog
-    document.getElementById("fetchImagesBoth").checked = true;   // activate question+answer
-    document.getElementById("fetchImagesBoth").dispatchEvent(new Event("change", { bubbles: true }));
+    fetchMissingImages();                                             // reopen the dialog
+    document.getElementById("fetchImagesQuestions").checked = true;   // answers stays ON
+    document.getElementById("fetchImagesQuestions").dispatchEvent(new Event("change", { bubbles: true }));
   });
   const bothCount = await page.evaluate(() => document.getElementById("fetchImagesCount").textContent);
   check("enabling the option adds question photos to the plan", /صورة سؤال/.test(bothCount));
@@ -219,6 +220,33 @@ try {
     return { q0: state.adminCat.questions[0].answerImage, q1: state.adminCat.questions[1].answerImage, q0img: state.adminCat.questions[0].image };
   });
   check("undo removes the fetched photos", undo.q0 === "" && undo.q1 === "" && undo.q0img === "");
+
+  // ---- 3b) QUESTION-ONLY mode: answers box off, questions box on ----
+  const qOnly = await page.evaluate(async () => {
+    window.__fetchLog = [];
+    fetchMissingImages(); // reopen (resets to answers-only default)
+    const ans = document.getElementById("fetchImagesAnswers");
+    const qs = document.getElementById("fetchImagesQuestions");
+    // neither box → start must be disabled with a prompt
+    ans.checked = false; ans.dispatchEvent(new Event("change", { bubbles: true }));
+    const noneDisabled = document.getElementById("fetchImagesStart").disabled;
+    // question-only
+    qs.checked = true; qs.dispatchEvent(new Event("change", { bubbles: true }));
+    const count = document.getElementById("fetchImagesCount").textContent;
+    document.getElementById("fetchImagesStart").click();
+    return { noneDisabled, count, enabled: !document.getElementById("fetchImagesStart").disabled };
+  });
+  await waitDone();
+  check("with neither option ticked the start button is disabled", qOnly.noneDisabled && qOnly.enabled);
+  check("question-only plan lists question photos and no answer photos",
+    /صورة سؤال/.test(qOnly.count) && !/صورة إجابة/.test(qOnly.count));
+  const qOnlyRes = await page.evaluate(() => ({
+    q0img: state.adminCat.questions[0].image.slice(0, 11),
+    answersUntouched: state.adminCat.questions.every(q => (q.answerImage || "") === "" || q.answerImage === "data:image/jpeg;base64,keepme"),
+  }));
+  check("question-only mode fetches QUESTION pictures", qOnlyRes.q0img === "data:image/");
+  check("question-only mode never touches ANSWER images", qOnlyRes.answersUntouched);
+  await page.evaluate(async () => { undoAdminStep(); await new Promise(r => setTimeout(r, 150)); });
 
   // ---- 4) when nothing needs an image, it says so and fetches nothing ----
   const none = await page.evaluate(async () => {
