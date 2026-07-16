@@ -103,11 +103,12 @@ try {
   // ---- 4c) a WORDED emoji question shows its words on top with the emojis on
   //          their OWN, BIGGER line below. Pure-emoji / rebus render whole (no
   //          invented prompt line). ----
-  const measure = async (q) => page.evaluate((q) => {
+  const measure = async (q) => page.evaluate(async (q) => {
     const cat = { id: "emojis", name: "خمّن الإيموجي" };
     state.activeQuestion = { cat, q, key: "t", team: 0 };
     fillQuestionContent(cat, q);
     showScreen("questionPage", { keepQuestion: true });
+    await new Promise(r => setTimeout(r, 350)); // let fitQuestionText's passes settle
     const card = document.querySelector("#questionPage .question-main-card");
     const prompt = document.querySelector("#modalQuestion .q-prompt");
     const em = document.querySelector("#modalQuestion .q-emojis");
