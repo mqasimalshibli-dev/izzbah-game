@@ -4357,6 +4357,23 @@
     body[data-screen="results"] #userSettingsBtn,
     body[data-screen="categories"] #userSettingsBtn,
     body[data-screen="setup"] #userSettingsBtn { display: none; }
+
+    /* Game-count badge — mirror of the settings gear, pinned TOP-LEFT. Shows the
+       player's remaining games; only on the game-list and category-pick screens. */
+    #gameCountBadge {
+      position: fixed; top: 14px; left: 14px; z-index: 4;
+      display: none; align-items: center; gap: 6px;
+      height: 44px; padding: 0 15px; border-radius: 999px;
+      background: rgba(20, 6, 8, .58); border: 1.5px solid rgba(231, 195, 115, .55);
+      color: #f2d999; cursor: pointer; backdrop-filter: blur(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .35); transition: transform .18s ease, background .18s ease;
+    }
+    #gameCountBadge .gcb-ico { font-size: 17px; line-height: 1; }
+    #gameCountBadge .gcb-num { font: 800 15px 'Cairo', sans-serif; line-height: 1; }
+    #gameCountBadge:hover { background: rgba(231, 195, 115, .18); }
+    #gameCountBadge:active { transform: scale(.94); }
+    body[data-screen="gameLibrary"] #gameCountBadge,
+    body[data-screen="categories"] #gameCountBadge { display: inline-flex; }
     /* ---- Contact modal (Instagram QR + email) ---- */
     .contact-modal { max-width: 400px; width: 92%; text-align: center; }
     .contact-sub { margin: 0 0 10px; font: 700 14px 'Cairo', sans-serif; color: #6a5a2f; }
@@ -5467,6 +5484,9 @@
   <button id="userSettingsBtn" type="button" aria-label="الإعدادات والحساب" title="الإعدادات والحساب">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
   </button>
+  <button id="gameCountBadge" type="button" aria-label="عدد ألعابك المتبقية" title="ألعابك المتبقية — اضغط للتحديث">
+    <span class="gcb-ico" aria-hidden="true">🎮</span><span class="gcb-num" id="gameCountNum">—</span>
+  </button>
 
   <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
     <div class="question-modal settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -5566,11 +5586,6 @@
           <button class="primary" id="createSavedGame">إنشاء لعبة جديدة</button>
         </div>
         <p class="play-balance" id="playBalance" style="display:none" title="اضغط لتحديث الرصيد"></p>
-        <div class="redeem-row">
-          <span class="redeem-label">لديك كود؟</span>
-          <input type="text" id="redeemInputLib" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
-          <button class="secondary redeem-btn" id="redeemBtnLib" type="button">🎟️ تفعيل</button>
-        </div>
         <div class="game-library-list" id="gameLibraryList"></div>
         <div class="actions">
           <button class="ghost" data-screen="menu">رجوع</button>
@@ -5612,11 +5627,6 @@
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
           <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
           <button class="secondary share-game-btn" id="shareGameBtn" type="button" disabled><span aria-hidden="true">🔗</span> شارك اللعبة</button>
-        </div>
-        <div class="redeem-row">
-          <span class="redeem-label">لديك كود؟</span>
-          <input type="text" id="redeemInputCats" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
-          <button class="secondary redeem-btn" id="redeemBtnCats" type="button">🎟️ تفعيل</button>
         </div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
@@ -9056,7 +9066,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.55";
+    const IZZBAH_BUILD = "2026-07-10.56";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10572,6 +10582,7 @@
     }
 
     function renderCategories() {
+      renderPlayBalance(); // keep the top-left game-count badge current
       const grid = $("#categoryGrid");
       const gameNameInput = $("#gameNameInput");
       if (gameNameInput) gameNameInput.value = state.currentGameName;
@@ -12392,12 +12403,21 @@
       if (rem > 0) parts.push(rem === 1 ? "لعبة واحدة" : `${toArabicDigits(rem)} ألعاب`);
       return parts.length ? "رصيدك: " + parts.join(" + ") : "لا يوجد رصيد ألعاب — فعّل كوداً للّعب";
     }
+    // Compact remaining-games count for the top-left badge: the free game (if
+    // unused) plus any allowance from redeemed codes; ∞ for admins/subscribers.
+    function gameCountValue() {
+      if (state.isAdmin || premiumActive()) return "∞";
+      const free = state.freeGamePlayed ? 0 : 1;
+      return toArabicDigits(free + gamesRemaining());
+    }
     function renderPlayBalance() {
       const el = $("#playBalance");
       if (el) {
         if (state.isAdmin) { el.style.display = "none"; el.textContent = ""; }
         else { el.style.display = ""; el.textContent = "🎟️ " + playBalanceSummary(); }
       }
+      const num = $("#gameCountNum");
+      if (num) num.textContent = gameCountValue();
       // keep the settings sheet's balance line in sync if it's open
       const sb = $("#settingsBalance");
       if (sb && $("#settingsModal") && $("#settingsModal").classList.contains("open")) renderSettingsSheet();
@@ -14973,10 +14993,15 @@
         showToast(ok ? "تم تحديث الرصيد" : "تعذّر تحديث الرصيد — تحقّق من نشر قواعد Firestore المحدّثة");
       });
     });
-    $("#redeemBtnLib").addEventListener("click", () => redeemCodeFlow($("#redeemInputLib")));
-    $("#redeemBtnCats").addEventListener("click", () => redeemCodeFlow($("#redeemInputCats")));
-    $("#redeemInputLib").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputLib")); });
-    $("#redeemInputCats").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputCats")); });
+    $("#gameCountBadge").addEventListener("click", () => {
+      const bridge = window.IZZBAH && window.IZZBAH.refreshMyCodes;
+      if (!bridge || !state.signedIn) { openSettings(); return; } // signed-out: route to sign-in / buy
+      showToast("جارٍ تحديث الرصيد…");
+      bridge().then(ok => {
+        renderPlayBalance();
+        showToast(ok ? "تم تحديث الرصيد" : "تعذّر تحديث الرصيد — تحقّق من نشر قواعد Firestore المحدّثة");
+      });
+    });
     $("#plansClose").addEventListener("click", closePlans);
     $("#plansModal").addEventListener("click", event => { if (event.target.id === "plansModal") closePlans(); });
     $("#redeemBtnPlans").addEventListener("click", () => redeemCodeFlow($("#redeemInputPlans")));
