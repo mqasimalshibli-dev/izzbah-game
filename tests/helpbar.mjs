@@ -133,6 +133,36 @@ try {
   check(`iPad: extreme question clears the reveal button (${i.reveal}px)`, i.reveal === 0);
   check(`iPad: extreme question clears the bar + badges (${i.bar}/${i.category}/${i.points}px)`,
     i.bar === 0 && i.category === 0 && i.points === 0);
+
+  // ---- picture-less question: centered + enlarged, not hugging the top ----
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const textOnly = await ipad.evaluate(async (PNG) => {
+    const cat = { id: "pub-din", name: "دين" };
+    const measure = async (q) => {
+      state.activeQuestion = { cat, q, key: "t", team: 0 };
+      fillQuestionContent(cat, q);
+      showScreen("questionPage", { keepQuestion: true });
+      await new Promise(r => setTimeout(r, 400));
+      const card = document.querySelector("#questionPage .question-main-card");
+      const el = document.getElementById("modalQuestion");
+      const c = card.getBoundingClientRect(), r = el.getBoundingClientRect();
+      return {
+        textOnlyClass: card.classList.contains("text-only"),
+        offCenter: Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)),
+        cardHeight: c.height,
+        fromTop: r.top - c.top,
+        size: parseFloat(getComputedStyle(el).fontSize),
+      };
+    };
+    const noImg = await measure({ q: "ما اسم والد النبي؟", a: "عبدالله", points: 100 });
+    const withImg = await measure({ q: "ما اسم والد النبي؟", a: "عبدالله", points: 100, image: PNG });
+    return { noImg, withImg };
+  }, PNG);
+  check("a picture-less question is tagged text-only", textOnly.noImg.textOnlyClass);
+  check(`a picture-less question is vertically centered (${Math.round(textOnly.noImg.offCenter)}px off, not ${Math.round(textOnly.noImg.fromTop)}px from top)`,
+    textOnly.noImg.offCenter < textOnly.noImg.cardHeight * 0.2);
+  check("a picture-less question is enlarged above the base body size", textOnly.noImg.size >= 30);
+  check("a question WITH an image is NOT text-only (keeps the image layout)", textOnly.withImg.textOnlyClass === false);
   await ipad.close();
 
   check("no uncaught JS errors", errs.length === 0);

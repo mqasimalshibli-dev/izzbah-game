@@ -5011,6 +5011,14 @@
       margin-top: auto !important; margin-bottom: auto !important;
       font-size: clamp(40px, 6vw, 74px) !important;
     }
+    /* Picture-less question: center it vertically and enlarge it so a short
+       text question fills the card instead of hugging the top. fitQuestionText
+       resets to this size first, then shrinks only if a long one would overflow. */
+    #questionPage .question-main-card.text-only .question-text {
+      margin-top: auto !important; margin-bottom: auto !important;
+      font-size: clamp(34px, 5.4vw, 66px) !important;
+      line-height: 1.4 !important;
+    }
     /* Prompt + emojis-on-their-own-line: readable question on top, BIG emoji
        clue on its own line below. The emoji size is EM-based (not px) so
        fitQuestionText's shrink loop scales the whole block — words AND emojis —
@@ -9066,7 +9074,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.56";
+    const IZZBAH_BUILD = "2026-07-10.57";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14207,10 +14215,14 @@
       showMedia($("#modalAnswerImage"), q.answerImage || "", "answer");
       // Center a short emoji puzzle in the card instead of anchoring it high;
       // `emoji-split` styles the prompt + its own emoji line underneath.
+      // `text-only` does the same for any picture-less (non-emoji) question:
+      // center it vertically and enlarge it so it fills the card instead of
+      // hugging the top — fitQuestionText still shrinks a long one to fit.
       const qcard = document.querySelector("#questionPage .question-main-card");
       if (qcard) {
         qcard.classList.toggle("emoji-q", emojiCat);
         qcard.classList.toggle("emoji-split", !!qParts);
+        qcard.classList.toggle("text-only", !qImage && !emojiCat);
       }
     }
 
