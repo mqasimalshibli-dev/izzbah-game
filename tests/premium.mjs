@@ -265,22 +265,48 @@ try {
   check("clicking clear calls the bridge with that player's uid", clearOpt.calls.length === 1 && clearOpt.calls[0] === "userAAA");
   check("after clearing, the player is gone from the list", clearOpt.goneAfter);
 
-  // ---- Player side: redeem boxes on the game library + new-game screens ----
+  // ---- Player side: redeem boxes REMOVED from the library + new-game screens,
+  //      replaced by a top-left game-count badge ----
   const boxes = await page.evaluate(() => ({
-    lib: !!document.getElementById("redeemInputLib") && !!document.getElementById("redeemBtnLib"),
-    cats: !!document.getElementById("redeemInputCats") && !!document.getElementById("redeemBtnCats"),
+    libGone: !document.getElementById("redeemInputLib") && !document.getElementById("redeemBtnLib"),
+    catsGone: !document.getElementById("redeemInputCats") && !document.getElementById("redeemBtnCats"),
+    settingsKept: !!document.getElementById("redeemInputSettings") && !!document.getElementById("redeemBtnSettings"),
   }));
-  check("redeem boxes exist on the game library AND the new-game screens", boxes.lib && boxes.cats);
+  check("the redeem boxes are removed from the library AND the new-game screens", boxes.libGone && boxes.catsGone);
+  check("redeeming is still available in the settings sheet", boxes.settingsKept);
 
+  // the game-count badge shows the remaining games, only on those two screens
+  const badge = await page.evaluate(async () => {
+    const el = document.getElementById("gameCountBadge");
+    if (!el) return { ok: false };
+    const shownOn = (screen) => { showScreen(screen); return getComputedStyle(el).display !== "none"; };
+    state.isAdmin = false; state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = false; state.gamesAllowed = 3; state.codeGamesAllowed = 0; state.gamesUsed = 0;
+    renderPlayBalance();
+    const num = document.getElementById("gameCountNum").textContent;
+    const onLib = shownOn("gameLibrary"), onCats = shownOn("categories"), onMenu = shownOn("menu");
+    // ∞ for admins
+    state.isAdmin = true; renderPlayBalance();
+    const adminNum = document.getElementById("gameCountNum").textContent;
+    state.isAdmin = false; renderPlayBalance();
+    return { ok: true, num, onLib, onCats, onMenu, adminNum };
+  });
+  check("the game-count badge exists and shows the remaining games (1 free + 3 = 4)",
+    badge.ok && /[4٤]/.test(badge.num));
+  check("the badge is shown on the game-list and category screens, hidden elsewhere",
+    badge.onLib && badge.onCats && !badge.onMenu);
+  check("the badge shows ∞ for an admin (unlimited)", badge.adminNum === "∞");
+
+  // redeeming from the settings sheet calls the bridge and clears the input
   const redeem = await page.evaluate(async () => {
     const calls = [];
     window.IZZBAH.redeemCode = (raw) => { calls.push(raw); return Promise.resolve({ gamesAllowed: 5, premium: false }); };
-    document.getElementById("redeemInputLib").value = "ab2d ef4h";
-    document.getElementById("redeemBtnLib").click();
+    document.getElementById("redeemInputSettings").value = "ab2d ef4h";
+    document.getElementById("redeemBtnSettings").click();
     await new Promise(r => setTimeout(r, 200));
-    return { calls, cleared: document.getElementById("redeemInputLib").value === "" };
+    return { calls, cleared: document.getElementById("redeemInputSettings").value === "" };
   });
-  check("redeeming from the library calls the bridge and clears the input",
+  check("redeeming from settings calls the bridge and clears the input",
     redeem.calls.length === 1 && redeem.calls[0] === "ab2d ef4h" && redeem.cleared);
 
   // tapping the balance line re-queries the cloud balance
@@ -293,6 +319,17 @@ try {
     return called;
   });
   check("tapping the balance line refreshes it from the cloud", refreshTap === 1);
+
+  // tapping the game-count badge (signed in) also refreshes from the cloud
+  const badgeTap = await page.evaluate(async () => {
+    let called = 0;
+    window.IZZBAH.refreshMyCodes = () => { called++; return Promise.resolve(true); };
+    state.signedIn = true;
+    document.getElementById("gameCountBadge").click();
+    await new Promise(r => setTimeout(r, 150));
+    return called;
+  });
+  check("tapping the game-count badge refreshes the balance", badgeTap === 1);
 
   // the footer version tag opens the diagnostics popup
   const diag = await page.evaluate(async () => {
@@ -310,11 +347,11 @@ try {
 
   const badRedeem = await page.evaluate(async () => {
     window.IZZBAH.redeemCode = () => Promise.reject(new Error("used"));
-    document.getElementById("redeemInputCats").value = "AB2D-EF4H";
-    document.getElementById("redeemBtnCats").click();
+    document.getElementById("redeemInputSettings").value = "AB2D-EF4H";
+    document.getElementById("redeemBtnSettings").click();
     await new Promise(r => setTimeout(r, 250));
     const toast = document.querySelector(".toast, #toast");
-    return { kept: document.getElementById("redeemInputCats").value !== "", toast: toast ? toast.textContent : "" };
+    return { kept: document.getElementById("redeemInputSettings").value !== "", toast: toast ? toast.textContent : "" };
   });
   check("an already-used code keeps the input (player can fix a typo)", badRedeem.kept);
 
