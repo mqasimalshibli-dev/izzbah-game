@@ -9052,7 +9052,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.51";
+    const IZZBAH_BUILD = "2026-07-10.52";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10057,6 +10057,15 @@
     window.addEventListener("resize", () => {
       if (document.body.dataset.screen === "questionPage") fitQuestionText();
     });
+    // Webfonts (Cairo) can land AFTER the first fit passes ran; a fit measured
+    // with the fallback font may have shrunk for wraps that no longer exist —
+    // or missed ones that now do. Re-fit once the real fonts are in (the fit
+    // always resets to the stylesheet size first, so it can only correct).
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        if (document.body.dataset.screen === "questionPage") fitQuestionText();
+      }).catch(() => {});
+    }
     // A question image loading shifts the layout — re-fit once it's in so a slow
     // (e.g. remote) picture can't push the text back over the reveal button.
     (function () {
