@@ -5888,8 +5888,12 @@
         <h3 class="preview-title" id="fetchImagesTitle">🖼 جلب الصور تلقائياً</h3>
         <p class="import-help">تُجلب الصور من ويكيبيديا وتوضع على الأسئلة الناقصة. راجعها بعد الجلب — قد لا تكون كل صورة دقيقة، ويمكنك حذف أي صورة غير مناسبة.</p>
         <label class="fetchimg-opt">
-          <input type="checkbox" id="fetchImagesBoth" />
-          <span><b>توليد صور للأسئلة أيضاً</b> — سؤال + جواب معاً. صورة السؤال تُبحث من كلمات السؤال فقط (لا تكشف الإجابة أبداً).</span>
+          <input type="checkbox" id="fetchImagesAnswers" checked />
+          <span><b>صور الإجابات</b> — تُبحث من نص الإجابة (بحث عميق دقيق) وتظهر عند كشف الإجابة.</span>
+        </label>
+        <label class="fetchimg-opt">
+          <input type="checkbox" id="fetchImagesQuestions" />
+          <span><b>صور الأسئلة</b> — تُبحث من كلمات السؤال فقط (لا تكشف الإجابة أبداً) وتظهر مع السؤال.</span>
         </label>
         <p class="import-note" id="fetchImagesCount"></p>
         <div class="actions">
@@ -9052,7 +9056,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.52";
+    const IZZBAH_BUILD = "2026-07-10.53";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13653,19 +13657,30 @@
       return "";
     }
 
-    // Admin: the fetch-images button opens an OPTIONS dialog first — by default
-    // only missing ANSWER photos are fetched; a checkbox activates generating
-    // pictures for BOTH the question and the answer.
+    // Admin: the fetch-images button opens an OPTIONS dialog first, with two
+    // independent choices — answer pictures (the safe default) and question
+    // pictures — so each can be fetched alone, or both together.
+    function fetchImagesOptions() {
+      return {
+        answers: !!($("#fetchImagesAnswers") && $("#fetchImagesAnswers").checked),
+        questions: !!($("#fetchImagesQuestions") && $("#fetchImagesQuestions").checked)
+      };
+    }
     function updateFetchImagesCount() {
       const cat = state.adminCat;
       const el = $("#fetchImagesCount");
       if (!cat || !el) return;
-      const both = !!($("#fetchImagesBoth") && $("#fetchImagesBoth").checked);
+      const opt = fetchImagesOptions();
       const ansN = cat.questions.filter(questionNeedsImage).length;
       const qN = cat.questions.filter(questionNeedsQuestionImage).length;
-      el.textContent = "سيُجلب: " + toArabicDigits(ansN) + " صورة إجابة"
-        + (both ? " + " + toArabicDigits(qN) + " صورة سؤال" : "")
-        + " (بحد أقصى ٤٠ صورة في كل تشغيل)";
+      const parts = [];
+      if (opt.answers) parts.push(toArabicDigits(ansN) + " صورة إجابة");
+      if (opt.questions) parts.push(toArabicDigits(qN) + " صورة سؤال");
+      el.textContent = parts.length
+        ? "سيُجلب: " + parts.join(" + ") + " (بحد أقصى ٤٠ صورة في كل تشغيل)"
+        : "اختر نوع الصور المطلوب جلبه أولاً.";
+      const start = $("#fetchImagesStart");
+      if (start) start.disabled = !parts.length;
     }
     function fetchMissingImages() {
       const cat = state.adminCat;
@@ -13676,8 +13691,10 @@
       const ansN = cat.questions.filter(questionNeedsImage).length;
       const qN = cat.questions.filter(questionNeedsQuestionImage).length;
       if (!ansN && !qN) { showToast("كل الأسئلة لديها صورها بالفعل"); return; }
-      const box = $("#fetchImagesBoth");
-      if (box) box.checked = false; // answers-only is the safe default
+      const ansBox = $("#fetchImagesAnswers");
+      const qBox = $("#fetchImagesQuestions");
+      if (ansBox) ansBox.checked = true;  // answers-only is the safe default
+      if (qBox) qBox.checked = false;
       updateFetchImagesCount();
       const m = $("#fetchImagesModal");
       m.classList.add("open");
@@ -13692,21 +13709,28 @@
     // The actual fetch run. Sequential (polite to Wikipedia), capped per run,
     // one undo step, auto-publishes. The admin then reviews the thumbnails in
     // the table and can swap/remove any.
-    async function runFetchImages(both) {
+    async function runFetchImages(opt) {
       const cat = state.adminCat;
       if (!cat) return;
+      opt = opt && typeof opt === "object" ? opt : { answers: true, questions: !!opt };
+      if (!opt.answers && !opt.questions) return;
       const CAP = 40;
       let jobs = [];
-      cat.questions.forEach(q => { if (questionNeedsImage(q)) jobs.push({ q, kind: "answer" }); });
-      if (both) cat.questions.forEach(q => { if (questionNeedsQuestionImage(q)) jobs.push({ q, kind: "question" }); });
-      if (!jobs.length) { showToast(both ? "كل الأسئلة لديها صورها بالفعل" : "كل الأسئلة لديها صورة إجابة بالفعل"); return; }
+      if (opt.answers) cat.questions.forEach(q => { if (questionNeedsImage(q)) jobs.push({ q, kind: "answer" }); });
+      if (opt.questions) cat.questions.forEach(q => { if (questionNeedsQuestionImage(q)) jobs.push({ q, kind: "question" }); });
+      if (!jobs.length) {
+        showToast(opt.answers && opt.questions ? "كل الأسئلة لديها صورها بالفعل"
+          : opt.questions ? "كل الأسئلة لديها صورة سؤال بالفعل" : "كل الأسئلة لديها صورة إجابة بالفعل");
+        return;
+      }
       const capped = jobs.length > CAP;
       if (capped) jobs = jobs.slice(0, CAP);
 
       const btn = $("#adminFetchImages");
       const orig = btn ? btn.textContent : "";
       if (btn) btn.disabled = true;
-      pushAdminUndo(both ? "جلب صور الأسئلة والإجابات" : "جلب صور الإجابات");
+      pushAdminUndo(opt.answers && opt.questions ? "جلب صور الأسئلة والإجابات"
+        : opt.questions ? "جلب صور الأسئلة" : "جلب صور الإجابات");
       let filled = 0, filledQ = 0, failed = 0, done = 0;
       for (const job of jobs) {
         done++;
@@ -14902,12 +14926,14 @@
     $("#adminImportQuestions").addEventListener("click", openImportModal);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
-    $("#fetchImagesBoth").addEventListener("change", updateFetchImagesCount);
+    $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
+    $("#fetchImagesQuestions").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesCancel").addEventListener("click", closeFetchImagesDialog);
     $("#fetchImagesStart").addEventListener("click", () => {
-      const both = !!$("#fetchImagesBoth").checked;
+      const opt = fetchImagesOptions();
+      if (!opt.answers && !opt.questions) return;
       closeFetchImagesDialog();
-      runFetchImages(both);
+      runFetchImages(opt);
     });
     $("#fetchImagesModal").addEventListener("click", event => { if (event.target.id === "fetchImagesModal") closeFetchImagesDialog(); });
     $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
