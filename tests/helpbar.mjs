@@ -146,12 +146,18 @@ try {
       const card = document.querySelector("#questionPage .question-main-card");
       const el = document.getElementById("modalQuestion");
       const c = card.getBoundingClientRect(), r = el.getBoundingClientRect();
+      // BASE (stylesheet) size, override lifted — viewport-based (vw clamp), so
+      // font-metric-independent, unlike the fitted size CI would shrink.
+      const applied = el.style.getPropertyValue("font-size");
+      el.style.removeProperty("font-size");
+      const base = parseFloat(getComputedStyle(el).fontSize);
+      if (applied) el.style.setProperty("font-size", applied, "important");
       return {
         textOnlyClass: card.classList.contains("text-only"),
         offCenter: Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)),
         cardHeight: c.height,
         fromTop: r.top - c.top,
-        size: parseFloat(getComputedStyle(el).fontSize),
+        base,
       };
     };
     const noImg = await measure({ q: "ما اسم والد النبي؟", a: "عبدالله", points: 100 });
@@ -161,7 +167,8 @@ try {
   check("a picture-less question is tagged text-only", textOnly.noImg.textOnlyClass);
   check(`a picture-less question is vertically centered (${Math.round(textOnly.noImg.offCenter)}px off, not ${Math.round(textOnly.noImg.fromTop)}px from top)`,
     textOnly.noImg.offCenter < textOnly.noImg.cardHeight * 0.2);
-  check("a picture-less question is enlarged above the base body size", textOnly.noImg.size >= 30);
+  check(`a picture-less question uses a LARGER base type than an image question (${Math.round(textOnly.noImg.base)}px > ${Math.round(textOnly.withImg.base)}px)`,
+    textOnly.noImg.base > textOnly.withImg.base);
   check("a question WITH an image is NOT text-only (keeps the image layout)", textOnly.withImg.textOnlyClass === false);
   await ipad.close();
 
