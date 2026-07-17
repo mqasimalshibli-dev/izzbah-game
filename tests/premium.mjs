@@ -128,6 +128,24 @@ try {
   check("after healing, a newly redeemed code credits in full", heal.newCodeCredits);
   check("the library balance line shows the remaining games", /6/.test(resilience.balanceText));
 
+  // consumed-counter reconciliation: the CLOUD value is authoritative — a fresh
+  // device (local 0) must be raised to the cloud count, never lower it.
+  const recon = await page.evaluate(() => {
+    localStorage.setItem("izzbah-games-used-v1", "0"); state.gamesUsed = 0;
+    window.IZZBAH.applyUsageFloor(3);                       // cloud says 3 consumed
+    const raised = state.gamesUsed === 3 && localStorage.getItem("izzbah-games-used-v1") === "3";
+    window.IZZBAH.applyUsageFloor(1);                       // a stale/lower value must NOT lower it
+    const notLowered = state.gamesUsed === 3;
+    state.gamesUsed = 5;                                     // local ahead of cloud (just played)
+    window.IZZBAH.applyUsageFloor(3);
+    const keepsHigher = state.gamesUsed === 5;
+    localStorage.setItem("izzbah-games-used-v1", "0"); state.gamesUsed = 0;
+    return { raised, notLowered, keepsHigher };
+  });
+  check("a fresh device is raised to the cloud consumed count (no reset to 0)", recon.raised);
+  check("a lower cloud value never decreases the local consumed count", recon.notLowered);
+  check("a local count ahead of the cloud is kept (monotonic up)", recon.keepsHigher);
+
   // ---- Admin UI: the gear opens a chooser with the two managers ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);
