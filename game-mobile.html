@@ -9222,7 +9222,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.66";
+    const IZZBAH_BUILD = "2026-07-10.67";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14059,6 +14059,17 @@
     // Every tier skips disambiguation pages and generic wiki icons, and picks
     // the candidate whose TITLE best matches the answer — not merely the
     // first search hit with any image. Arabic Wikipedia first, then English.
+    // «مواقع في عمان» is a "name this place" category: the question shows a
+    // photo of the place and the answer IS the place name. For it, one fetched
+    // photo (searched by the place name = the answer) goes on BOTH the question
+    // and the reveal, so a single fetch fills image + answerImage together.
+    function isOmanSitesCategory(cat) {
+      if (!cat) return false;
+      if (String(cat.id || "") === "pub-1783170059396-601") return true;
+      const nm = String(cat.name || "").replace(/[ً-ْ]/g, ""); // drop Arabic diacritics
+      return /مواقع\s*في\s*عمان/.test(nm);
+    }
+
     async function findAnswerImageUrl(q) {
       const answer = ((q && q.a) || "").trim();
       if (!answer) return "";
@@ -14192,11 +14203,21 @@
       const cat = state.adminCat;
       if (!cat) return;
       opt = opt && typeof opt === "object" ? opt : { answers: true, questions: !!opt };
-      if (!opt.answers && !opt.questions) return;
+      const twinImages = isOmanSitesCategory(cat); // one photo on BOTH sides
+      if (!twinImages && !opt.answers && !opt.questions) return;
       const CAP = 40;
       let jobs = [];
-      if (opt.answers) cat.questions.forEach(q => { if (questionNeedsImage(q)) jobs.push({ q, kind: "answer" }); });
-      if (opt.questions) cat.questions.forEach(q => { if (questionNeedsQuestionImage(q)) jobs.push({ q, kind: "question" }); });
+      if (twinImages) {
+        // Fill any question missing EITHER image; one fetch (by the place name)
+        // populates both the question photo and the reveal photo.
+        cat.questions.forEach(q => {
+          const needs = !((q.image || "").trim()) || !((q.answerImage || "").trim());
+          if (needs && (q.a || "").trim()) jobs.push({ q, kind: "twin" });
+        });
+      } else {
+        if (opt.answers) cat.questions.forEach(q => { if (questionNeedsImage(q)) jobs.push({ q, kind: "answer" }); });
+        if (opt.questions) cat.questions.forEach(q => { if (questionNeedsQuestionImage(q)) jobs.push({ q, kind: "question" }); });
+      }
       if (!jobs.length) {
         showToast(opt.answers && opt.questions ? "كل الأسئلة لديها صورها بالفعل"
           : opt.questions ? "كل الأسئلة لديها صورة سؤال بالفعل" : "كل الأسئلة لديها صورة إجابة بالفعل");
@@ -14215,10 +14236,13 @@
         done++;
         if (btn) btn.textContent = "⏳ جلب الصور… " + toArabicDigits(done) + "/" + toArabicDigits(jobs.length);
         try {
-          const url = job.kind === "answer" ? await findAnswerImageUrl(job.q) : await findQuestionImageUrl(job.q);
+          // "question" searches by the question's own words; "answer" and "twin"
+          // both search by the answer (the place name).
+          const url = job.kind === "question" ? await findQuestionImageUrl(job.q) : await findAnswerImageUrl(job.q);
           if (url) {
             const data = await remoteImageToDataUrl(url);
-            if (job.kind === "answer") job.q.answerImage = data;
+            if (job.kind === "twin") { job.q.image = data; job.q.answerImage = data; filledQ++; }
+            else if (job.kind === "answer") job.q.answerImage = data;
             else { job.q.image = data; filledQ++; }
             filled++;
           } else failed++;
