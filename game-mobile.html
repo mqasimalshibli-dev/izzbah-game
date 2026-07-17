@@ -4479,7 +4479,7 @@
       padding: 11px 13px; margin-bottom: 8px; font: 700 13.5px 'Cairo', sans-serif; color: var(--dark);
     }
     .settings-account .sa-line { display: block; }
-    .settings-account .sa-sub { font: 600 9px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .settings-account .sa-btn { margin-top: 9px; width: 100%; }
     .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
     .settings-row {
@@ -4531,7 +4531,7 @@
       background: rgba(158, 19, 34, .5); border: 1px solid #e6c869; border-radius: 12px;
       color: #fbeecd; font: 700 12.5px/1.6 'Cairo', sans-serif; padding: 10px 14px;
     }
-    .wlc-uid { margin-top: 5px; font: 600 8px 'Cairo', sans-serif; color: #e9cfa0; opacity: .65; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wlc-uid { margin-top: 5px; font: 600 10px 'Cairo', sans-serif; color: #e9cfa0; opacity: .75; cursor: pointer; direction: ltr; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wlc-uid b { color: #f6d27a; font-weight: 700; }
     .wlc-foot { position: relative; z-index: 2; margin-top: clamp(24px,5vh,48px); display: flex; align-items: center; gap: 11px; opacity: .6; }
     .wlc-foot i { width: 5px; height: 5px; background: #dcbd71; transform: rotate(45deg); }
@@ -9222,7 +9222,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.65";
+    const IZZBAH_BUILD = "2026-07-10.66";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9565,6 +9565,14 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+    }
+
+    // A short, readable form of the (long, ~28-char) Firebase account id for
+    // DISPLAY only — first 6 · last 4 with an ellipsis between. Tapping the id
+    // still copies the FULL value, so it keeps working for admin lookups.
+    function shortUid(uid) {
+      const u = String(uid || "");
+      return u.length > 12 ? u.slice(0, 6) + "…" + u.slice(-4) : u;
     }
 
     function defaultAvatarHtml(className = "default-avatar") {
@@ -12873,7 +12881,7 @@
       if (acc) {
         if (state.signedIn) {
           acc.innerHTML = `<span class="sa-line">✅ مسجّل الدخول</span>
-            <span class="sa-sub" id="settingsUid" title="اضغط لنسخ معرّف حسابك">معرّف حسابك: ${escapeHtml(state.myUid || "")}</span>
+            <span class="sa-sub" id="settingsUid" title="اضغط لنسخ معرّف حسابك">معرّف حسابك: ${escapeHtml(shortUid(state.myUid || ""))}</span>
             <button class="secondary sa-btn" id="settingsAuthBtn" type="button">تسجيل الخروج</button>`;
         } else {
           acc.innerHTML = `<span class="sa-line">لم تسجّل الدخول</span>
@@ -15725,7 +15733,8 @@
       if (uidEl) {
         if (state.signedIn && state.myUid) {
           uidEl.style.display = "";
-          uidEl.innerHTML = "معرّف حسابك: <b>" + state.myUid + "</b>";
+          uidEl.innerHTML = "معرّف حسابك: <b>" + escapeHtml(shortUid(state.myUid)) + "</b>";
+          uidEl.title = "اضغط لنسخ معرّف حسابك\n" + state.myUid;
           uidEl.onclick = () => {
             const done = () => { if (typeof showToast === "function") showToast("تم نسخ معرّف حسابك"); };
             if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(state.myUid).then(done).catch(done);
