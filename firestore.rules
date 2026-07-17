@@ -229,6 +229,33 @@ service cloud.firestore {
         && request.resource.data.rev is number;
     }
 
+    // ---- Developer announcements (public feed) -----------------------------
+    // Short messages the admin publishes to every player («إعلانات المطوّر»).
+    // Anyone may READ them (the feed is public); only an admin may create,
+    // edit or delete, and the write is shape/size-checked. On edit, createdAt
+    // is preserved (affectedKeys excludes it).
+    function validAnnounce(ks) {
+      return ks.hasOnly(['title', 'body', 'icon', 'color', 'image', 'active', 'pinned', 'createdAt', 'updatedAt']);
+    }
+    match /announcements/{id} {
+      allow read: if true;
+      allow create: if isAdmin()
+        && validAnnounce(request.resource.data.keys())
+        && request.resource.data.title is string && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string  && request.resource.data.body.size() <= 2000
+        && request.resource.data.icon is string  && request.resource.data.icon.size() <= 8
+        && request.resource.data.color is string && request.resource.data.color.size() <= 20
+        && request.resource.data.image is string && request.resource.data.image.size() <= 900000
+        && request.resource.data.active is bool
+        && request.resource.data.pinned is bool;
+      allow update: if isAdmin()
+        && validAnnounce(request.resource.data.diff(resource.data).affectedKeys())
+        && request.resource.data.title is string && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string  && request.resource.data.body.size() <= 2000
+        && request.resource.data.image is string && request.resource.data.image.size() <= 900000;
+      allow delete: if isAdmin();
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full

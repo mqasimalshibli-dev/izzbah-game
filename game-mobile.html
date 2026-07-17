@@ -4262,6 +4262,53 @@
     .admin-choice-ico { grid-row: 1 / span 2; font-size: 26px; line-height: 1; text-align: center; }
     .admin-choice-name { font-weight: 800; font-size: 16px; }
     .admin-choice-sub { font-weight: 600; font-size: 12.5px; color: #8a7550; }
+    /* ---- Announcements (player view + admin composer) ---- */
+    .announce-modal, .announce-admin-modal { max-width: 560px; width: 94%; text-align: right; max-height: 88vh; overflow-y: auto; }
+    .announce-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 2px; }
+    .announce-empty { text-align: center; color: #8a7550; font: 600 14px 'Cairo', sans-serif; padding: 22px 8px; }
+    .ann-card {
+      border: 1px solid rgba(154, 28, 28, .18); border-inline-start: 5px solid var(--ann-accent, #9a1c1c);
+      border-radius: 14px; background: #fbf4e4; padding: 13px 15px; box-shadow: 0 4px 12px -8px rgba(80, 20, 20, .3);
+    }
+    .ann-card.pinned { background: #f6ead0; }
+    .ann-card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
+    .ann-card-ico { font-size: 22px; line-height: 1; }
+    .ann-card-title { font: 800 16.5px 'Cairo', sans-serif; color: var(--ann-accent, #9a1c1c); flex: 1; }
+    .ann-card-pin { font-size: 13px; }
+    .ann-card-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin: 6px 0; display: block; }
+    .ann-card-body { font: 600 14.5px/1.7 'Cairo', sans-serif; color: #3a2c18; white-space: pre-wrap; word-break: break-word; }
+    .ann-card-date { font: 600 11.5px 'Cairo', sans-serif; color: #a08a5f; margin-top: 7px; }
+    /* unread markers */
+    .settings-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #cc2531; color: #fff;
+      font: 800 12px 'Cairo', sans-serif; display: inline-grid; place-items: center; margin-inline-start: 6px; }
+    #userSettingsBtn.has-unread::after { content: ""; position: absolute; top: 6px; inset-inline-end: 6px; width: 11px; height: 11px;
+      border-radius: 50%; background: #cc2531; border: 2px solid #200608; }
+    /* admin composer */
+    .announce-compose { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+    .announce-compose input[type="text"], .announce-compose textarea {
+      width: 100%; font: 600 14px 'Cairo', sans-serif; padding: 9px 12px; border-radius: 8px;
+      border: 1px solid rgba(154, 28, 28, .25); background: #fffdf7; color: #2a1e10; margin-bottom: 4px; box-sizing: border-box;
+    }
+    .announce-compose textarea { resize: vertical; line-height: 1.6; }
+    .ann-icon-input { width: 68px !important; text-align: center; font-size: 20px !important; }
+    .announce-design { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 4px 0; }
+    .ann-swatches { display: inline-flex; gap: 7px; }
+    .ann-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+    .ann-swatch.sel { border-color: #2a1e10; box-shadow: 0 0 0 2px #fff inset; }
+    .ann-toggle { display: flex; align-items: center; gap: 8px; font: 700 13.5px 'Cairo', sans-serif; color: #4a3a1e; margin: 3px 0; cursor: pointer; }
+    .announce-preview-wrap { margin: 8px 0; padding: 10px; border: 1px dashed rgba(154, 28, 28, .3); border-radius: 12px; background: #fffaf0; }
+    .ann-preview-label { font: 700 12.5px 'Cairo', sans-serif; color: #8a7550; margin-bottom: 6px; }
+    .ann-existing-title { font: 800 15px 'Cairo', sans-serif; color: #7a1414; margin: 12px 0 6px; text-align: right; }
+    .announce-admin-list { display: flex; flex-direction: column; gap: 8px; }
+    .ann-admin-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; background: #f6ecd6; border: 1px solid rgba(154, 28, 28, .12); }
+    .ann-admin-row.hidden-ann { opacity: .55; }
+    .ann-admin-main { flex: 1; min-width: 0; }
+    .ann-admin-name { font: 800 14px 'Cairo', sans-serif; color: #2a1e10; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ann-admin-sub { font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; }
+    .ann-admin-actions { display: inline-flex; gap: 6px; }
+    .ann-admin-actions button { min-height: 0; padding: 5px 11px; font: 800 12.5px 'Cairo', sans-serif; border-radius: 8px; cursor: pointer; border: none; }
+    .ann-edit-btn { background: linear-gradient(180deg, #2fa15a, #1d7a41); color: #fff; }
+    .ann-del-btn { background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; }
     /* ---- Player subscriptions (admin) ---- */
     .premium-modal { max-width: 620px; width: 94%; text-align: right; }
     .prem-input {
@@ -5517,11 +5564,61 @@
       <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
       <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+    </div>
+  </div>
+
+  <!-- Player: announcement center (read-only feed from the developers) -->
+  <div class="modal-backdrop" id="announceModal" aria-hidden="true">
+    <div class="question-modal announce-modal" role="dialog" aria-modal="true" aria-labelledby="announceTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="announceTitle">📢 إعلانات المطوّر</h3>
+        <button class="settings-close" id="announceClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="announce-list" id="announceList"></div>
+    </div>
+  </div>
+
+  <!-- Admin: compose + design + manage announcements -->
+  <div class="modal-backdrop" id="announceAdminModal" aria-hidden="true">
+    <div class="question-modal announce-admin-modal" role="dialog" aria-modal="true" aria-labelledby="announceAdminTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="announceAdminTitle">📢 إدارة الإعلانات</h3>
+        <button class="settings-close" id="announceAdminClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <p class="import-help">اكتب إعلاناً وصمّمه، وسيظهر لكل اللاعبين في «إعلانات المطوّر».</p>
+      <div class="announce-compose">
+        <label class="field-label">العنوان</label>
+        <input type="text" id="annTitle" maxlength="120" placeholder="عنوان الإعلان" />
+        <label class="field-label">النص</label>
+        <textarea id="annBody" maxlength="2000" rows="4" placeholder="اكتب رسالتك للاعبين…"></textarea>
+        <div class="announce-design">
+          <label class="field-label">الأيقونة</label>
+          <input type="text" id="annIcon" maxlength="4" placeholder="📢" class="ann-icon-input" />
+          <label class="field-label">اللون</label>
+          <div class="ann-swatches" id="annSwatches"></div>
+        </div>
+        <label class="field-label">صورة (اختياري)</label>
+        <div id="annImageSlot"></div>
+        <label class="ann-toggle"><input type="checkbox" id="annActive" checked /> <span>ظاهر للاعبين</span></label>
+        <label class="ann-toggle"><input type="checkbox" id="annPinned" /> <span>تثبيت في الأعلى</span></label>
+        <div class="announce-preview-wrap">
+          <div class="ann-preview-label">معاينة:</div>
+          <div class="announce-list" id="annPreview"></div>
+        </div>
+        <div class="prem-status" id="annStatus" aria-live="polite"></div>
+        <div class="actions">
+          <button class="ghost" id="annReset" type="button">مسح النموذج</button>
+          <button class="primary" id="annPublish" type="button">📢 نشر الإعلان</button>
+        </div>
+      </div>
+      <h4 class="ann-existing-title">الإعلانات المنشورة</h4>
+      <div class="announce-admin-list" id="annAdminList"></div>
     </div>
   </div>
 
@@ -5796,6 +5893,11 @@
             <span class="admin-choice-ico" aria-hidden="true">📊</span>
             <span class="admin-choice-name">الإحصائيات</span>
             <span class="admin-choice-sub">الفئات الأكثر لعباً وعدد الألعاب</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceAnnounce" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">📢</span>
+            <span class="admin-choice-name">الإعلانات</span>
+            <span class="admin-choice-sub">أرسل إعلاناً للاعبين وصمّمه</span>
           </button>
         </div>
         <div class="actions">
@@ -9030,6 +9132,7 @@
       teams: teamDefaults.map(name => ({ name, score: 0, image: "", helpers: ["fourChoices", "firstLetter", "doublePoints"], helpUsed: {}, doubleArmed: false, stealArmed: false })),
       selected: new Set(),
       customCategories: [],
+      announcements: [],
       communityCategories: [],
       myCommunity: [],
       pendingCommunity: [],
@@ -9074,7 +9177,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.59";
+    const IZZBAH_BUILD = "2026-07-10.60";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11839,6 +11942,172 @@
       m.classList.remove("open");
       m.setAttribute("aria-hidden", "true");
     }
+
+    // ---- Announcements: developer → players feed -------------------------
+    const ANN_SEEN_KEY = "izzbah-ann-seen-v1";
+    const ANN_COLORS = ["#9a1c1c", "#1d7a41", "#1f5237", "#b8860b", "#2c5aa0", "#7a2e9a"];
+    function annSeenAt() { try { return Number(localStorage.getItem(ANN_SEEN_KEY)) || 0; } catch (e) { return 0; } }
+    function annLatestTs(list) { return (list || []).reduce((m, a) => Math.max(m, Number(a.createdAt) || 0), 0); }
+    function annUnreadCount() {
+      const seen = annSeenAt();
+      return (state.announcements || []).filter(a => (Number(a.createdAt) || 0) > seen).length;
+    }
+    // Load the active announcements (public read). Best-effort — if the bridge
+    // or collection isn't there yet, we just show none, never an error.
+    function loadAnnouncements() {
+      const bridge = window.IZZBAH && window.IZZBAH.listAnnouncements;
+      if (!bridge) { state.announcements = state.announcements || []; updateAnnounceBadge(); return Promise.resolve(); }
+      return bridge(false).then(list => {
+        state.announcements = Array.isArray(list) ? list : [];
+        updateAnnounceBadge();
+      }).catch(() => { state.announcements = state.announcements || []; updateAnnounceBadge(); });
+    }
+    function updateAnnounceBadge() {
+      const n = annUnreadCount();
+      const badge = $("#settingsAnnounceBadge");
+      if (badge) { if (n > 0) { badge.hidden = false; badge.textContent = toArabicDigits(n); } else { badge.hidden = true; } }
+      const gear = $("#userSettingsBtn");
+      if (gear) gear.classList.toggle("has-unread", n > 0);
+    }
+    // Build the read-only announcement cards into a container.
+    function renderAnnouncementCards(container, list) {
+      if (!container) return;
+      container.innerHTML = "";
+      if (!list || !list.length) {
+        container.innerHTML = '<div class="announce-empty">لا توجد إعلانات حالياً.</div>';
+        return;
+      }
+      list.forEach(a => {
+        const accent = ANN_COLORS.includes(a.color) ? a.color : (a.color || "#9a1c1c");
+        const card = document.createElement("div");
+        card.className = "ann-card" + (a.pinned ? " pinned" : "");
+        card.style.setProperty("--ann-accent", accent);
+        const dateStr = a.createdAt ? new Date(Number(a.createdAt)).toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" }) : "";
+        card.innerHTML =
+          `<div class="ann-card-head">`
+          + `<span class="ann-card-ico">${escapeHtml(a.icon || "📢")}</span>`
+          + `<span class="ann-card-title">${escapeHtml(toArabicDigits(a.title || ""))}</span>`
+          + (a.pinned ? `<span class="ann-card-pin" title="مثبّت">📌</span>` : "")
+          + `</div>`
+          + (a.image ? `<img class="ann-card-img" src="${escapeHtml(a.image)}" alt="">` : "")
+          + `<div class="ann-card-body">${escapeHtml(toArabicDigits(a.body || ""))}</div>`
+          + (dateStr ? `<div class="ann-card-date">${escapeHtml(dateStr)}</div>` : "");
+        container.appendChild(card);
+      });
+    }
+    function openAnnouncements() {
+      renderAnnouncementCards($("#announceList"), state.announcements || []);
+      // mark everything seen
+      try { localStorage.setItem(ANN_SEEN_KEY, String(Math.max(annSeenAt(), annLatestTs(state.announcements), Date.now()))); } catch (e) {}
+      updateAnnounceBadge();
+      const m = $("#announceModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeAnnouncements() { const m = $("#announceModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+
+    // ---- Announcements: admin composer + manager ------------------------
+    let annEditId = null;      // id of the announcement being edited (else new)
+    let annDraftColor = ANN_COLORS[0];
+    let annDraftImage = "";
+    function annStatus(msg, kind) { const el = $("#annStatus"); if (el) { el.textContent = msg || ""; el.className = "prem-status" + (kind ? " " + kind : ""); } }
+    function annFormData() {
+      return {
+        title: ($("#annTitle").value || "").trim(),
+        body: ($("#annBody").value || "").trim(),
+        icon: ($("#annIcon").value || "").trim() || "📢",
+        color: annDraftColor,
+        image: annDraftImage || "",
+        active: !!$("#annActive").checked,
+        pinned: !!$("#annPinned").checked,
+      };
+    }
+    function renderAnnPreview() {
+      const d = annFormData();
+      renderAnnouncementCards($("#annPreview"), [Object.assign({ createdAt: Date.now() }, d)]);
+    }
+    function renderAnnSwatches() {
+      const wrap = $("#annSwatches"); if (!wrap) return;
+      wrap.innerHTML = "";
+      ANN_COLORS.forEach(c => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "ann-swatch" + (c === annDraftColor ? " sel" : "");
+        b.style.background = c; b.title = c;
+        b.addEventListener("click", () => { annDraftColor = c; renderAnnSwatches(); renderAnnPreview(); });
+        wrap.appendChild(b);
+      });
+    }
+    function resetAnnForm() {
+      annEditId = null; annDraftColor = ANN_COLORS[0]; annDraftImage = "";
+      $("#annTitle").value = ""; $("#annBody").value = ""; $("#annIcon").value = "";
+      $("#annActive").checked = true; $("#annPinned").checked = false;
+      $("#annPublish").textContent = "📢 نشر الإعلان";
+      renderAnnImageSlot(); renderAnnSwatches(); renderAnnPreview(); annStatus("", "");
+    }
+    function renderAnnImageSlot() {
+      const slot = $("#annImageSlot"); if (!slot) return;
+      slot.innerHTML = "";
+      slot.appendChild(imagePicker(annDraftImage, img => { annDraftImage = img || ""; renderAnnPreview(); }, "صورة الإعلان"));
+    }
+    function loadAnnIntoForm(a) {
+      annEditId = a.id; annDraftColor = ANN_COLORS.includes(a.color) ? a.color : ANN_COLORS[0]; annDraftImage = a.image || "";
+      $("#annTitle").value = a.title || ""; $("#annBody").value = a.body || ""; $("#annIcon").value = a.icon || "";
+      $("#annActive").checked = a.active !== false; $("#annPinned").checked = !!a.pinned;
+      $("#annPublish").textContent = "💾 حفظ التعديل";
+      renderAnnImageSlot(); renderAnnSwatches(); renderAnnPreview();
+      $("#annTitle").focus();
+    }
+    function renderAdminAnnouncements(list) {
+      const box = $("#annAdminList"); if (!box) return;
+      box.innerHTML = "";
+      if (!list || !list.length) { box.innerHTML = '<div class="announce-empty">لا توجد إعلانات منشورة.</div>'; return; }
+      list.forEach(a => {
+        const row = document.createElement("div");
+        row.className = "ann-admin-row" + (a.active === false ? " hidden-ann" : "");
+        const main = document.createElement("div"); main.className = "ann-admin-main";
+        const nm = document.createElement("div"); nm.className = "ann-admin-name"; nm.textContent = (a.icon || "📢") + " " + (a.title || "(بلا عنوان)");
+        const sub = document.createElement("div"); sub.className = "ann-admin-sub";
+        sub.textContent = (a.active === false ? "مخفي" : "ظاهر") + (a.pinned ? " · مثبّت" : "") + (a.createdAt ? " · " + new Date(Number(a.createdAt)).toLocaleDateString("ar") : "");
+        main.append(nm, sub);
+        const acts = document.createElement("div"); acts.className = "ann-admin-actions";
+        const edit = document.createElement("button"); edit.className = "ann-edit-btn"; edit.type = "button"; edit.textContent = "تعديل";
+        edit.addEventListener("click", () => loadAnnIntoForm(a));
+        const del = document.createElement("button"); del.className = "ann-del-btn"; del.type = "button"; del.textContent = "حذف";
+        del.addEventListener("click", () => {
+          if (!window.confirm("حذف هذا الإعلان نهائياً؟")) return;
+          const b = window.IZZBAH && window.IZZBAH.deleteAnnouncement;
+          if (!b) return;
+          b(a.id).then(() => { annStatus("تم الحذف", "ok"); refreshAdminAnnouncements(); loadAnnouncements(); })
+            .catch(e => annStatus("تعذّر الحذف: " + ((e && e.code) || ""), "err"));
+        });
+        acts.append(edit, del);
+        row.append(main, acts);
+        box.appendChild(row);
+      });
+    }
+    function refreshAdminAnnouncements() {
+      const bridge = window.IZZBAH && window.IZZBAH.listAnnouncements;
+      if (!bridge) { renderAdminAnnouncements([]); return; }
+      bridge(true).then(list => renderAdminAnnouncements(list || [])).catch(() => renderAdminAnnouncements([]));
+    }
+    function publishAnnouncement() {
+      const d = annFormData();
+      if (!d.title && !d.body) { annStatus("اكتب عنواناً أو نصاً أولاً", "err"); return; }
+      const bridge = window.IZZBAH && window.IZZBAH.publishAnnouncement;
+      if (!bridge) { annStatus("النشر غير متاح — سجّل الدخول كمشرف", "err"); return; }
+      annStatus("جارٍ النشر…", "busy");
+      bridge(Object.assign({ id: annEditId || null }, d)).then(() => {
+        annStatus(annEditId ? "تم حفظ التعديل" : "تم نشر الإعلان", "ok");
+        resetAnnForm();
+        refreshAdminAnnouncements();
+        loadAnnouncements();
+      }).catch(e => annStatus("تعذّر النشر: " + publishErrorReason(e), "err"));
+    }
+    function openAnnouncementsAdmin() {
+      resetAnnForm();
+      refreshAdminAnnouncements();
+      const m = $("#announceAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeAnnouncementsAdmin() { const m = $("#announceAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+
     function catNameFromId(id) {
       const c = (typeof allCategories === "function" ? allCategories() : []).find(x => x.id === id);
       return (c && c.name) || id;
@@ -14875,6 +15144,15 @@
     $("#settingsInstall").addEventListener("click", () => { closeSettings(); installAppFlow(); });
     $("#settingsDelete").addEventListener("click", () => { closeSettings(); deleteAccountFlow(); });
     $("#settingsHowTo").addEventListener("click", () => { closeSettings(); openHowTo(); });
+    $("#settingsAnnounce").addEventListener("click", () => { closeSettings(); openAnnouncements(); });
+    $("#announceClose").addEventListener("click", closeAnnouncements);
+    $("#announceModal").addEventListener("click", e => { if (e.target.id === "announceModal") closeAnnouncements(); });
+    $("#announceAdminClose").addEventListener("click", closeAnnouncementsAdmin);
+    $("#announceAdminModal").addEventListener("click", e => { if (e.target.id === "announceAdminModal") closeAnnouncementsAdmin(); });
+    $("#annPublish").addEventListener("click", publishAnnouncement);
+    $("#annReset").addEventListener("click", resetAnnForm);
+    ["annTitle", "annBody", "annIcon"].forEach(id => { const el = $("#" + id); if (el) el.addEventListener("input", renderAnnPreview); });
+    ["annActive", "annPinned"].forEach(id => { const el = $("#" + id); if (el) el.addEventListener("change", renderAnnPreview); });
     function openContact() {
       const m = $("#contactModal");
       m.classList.add("open");
@@ -14951,6 +15229,7 @@
     $("#adminChoiceContent").addEventListener("click", () => { closeAdminChoice(); openAdminPanel(); });
     $("#adminChoiceSubs").addEventListener("click", () => { closeAdminChoice(); openPremiumModal(); });
     $("#adminChoiceStats").addEventListener("click", () => { closeAdminChoice(); openStatsModal(); });
+    $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceCancel").addEventListener("click", closeAdminChoice);
     $("#adminChoiceModal").addEventListener("click", event => { if (event.target.id === "adminChoiceModal") closeAdminChoice(); });
     $("#statsCancel").addEventListener("click", closeStatsModal);
@@ -15249,6 +15528,7 @@
     window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
+      if (typeof loadAnnouncements === "function") loadAnnouncements(); // public feed; refresh the unread badge
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -15820,6 +16100,52 @@
           window.IZZBAH.deleteOrder = function (uid) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("orders").doc(String(uid || "")).delete();
+          };
+
+          // ---- Announcements (developer -> players) ----
+          // Public read; admin write/delete. `all=false` (players) returns only
+          // the active ones; `all=true` (admin manager) returns everything.
+          function annFromDoc(doc) {
+            const d = doc.data() || {};
+            return {
+              id: doc.id, title: d.title || "", body: d.body || "",
+              icon: d.icon || "📢", color: d.color || "", image: d.image || "",
+              active: d.active !== false, pinned: !!d.pinned,
+              createdAt: d.createdAt && typeof d.createdAt.toMillis === "function" ? d.createdAt.toMillis() : 0,
+              updatedAt: d.updatedAt && typeof d.updatedAt.toMillis === "function" ? d.updatedAt.toMillis() : 0
+            };
+          }
+          window.IZZBAH.listAnnouncements = function (all) {
+            return db.collection("announcements").limit(50).get().then(snap => {
+              let out = [];
+              snap.forEach(doc => out.push(annFromDoc(doc)));
+              if (!all) out = out.filter(a => a.active);
+              // pinned first, then newest
+              out.sort((a, b) => (b.pinned - a.pinned) || (b.createdAt - a.createdAt));
+              return out;
+            });
+          };
+          window.IZZBAH.publishAnnouncement = function (a) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            a = a || {};
+            const ref = a.id ? db.collection("announcements").doc(a.id) : db.collection("announcements").doc();
+            const data = {
+              title: String(a.title || "").slice(0, 120),
+              body: String(a.body || "").slice(0, 2000),
+              icon: String(a.icon || "📢").slice(0, 8),
+              color: String(a.color || "").slice(0, 20),
+              image: String(a.image || "").slice(0, 900000),
+              active: a.active !== false,
+              pinned: !!a.pinned,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            // Keep the original createdAt on edits; stamp it on first publish.
+            if (!a.id) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            return ref.set(data, { merge: !!a.id }).then(() => ref.id);
+          };
+          window.IZZBAH.deleteAnnouncement = function (id) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("announcements").doc(String(id || "")).delete();
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,
           // holds a total games counter + a map of per-category play counts.
