@@ -9221,7 +9221,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.61";
+    const IZZBAH_BUILD = "2026-07-10.63";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13894,7 +13894,12 @@
     ];
     let omanInstallBusy = false;
     function maybeInstallOmanSites() {
-      try {
+      // DISABLED: «مواقع في عمان» is fully populated (21 questions with images),
+      // so this one-time seeding auto-fill has done its job and is retired. It
+      // stays here only for reference; it must never run again and risk writing
+      // over an admin-edited category on a fresh device.
+      return;
+      try { /* eslint-disable no-unreachable */
         if (omanInstallBusy || !state.isAdmin) return;
         if (!OMAN_SITES_INSTALL.length) return;
         if (localStorage.getItem(OMAN_SITES_INSTALL_KEY)) return;
@@ -15641,6 +15646,17 @@
       state.gamesAllowed = Math.max(0, Math.floor(Number(info.gamesAllowed) || 0));
       renderPlayBalance();
     };
+    // Raise the local consumed-count to the cloud's authoritative value (never
+    // lowers it). Runs before applyCodes on every sign-in / balance load, so the
+    // counter reflects true consumption across devices and reinstalls.
+    window.IZZBAH.applyUsageFloor = function (cloudUsed) {
+      const c = Math.max(0, Math.floor(Number(cloudUsed) || 0));
+      if (c > (state.gamesUsed || 0)) {
+        state.gamesUsed = c;
+        try { localStorage.setItem(gamesUsedKey, String(c)); } catch (e) {}
+        renderPlayBalance();
+      }
+    };
     // Driven by loadMyCodes: the sum of the player's redeemed one-time codes.
     window.IZZBAH.applyCodes = function (info) {
       info = info || {};
@@ -16373,7 +16389,15 @@
           // it failed — the caller can then fall back to a local credit.
           function loadMyCodes(user) {
             if (!user) { if (window.IZZBAH.applyCodes) window.IZZBAH.applyCodes({}); return Promise.resolve(true); }
-            return db.collection("codes").where("usedBy", "==", user.uid).get().then(snap => {
+            // Read the authoritative consumed count FIRST and raise the local
+            // counter to it, so a fresh device / cleared storage can't under-
+            // report (and then clobber the cloud) — the admin panel stays right
+            // and the player can't reclaim spent games by switching devices.
+            const floorP = db.collection("usage").doc(user.uid).get()
+              .then(doc => (doc.exists ? Number((doc.data() || {}).gamesUsed) || 0 : 0))
+              .then(cloudUsed => { if (window.IZZBAH.applyUsageFloor) window.IZZBAH.applyUsageFloor(cloudUsed); })
+              .catch(() => {});
+            return floorP.then(() => db.collection("codes").where("usedBy", "==", user.uid).get()).then(snap => {
               let games = 0, premium = false;
               snap.forEach(doc => {
                 const d = doc.data() || {};
@@ -16397,11 +16421,25 @@
             if (!currentUser) return Promise.resolve(false);
             const v = Math.max(0, Math.floor(Number(n) || 0));
             if (v === lastUsagePushed) return Promise.resolve(true);
-            lastUsagePushed = v;
-            return db.collection("usage").doc(currentUser.uid)
-              .set({ gamesUsed: v, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-              .then(() => true)
+            const ref = db.collection("usage").doc(currentUser.uid);
+            // MONOTONIC: the consumed count can only ever GO UP. A fresh device
+            // or cleared storage has a local count of 0 — writing that blindly
+            // used to wipe the real cloud count. The transaction keeps
+            // max(cloud, local), so a lower device value can never reset it.
+            return db.runTransaction(tx => tx.get(ref).then(doc => {
+              const cur = doc.exists ? (Number((doc.data() || {}).gamesUsed) || 0) : 0;
+              const next = Math.max(cur, v);
+              tx.set(ref, { gamesUsed: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+              return next;
+            })).then(next => { lastUsagePushed = next; return true; })
               .catch(e => { console.warn("usage push failed", e && (e.code || e)); lastUsagePushed = -1; return false; });
+          };
+          // Player: read the authoritative consumed count from the cloud.
+          window.IZZBAH.loadMyUsage = function () {
+            if (!currentUser) return Promise.resolve(0);
+            return db.collection("usage").doc(currentUser.uid).get()
+              .then(doc => (doc.exists ? Number((doc.data() || {}).gamesUsed) || 0 : 0))
+              .catch(() => 0);
           };
           // Admin-only: every player's consumed-game count (uid -> gamesUsed),
           // used to compute their remaining balance in the subscription panel.
