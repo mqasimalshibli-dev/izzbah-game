@@ -54,7 +54,7 @@ try {
   });
   check("signed-out tap places no order (asks to sign in)", signedOut.calls === 0);
 
-  // ---- 3) signed IN: tapping the 5-games pack places the right order ----
+  // ---- 3) signed IN: tapping the first (2-games) pack places the right order ----
   const order = await page.evaluate(async () => {
     const calls = [];
     window.IZZBAH.placeOrder = (o) => { calls.push(o); return Promise.resolve(true); };
@@ -63,22 +63,23 @@ try {
     await new Promise(r => setTimeout(r, 200));
     return { calls, closed: !document.getElementById("plansModal").classList.contains("open") };
   });
-  check("tapping the 5-games pack places an order with the pack details",
-    order.calls.length === 1 && order.calls[0].games === 5 && order.calls[0].premium === false
-    && /٥|5/.test(order.calls[0].pack));
+  check("tapping the entry (2-games) pack places an order with the pack details",
+    order.calls.length === 1 && order.calls[0].games === 2 && order.calls[0].premium === false
+    && /لعبتين|٢|2/.test(order.calls[0].pack));
   check("a placed order closes the plans sheet (confirmation shown)", order.closed);
 
-  // the unlimited pack orders premium
-  const unl = await page.evaluate(async () => {
+  // the featured 15-games pack orders 15 games (all packs are game-count, none premium)
+  const featured = await page.evaluate(async () => {
     const calls = [];
     window.IZZBAH.placeOrder = (o) => { calls.push(o); return Promise.resolve(true); };
     openPlans();
-    const cards = [...document.querySelectorAll("#plansGrid .plan-card")];
-    cards.find(c => c.textContent.includes("اشتراك مفتوح")).click();
+    const card = [...document.querySelectorAll("#plansGrid .plan-card")].find(c => c.classList.contains("plan-featured"));
+    card.click();
     await new Promise(r => setTimeout(r, 200));
-    return calls[0];
+    return { order: calls[0], tag: card.textContent };
   });
-  check("the unlimited pack orders a premium subscription", unl && unl.premium === true && unl.games === 0);
+  check("the featured pack is the 15-games pack, tagged most-popular",
+    featured.order && featured.order.games === 15 && featured.order.premium === false && /الأكثر طلبا/.test(featured.tag));
 
   // ---- 4) admin: orders appear in subscription management ----
   await page.evaluate(() => { window.IZZBAH.applyAuth(true, "adm"); window.IZZBAH.applyAdmin(true); });
