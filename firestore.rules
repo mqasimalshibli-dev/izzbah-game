@@ -256,6 +256,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---- Category-filter config (public read, admin write) -----------------
+    // One doc, config/catFilter = { map: {categoryId: typeName} }, drives the
+    // player-side «تصفية الفئات» chips. Anyone reads it; only an admin writes.
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.data.keys().hasOnly(['map', 'updatedAt'])
+        && request.resource.data.map is map;
+    }
+
     // ---- Official game content (admin CMS) ---------------------------------
     // Readable by everyone; writable only by admins, and shape-checked. The
     // parent doc holds metadata + a text-only copy of the questions; the full
