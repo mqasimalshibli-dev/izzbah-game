@@ -9074,7 +9074,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.57";
+    const IZZBAH_BUILD = "2026-07-10.58";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12336,9 +12336,9 @@
     // the actual grant is the one-time code the admin generates and sends after
     // the player picks a plan (price shows only when set, e.g. "٢ ر.ع").
     const PLAY_PLANS = [
-      { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "", games: 5, premium: false },
-      { id: "g10", icon: "🏆", name: "باقة ١٠ ألعاب", desc: "عشر جولات — الأنسب للعزبات المتكررة", price: "", games: 10, premium: false },
-      { id: "unl", icon: "⭐", name: "اشتراك مفتوح", desc: "لعب غير محدود بلا عدّاد", price: "", games: 0, premium: true, featured: true, tag: "الأفضل قيمة" },
+      { id: "g2", icon: "🎲", name: "باقة لعبتين", desc: "جولتان — جرّب اللعبة مع أصحابك", price: "٠٫٩٠٠ ر.ع", games: 2, premium: false },
+      { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "١٫٥٠٠ ر.ع", games: 5, premium: false },
+      { id: "g15", icon: "🏆", name: "باقة ١٥ لعبة", desc: "خمس عشرة جولة — الأنسب للعزبات المتكررة", price: "٢٫٩٠٠ ر.ع", games: 15, premium: false, featured: true, tag: "الأكثر طلباً" },
     ];
     function renderPlans() {
       const grid = $("#plansGrid");
