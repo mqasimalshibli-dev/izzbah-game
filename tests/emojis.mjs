@@ -50,18 +50,18 @@ try {
   check("it has 5 sample questions, one per point tier",
     cat && cat.count === 5 && JSON.stringify(Object.keys(cat.tiers).sort()) === JSON.stringify(["100", "200", "300", "400", "500"]));
   check("every question is an emoji puzzle with a real answer", cat && cat.everyHasEmojiQ);
-  check("every question has 3 same-kind distractors (four-choices stays usable)", cat && cat.everyHas3Distractors);
+  check("every question has 3 same-kind distractors in its data", cat && cat.everyHas3Distractors);
   check("the sample spans varied answers (movie, occasion, character, saying)",
     cat && cat.answers.includes("الأسد الملك") && cat.answers.includes("عيد ميلاد")
     && cat.answers.includes("الرجل العنكبوت") && cat.answers.some(a => a.includes("عصفور في اليد")));
 
-  // ---- 2) multiple-choice is KEPT (a genuine helper for emoji puzzles) ----
+  // ---- 2) four-choices is DISABLED for emoji (a list of 4 answers is too easy)
   const helpers = await page.evaluate(() => {
     const c = { id: "emojis", name: "خمّن الإيموجي" };
     return { hidesMC: hidesMultipleChoice(c), isWord: isWordGuessCategory(c) };
   });
-  check("the emoji category keeps multiple choice (not a word/reaction category)",
-    helpers.hidesMC === false && helpers.isWord === false);
+  check("the emoji category HIDES four-choices (but isn't a word category)",
+    helpers.hidesMC === true && helpers.isWord === false);
 
   // ---- 3) it has a curated description (no question count) ----
   const desc = await page.evaluate(() => categoryDescription({ id: "emojis", name: "خمّن الإيموجي" }));
@@ -189,14 +189,23 @@ try {
   check("a rebus proverb renders whole (order preserved), not split",
     rebus.split === false && !rebus.ok && rebus.wholeText.includes("خير من") && !/الرموز/.test(rebus.wholeText));
 
-  // ---- 5) four-choices for an emoji question yields 4 distinct options ----
-  const opts = await page.evaluate(() => {
-    const c = { id: "emojis", name: "خمّن الإيموجي" };
-    const o = buildChoiceOptions(c, { q: "🦁👑", a: "الأسد الملك", distractors: ["كتاب الأدغال", "طرزان", "مدغشقر"] });
-    return { n: o.length, hasAnswer: o.includes("الأسد الملك"), distinct: new Set(o).size };
+  // ---- 5) in gameplay, the four-choices helper is disabled on an emoji puzzle
+  const fourState = await page.evaluate(() => {
+    window.IZZBAH.applyAuth(true, "adm"); window.IZZBAH.applyAdmin(true);
+    state.selected = new Set(["emojis"]);
+    state.editingSavedGameId = null; state.teamCount = 2;
+    state.teams.forEach(t => { t.score = 0; t.helpBanned = false; });
+    state.teams[0].helpers = ["fourChoices", "firstLetter", "doublePoints"]; // active team has it
+    startGame();
+    document.querySelector("#board .board-category-card .cell:not(.used)").click(); // open a puzzle
+    const bar = document.getElementById("questionHelpBar");
+    const slots = [...(bar ? bar.querySelectorAll(".qhelp-slot") : [])];
+    const four = slots.find(s => (s.getAttribute("aria-label") || s.title) === "أربعة خيارات");
+    const first = slots.find(s => (s.getAttribute("aria-label") || s.title) === "كشف أول حرف");
+    return { fourDisabled: four ? four.disabled : null, firstEnabled: first ? !first.disabled : null };
   });
-  check("four-choices builds the correct answer + its 3 emoji-puzzle distractors",
-    opts.n === 4 && opts.hasAnswer && opts.distinct === 4);
+  check("four-choices is disabled on an emoji question", fourState.fourDisabled === true);
+  check("a non-spoiling helper (first-letter) stays enabled", fourState.firstEnabled === true);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

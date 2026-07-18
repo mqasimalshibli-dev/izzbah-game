@@ -9140,8 +9140,10 @@
       return null;
     }
     // Categories where the four-choices (multiple choice) helper is hidden.
+    // The emoji category is included: a list of four answers would make guessing
+    // the puzzle too easy, so «أربعة خيارات» is switched off there.
     function hidesMultipleChoice(cat) {
-      return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat);
+      return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat) || isEmojiCategory(cat);
     }
     // Answer -> bundled QR path, per word category (built lazily from the banks).
     // Lets a published override of a word category — whose stored questions
@@ -9263,7 +9265,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.74";
+    const IZZBAH_BUILD = "2026-07-10.75";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
