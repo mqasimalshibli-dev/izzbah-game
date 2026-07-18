@@ -151,6 +151,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node gamecount.mjs
 
+      - name: Run saved-game question-freeze test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node savedgamefreeze.mjs
+
       - name: Run admin inline-edit test
         working-directory: tests
         run: |
