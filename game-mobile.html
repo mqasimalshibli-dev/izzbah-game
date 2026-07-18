@@ -5089,7 +5089,7 @@
     #questionPage .meta-box, #answerPage .meta-box { font-size: inherit; }
     /* question text */
     #questionPage .question-text {
-      font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; font-size: clamp(30px, 4.4vw, 50px) !important;
+      font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; font-size: clamp(40px, 5.6vw, 64px) !important;
       line-height: 1.5 !important; color: #1f5237 !important; max-width: 800px; margin: 0 auto !important; text-wrap: balance;
     }
     /* fitQuestionText sizes the font (by real geometry) so the question fills
@@ -5266,7 +5266,7 @@
     }
     /* answer text + eyebrow + underline */
     #answerPage #modalAnswer {
-      font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(42px, 6vw, 72px) !important;
+      font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(36px, 5.2vw, 58px) !important;
       line-height: 1.15 !important; color: #1f5237 !important; text-align: center;
     }
     #answerPage #modalAnswer::before {
@@ -9265,7 +9265,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.75";
+    const IZZBAH_BUILD = "2026-07-10.76";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
