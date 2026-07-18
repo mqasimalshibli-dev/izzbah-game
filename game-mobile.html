@@ -9254,7 +9254,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.69";
+    const IZZBAH_BUILD = "2026-07-10.70";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9439,6 +9439,7 @@
           activeTeam: state.activeTeam,
           history: state.history,
           currentGameName: state.currentGameName,
+          savedGameId: state.editingSavedGameId || null, // so a resume keeps the frozen questions
           counted: !!state.gameCounted,
           startedAt: state.gameStartedAt || 0
         }));
@@ -9496,6 +9497,9 @@
       state.activeTeam = (typeof saved.activeTeam === "number") ? saved.activeTeam : 0;
       state.history = Array.isArray(saved.history) ? saved.history : [];
       if (typeof saved.currentGameName === "string") state.currentGameName = saved.currentGameName;
+      // Restore which saved-game record this game belongs to, so its frozen
+      // questions survive a reload-and-resume (the record itself persists).
+      state.editingSavedGameId = saved.savedGameId || null;
       state.gameActive = true;
       // Leaving and re-entering an unfinished game must NOT re-charge — the
       // credit is spent only when the game FINISHES (renderResults). Carry the
@@ -9796,6 +9800,39 @@
       return (game.categoryIds || []).map(id => categoryById(id)).filter(Boolean);
     }
 
+    // The saved-game record the current game plays from (set when a saved game
+    // is opened/replayed, and when a brand-new game first starts). Its `frozen`
+    // map pins the exact question drawn for each board cell so REPLAYING a saved
+    // game always serves the SAME questions — a player who wants new questions
+    // starts a new game instead.
+    function activeSavedGameRecord() {
+      if (!state.editingSavedGameId) return null;
+      return state.savedGames.find(g => g.id === state.editingSavedGameId) || null;
+    }
+    // Resolve a frozen question (stored by its signature) back to a full
+    // question object: the category's own list first (published/custom), then
+    // the built-in bank (whose board tiles are re-materialized each session, so
+    // the signature must be looked up in the bank, not the current tiles).
+    function resolveFrozenQuestion(cat, points, sig) {
+      if (!cat || !sig) return null;
+      const own = Array.isArray(cat.questions) ? cat.questions : [];
+      const inOwn = own.find(q => q && q.points === points && questionSig(q) === sig)
+        || own.find(q => q && questionSig(q) === sig);
+      if (inOwn) return inOwn;
+      const bank = builtinQuestionBanks[cat.id];
+      if (!bank) return null;
+      const toObj = qa => ({ points, q: qa[0], a: qa[1], distractors: Array.isArray(qa[2]) ? qa[2].slice() : null, image: qa[3] || builtinCatQuestionImage[cat.id] || "", answerImage: "" });
+      const tier = bank[points];
+      const hit = tier && tier.find(qa => questionSig({ q: qa[0], a: qa[1] }) === sig);
+      if (hit) return toObj(hit);
+      // fall back to scanning every tier in case a question's points shifted
+      for (const p of Object.keys(bank)) {
+        const h = (bank[p] || []).find(qa => questionSig({ q: qa[0], a: qa[1] }) === sig);
+        if (h) return toObj(h);
+      }
+      return null;
+    }
+
     function saveSavedGames() {
       try {
         localStorage.setItem(savedGamesKey, JSON.stringify(state.savedGames));
@@ -9812,7 +9849,8 @@
               id: game.id || `saved-${Date.now()}-${index}`,
               title: game.title || `لعبة ${index + 1}`,
               createdAt: game.createdAt || new Date().toISOString(),
-              categoryIds: game.categoryIds.filter(Boolean)
+              categoryIds: game.categoryIds.filter(Boolean),
+              frozen: (game.frozen && typeof game.frozen === "object") ? game.frozen : {}
             }))
           : [];
       } catch (error) {
@@ -9838,12 +9876,17 @@
           return;
         }
       }
+      const id = `saved-${Date.now()}-${Math.round(Math.random() * 9999)}`;
       state.savedGames.unshift({
-        id: `saved-${Date.now()}-${Math.round(Math.random() * 9999)}`,
+        id,
         title,
         createdAt: new Date().toISOString(),
-        categoryIds
+        categoryIds,
+        frozen: {} // questions get pinned here as the board is built (see renderGame)
       });
+      // Play (and freeze) onto THIS record, so a brand-new game's questions are
+      // remembered and its later replays serve the same ones.
+      state.editingSavedGameId = id;
       state.savedGames = state.savedGames.slice(0, 30);
       saveSavedGames();
     }
@@ -13502,6 +13545,11 @@
       const board = $("#board");
       board.style.setProperty("--cat-count", cats.length);
       board.innerHTML = "";
+      // Freeze this game's questions onto its saved-game record: each cell keeps
+      // the exact question it was first given, so replays are identical.
+      const record = activeSavedGameRecord();
+      if (record && !record.frozen) record.frozen = {};
+      let frozenDirty = false;
       cats.forEach(cat => {
         const catColor = categoryColor(cat);
         const card = document.createElement("div");
@@ -13534,14 +13582,26 @@
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(points);
           cell.disabled = used;
-          // draw an UNSEEN question from the tier first (see pickUnseen) — plain
-          // random kept re-serving recently played ones
-          cell.addEventListener("click", () => openQuestion(cat, pickUnseen(cat.id, pool, questionSig) || pool[0], key));
+          // Decide this cell's question ONCE and pin it. On a saved game we
+          // reuse the frozen one (so replays match); a brand-new draw prefers an
+          // UNSEEN question (pickUnseen) and is then frozen for next time.
+          let chosen = null;
+          if (record) {
+            const sig = record.frozen[key];
+            if (sig) chosen = resolveFrozenQuestion(cat, points, sig);
+            if (!chosen) {
+              chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
+              if (chosen) { record.frozen[key] = questionSig(chosen); frozenDirty = true; }
+            }
+          }
+          if (!chosen) chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
+          cell.addEventListener("click", () => openQuestion(cat, chosen, key));
           pointsRow.appendChild(cell);
         });
         card.append(title, pointsRow);
         board.appendChild(card);
       });
+      if (frozenDirty) saveSavedGames();
       const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
       $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
       centerBoardScroll();
