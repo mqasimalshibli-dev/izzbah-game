@@ -27,6 +27,8 @@ const reset = (allowance) => page.evaluate((allowance) => {
   state.isPremium = false; state.codePremium = false;
   state.gamesAllowed = 0; state.codeGamesAllowed = allowance;
   state.freeGamePlayed = false; state.gamesUsed = 0; state.gameCounted = false;
+  state.editingSavedGameId = null; // a fresh NEW game (not a saved-game replay)
+  state.savedGames = [];
   state.selected = new Set(["history"]);
   refreshBuiltinQuestions();
   state.teamCount = 2;
@@ -66,7 +68,8 @@ try {
 
   // ---- a SECOND full game now spends one allowance game (free already used) ----
   await page.evaluate(() => {
-    state.gameCounted = false; // new game
+    state.gameCounted = false;
+    state.editingSavedGameId = null; // a NEW game (openNewGameCategories clears this)
     state.teams.forEach(t => { t.score = 0; });
     startGame();
   });
@@ -76,13 +79,38 @@ try {
   check("starting the second game still doesn't charge until it finishes", afterStart2.used === 0);
   check("finishing the second game spends exactly one allowance game", afterFinish2.used === 1);
 
-  // ---- abandoning games never drains the allowance ----
+  // ---- REPLAYING that already-paid saved game is FREE (same questions) ----
+  const paidGameId = await page.evaluate(() => state.editingSavedGameId); // the record just charged
+  await page.evaluate((id) => {
+    state.editingSavedGameId = id; // reopen the saved game (as playSavedGame would)
+    state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    state.teams[0].score = 150; renderResults();
+  }, paidGameId);
+  const afterReplay = await snap();
+  check("replaying an already-paid saved game does NOT spend another allowance game", afterReplay.used === 1);
+
+  // ---- and a free-with-0-allowance user can STILL replay a paid game ----
+  const gateReplay = await page.evaluate((id) => {
+    state.codeGamesAllowed = 0; state.gamesUsed = 0; // no credits left at all
+    state.editingSavedGameId = id; state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    return document.body.dataset.screen; // must reach the board, not the paywall
+  }, paidGameId);
+  check("a replay is not blocked by the paywall even with 0 credits", gateReplay === "game");
+
+  // ---- abandoning NEW games never drains the allowance ----
   await page.evaluate(() => {
-    // three starts, no finishes
-    for (let i = 0; i < 3; i++) { state.gameCounted = false; state.teams.forEach(t => { t.score = 0; }); startGame(); showScreen("categories"); }
+    state.codeGamesAllowed = 3; state.gamesUsed = 1; // restore a known balance
+    for (let i = 0; i < 3; i++) {
+      state.gameCounted = false; state.editingSavedGameId = null; // each a NEW game
+      state.teams.forEach(t => { t.score = 0; }); startGame(); showScreen("categories");
+    }
   });
   const abandoned = await snap();
-  check("abandoning several games spends nothing", abandoned.used === 1);
+  check("abandoning several new games spends nothing", abandoned.used === 1);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

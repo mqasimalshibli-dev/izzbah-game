@@ -9254,7 +9254,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.70";
+    const IZZBAH_BUILD = "2026-07-10.71";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9809,6 +9809,13 @@
       if (!state.editingSavedGameId) return null;
       return state.savedGames.find(g => g.id === state.editingSavedGameId) || null;
     }
+    // Replaying an ALREADY-PAID saved game is free: same questions, no new
+    // credit and no gate. A record is marked `charged` the first time its play
+    // reaches the results screen (see renderResults). New games still cost.
+    function isFreeReplay() {
+      const rec = activeSavedGameRecord();
+      return !!(rec && rec.charged);
+    }
     // Resolve a frozen question (stored by its signature) back to a full
     // question object: the category's own list first (published/custom), then
     // the built-in bank (whose board tiles are re-materialized each session, so
@@ -9850,7 +9857,8 @@
               title: game.title || `لعبة ${index + 1}`,
               createdAt: game.createdAt || new Date().toISOString(),
               categoryIds: game.categoryIds.filter(Boolean),
-              frozen: (game.frozen && typeof game.frozen === "object") ? game.frozen : {}
+              frozen: (game.frozen && typeof game.frozen === "object") ? game.frozen : {},
+              charged: !!game.charged // once true, replays are free
             }))
           : [];
       } catch (error) {
@@ -11012,6 +11020,9 @@
         const ids = Array.isArray(data.c) ? data.c.filter(x => typeof x === "string" && x).slice(0, 6) : [];
         if (!ids.length) return false;
         state.selected = new Set(ids);
+        // A shared game is NEW content — detach from any saved-game record so it
+        // gets its own fresh record (and isn't mistaken for a free replay).
+        state.editingSavedGameId = null;
         // Remember the shared pick so a late cloud reload can't wipe it.
         state.pendingSharedGame = true;
         state.pendingSharedIds = ids.slice();
@@ -13426,8 +13437,9 @@
         showScreen("categories");
         return;
       }
-      // Free-play gate: a non-admin, non-subscriber may start only one game.
-      if (!canStartNewGame()) { openSubscribeGate(); return; }
+      // Free-play gate: a non-admin, non-subscriber may start only one NEW game.
+      // Replaying an already-paid saved game (same questions) is always free.
+      if (!isFreeReplay() && !canStartNewGame()) { openSubscribeGate(); return; }
       state.pendingSharedGame = false; // shared preset consumed once the game starts
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
@@ -15019,10 +15031,15 @@
 
       // Spend the play credit HERE — the game is finished. Entering a game and
       // leaving (without reaching this screen) never charges; only a completed
-      // game does, and the guard makes it exactly once per game.
+      // game does, and the guard makes it exactly once per game. Replaying an
+      // already-paid saved game is FREE: no new credit, and the record is
+      // marked so its first (charged) play is the only one that ever costs.
       if (!state.gameCounted) {
         state.gameCounted = true;
-        const credit = spendGameCredit();
+        const rec = activeSavedGameRecord();
+        const freeReplay = !!(rec && rec.charged);
+        const credit = freeReplay ? "replay" : spendGameCredit();
+        if (rec && !rec.charged) { rec.charged = true; saveSavedGames(); }
         recordGameStats(credit); // tally this finished game + its categories (global insights)
         saveLiveGame(); // persist the "counted" flag so a resume can't recharge
       }
