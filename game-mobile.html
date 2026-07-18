@@ -4311,6 +4311,27 @@
     .ann-card-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin: 6px 0; display: block; }
     .ann-card-body { font: 600 14.5px/1.7 'Cairo', sans-serif; color: #3a2c18; white-space: pre-wrap; word-break: break-word; }
     .ann-card-date { font: 600 11.5px 'Cairo', sans-serif; color: #a08a5f; margin-top: 7px; }
+    /* Personal reward card («فئة معتمدة» gift): gold-framed, code shown big */
+    .ann-card.reward {
+      --ann-accent: #b8860b;
+      background: linear-gradient(180deg, #fdf6e4, #f7ecd0);
+      border: 2px solid #e0bd62;
+      box-shadow: 0 8px 20px -8px rgba(160, 110, 20, .45);
+    }
+    .reward-code {
+      margin: 10px auto 0; text-align: center; direction: ltr;
+      font: 800 26px 'Cairo', sans-serif; letter-spacing: 3px; color: #7a1414;
+      background: #fff8e8; border: 2px dashed #cf9f3f; border-radius: 12px;
+      padding: 10px 14px; max-width: 320px;
+    }
+    .reward-actions { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+    .reward-actions .primary, .reward-actions .ghost {
+      min-height: 0; padding: 10px 22px; font-size: 15px;
+    }
+    .reward-actions .reward-redeem.done {
+      background: linear-gradient(180deg, #2c8a55, #1d6a41) !important;
+      color: #fff !important; opacity: .95; cursor: default;
+    }
     /* unread markers */
     .settings-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #cc2531; color: #fff;
       font: 800 12px 'Cairo', sans-serif; display: inline-grid; place-items: center; margin-inline-start: 6px; }
@@ -9218,6 +9239,7 @@
       selected: new Set(),
       customCategories: [],
       announcements: [],
+      inbox: [],               // personal admin→player messages (approval rewards)
       catTypes: { map: {} },   // admin-set { categoryId: typeName } for the filter
       activeCatFilter: "",     // the type currently filtered on the category screen
       communityCategories: [],
@@ -9265,7 +9287,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.76";
+    const IZZBAH_BUILD = "2026-07-10.77";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12136,7 +12158,63 @@
     function annLatestTs(list) { return (list || []).reduce((m, a) => Math.max(m, Number(a.createdAt) || 0), 0); }
     function annUnreadCount() {
       const seen = annSeenAt();
-      return (state.announcements || []).filter(a => (Number(a.createdAt) || 0) > seen).length;
+      return (state.announcements || []).filter(a => (Number(a.createdAt) || 0) > seen).length
+        + (state.inbox || []).filter(m => (Number(m.createdAt) || 0) > seen).length;
+    }
+    // The «فئة معتمدة» congratulation the author receives with their reward
+    // code. One place builds it so the admin approval (cloud closure) and the
+    // tests share the exact same wording.
+    function buildApprovalRewardMsg(catName) {
+      const nm = String(catName || "").trim() || "فئتكم";
+      return {
+        title: "مبروك! فئتكم أصبحت رسمية 🎉",
+        body: "فئتكم «" + nm + "» نالت الإعجاب واعتُمدت — من الآن يلعبها كل المجتمع.\n"
+            + "هديتكم: كود ٥ ألعاب 🎁 فعّلوه بضغطة زر.\n"
+            + "استمروا بالإبداع — كل فئة تُعتمد لها مكافأة."
+      };
+    }
+    // Personal inbox (admin → this player): reward messages land here and show
+    // at the top of «إعلانات المطوّر». Cloud closure calls applyInbox on load.
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.applyInbox = function (list) {
+      state.inbox = Array.isArray(list) ? list : [];
+      updateAnnounceBadge();
+    };
+    const REDEEMED_LOCAL_KEY = "izzbah-inbox-redeemed-v1";
+    function localRedeemedCodes() {
+      try { return new Set(JSON.parse(localStorage.getItem(REDEEMED_LOCAL_KEY)) || []); } catch (e) { return new Set(); }
+    }
+    function markLocalRedeemed(code) {
+      try {
+        const s = localRedeemedCodes(); s.add(code);
+        localStorage.setItem(REDEEMED_LOCAL_KEY, JSON.stringify([...s]));
+      } catch (e) {}
+    }
+    // Redeem straight from a reward card (no input field): same outcome
+    // messages as redeemCodeFlow, and the button becomes the receipt.
+    function redeemRewardCode(code, btn) {
+      if (!state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+      const bridge = window.IZZBAH && window.IZZBAH.redeemCode;
+      if (!bridge) { showToast("التفعيل غير متاح الآن — تحقّق من اتصالك"); return; }
+      if (btn) { btn.disabled = true; btn.textContent = "جارٍ التفعيل…"; }
+      bridge(code).then(() => {
+        markLocalRedeemed(code);
+        track("code_redeem", { src: "inbox" });
+        if (btn) { btn.textContent = "✓ تم التفعيل"; btn.classList.add("done"); }
+        const rem = gamesRemaining();
+        showToast(premiumActive() ? "🎉 تم التفعيل — لعب غير محدود!"
+          : `🎉 تم التفعيل — رصيدك الآن ${toArabicDigits(rem)} ${rem === 1 ? "لعبة" : "ألعاب"}`);
+      }).catch(err => {
+        const why = (err && (err.code || err.message)) || "";
+        if (why === "used") {
+          markLocalRedeemed(code);
+          if (btn) { btn.textContent = "✓ مُفعّل من قبل"; btn.classList.add("done"); }
+          showToast("هذا الكود مفعّل من قبل");
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = "تفعيل الكود"; }
+          showToast("تعذّر تفعيل الكود — " + (why || "حاول مرة أخرى"));
+        }
+      });
     }
     // Load the active announcements (public read). Best-effort — if the bridge
     // or collection isn't there yet, we just show none, never an error.
@@ -12155,14 +12233,48 @@
       const gear = $("#userSettingsBtn");
       if (gear) gear.classList.toggle("has-unread", n > 0);
     }
-    // Build the read-only announcement cards into a container.
-    function renderAnnouncementCards(container, list) {
+    // Build the read-only announcement cards into a container. When withInbox
+    // is true (the player's own center), their personal reward messages render
+    // FIRST as gift cards — code shown big, with activate + copy buttons.
+    function renderAnnouncementCards(container, list, withInbox) {
       if (!container) return;
       container.innerHTML = "";
-      if (!list || !list.length) {
+      const inbox = withInbox ? (state.inbox || []) : [];
+      const redeemed = localRedeemedCodes();
+      inbox.forEach(m => {
+        const card = document.createElement("div");
+        card.className = "ann-card reward";
+        const dateStr = m.createdAt ? new Date(Number(m.createdAt)).toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" }) : "";
+        const done = redeemed.has(m.code);
+        card.innerHTML =
+          `<div class="ann-card-head">`
+          + `<span class="ann-card-ico">${escapeHtml(m.icon || "🎁")}</span>`
+          + `<span class="ann-card-title">${escapeHtml(toArabicDigits(m.title || ""))}</span>`
+          + `</div>`
+          + `<div class="ann-card-body">${escapeHtml(toArabicDigits(m.body || ""))}</div>`
+          + (m.code ? `<div class="reward-code clean-number">${escapeHtml(m.code)}</div>` : "")
+          + (m.code ? `<div class="reward-actions">`
+              + `<button class="primary reward-redeem${done ? " done" : ""}" type="button"${done ? " disabled" : ""}>${done ? "✓ تم التفعيل" : "تفعيل الكود"}</button>`
+              + `<button class="ghost reward-copy" type="button">نسخ الكود</button>`
+            + `</div>` : "")
+          + (dateStr ? `<div class="ann-card-date">${escapeHtml(dateStr)}</div>` : "");
+        if (m.code) {
+          const rBtn = card.querySelector(".reward-redeem");
+          if (rBtn && !done) rBtn.addEventListener("click", () => redeemRewardCode(m.code, rBtn));
+          const cBtn = card.querySelector(".reward-copy");
+          if (cBtn) cBtn.addEventListener("click", () => {
+            const doneCopy = () => showToast("تم نسخ الكود");
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m.code).then(doneCopy).catch(doneCopy);
+            else doneCopy();
+          });
+        }
+        container.appendChild(card);
+      });
+      if ((!list || !list.length) && !inbox.length) {
         container.innerHTML = '<div class="announce-empty">لا توجد إعلانات حالياً.</div>';
         return;
       }
+      if (!list || !list.length) return;
       list.forEach(a => {
         const accent = ANN_COLORS.includes(a.color) ? a.color : (a.color || "#9a1c1c");
         const card = document.createElement("div");
@@ -12182,9 +12294,9 @@
       });
     }
     function openAnnouncements() {
-      renderAnnouncementCards($("#announceList"), state.announcements || []);
-      // mark everything seen
-      try { localStorage.setItem(ANN_SEEN_KEY, String(Math.max(annSeenAt(), annLatestTs(state.announcements), Date.now()))); } catch (e) {}
+      renderAnnouncementCards($("#announceList"), state.announcements || [], true);
+      // mark everything seen — announcements AND personal reward messages
+      try { localStorage.setItem(ANN_SEEN_KEY, String(Math.max(annSeenAt(), annLatestTs(state.announcements), annLatestTs(state.inbox), Date.now()))); } catch (e) {}
       updateAnnounceBadge();
       const m = $("#announceModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
@@ -13204,7 +13316,11 @@
           const ok = document.createElement("button");
           ok.className = "primary"; ok.textContent = "موافقة";
           ok.addEventListener("click", () => {
-            window.IZZBAH.communityApprove(cat.id, true).then(() => showToast("تمت الموافقة على الفئة")).catch(() => showToast("تعذّر"));
+            window.IZZBAH.communityApprove(cat.id, true).then(res => {
+              if (res && res.rewarded) showToast("تمت الموافقة 🎁 وأُرسل كود ٥ ألعاب لصاحب الفئة");
+              else if (res && res.rewardError) showToast("تمت الموافقة — لكن تعذّر إرسال المكافأة، أعد المحاولة");
+              else showToast("تمت الموافقة على الفئة");
+            }).catch(() => showToast("تعذّر"));
           });
           const no = document.createElement("button");
           no.className = "danger"; no.textContent = "رفض";
@@ -16385,6 +16501,33 @@
           // player can't forge, so it's tamper-proof; only the consumed-games
           // counter stays a soft client counter.
           const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no O/0, I/1/L
+          // Personal inbox: this player's private admin messages (approval
+          // rewards). Best-effort — a missing collection/rules just shows none.
+          function loadInbox(user) {
+            const apply = window.IZZBAH.applyInbox;
+            if (!user) { if (apply) apply([]); return Promise.resolve(); }
+            return db.collection("inbox").doc(user.uid).collection("msgs").get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  id: doc.id,
+                  type: d.type || "",
+                  title: d.title || "",
+                  body: d.body || "",
+                  icon: d.icon || "🎁",
+                  code: d.code || "",
+                  games: Number(d.games) || 0,
+                  catName: d.catName || "",
+                  createdAt: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0
+                });
+              });
+              out.sort((a, b) => b.createdAt - a.createdAt);
+              if (apply) apply(out);
+            }).catch(() => { if (apply) apply([]); });
+          }
+          window.IZZBAH.loadInbox = function () { return loadInbox(currentUser); };
+
           function makeCodeString() {
             let s = "";
             if (window.crypto && crypto.getRandomValues) {
@@ -16992,11 +17135,52 @@
               .then(loadCommunityCategories).then(() => ref.id);
           };
           // Admin only: approve a pending submission (or un-approve to pull it).
+          // Approving a community category also REWARDS its maker: a 5-game
+          // code is minted and delivered privately via their inbox (the
+          // notification center). The message doc id is derived from the
+          // category id, so re-approving (e.g. after an author edit sends it
+          // back to review) can never mint a second reward. The approval
+          // itself always succeeds even if the reward step fails — the admin
+          // sees which happened in the resolved {rewarded} flag.
+          const REWARD_GAMES = 5;
+          function sendApprovalReward(cat, catId) {
+            const author = (cat && cat.authorUid) || "";
+            if (!author) return Promise.resolve(false);
+            const msgRef = db.collection("inbox").doc(author).collection("msgs").doc("catreward-" + catId);
+            return msgRef.get().then(existing => {
+              if (existing.exists) return false; // already rewarded once
+              return window.IZZBAH.createCode({ gamesAllowed: REWARD_GAMES }).then(code => {
+                const msg = (typeof buildApprovalRewardMsg === "function")
+                  ? buildApprovalRewardMsg(cat.name)
+                  : { title: "مبروك!", body: "فئتكم اعتُمدت — هديتكم كود ٥ ألعاب." };
+                return msgRef.set({
+                  type: "reward",
+                  title: msg.title,
+                  body: msg.body,
+                  icon: "🎁",
+                  code,
+                  games: REWARD_GAMES,
+                  catName: (cat && cat.name) || "",
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => true);
+              });
+            });
+          }
           window.IZZBAH.communityApprove = function (id, approved) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            return db.collection("community").doc(id)
+            const ref = db.collection("community").doc(id);
+            const apply = () => ref
               .update({ approved: !!approved, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
               .then(loadCommunityCategories);
+            if (!approved) return apply().then(() => ({ rewarded: false }));
+            return ref.get().then(doc => {
+              const cat = doc.data() || {};
+              return apply().then(() =>
+                sendApprovalReward(cat, id)
+                  .then(rewarded => ({ rewarded }))
+                  .catch(e => { console.warn("approval reward failed", e); return { rewarded: false, rewardError: true }; })
+              );
+            });
           };
           window.IZZBAH.communityDelete = function (id) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
@@ -17097,6 +17281,7 @@
             // copy of the code-balance mirror over the live state. Load the
             // authoritative sum of redeemed codes last so it always wins.
             loadMyCodes(user);
+            loadInbox(user);
           });
         })
         .catch((e) => { console.warn("Firebase SDK failed to load", e); if (authBtn) authBtn.style.display = "none"; });
