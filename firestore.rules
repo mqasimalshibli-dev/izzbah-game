@@ -216,6 +216,29 @@ service cloud.firestore {
         && request.time > resource.data.lastAt + duration.value(30, 's');
     }
 
+    // ---- Personal inbox (admin → player messages) --------------------------
+    // A private per-player message box, used to hand a player their reward
+    // privately — e.g. the 5-game code sent when their community category is
+    // approved. Only the OWNER may read (and clear) their messages; only an
+    // admin may create them, shape-checked. Messages are never edited.
+    match /inbox/{uid}/msgs/{msgId} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['type', 'title', 'body', 'icon', 'code', 'games', 'catName', 'createdAt'])
+        && request.resource.data.type is string   && request.resource.data.type.size() <= 30
+        && request.resource.data.title is string  && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string   && request.resource.data.body.size() <= 1000
+        && request.resource.data.icon is string   && request.resource.data.icon.size() <= 8
+        && request.resource.data.code is string   && request.resource.data.code.size() <= 20
+        && request.resource.data.games is int
+        && request.resource.data.games >= 0
+        && request.resource.data.games <= 1000
+        && request.resource.data.catName is string
+        && request.resource.data.catName.size() <= 80;
+      allow update: if false;
+    }
+
     // ---- Catalog revision marker (read-cost saver) -------------------------
     // One tiny public doc, meta/catalog, whose `rev` counter every category
     // publish/delete bumps. Players read just THIS doc to learn whether the

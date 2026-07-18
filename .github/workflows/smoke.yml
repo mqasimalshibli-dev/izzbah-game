@@ -247,6 +247,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node announcements.mjs
 
+      - name: Run approval-reward inbox test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node inboxreward.mjs
+
       - name: Run category-filter test
         working-directory: tests
         run: |
