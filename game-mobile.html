@@ -3641,6 +3641,47 @@
       transform: translateY(18px) scale(.96);
     }
     .rs-stage.revealed .rs-card { animation: rsCardIn .55s cubic-bezier(.2, .9, .25, 1.15) forwards; animation-delay: var(--enter-delay, 0s); }
+    /* ===== Staged suspense reveal =====================================
+       Lower places pop in one by one (last place first), while the leader
+       stays a masked «؟» card; a drumroll speeds the pulse, then the winner
+       bursts in with the confetti. Purely presentational: the DOM (names,
+       scores, stats) is fully built up front — these classes only pace what
+       the EYE sees, so nothing functional depends on the animation. */
+    .rs-card.rs-in { animation: rsCardIn .55s cubic-bezier(.2, .9, .25, 1.15) forwards; }
+    .rs-card.rs-mystery {
+      opacity: 1;
+      transform: none;
+      background: linear-gradient(180deg, #2c2f34, #191b1f);
+      border: 2px dashed rgba(247, 207, 90, .5);
+    }
+    .rs-card.rs-mystery > * { visibility: hidden; }
+    .rs-card.rs-mystery::before {
+      content: "؟";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: clamp(54px, 9vw, 110px);
+      font-weight: 900;
+      color: #f7cf5a;
+      text-shadow: 0 0 26px rgba(247, 207, 90, .5);
+      animation: rsMysteryPulse 1.5s ease-in-out infinite;
+    }
+    .rs-card.rs-mystery.rs-drum { animation: rsDrumShake .3s linear infinite; }
+    .rs-card.rs-mystery.rs-drum::before { animation: rsMysteryPulse .4s ease-in-out infinite; }
+    @keyframes rsMysteryPulse {
+      0%, 100% { transform: scale(1); opacity: .72; }
+      50% { transform: scale(1.16); opacity: 1; }
+    }
+    @keyframes rsDrumShake {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(.7deg); }
+      75% { transform: rotate(-.7deg); }
+    }
+    .rs-trophy-stage.rs-in { animation: rsTrophyIn .7s cubic-bezier(.2, .9, .25, 1.3) forwards; }
+    /* held-back headline + stats fade in at the winner moment */
+    .rs-congrats, .rs-stats { transition: opacity .5s ease; }
+    .rs-hold { opacity: 0 !important; }
     .rs-card.winner {
       background: linear-gradient(180deg, #71161b, #490b0f);
       border: 3px solid var(--gold);
@@ -9222,7 +9263,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.67";
+    const IZZBAH_BUILD = "2026-07-10.68";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10031,6 +10072,8 @@
       correct: ctx => { sfxTone(ctx, 523.25, 0, .14, .06); sfxTone(ctx, 659.25, .09, .14, .06); sfxTone(ctx, 783.99, .18, .24, .06); },
       none:    ctx => { sfxTone(ctx, 246.94, 0, .16, .04); sfxTone(ctx, 196, .1, .24, .04); },
       win:     ctx => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => sfxTone(ctx, f, i * .13, i === 3 ? .5 : .2, .055)),
+      // Results drumroll: low ticks that accelerate toward the winner reveal.
+      drum:    ctx => { let t = 0, gap = .19; for (let i = 0; i < 10; i++) { sfxTone(ctx, 170 + i * 4, t, .05, .05, "square"); t += gap; gap *= .88; } },
       // Clock ticks + the one-minute alarm. Quiet by default; the urgent tick
       // is sharper to build tension as the minute approaches.
       tick:       ctx => sfxTone(ctx, 1200, 0, .025, .02, "square"),
@@ -14918,7 +14961,8 @@
         return card;
       }
 
-      if (ranked[0]) stage.appendChild(buildCard(ranked[0], 0));
+      const cardEls = []; // cardEls[i] ↔ ranked[i]
+      if (ranked[0]) { const c = buildCard(ranked[0], 0); cardEls.push(c); stage.appendChild(c); }
       const trophy = document.createElement("div");
       trophy.className = "rs-trophy-stage";
       trophy.innerHTML = `
@@ -14930,8 +14974,18 @@
       const badge = trophy.querySelector(".rs-trophy-badge");
       if (badge) badge.src = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22360%22%20height%3D%22250%22%20viewBox%3D%220%200%20360%20250%22%20overflow%3D%22visible%22%20role%3D%22img%22%20aria-label%3D%22%D8%B9%D9%8E%D8%B2%D9%92%D8%A8%D9%8E%D8%A9%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22flameM%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23C8431B%22%2F%3E%3Cstop%20offset%3D%2252%25%22%20stop-color%3D%22%23E8A93B%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23F6D27A%22%2F%3E%3C%2FlinearGradient%3E%3CclipPath%20id%3D%22tentM%22%3E%3Cpolygon%20points%3D%2244%2C214%2060%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%20316%2C214%22%2F%3E%3C%2FclipPath%3E%3C%2Fdefs%3E%3Cg%20stroke%3D%22%239E1C1C%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%2264%22%20y1%3D%22172%22%20x2%3D%2224%22%20y2%3D%22212%22%2F%3E%3Cline%20x1%3D%22300%22%20y1%3D%22172%22%20x2%3D%22340%22%20y2%3D%22212%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%239E1C1C%22%3E%3Cpolygon%20points%3D%2220%2C208%2030%2C208%2025%2C216%22%2F%3E%3Cpolygon%20points%3D%22330%2C208%20340%2C208%20335%2C216%22%2F%3E%3C%2Fg%3E%3Cg%20clip-path%3D%22url%28%23tentM%29%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%22360%22%20height%3D%22250%22%20fill%3D%22%239E1C1C%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22176%22%20width%3D%22360%22%20height%3D%224.5%22%20fill%3D%22%23FBF1DE%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22185%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%23FBF1DE%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22193%22%20width%3D%22360%22%20height%3D%225.5%22%20fill%3D%22%23FBF1DE%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%22203%22%20width%3D%22360%22%20height%3D%222.5%22%20fill%3D%22%23FBF1DE%22%2F%3E%3C%2Fg%3E%3Cpolyline%20points%3D%2260%2C168%20130%2C96%20180%2C116%20230%2C96%20300%2C168%22%20fill%3D%22none%22%20stroke%3D%22%237A1414%22%20stroke-width%3D%222.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2295%22%20r%3D%223.4%22%20fill%3D%22%237A1414%22%2F%3E%3Ccircle%20cx%3D%22230%22%20cy%3D%2295%22%20r%3D%223.4%22%20fill%3D%22%237A1414%22%2F%3E%3Cpolygon%20points%3D%22160%2C214%20160%2C178%20180%2C166%20200%2C178%20200%2C214%22%20fill%3D%22%232E0707%22%2F%3E%3Cg%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%22160%22%20y1%3D%22212%22%20x2%3D%22200%22%20y2%3D%22219%22%20stroke%3D%22%236E2A12%22%20stroke-width%3D%229%22%2F%3E%3Cline%20x1%3D%22200%22%20y1%3D%22212%22%20x2%3D%22160%22%20y2%3D%22219%22%20stroke%3D%22%237A1414%22%20stroke-width%3D%229%22%2F%3E%3C%2Fg%3E%3Cg%20opacity%3D%220.62%22%20transform%3D%22translate%28180%20218%29%20scale%280.74%29%20translate%28-180%20-218%29%22%3E%3Cpath%20d%3D%22M180%2C150%20Q206%2C178%20197%2C201%20Q191%2C217%20180%2C217%20Q169%2C217%20163%2C201%20Q155%2C181%20174%2C170%20Q171%2C187%20181%2C189%20Q189%2C174%20180%2C150%20Z%22%20fill%3D%22url%28%23flameM%29%22%20stroke%3D%22%23C8431B%22%20stroke-width%3D%221.4%22%2F%3E%3Cpath%20d%3D%22M181%2C173%20Q193%2C191%20187%2C205%20Q183%2C214%20178%2C212%20Q172%2C210%20174%2C199%20Q176%2C187%20181%2C173%20Z%22%20fill%3D%22%23F8DC93%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E";
       stage.appendChild(trophy);
-      ranked.slice(1).forEach((team, i) => stage.appendChild(buildCard(team, i + 1)));
+      ranked.slice(1).forEach((team, i) => { const c = buildCard(team, i + 1); cardEls.push(c); stage.appendChild(c); });
       renderResultsStats();
+
+      // Suspense staging: the leader(s) start as a masked «؟» card, and the
+      // headline + fun stats (which name the winner) are held back until the
+      // final burst. Draws mask every tied leader and reveal them together.
+      clearRevealTimers();
+      const finalCards = cardEls.slice(0, isDraw ? topTeams.length : 1);
+      const laterCards = cardEls.slice(isDraw ? topTeams.length : 1);
+      finalCards.forEach(c => c.classList.add("rs-mystery"));
+      $("#resultsCongrats").classList.add("rs-hold");
+      $("#resultsStats").classList.add("rs-hold");
 
       // Spend the play credit HERE — the game is finished. Entering a game and
       // leaving (without reaching this screen) never charges; only a completed
@@ -14944,12 +14998,7 @@
       }
 
       showScreen("results");
-      playResultsIntro(() => {
-        stage.classList.add("revealed");
-        spawnConfetti(screen);
-        playSfx("win");
-        animateResultScores(stage);
-      });
+      playResultsIntro(() => playStagedReveal({ stage, screen, finalCards, laterCards }));
       resetScores();
     }
 
@@ -15163,24 +15212,82 @@
       }
     }
 
-    // Roll each final score up from 0 as its card reveals. Skipped for users
-    // who prefer reduced motion — they see the final number straight away
-    // (which is also what the cards were rendered with, so a failure here
-    // never hides a score).
-    function animateResultScores(stage) {
+    // Roll a final score up from 0 as its card reveals. Skipped for users who
+    // prefer reduced motion — they see the final number straight away (which
+    // is also what the cards were rendered with, so a failure here never
+    // hides a score).
+    function animateScoreEl(el) {
       if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      stage.querySelectorAll(".rs-score .clean-number[data-count]").forEach(el => {
-        const target = parseInt(el.dataset.count, 10) || 0;
-        if (!target) return;
-        const start = timerNow();
-        const duration = 900;
-        (function step() {
-          const p = Math.min(1, (timerNow() - start) / duration);
-          const eased = 1 - Math.pow(1 - p, 3);
-          el.textContent = toArabicDigits(Math.round(target * eased));
-          if (p < 1) requestAnimationFrame(step);
-        })();
+      const target = parseInt(el.dataset.count, 10) || 0;
+      if (!target) return;
+      const start = timerNow();
+      const duration = 900;
+      (function step() {
+        const p = Math.min(1, (timerNow() - start) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = toArabicDigits(Math.round(target * eased));
+        if (p < 1) requestAnimationFrame(step);
+      })();
+    }
+    function animateResultScores(stage) {
+      stage.querySelectorAll(".rs-score .clean-number[data-count]").forEach(animateScoreEl);
+    }
+    function animateCardScores(card) {
+      card.querySelectorAll(".rs-score .clean-number[data-count]").forEach(animateScoreEl);
+    }
+
+    // ---- Staged suspense reveal --------------------------------------------
+    // After the branded intro slides away: lower places pop in one at a time
+    // (LAST place first), then a drumroll shakes the masked leader card(s),
+    // then the winner bursts in with the trophy, headline, stats + confetti.
+    // Reduced-motion users (and a lone card) get everything at once instead.
+    // Every step re-checks the visible screen so leaving mid-reveal goes quiet.
+    let revealTimers = [];
+    function clearRevealTimers() { revealTimers.forEach(clearTimeout); revealTimers = []; }
+    function playStagedReveal(parts) {
+      const { stage, screen, finalCards, laterCards } = parts;
+      clearRevealTimers();
+      const unhold = () => {
+        $("#resultsCongrats").classList.remove("rs-hold");
+        $("#resultsStats").classList.remove("rs-hold");
+      };
+      const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced || finalCards.length + laterCards.length < 2) {
+        finalCards.forEach(c => c.classList.remove("rs-mystery"));
+        unhold();
+        stage.classList.add("revealed");
+        spawnConfetti(screen);
+        playSfx("win");
+        animateResultScores(stage);
+        return;
+      }
+      const onResults = () => document.body.dataset.screen === "results";
+      const order = laterCards.slice().reverse(); // last place first
+      const STEP = 850;
+      order.forEach((card, i) => {
+        revealTimers.push(window.setTimeout(() => {
+          if (!onResults()) return;
+          card.classList.add("rs-in");
+          playSfx("reveal");
+          animateCardScores(card);
+        }, 400 + i * STEP));
       });
+      const drumAt = 400 + order.length * STEP;
+      revealTimers.push(window.setTimeout(() => {
+        if (!onResults()) return;
+        finalCards.forEach(c => c.classList.add("rs-drum"));
+        playSfx("drum");
+      }, drumAt));
+      revealTimers.push(window.setTimeout(() => {
+        if (!onResults()) return;
+        finalCards.forEach(c => { c.classList.remove("rs-mystery", "rs-drum"); c.classList.add("rs-in"); });
+        const trophy = stage.querySelector(".rs-trophy-stage");
+        if (trophy) trophy.classList.add("rs-in");
+        unhold();
+        spawnConfetti(screen);
+        playSfx("win");
+        finalCards.forEach(animateCardScores);
+      }, drumAt + 1500));
     }
 
     function playResultsIntro(done) {
