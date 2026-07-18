@@ -5770,7 +5770,7 @@
     <section id="setup" class="screen center">
       <div class="setup-shell">
         <div class="setup-nav">
-          <button class="ghost" data-screen="categories">رجوع</button>
+          <button class="ghost" id="setupBack">رجوع</button>
           <button class="primary" id="startGame">ابدأ اللعبة</button>
         </div>
         <div class="setup-head">
@@ -9226,6 +9226,7 @@
       categoryMode: "game",
       currentGameName: "",
       editingSavedGameId: null,
+      setupReturn: "categories", // where the team-setup «رجوع» goes back to
       customReturn: "categories",
       editingCategory: null,
       editorTarget: "custom",
@@ -9254,7 +9255,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.72";
+    const IZZBAH_BUILD = "2026-07-10.73";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9965,6 +9966,9 @@
       showScreen("categories");
     }
 
+    // «الإعدادات» on a saved game edits ONLY the teams (names + icons) — a saved
+    // game's categories are fixed, so this jumps straight to team setup and its
+    // «رجوع» returns to the library, never exposing the category editor.
     function openSavedGameSettings(gameId) {
       const game = state.savedGames.find(item => item.id === gameId);
       if (!game) return;
@@ -9972,7 +9976,8 @@
       state.currentGameName = game.title || "";
       state.editingSavedGameId = game.id;
       state.categoryMode = "game";
-      showScreen("categories");
+      state.setupReturn = "gameLibrary"; // no category access from a saved game
+      showScreen("setup");
     }
 
     function playSavedGame(gameId) {
@@ -9981,6 +9986,7 @@
       state.selected = new Set(game.categoryIds.filter(id => categoryById(id)));
       state.currentGameName = game.title || "";
       state.editingSavedGameId = game.id;
+      state.setupReturn = "gameLibrary"; // saved-game categories are fixed
       showScreen("setup");
     }
 
@@ -15371,7 +15377,8 @@
       renderScores();
       renderTurnBoxes();
     });
-    $("#goTeams").addEventListener("click", () => showScreen("setup"));
+    $("#goTeams").addEventListener("click", () => { state.setupReturn = "categories"; showScreen("setup"); });
+    $("#setupBack").addEventListener("click", () => showScreen(state.setupReturn === "gameLibrary" ? "gameLibrary" : "categories"));
     $("#startGame").addEventListener("click", startGame);
     $("#exitGame").addEventListener("click", () => {
       clearLiveGame(); // leaving via ✕ ends the game — start fresh next time
