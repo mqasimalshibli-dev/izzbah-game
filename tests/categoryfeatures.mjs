@@ -81,6 +81,15 @@ try {
   check("on a «من الي سجل؟» question the four-choices slot is disabled, first-letter stays",
     voiceGating.four === true && voiceGating.first === false && voiceGating.keepsFirst);
 
+  // «الأقرب يفوز» (estimation) is choice-free too — four options would spoil it.
+  const nearestGating = await page.evaluate(() => ({
+    hamza: hidesMultipleChoice({ id: "pub-x", name: "الأقرب يفوز" }),
+    noHamza: hidesMultipleChoice({ id: "pub-y", name: "الاقرب يفوز" }),
+    keepsFirst: !isWordGuessCategory({ name: "الأقرب يفوز" }),
+  }));
+  check("«الأقرب يفوز» hides the four-choices helper (both أ/ا spellings)",
+    nearestGating.hamza && nearestGating.noHamza && nearestGating.keepsFirst);
+
   // ---- 2) per-category progress badge ----
   const prog = await page.evaluate(() => {
     // A cloud category with 5 questions; answer 2 of them.

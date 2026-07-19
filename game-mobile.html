@@ -9368,14 +9368,17 @@
     function isReactionCategory(cat) {
       return /رياكشن/.test(String((cat && cat.name) || ""));
     }
-    // Specific categories where a multiple-choice list would spoil the round
-    // (e.g. «من الي سجل؟» — guess WHO recorded the clip; four names on screen
-    // give it away). Matched by id AND by name, so a rename keeps working.
+    // Specific categories where a multiple-choice list would spoil the round:
+    //   • «من الي سجل؟» — guess WHO recorded the clip; four names give it away.
+    //   • «الأقرب يفوز» — an estimation game (closest guess wins); showing four
+    //     options would defeat the whole point.
+    // Matched by id AND by name, so a rename keeps working.
     const CHOICE_FREE_CATEGORY_IDS = new Set(["pub-1784043823835-6035"]); // من الي سجل؟
     function isChoiceFreeCategory(cat) {
       if (!cat) return false;
       if (CHOICE_FREE_CATEGORY_IDS.has(String(cat.id || ""))) return true;
-      return /من\s*الل?ي\s*سجل/.test(String(cat.name || ""));
+      const name = String(cat.name || "");
+      return /من\s*الل?ي\s*سجل/.test(name) || /ال[أا]قرب\s*يفوز/.test(name);
     }
     // Emoji-guess categories: the "question" is a short emoji puzzle, so it must
     // be CENTERED in the question card (a short puzzle would otherwise sit at the
@@ -9567,7 +9570,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.95";
+    const IZZBAH_BUILD = "2026-07-10.96";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
