@@ -45,6 +45,9 @@ try {
     ]);
     window.IZZBAH.adminLoadFeedback = (uid) => Promise.resolve([{ id: "a1", from: "user", text: "رسالة من " + uid, name: "سالم", createdAt: 1500 }]);
     window.IZZBAH.adminReplyFeedback = (uid, t) => { window.__fb.adminReplies.push({ uid, t }); return Promise.resolve(); };
+    window.__fb.deleted = [];
+    window.IZZBAH.deleteFeedback = (id) => { window.__fb.deleted.push(id); window.__fb.thread = window.__fb.thread.filter(m => m.id !== id); return Promise.resolve(); };
+    window.IZZBAH.adminDeleteFeedback = (uid, id) => { window.__fb.deleted.push({ uid, id }); return Promise.resolve(); };
   });
 
   // ---- 1) signed-OUT player is prompted to sign in (modal stays closed) ----
@@ -74,6 +77,33 @@ try {
   });
   check("sending posts the message through the bridge", sent.sent.length === 1 && sent.sent[0] === "أحب اللعبة كثيراً!");
   check("the sent message appears in the thread and the box clears", sent.bubbles >= 2 && sent.input === "");
+
+  // ---- 3b) the player can DELETE their own message, but not the dev's ----
+  const del = await page.evaluate(async () => {
+    // reopen a fresh thread with a known user message + dev reply
+    window.__fb.thread = [
+      { id: "keep_dev", from: "admin", text: "رد المطوّر", name: "المطوّر", createdAt: 2000 },
+      { id: "mine", from: "user", text: "رسالتي القابلة للحذف", name: "سالم", createdAt: 3000 },
+    ];
+    window.IZZBAH.loadFeedback = () => Promise.resolve(window.__fb.thread.slice());
+    state.signedIn = true; state.feedbackAdminUid = null; openFeedback();
+    await new Promise(r => setTimeout(r, 200));
+    const userBubbles = [...document.querySelectorAll("#feedbackThread .fb-user")];
+    const devBubbles = [...document.querySelectorAll("#feedbackThread .fb-dev")];
+    const userHasDelete = userBubbles.every(b => !!b.querySelector(".fb-del"));
+    const devHasDelete = devBubbles.some(b => !!b.querySelector(".fb-del"));
+    // click delete on the user's own message
+    userBubbles[0].querySelector(".fb-del").click();
+    await new Promise(r => setTimeout(r, 200));
+    return {
+      userHasDelete, devHasDelete,
+      deleted: window.__fb.deleted.slice(),
+      remaining: document.querySelectorAll("#feedbackThread .fb-msg").length,
+      stillHasDev: [...document.querySelectorAll("#feedbackThread .fb-dev")].length === 1,
+    };
+  });
+  check("the player sees a delete control on their OWN messages only", del.userHasDelete && !del.devHasDelete);
+  check("deleting removes the player's message via the bridge", del.deleted.length === 1 && del.deleted[0] === "mine" && del.stillHasDev);
 
   // ---- 4) a new dev reply raises an unread badge that clears on open ----
   const badge = await page.evaluate(async () => {

@@ -4389,6 +4389,10 @@
     .fb-msg .fb-who { font-size: 12px; font-weight: 800; margin-bottom: 3px; opacity: .8; }
     .fb-msg .fb-text { font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
     .fb-msg .fb-time { font-size: 11px; opacity: .6; margin-top: 4px; }
+    .fb-del { margin-top: 5px; background: transparent; border: none; box-shadow: none; min-height: 0; padding: 0; font: 700 12px 'Cairo', sans-serif; cursor: pointer; opacity: .75; }
+    .fb-user .fb-del { color: #9e1322; }
+    .fb-dev .fb-del { color: #ffdede; }
+    .fb-del:hover { opacity: 1; text-decoration: underline; }
     .fb-user { align-self: flex-start; background: linear-gradient(180deg, #fbf1de, #f3e1c0); color: #5a3d12; border: 1px solid rgba(158, 28, 28, .18); border-bottom-right-radius: 4px; }
     .fb-dev { align-self: flex-end; background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; border-bottom-left-radius: 4px; }
     .fb-dev .fb-who { color: #ffe6b0; }
@@ -9477,7 +9481,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.84";
+    const IZZBAH_BUILD = "2026-07-10.85";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12631,7 +12635,7 @@
       state.feedbackLatestAdminTs = msgs.filter(m => m.from === "admin").reduce((mx, m) => Math.max(mx, Number(m.createdAt) || 0), 0);
       updateFeedbackBadge();
     };
-    function feedbackBubble(m) {
+    function feedbackBubble(m, onDelete) {
       const dev = m.from === "admin";
       const div = document.createElement("div");
       div.className = "fb-msg " + (dev ? "fb-dev" : "fb-user");
@@ -12640,16 +12644,41 @@
       div.innerHTML = `<div class="fb-who">${escapeHtml(who)}</div>`
         + `<div class="fb-text">${escapeHtml(toArabicDigits(m.text || ""))}</div>`
         + (dateStr ? `<div class="fb-time">${escapeHtml(dateStr)}</div>` : "");
+      if (onDelete) {
+        const del = document.createElement("button");
+        del.className = "fb-del"; del.type = "button"; del.textContent = "🗑 حذف";
+        del.setAttribute("aria-label", "حذف الرسالة");
+        del.addEventListener("click", () => onDelete(m));
+        div.appendChild(del);
+      }
       return div;
+    }
+    function deleteFeedbackMsg(m) {
+      if (!m || !m.id) return;
+      if (!window.confirm("حذف هذه الرسالة؟")) return;
+      const isAdminView = !!state.feedbackAdminUid;
+      const del = isAdminView
+        ? (window.IZZBAH.adminDeleteFeedback ? (id) => window.IZZBAH.adminDeleteFeedback(state.feedbackAdminUid, id) : null)
+        : (window.IZZBAH.deleteFeedback || null);
+      if (!del) { showToast("الحذف غير متاح الآن"); return; }
+      Promise.resolve(del(m.id))
+        .then(() => feedbackLoader().then(list => renderFeedbackThread(list)))
+        .then(() => showToast("تم حذف الرسالة"))
+        .catch(() => showToast("تعذّر الحذف — حاول مرة أخرى"));
     }
     function renderFeedbackThread(list) {
       const box = $("#feedbackThread");
       box.innerHTML = "";
+      const isAdminView = !!state.feedbackAdminUid;
       const msgs = (list || []).slice().sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
       if (!msgs.length) {
-        box.innerHTML = `<div class="fb-empty">${state.feedbackAdminUid ? "لا رسائل من هذا اللاعب بعد." : "لا رسائل بعد — اكتب اقتراحك أو رأيك للمطوّرين، وسنقرأه ونردّ عليك هنا."}</div>`;
+        box.innerHTML = `<div class="fb-empty">${isAdminView ? "لا رسائل من هذا اللاعب بعد." : "لا رسائل بعد — اكتب اقتراحك أو رأيك للمطوّرين، وسنقرأه ونردّ عليك هنا."}</div>`;
       } else {
-        msgs.forEach(m => box.appendChild(feedbackBubble(m)));
+        // A player may delete their OWN messages; an admin may delete any.
+        msgs.forEach(m => {
+          const canDelete = m.id && (isAdminView || m.from === "user");
+          box.appendChild(feedbackBubble(m, canDelete ? deleteFeedbackMsg : null));
+        });
       }
       box.scrollTop = box.scrollHeight;
     }
@@ -17102,9 +17131,17 @@
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
           };
+          window.IZZBAH.deleteFeedback = function (msgId) {
+            if (!currentUser || !msgId) return Promise.reject(new Error("no message"));
+            return db.collection("feedback").doc(currentUser.uid).collection("messages").doc(msgId).delete();
+          };
           window.IZZBAH.adminLoadFeedback = function (uid) {
             if (!uid) return Promise.resolve([]);
             return db.collection("feedback").doc(uid).collection("messages").get().then(mapFeedbackSnap).catch(() => []);
+          };
+          window.IZZBAH.adminDeleteFeedback = function (uid, msgId) {
+            if (!uid || !msgId) return Promise.reject(new Error("no message"));
+            return db.collection("feedback").doc(uid).collection("messages").doc(msgId).delete();
           };
           window.IZZBAH.adminReplyFeedback = function (uid, text) {
             if (!uid) return Promise.reject(new Error("no uid"));
