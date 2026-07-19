@@ -4164,6 +4164,29 @@
       border: 1.5px solid var(--accent, #9e1322); box-shadow: none; flex: 0 0 auto;
     }
     .rand-btn--sm:hover { filter: brightness(.97); }
+    /* Icon-only dice button on the category screen — just the die, no label. */
+    .rand-btn--icon { width: 54px; min-width: 54px; padding: 0; aspect-ratio: 1 / 1; font-size: 24px; border-radius: 14px; flex: 0 0 auto; gap: 0; }
+    .rand-btn--icon .rand-die { font-size: 1em; }
+
+    /* ===== Community/custom category editor — admin-style question table ===== */
+    .ce-vis-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+    .ce-vis { display: inline-flex; border: 2px solid #e0c97f; border-radius: 12px; overflow: hidden; background: #f1e2bd; }
+    .ce-vis button { min-height: 0; padding: 9px 18px; border: none; border-radius: 0; background: transparent; color: #8a6a3a; font-weight: 800; box-shadow: none; font-size: 15px; }
+    .ce-vis button.on { background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; }
+    .ce-vis-note { font-size: 13px; color: var(--gold-dark); font-weight: 700; }
+    .ce-toolbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 12px 0 2px; }
+    .ce-table-wrap { width: 100%; overflow-x: auto; border: 1px solid rgba(140, 106, 46, .25); border-radius: 14px; margin-top: 10px; }
+    .ce-table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
+    .ce-table th { position: sticky; top: 0; background: #f1e2bd; color: #7a5a12; font-size: 14px; font-weight: 800; padding: 10px; text-align: right; white-space: nowrap; }
+    .ce-table td { padding: 10px; border-top: 1px solid rgba(140, 106, 46, .16); color: var(--dark); font-size: 15px; vertical-align: middle; }
+    .ce-table td.ce-q { min-width: 160px; max-width: 300px; }
+    .ce-cell-clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ce-table td.ce-a { color: #2fa15a; font-weight: 700; }
+    .ce-table td.ce-pts { font-weight: 800; color: var(--gold-dark); white-space: nowrap; text-align: center; }
+    .ce-table td.ce-act { white-space: nowrap; text-align: center; }
+    .ce-table td.ce-act button { min-height: 0; padding: 6px 12px; font-size: 13px; margin-inline-start: 6px; }
+    .ce-thumb { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; vertical-align: middle; }
+    .ce-empty-row td { text-align: center; color: var(--gold-dark); font-weight: 700; padding: 22px 10px; }
 
     /* ===== Admin content panel (tabbed table) ===== */
     #adminPanel { background: #14110c; color: #ece3d2; }
@@ -5880,7 +5903,7 @@
         </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
-          <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
+          <button class="secondary rand-btn rand-btn--icon" id="randomCategories" type="button" aria-label="اختيار عشوائي" title="اختيار عشوائي"><span class="rand-die" aria-hidden="true">🎲</span></button>
         </div>
         <div class="cat-filter-row" id="catFilterRow" role="tablist" aria-label="تصفية الفئات" hidden></div>
         <div class="category-grid" id="categoryGrid"></div>
@@ -5978,6 +6001,34 @@
         <div class="actions">
           <button class="ghost" id="adminQCancel" type="button">إلغاء</button>
           <button class="primary" id="adminQSave" type="button">حفظ السؤال</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="ceQModal" aria-hidden="true">
+      <div class="question-modal admin-q-modal" role="dialog" aria-modal="true">
+        <h3 class="preview-title" id="ceQTitle">تعديل السؤال</h3>
+        <div class="admin-q-grid">
+          <label class="field-label">النقاط</label>
+          <input type="number" id="ceQPoints" min="0" step="50" inputmode="numeric" />
+          <label class="field-label">نص السؤال</label>
+          <textarea id="ceQText" placeholder="نص السؤال"></textarea>
+          <label class="field-label">الإجابة الصحيحة</label>
+          <input type="text" id="ceQAnswer" placeholder="الإجابة" />
+          <label class="field-label">الخيارات الخاطئة <small class="dist-note">لمساعدة «أربعة خيارات» — اختياري</small></label>
+          <div class="admin-dist-grid">
+            <input type="text" id="ceQDist1" placeholder="خيار خاطئ ١" autocomplete="off" />
+            <input type="text" id="ceQDist2" placeholder="خيار خاطئ ٢" autocomplete="off" />
+            <input type="text" id="ceQDist3" placeholder="خيار خاطئ ٣" autocomplete="off" />
+          </div>
+          <div class="admin-q-media">
+            <div class="media-item"><div class="file-note">صورة السؤال</div><div id="ceQImage"></div></div>
+            <div class="media-item"><div class="file-note">صورة الإجابة</div><div id="ceQAnswerImage"></div></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="ceQCancel" type="button">إلغاء</button>
+          <button class="primary" id="ceQSave" type="button">حفظ السؤال</button>
         </div>
       </div>
     </div>
@@ -9347,7 +9398,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.81";
+    const IZZBAH_BUILD = "2026-07-10.82";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9883,6 +9934,21 @@
 
     function activeCategories() {
       return allCategories().filter(cat => state.selected.has(cat.id) && categoryHasQuestions(cat));
+    }
+
+    // A "private" category is a personal one a player made and kept to themselves
+    // (not an official category, and not an approved-public community category).
+    // Private categories are premium content: a game that includes one can start
+    // ONLY with paid access — a subscription or purchased/redeemed games. The
+    // free first game never unlocks them.
+    function isPrivateCategory(cat) {
+      return !!(cat && cat.custom && !cat.community && !cat.published);
+    }
+    function selectionHasPrivate() {
+      return activeCategories().some(isPrivateCategory);
+    }
+    function hasPaidAccess() {
+      return state.isAdmin || premiumActive() || gamesRemaining() > 0;
     }
 
     function categoryById(id) {
@@ -11411,6 +11477,8 @@
         image: "",
         custom: !published,
         published,
+        // Default the maker's choice: community tab → public, personal → private.
+        visibility: published ? undefined : (state.editorTarget === "community" ? "public" : "private"),
         order: published ? state.publishedCategories.length : 0,
         questions: pointValues.map(points => ({ points, q: "", a: "", image: "", answerImage: "" }))
       };
@@ -12090,12 +12158,23 @@
       box.innerHTML = html;
       runBtn.disabled = valid.length === 0;
     }
-    function openImportModal() {
+    function openImportModal(ctx) {
+      state.importCtx = ctx === "community" ? "community" : "admin";
+      const community = state.importCtx === "community";
       $("#importText").value = "";
       $("#importPointsMode").value = "auto";
       $("#importFixedWrap").style.display = "none";
-      $("#importTarget").value = state.adminCat ? "append" : "new";
-      $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
+      // The community editor always appends to the category being edited, so
+      // hide the admin-only destination / new-name controls.
+      const targetCtl = $("#importTarget").closest(".import-ctl");
+      if (targetCtl) targetCtl.style.display = community ? "none" : "";
+      if (community) {
+        $("#importTarget").value = "append";
+        $("#importNewNameWrap").style.display = "none";
+      } else {
+        $("#importTarget").value = state.adminCat ? "append" : "new";
+        $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
+      }
       $("#importNewName").value = "";
       $("#importPreview").innerHTML = "";
       $("#importRun").disabled = true;
@@ -12119,6 +12198,17 @@
         if (r.distractors.length) obj.distractors = r.distractors.slice(0, 3);
         return obj;
       });
+      // Community/custom editor: append the parsed questions to the category
+      // currently being edited, then refresh the table.
+      if (state.importCtx === "community") {
+        const cat = state.editingCategory;
+        if (!cat) { showToast("لا توجد فئة قيد التعديل"); return; }
+        cat.questions = (cat.questions || []).concat(questions);
+        closeImportModal();
+        showToast(`تم استيراد ${toArabicDigits(questions.length)} سؤالاً`);
+        renderCustomEditor();
+        return;
+      }
       const target = $("#importTarget").value;
       if (target === "new") {
         const nm = ($("#importNewName").value || "").trim();
@@ -13151,8 +13241,12 @@
     }
     // Out of games -> show the available plans (with an in-place redeem box)
     // instead of a dead-end message.
-    function openSubscribeGate() {
-      track("paywall_hit", {});
+    function openSubscribeGate(opts) {
+      const reason = opts && opts.reason;
+      track("paywall_hit", reason ? { reason } : {});
+      if (reason === "private") {
+        showToast("الفئات الخاصة تحتاج باقة ألعاب — اختر باقة للّعب بها.");
+      }
       openPlans();
     }
     // The balance line on the game library screen: exactly what the play gate
@@ -13449,7 +13543,7 @@
           : `<span style="color:#c58a12">• قيد المراجعة</span>`;
         const meta = community
           ? `${status} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`
-          : `<span class="clean-number">${toArabicDigits(filled)}/5</span> أسئلة مكتملة`;
+          : `🔒 خاصة · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`;
         row.innerHTML = `
           <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
           <div>
@@ -13495,7 +13589,14 @@
       const cat = state.editingCategory;
       const panel = $("#editorPanel");
       panel.innerHTML = "";
+      const published = state.editorTarget === "published";
+      // Default visibility: the community maker defaults to public; the personal
+      // maker defaults to private. The toggle below decides the save destination.
+      if (cat.visibility !== "public" && cat.visibility !== "private") {
+        cat.visibility = state.editorTarget === "community" ? "public" : "private";
+      }
 
+      // ---- Category header: cover, name, colour ----
       const top = document.createElement("div");
       top.style.display = "grid";
       top.style.justifyItems = "center";
@@ -13523,72 +13624,82 @@
       top.appendChild(colorWrap);
       panel.appendChild(top);
 
-      cat.questions.forEach((q, idx) => {
-        const box = document.createElement("div");
-        box.className = "question-editor";
-        const media = document.createElement("div");
-        media.className = "question-media-stack";
-        const questionMedia = document.createElement("div");
-        questionMedia.className = "media-item";
-        questionMedia.insertAdjacentHTML("beforeend", `<div class="file-note">صورة السؤال</div>`);
-        questionMedia.appendChild(imagePicker(q.image, image => {
-          q.image = image;
-          renderCustomEditor();
-        }, "وسائط السؤال", { media: true }));
-        const answerMedia = document.createElement("div");
-        answerMedia.className = "media-item";
-        answerMedia.insertAdjacentHTML("beforeend", `<div class="file-note">وسائط الإجابة</div>`);
-        answerMedia.appendChild(imagePicker(q.answerImage, image => {
-          q.answerImage = image;
-          renderCustomEditor();
-        }, "وسائط الإجابة", { media: true }));
-        media.append(questionMedia, answerMedia);
-        box.appendChild(media);
-        const fields = document.createElement("div");
-        fields.className = "question-fields";
-        const headRow = document.createElement("div");
-        headRow.style.cssText = "display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap";
-        const ptsWrap = document.createElement("label");
-        ptsWrap.className = "field-label";
-        ptsWrap.style.cssText = "display:inline-flex;align-items:center;gap:8px;margin:0";
-        ptsWrap.textContent = "النقاط";
-        const pts = document.createElement("input");
-        pts.type = "number"; pts.min = "0"; pts.step = "50"; pts.value = q.points;
-        pts.style.cssText = "width:96px";
-        pts.addEventListener("input", () => { cat.questions[idx].points = parseInt(pts.value, 10) || 0; });
-        ptsWrap.appendChild(pts);
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "ghost"; removeBtn.type = "button"; removeBtn.textContent = "حذف السؤال";
-        removeBtn.addEventListener("click", () => {
-          if (cat.questions.length <= 1) { alert("يجب أن يبقى سؤال واحد على الأقل."); return; }
-          cat.questions.splice(idx, 1);
-          renderCustomEditor();
-        });
-        headRow.append(ptsWrap, removeBtn);
-        fields.appendChild(headRow);
-        const qText = document.createElement("textarea");
-        qText.value = q.q;
-        qText.placeholder = "نص السؤال";
-        qText.addEventListener("input", () => { cat.questions[idx].q = qText.value; });
-        const answer = document.createElement("input");
-        answer.value = q.a;
-        answer.placeholder = "الإجابة";
-        answer.addEventListener("input", () => { cat.questions[idx].a = answer.value; });
-        fields.append(qText, answer);
-        box.appendChild(fields);
-        panel.appendChild(box);
-      });
+      // ---- Public / private toggle (not for the admin-published editor) ----
+      if (!published) {
+        const visRow = document.createElement("div");
+        visRow.className = "ce-vis-row";
+        const seg = document.createElement("div");
+        seg.className = "ce-vis";
+        const mkVis = (val, label) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.textContent = label;
+          if (cat.visibility === val) b.classList.add("on");
+          b.addEventListener("click", () => { cat.visibility = val; renderCustomEditor(); });
+          return b;
+        };
+        seg.append(mkVis("public", "عامة 🌍"), mkVis("private", "خاصة 🔒"));
+        const note = document.createElement("div");
+        note.className = "ce-vis-note";
+        note.textContent = cat.visibility === "public"
+          ? "تظهر للجميع بعد موافقة المشرف — وتحصل على مكافأة عند اعتمادها."
+          : "تبقى لك وحدك — وتحتاج باقة ألعاب مشتراة للّعب بها.";
+        visRow.append(seg, note);
+        panel.appendChild(visRow);
+      }
 
+      // ---- Question table (admin-style: rows + add/edit modal + import) ----
+      const toolbar = document.createElement("div");
+      toolbar.className = "ce-toolbar";
       const addQ = document.createElement("button");
-      addQ.className = "secondary"; addQ.type = "button"; addQ.textContent = "+ سؤال جديد";
-      addQ.style.cssText = "margin:4px auto";
-      addQ.addEventListener("click", () => {
-        const last = cat.questions[cat.questions.length - 1];
-        cat.questions.push({ points: (last ? (last.points || 0) : 0) + 100, q: "", a: "", image: "", answerImage: "" });
-        renderCustomEditor();
-      });
-      panel.appendChild(addQ);
+      addQ.className = "secondary"; addQ.type = "button"; addQ.textContent = "✦ إضافة سؤال";
+      addQ.addEventListener("click", () => openCeQuestion(-1));
+      const importQ = document.createElement("button");
+      importQ.className = "secondary"; importQ.type = "button"; importQ.textContent = "⬆ استيراد أسئلة";
+      importQ.addEventListener("click", () => openImportModal("community"));
+      toolbar.append(addQ, importQ);
+      panel.appendChild(toolbar);
 
+      const count = document.createElement("div");
+      count.className = "ce-vis-note";
+      count.style.textAlign = "center";
+      count.textContent = `${toArabicDigits(cat.questions.length)} سؤال`;
+      panel.appendChild(count);
+
+      const wrap = document.createElement("div");
+      wrap.className = "ce-table-wrap";
+      const table = document.createElement("table");
+      table.className = "ce-table";
+      table.innerHTML = `<thead><tr><th>#</th><th>السؤال</th><th>الإجابة</th><th>صورة</th><th>النقاط</th><th>إجراءات</th></tr></thead>`;
+      const tbody = document.createElement("tbody");
+      if (!cat.questions.length) {
+        tbody.innerHTML = `<tr class="ce-empty-row"><td colspan="6">لا توجد أسئلة بعد — اضغط «✦ إضافة سؤال» أو «⬆ استيراد أسئلة».</td></tr>`;
+      }
+      cat.questions.forEach((q, idx) => {
+        const tr = document.createElement("tr");
+        const hasImg = !!(q.image || q.answerImage);
+        tr.innerHTML = `
+          <td>${toArabicDigits(idx + 1)}</td>
+          <td class="ce-q"><div class="ce-cell-clip">${escapeHtml(q.q || "—")}</div></td>
+          <td class="ce-a"><div class="ce-cell-clip">${escapeHtml(q.a || "—")}</div></td>
+          <td>${hasImg ? "🖼" : "—"}</td>
+          <td class="ce-pts">${toArabicDigits(q.points || 0)}</td>`;
+        const act = document.createElement("td");
+        act.className = "ce-act";
+        const edit = document.createElement("button");
+        edit.className = "secondary"; edit.type = "button"; edit.textContent = "تعديل";
+        edit.addEventListener("click", () => openCeQuestion(idx));
+        const del = document.createElement("button");
+        del.className = "ghost"; del.type = "button"; del.textContent = "حذف";
+        del.addEventListener("click", () => { cat.questions.splice(idx, 1); renderCustomEditor(); });
+        act.append(edit, del);
+        tr.appendChild(act);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      panel.appendChild(wrap);
+
+      // ---- Save / cancel ----
       const actions = document.createElement("div");
       actions.className = "actions";
       const cancel = document.createElement("button");
@@ -13597,22 +13708,18 @@
       cancel.addEventListener("click", () => showScreen("customManager"));
       const save = document.createElement("button");
       save.className = "primary";
-      save.textContent = state.editorTarget === "published" ? "نشر للجميع"
-        : state.editorTarget === "community" ? "نشر للمجتمع" : "حفظ الفئة";
+      const saveLabel = () => published ? "نشر للجميع" : cat.visibility === "public" ? "نشر للمجتمع" : "حفظ الفئة الخاصة";
+      save.textContent = saveLabel();
       save.addEventListener("click", () => {
-        cat.name = cat.name.trim();
-        if (!cat.name) {
-          alert("يرجى إدخال اسم للفئة");
-          return;
-        }
-        if (state.editorTarget === "published") {
-          publishCategory(cat);
-          return;
-        }
-        if (state.editorTarget === "community") {
+        cat.name = (cat.name || "").trim();
+        if (!cat.name) { alert("يرجى إدخال اسم للفئة"); return; }
+        if (!cat.questions.length) { showToast("أضف سؤالاً واحداً على الأقل"); return; }
+        if (published) { publishCategory(cat); return; }
+        if (cat.visibility === "public") {
           if (!(window.IZZBAH && window.IZZBAH.communityPublish)) { showToast("سجّل الدخول للمشاركة"); return; }
-          if ((cat.questions || []).length > 60) { showToast("الحد الأقصى ٦٠ سؤالًا للفئة"); return; }
-          const resetBtn = () => { save.disabled = false; save.textContent = "نشر للمجتمع"; };
+          if ((cat.questions || []).length > 60) { showToast("الحد الأقصى ٦٠ سؤالًا للفئة العامة"); return; }
+          cat.community = true; cat.custom = true;
+          const resetBtn = () => { save.disabled = false; save.textContent = saveLabel(); };
           save.disabled = true; save.textContent = "جارٍ النشر…";
           // Shrink cover + question images so the whole category fits comfortably
           // under Firestore's 1 MiB/doc limit AND the cover stays under the rules'
@@ -13620,7 +13727,12 @@
           fitCategoryImages(cat, 850000).then(fits => {
             if (!fits) { showToast("الصور كبيرة جدًا، صغّرها ثم أعد المحاولة"); resetBtn(); return; }
             return window.IZZBAH.communityPublish(cat)
-              .then(() => { showToast("تم نشر الفئة للمجتمع"); showScreen("customManager"); })
+              .then(() => {
+                // Promoted from a private draft? drop the private copy so it isn't duplicated.
+                state.customCategories = state.customCategories.filter(item => item.id !== cat.id);
+                saveGameSettings();
+                showToast("تم نشر الفئة للمجتمع"); showScreen("customManager");
+              })
               .catch((e) => {
                 console.warn("community publish failed", e);
                 resetBtn();
@@ -13646,15 +13758,72 @@
           }).catch((e) => { console.warn("fit failed", e); showToast("تعذّر النشر، حاول مرة أخرى"); resetBtn(); });
           return;
         }
+        // Private: keep it to the maker (personal category), gated behind packs.
+        cat.custom = true; cat.community = false; cat.published = false; cat.visibility = "private";
         const existing = state.customCategories.findIndex(item => item.id === cat.id);
         if (existing >= 0) state.customCategories[existing] = cat;
         else state.customCategories.push(cat);
         state.selected.add(cat.id);
         saveGameSettings();
+        showToast("تم حفظ الفئة الخاصة");
         showScreen("customManager");
       });
       actions.append(cancel, save);
       panel.appendChild(actions);
+    }
+
+    // ---- Community/custom editor: single-question add/edit modal ----
+    function mountCePicker(host, get, set, label) {
+      host.innerHTML = "";
+      host.appendChild(imagePicker(get(), image => { set(image); mountCePicker(host, get, set, label); }, label, { media: true }));
+    }
+    function openCeQuestion(idx) {
+      const cat = state.editingCategory;
+      if (!cat) return;
+      state.ceQEditIdx = idx;
+      let draft;
+      if (idx >= 0 && cat.questions[idx]) {
+        draft = JSON.parse(JSON.stringify(cat.questions[idx]));
+      } else {
+        const last = cat.questions[cat.questions.length - 1];
+        draft = { points: (last ? (last.points || 0) : 0) + 100, q: "", a: "", distractors: [], image: "", answerImage: "" };
+      }
+      state.ceQDraft = draft;
+      $("#ceQTitle").textContent = idx >= 0 ? "تعديل السؤال" : "سؤال جديد";
+      $("#ceQPoints").value = draft.points || 0;
+      $("#ceQText").value = draft.q || "";
+      $("#ceQAnswer").value = draft.a || "";
+      const d = Array.isArray(draft.distractors) ? draft.distractors : [];
+      $("#ceQDist1").value = d[0] || "";
+      $("#ceQDist2").value = d[1] || "";
+      $("#ceQDist3").value = d[2] || "";
+      mountCePicker($("#ceQImage"), () => draft.image, v => { draft.image = v; }, "وسائط السؤال");
+      mountCePicker($("#ceQAnswerImage"), () => draft.answerImage, v => { draft.answerImage = v; }, "وسائط الإجابة");
+      const m = $("#ceQModal");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+      setTimeout(() => $("#ceQText").focus(), 40);
+    }
+    function closeCeQModal() {
+      const m = $("#ceQModal");
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    function saveCeQuestion() {
+      const cat = state.editingCategory;
+      const draft = state.ceQDraft;
+      if (!cat || !draft) { closeCeQModal(); return; }
+      draft.points = parseInt($("#ceQPoints").value, 10) || 0;
+      draft.q = ($("#ceQText").value || "").trim();
+      draft.a = ($("#ceQAnswer").value || "").trim();
+      const dist = [$("#ceQDist1").value, $("#ceQDist2").value, $("#ceQDist3").value].map(x => (x || "").trim()).filter(Boolean);
+      draft.distractors = dist.slice(0, 3);
+      if (!draft.q && !draft.a) { showToast("اكتب نص السؤال أو الإجابة"); return; }
+      const idx = state.ceQEditIdx;
+      if (idx >= 0 && cat.questions[idx]) cat.questions[idx] = draft;
+      else cat.questions.push(draft);
+      closeCeQModal();
+      renderCustomEditor();
     }
 
     function startGame() {
@@ -13668,7 +13837,12 @@
       }
       // Free-play gate: a non-admin, non-subscriber may start only one NEW game.
       // Replaying an already-paid saved game (same questions) is always free.
-      if (!isFreeReplay() && !canStartNewGame()) { openSubscribeGate(); return; }
+      if (!isFreeReplay()) {
+        // Private/custom categories are premium: the free game never unlocks
+        // them — the player needs a subscription or bought/redeemed games.
+        if (selectionHasPrivate() && !hasPaidAccess()) { openSubscribeGate({ reason: "private" }); return; }
+        if (!canStartNewGame()) { openSubscribeGate(); return; }
+      }
       state.pendingSharedGame = false; // shared preset consumed once the game starts
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
@@ -15835,7 +16009,7 @@
     $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
-    $("#adminImportQuestions").addEventListener("click", openImportModal);
+    $("#adminImportQuestions").addEventListener("click", () => openImportModal("admin"));
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
     $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
@@ -15867,6 +16041,9 @@
       $("#importNewNameWrap").style.display = $("#importTarget").value === "new" ? "" : "none";
     });
     $("#importModal").addEventListener("click", event => { if (event.target.id === "importModal") closeImportModal(); });
+    $("#ceQSave").addEventListener("click", saveCeQuestion);
+    $("#ceQCancel").addEventListener("click", closeCeQModal);
+    $("#ceQModal").addEventListener("click", event => { if (event.target.id === "ceQModal") closeCeQModal(); });
     $("#premCancel").addEventListener("click", closePremiumModal);
     $("#premMode").addEventListener("change", premModeChanged);
     $("#premGenerate").addEventListener("click", generateCodeFromAdmin);
@@ -16185,7 +16362,7 @@
     };
     function normalizeCommunityCategory(c) {
       const n = normalizePublishedCategory(c);
-      n.community = true; n.custom = true;
+      n.community = true; n.custom = true; n.visibility = "public";
       n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
       n.votes = c.votes || 0; n.approved = c.approved === true;
       return n;
