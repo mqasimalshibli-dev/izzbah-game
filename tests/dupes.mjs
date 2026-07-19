@@ -73,27 +73,30 @@ try {
   check("groups are tagged «مكرّر» and «تعارض»", ui.hasDupTag && ui.hasConfTag);
   check("each occurrence has a «حذف هذه» resolve button", ui.hasDeleteBtns);
 
-  // ---- resolve: deleting a COMMUNITY occurrence removes it & re-scans ----
+  // ---- resolve: a COMMUNITY delete updates INSTANTLY, saves in background ----
   const resolveComm = await page.evaluate(async () => {
     window.__set = [];
     window.IZZBAH.adminSetCommunityQuestions = (catId, qs) => { window.__set.push({ catId, qs }); return Promise.resolve(); };
-    // find the delete button of the DUPLICATE group's first occurrence (community فئة أ)
     const dupGroup = [...document.querySelectorAll("#dupList .dup-group")].find(g => /تكرار فريد/.test(g.textContent));
-    const firstDel = dupGroup.querySelector(".dup-del");
-    firstDel.click();
-    await new Promise(r => setTimeout(r, 250));
+    dupGroup.querySelector(".dup-del").click();
+    await new Promise(r => setTimeout(r, 60)); // the report should already be updated
+    const instantGone = ![...document.querySelectorAll("#dupList .dup-group")].some(g => /تكرار فريد/.test(g.textContent));
+    const calledYet = window.__set.length; // still 0 — the save is debounced
+    await new Promise(r => setTimeout(r, 900)); // wait out the debounce
     return {
+      instantGone, calledYet,
       called: window.__set.length,
       catId: window.__set[0] && window.__set[0].catId,
       leftInCat: window.__set[0] ? window.__set[0].qs.length : -1,
-      stillDup: [...document.querySelectorAll("#dupList .dup-group")].some(g => /تكرار فريد/.test(g.textContent)),
+      syncShown: !document.getElementById("dupSync").hidden,
     };
   });
-  check("resolving a community duplicate calls the update bridge with the question removed",
+  check("a community delete updates the report instantly (no wait/stuck)", resolveComm.instantGone && resolveComm.calledYet === 0);
+  check("the change saves in the background via the bridge with the question removed",
     resolveComm.called === 1 && resolveComm.catId === "t_a" && resolveComm.leftInCat === 0);
-  check("after resolving, the duplicate no longer appears in the report", !resolveComm.stillDup);
+  check("a save-status line is shown while/after persisting", resolveComm.syncShown);
 
-  // ---- resolve: deleting an OFFICIAL (cloud) occurrence publishes the edit ----
+  // ---- resolve: an OFFICIAL delete updates INSTANTLY, publishes in background ----
   const resolveOfficial = await page.evaluate(async () => {
     window.__pub = [];
     window.IZZBAH.cloudPublish = (cat) => { window.__pub.push(cat); return Promise.resolve(); };
@@ -106,17 +109,19 @@ try {
     renderDupReport();
     const grp = [...document.querySelectorAll("#dupList .dup-group")].find(g => /رسمي مكرّر فريد/.test(g.textContent));
     grp.querySelector(".dup-del").click();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 60));
+    const instantGone = ![...document.querySelectorAll("#dupList .dup-group")].some(g => /رسمي مكرّر فريد/.test(g.textContent));
+    await new Promise(r => setTimeout(r, 900));
     return {
+      instantGone,
       published: window.__pub.length,
       publishedId: window.__pub[0] && window.__pub[0].id,
       publishedQCount: window.__pub[0] ? window.__pub[0].questions.length : -1,
-      stillDup: [...document.querySelectorAll("#dupList .dup-group")].some(g => /رسمي مكرّر فريد/.test(g.textContent)),
     };
   });
-  check("resolving an official duplicate publishes the category with the question removed",
+  check("an official delete updates the report instantly (no wait/stuck)", resolveOfficial.instantGone);
+  check("the official change publishes in the background with the question removed",
     resolveOfficial.published === 1 && resolveOfficial.publishedId === "off1" && resolveOfficial.publishedQCount === 0);
-  check("the official duplicate clears from the report after publishing", !resolveOfficial.stillDup);
 
   // A clean catalog (no injected dupes, and none in built-ins) shows the all-clear.
   const clean = await page.evaluate(() => {
