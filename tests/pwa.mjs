@@ -31,8 +31,10 @@ const iconsExist = manifest.icons.every(i => { try { readFileSync(join(ROOT, "as
 check("manifest: every icon file exists on disk", iconsExist);
 
 const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-check("service worker: navigations are network-first (updates can't be trapped)",
-  /mode === "navigate"/.test(sw) && sw.indexOf("fetch(req)") < sw.indexOf("caches.match(req)"));
+check("service worker: navigations are network-first AND bypass the HTTP cache (updates can't be trapped)",
+  /mode === "navigate"/.test(sw)
+  && /fetch\(req,\s*\{\s*cache:\s*["']reload["']\s*\}\)/.test(sw)
+  && sw.indexOf('cache: "reload"') < sw.indexOf("caches.match(req)"));
 check("service worker: cross-origin (Firebase/CDN) requests pass through untouched",
   /origin !== self\.location\.origin\) return/.test(sw));
 
