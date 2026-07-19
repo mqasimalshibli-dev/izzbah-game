@@ -545,7 +545,7 @@
     }
 
     .category-tabs {
-      width: fit-content;
+      width: min(440px, 100%);
       max-width: 100%;
       margin: 0 auto 16px;
       display: flex;
@@ -559,13 +559,16 @@
 
     .category-tab {
       min-height: 0;
-      min-width: 150px;
-      padding: 12px 30px;
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 12px 20px;
       border: none;
       border-radius: 12px;
       background: transparent;
       color: #8a6a3a;
       box-shadow: none;
+      text-align: center;
+      white-space: nowrap;
       font-family: 'Cairo', sans-serif;
       font-weight: 800;
       font-size: clamp(16px, 2.1vw, 19px);
@@ -2454,9 +2457,8 @@
       }
       .category-tab {
         min-width: 0;
-        padding: 9px 6px;
-        font-size: clamp(18px, 5.1vw, 24px);
-        overflow-wrap: anywhere;
+        padding: 11px 8px;
+        font-size: clamp(15px, 4.3vw, 20px);
       }
       .team-fields, .game-library-list, .saved-game-cats { grid-template-columns: 1fr; }
       .category-grid {
@@ -9345,7 +9347,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.80";
+    const IZZBAH_BUILD = "2026-07-10.81";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
