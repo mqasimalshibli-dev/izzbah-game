@@ -4297,7 +4297,7 @@
     .admin-dist-grid input { min-width: 0; }
     .dist-note { font-weight: 600; font-size: 11.5px; opacity: .75; }
     .admin-empty { text-align: center; color: #8a7c5e; padding: 30px; }
-    .admin-foot { display: flex; justify-content: center; gap: 12px; flex: 0 0 auto; }
+    .admin-foot { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; flex: 0 0 auto; margin: 4px 0 6px; }
     #adminAddQuestion { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
     .admin-q-modal { max-width: 560px; width: 92%; }
     .admin-q-grid { display: grid; gap: 8px; text-align: right; }
@@ -6088,6 +6088,16 @@
         </header>
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
+        <div class="admin-foot">
+          <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
+          <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
+          <button class="secondary" id="adminSelectAll" type="button">☑ تحديد الكل</button>
+          <button class="secondary admin-clear-btn" id="adminDeleteSelected" type="button" hidden>🗑 حذف المحدد</button>
+          <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
+          <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
+          <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
+          <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
+        </div>
         <div class="admin-controls">
           <div class="admin-search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
@@ -6110,16 +6120,6 @@
             <thead><tr><th class="col-sel"><input type="checkbox" class="q-sel" id="adminSelAll" title="تحديد الكل" aria-label="تحديد كل الأسئلة الظاهرة" /></th><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th><th class="col-act">إجراءات</th></tr></thead>
             <tbody id="adminRows"></tbody>
           </table>
-        </div>
-        <div class="admin-foot">
-          <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
-          <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
-          <button class="secondary" id="adminSelectAll" type="button">☑ تحديد الكل</button>
-          <button class="secondary admin-clear-btn" id="adminDeleteSelected" type="button" hidden>🗑 حذف المحدد</button>
-          <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
-          <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
-          <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
-          <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
         </div>
       </div>
     </section>
@@ -9567,7 +9567,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.92";
+    const IZZBAH_BUILD = "2026-07-10.93";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
