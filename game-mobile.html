@@ -4379,6 +4379,25 @@
     .announce-empty { text-align: center; color: #8a7550; font: 600 14px 'Cairo', sans-serif; padding: 22px 8px; }
     .ann-pop-more { text-align: center; color: #8a7550; font: 700 13px 'Cairo', sans-serif; padding: 4px 8px 2px; }
 
+    /* ===== Admin: duplicate-question scanner ===== */
+    .dup-note { color: #8a7550; font: 600 13px 'Cairo', sans-serif; margin: 0 0 10px; line-height: 1.7; }
+    .dup-note b { color: #9e1322; }
+    .dup-summary { font: 800 15px 'Cairo', sans-serif; color: var(--dark); margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #f1e2bd; border: 1px solid #e0c97f; }
+    .dup-summary.clean { background: #e7f4ec; border-color: #9fd3b4; color: #1f5237; }
+    .dup-list { display: flex; flex-direction: column; gap: 10px; max-height: 58vh; overflow-y: auto; }
+    .dup-group { border: 1px solid rgba(140, 106, 46, .25); border-radius: 12px; padding: 11px 13px; background: #fbf4e4; }
+    .dup-group.conflict { border-color: #e0b84f; background: #fff6e0; }
+    .dup-q { font: 800 15px 'Cairo', sans-serif; color: var(--dark); line-height: 1.6; }
+    .dup-tag { display: inline-block; font: 800 11px 'Cairo', sans-serif; padding: 2px 9px; border-radius: 999px; margin-inline-start: 6px; vertical-align: middle; }
+    .dup-tag.dup { background: #fdeaea; color: #9e1322; }
+    .dup-tag.conf { background: #fff0cf; color: #9a5a12; }
+    .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
+    .dup-occ-row { font: 600 13px 'Cairo', sans-serif; color: #5a4a2a; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+    .dup-occ-cat { font-weight: 800; color: #9e1322; }
+    .dup-occ-pts { color: var(--gold-dark); font-weight: 800; }
+    .dup-occ-a { color: #1f5237; }
+    .dup-occ-row.same-cat .dup-occ-cat::after { content: " ⚠"; }
+
     /* ===== Player ↔ developer feedback (two-way chat) ===== */
     .feedback-modal { display: flex; flex-direction: column; max-height: 88vh; }
     .fb-note { color: #8a7550; font: 600 13px 'Cairo', sans-serif; margin: 0 0 8px; line-height: 1.6; }
@@ -5791,6 +5810,23 @@
     </div>
   </div>
 
+  <!-- Admin: duplicate-question scanner (report-only) -->
+  <div class="modal-backdrop" id="dupModal" aria-hidden="true">
+    <div class="question-modal dup-modal" role="dialog" aria-modal="true" aria-labelledby="dupTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="dupTitle">🔎 الأسئلة المكرّرة</h3>
+        <button class="settings-close" id="dupClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <p class="dup-note">فحص لكل الأسئلة (الفئات الرسمية وفئات المجتمع). <b>مكرّر</b> = السؤال والإجابة متطابقان، <b>تعارض</b> = نفس السؤال بإجابات مختلفة. أداة عرض فقط — عدّل الفئات يدوياً من «إدارة المحتوى».</p>
+      <div class="dup-summary" id="dupSummary"></div>
+      <div class="dup-list" id="dupList"></div>
+      <div class="actions">
+        <button class="secondary" id="dupRescan" type="button">↻ إعادة الفحص</button>
+        <button class="ghost" id="dupCloseBtn" type="button">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Player ↔ developers: private two-way feedback thread -->
   <div class="modal-backdrop" id="feedbackModal" aria-hidden="true">
     <div class="question-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
@@ -6211,6 +6247,11 @@
             <span class="admin-choice-ico" aria-hidden="true">💬</span>
             <span class="admin-choice-name">رسائل اللاعبين</span>
             <span class="admin-choice-sub">اقرأ اقتراحات اللاعبين وردّ عليهم</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceDupes" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🔎</span>
+            <span class="admin-choice-name">الأسئلة المكرّرة</span>
+            <span class="admin-choice-sub">افحص كل الفئات وابحث عن التكرار والتعارض</span>
           </button>
         </div>
         <div class="actions">
@@ -9507,7 +9548,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.87";
+    const IZZBAH_BUILD = "2026-07-10.88";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12803,6 +12844,91 @@
       });
     }
     function closeFeedbackAdmin() { const m = $("#feedbackAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+
+    // ---- Admin: duplicate-question scanner (report-only) -----------------
+    // Normalizes question text (drops harakat/tatweel, unifies alef/ya/ta, strips
+    // punctuation, collapses spaces) so near-identical wordings match.
+    function dupNormText(s) {
+      return String(s || "")
+        .replace(/[ً-ٟـ]/g, "")             // harakat + tatweel
+        .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+        .replace(/[?!.,،؛:؟"'«»_\-\/\\()\[\]{}]/g, " ")     // punctuation
+        .replace(/\s+/g, " ").trim().toLowerCase();
+    }
+    // Every question across the OFFICIAL catalog + approved community categories,
+    // tagged with where it lives. Personal/private custom categories are skipped
+    // (they're per-device, not part of the shared catalog).
+    function collectAllQuestionsForDup() {
+      const out = [];
+      const push = cat => (cat.questions || []).forEach(q => {
+        const qt = (q.q || "").trim();
+        if (!qt) return;
+        out.push({ catId: cat.id, catName: cat.name || "بدون اسم", points: q.points || 0, q: qt, a: (q.a || "").trim() });
+      });
+      const merged = mergedOfficialCategories();
+      merged.builtins.forEach(push);
+      merged.extras.forEach(push);
+      (state.communityCategories || []).forEach(push);
+      return out;
+    }
+    function findDuplicateQuestions() {
+      const all = collectAllQuestionsForDup();
+      const groups = new Map();
+      all.forEach(item => {
+        const key = dupNormText(item.q);
+        if (!key) return;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+      });
+      const dups = [];
+      groups.forEach(items => {
+        if (items.length < 2) return;
+        const answers = new Set(items.map(i => dupNormText(i.a)));
+        const cats = new Set(items.map(i => i.catId));
+        dups.push({ items, conflict: answers.size > 1, sameCatOnly: cats.size < items.length });
+      });
+      // Conflicts first (more urgent), then by how many copies exist.
+      dups.sort((a, b) => (Number(b.conflict) - Number(a.conflict)) || (b.items.length - a.items.length));
+      return { total: all.length, dups };
+    }
+    function renderDupReport() {
+      const { total, dups } = findDuplicateQuestions();
+      const sum = $("#dupSummary");
+      const list = $("#dupList");
+      list.innerHTML = "";
+      const copies = dups.reduce((n, g) => n + g.items.length, 0);
+      const conflicts = dups.filter(g => g.conflict).length;
+      if (!dups.length) {
+        sum.className = "dup-summary clean";
+        sum.textContent = `✓ لا يوجد تكرار — فُحص ${toArabicDigits(total)} سؤالاً.`;
+        list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">كل الأسئلة فريدة 🎉</div>`;
+        return;
+      }
+      sum.className = "dup-summary";
+      sum.textContent = `وُجد ${toArabicDigits(dups.length)} مجموعة مكرّرة (${toArabicDigits(copies)} نسخة${conflicts ? `، منها ${toArabicDigits(conflicts)} تعارض` : ""}) من أصل ${toArabicDigits(total)} سؤال.`;
+      dups.forEach(g => {
+        const box = document.createElement("div");
+        box.className = "dup-group" + (g.conflict ? " conflict" : "");
+        const tag = g.conflict ? `<span class="dup-tag conf">تعارض</span>` : `<span class="dup-tag dup">مكرّر</span>`;
+        let html = `<div class="dup-q">${escapeHtml(toArabicDigits(g.items[0].q))}${tag}</div><div class="dup-occ">`;
+        g.items.forEach(it => {
+          const sameCat = g.items.filter(x => x.catId === it.catId).length > 1;
+          html += `<div class="dup-occ-row${sameCat ? " same-cat" : ""}">`
+            + `<span class="dup-occ-cat">${escapeHtml(it.catName)}</span>`
+            + `<span class="dup-occ-pts">${toArabicDigits(it.points)}</span>`
+            + `<span class="dup-occ-a">← ${escapeHtml(toArabicDigits(it.a || "—"))}</span>`
+            + `</div>`;
+        });
+        html += `</div>`;
+        box.innerHTML = html;
+        list.appendChild(box);
+      });
+    }
+    function openDupModal() {
+      renderDupReport();
+      const m = $("#dupModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeDupModal() { const m = $("#dupModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
 
     // ---- Announcements: admin composer + manager ------------------------
     let annEditId = null;      // id of the announcement being edited (else new)
@@ -16328,6 +16454,11 @@
     $("#adminChoiceStats").addEventListener("click", () => { closeAdminChoice(); openStatsModal(); });
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
+    $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
+    $("#dupClose").addEventListener("click", closeDupModal);
+    $("#dupCloseBtn").addEventListener("click", closeDupModal);
+    $("#dupRescan").addEventListener("click", renderDupReport);
+    $("#dupModal").addEventListener("click", e => { if (e.target.id === "dupModal") closeDupModal(); });
     $("#catFilterAdminClose").addEventListener("click", closeCatFilterAdmin);
     $("#catFilterCancel").addEventListener("click", closeCatFilterAdmin);
     $("#catFilterSave").addEventListener("click", saveCatFilter);

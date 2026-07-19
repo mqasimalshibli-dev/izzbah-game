@@ -139,6 +139,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node feedback.mjs
 
+      - name: Run duplicate-question scanner test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node dupes.mjs
+
       - name: Run in-app-browser guidance test
         working-directory: tests
         run: |
