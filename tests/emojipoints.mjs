@@ -1,6 +1,7 @@
-// The emoji category «خمّن الإيموجي» is worth a FLAT 200 points: every board
-// cell shows 200, the question screen shows 200, and answering awards exactly
-// 200 (×2 only with the double-points helper). Other categories keep tiers.
+// The emoji category «خمّن الإيموجي» AND the riddles category «ألغاز» are worth
+// a FLAT 200 points: every board cell shows 200, the question screen shows 200,
+// and answering awards exactly 200 (×2 only with the double-points helper).
+// Other categories keep their per-tier values.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -68,6 +69,29 @@ try {
   });
   check(`a normal category still shows varied tiers, not all 200 (${JSON.stringify(other.labels)})`,
     other.labels.length > 1 && new Set(other.labels).size > 1);
+
+  // ---- the «ألغاز» (riddles) category is ALSO flat 200 (matched by name) ----
+  const riddles = await page.evaluate(() => {
+    state.publishedCategories = (state.publishedCategories || []).filter(c => c.id !== "riddles-test");
+    state.publishedCategories.push({ id: "riddles-test", name: "ألغاز", questions: [
+      { q: "لغز أول؟", a: "حل ١", points: 100 },
+      { q: "لغز ثانٍ؟", a: "حل ٢", points: 300 },
+      { q: "لغز ثالث؟", a: "حل ٣", points: 500 },
+    ] });
+    state.selected = new Set(["riddles-test"]);
+    state.editingSavedGameId = null;
+    state.teams.forEach(t => { t.score = 0; t.doubleArmed = false; });
+    startGame();
+    const labels = [...document.querySelectorAll("#board .board-category-card .cell")].map(c => c.textContent);
+    document.querySelector("#board .board-category-card .cell:not(.used)").click();
+    const modal = document.getElementById("modalPoints").textContent;
+    finishQuestion(0);
+    return { labels, modal, score: state.teams[0].score };
+  });
+  check(`every «ألغاز» cell is worth 200 (${JSON.stringify(riddles.labels)})`,
+    riddles.labels.length > 0 && riddles.labels.every(t => t === "200"));
+  check("a riddle question shows 200 نقطة", /200/.test(riddles.modal) && /نقطة/.test(riddles.modal));
+  check(`answering a riddle awards exactly 200 (got ${riddles.score})`, riddles.score === 200);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

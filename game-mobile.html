@@ -9386,13 +9386,23 @@
       if (String(cat.id || "") === "emojis") return true;
       return /إيموجي|ايموجي|إيموجى|emoji/i.test(String(cat.name || ""));
     }
-    // Every puzzle in the emoji category is worth a FLAT 200 points — whatever
-    // board cell it came from — while other categories keep their tier value.
-    // The underlying data/tiers are untouched; this only drives what's shown
-    // and awarded, so the board cells still stay distinct per tier.
+    // Riddle categories («ألغاز») — like the emoji category, every riddle is
+    // worth a FLAT 200 points regardless of the board cell. Matched by NAME
+    // (these are cloud/admin categories with no special id); "لغاز" covers
+    // «ألغاز» / «الغاز» spellings.
+    function isRiddlesCategory(cat) {
+      return /لغاز/.test(String((cat && cat.name) || ""));
+    }
+    // Every puzzle in the emoji AND riddle categories is worth a FLAT 200 points
+    // — whatever board cell it came from — while other categories keep their
+    // tier value. The underlying data/tiers are untouched; this only drives what
+    // is shown and awarded, so the board cells still stay distinct per tier.
     const EMOJI_REWARD = 200;
+    function isFlat200Category(cat) {
+      return isEmojiCategory(cat) || isRiddlesCategory(cat);
+    }
     function questionReward(cat, q) {
-      return isEmojiCategory(cat) ? EMOJI_REWARD : ((q && q.points) || 0);
+      return isFlat200Category(cat) ? EMOJI_REWARD : ((q && q.points) || 0);
     }
     // Split an emoji-category question into a text PROMPT + a trailing EMOJI run,
     // so the emojis can be shown big on their own line under the prompt. Only
@@ -9557,7 +9567,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.91";
+    const IZZBAH_BUILD = "2026-07-10.92";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14515,7 +14525,7 @@
           const cell = document.createElement("button");
           cell.className = "cell" + (used ? " used" : "");
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
-          cell.textContent = used ? "✓" : toArabicDigits(isEmojiCategory(cat) ? EMOJI_REWARD : points);
+          cell.textContent = used ? "✓" : toArabicDigits(isFlat200Category(cat) ? EMOJI_REWARD : points);
           cell.disabled = used;
           // Decide this cell's question ONCE and pin it. On a saved game we
           // reuse the frozen one (so replays match); a brand-new draw prefers an
