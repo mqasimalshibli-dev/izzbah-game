@@ -31,9 +31,9 @@ try {
   await clickText("ابدأ"); await page.waitForTimeout(300);
   await clickText("إنشاء لعبة جديدة"); await page.waitForTimeout(500);
 
-  // share button disabled with no selection
-  const disabled0 = await page.evaluate(() => document.getElementById("shareGameBtn").disabled);
-  check("share button disabled before any category is picked", disabled0);
+  // The share BUTTON was removed from the category screen, but shared LINKS
+  // still work (opening one pre-selects the game — covered below). Drive the
+  // link builder directly to prove the encode side is intact.
 
   // pick two built-in categories + name the game
   await page.fill("#gameNameInput", "سهرة الجمعة");
@@ -43,14 +43,12 @@ try {
     pick.forEach(nm => { const c = cards.find(x => x.textContent.includes(nm)); if (c) c.click(); });
   });
   await page.waitForTimeout(300);
-  const enabled = await page.evaluate(() => !document.getElementById("shareGameBtn").disabled);
-  check("share button enabled after selecting categories", enabled);
 
   // capture the link the app would share (intercept clipboard; navigator.share is absent in headless)
   const link = await page.evaluate(async () => {
     let captured = null;
     if (navigator.clipboard) navigator.clipboard.writeText = t => { captured = t; return Promise.resolve(); };
-    document.getElementById("shareGameBtn").click();
+    shareGameSetup();
     await new Promise(r => setTimeout(r, 150));
     return captured;
   });

@@ -90,7 +90,7 @@
 
     button, input, textarea {
       font: inherit;
-      font-weight: 900;
+      font-weight: 800; /* match the «إنشاء لعبة جديدة» button — Cairo 800 everywhere */
     }
 
     .clean-number,
@@ -664,16 +664,16 @@
       width: max-content;
       max-width: 88%;
       text-align: center;
-      background: linear-gradient(180deg, #cc2531, #9e1322);
-      border: 1px solid #e6c869;
-      color: #fff;
+      background: linear-gradient(180deg, #fbf1de, #f3e1c0);
+      border: 2px solid rgba(158, 28, 28, .28);
+      color: #7a1414;
       font-family: 'Cairo', sans-serif;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.15;
-      padding: 6px 14px;
-      border-radius: 10px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
+      padding: 6px 16px;
+      border-radius: 999px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, .35);
       pointer-events: none;
     }
 
@@ -1019,6 +1019,59 @@
       border-color: #cc2531;
       box-shadow: 0 0 0 3px rgba(204, 37, 49, .14);
     }
+
+    /* Search categories by name — sits right under the game-name box */
+    .cat-search {
+      width: min(780px, 100%);
+      margin: 12px auto 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .cat-search-ico {
+      position: absolute;
+      right: 18px;
+      font-size: 20px;
+      opacity: .7;
+      pointer-events: none;
+    }
+    .cat-search input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #3a2c12;
+      background: #fffdf6;
+      border: 2px solid #e6d3a0;
+      border-radius: 14px;
+      padding: 14px 52px 14px 44px;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .cat-search input::-webkit-search-decoration,
+    .cat-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+    .cat-search input:focus {
+      border-color: #cc2531;
+      box-shadow: 0 0 0 3px rgba(204, 37, 49, .14);
+    }
+    .cat-search-clear {
+      position: absolute;
+      left: 14px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(158, 28, 28, .1);
+      color: #9e1322;
+      font-size: 14px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+    }
+    .cat-search-clear:hover { background: rgba(158, 28, 28, .18); }
+    .cat-search-clear[hidden] { display: none; }
 
     /* "لعبة جديدة" eyebrow above the categories title */
     .cat-eyebrow {
@@ -5818,10 +5871,14 @@
           <label for="gameNameInput">اسم اللعبة</label>
           <input id="gameNameInput" type="text" placeholder="اكتب اسم اللعبة">
         </div>
+        <div class="cat-search">
+          <span class="cat-search-ico" aria-hidden="true">🔍</span>
+          <input id="catSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="ابحث عن فئة بالاسم…">
+          <button class="cat-search-clear" id="catSearchClear" type="button" aria-label="مسح البحث" hidden>✕</button>
+        </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
           <button class="secondary rand-btn" id="randomCategories" type="button"><span class="rand-die" aria-hidden="true">🎲</span> اختيار عشوائي</button>
-          <button class="secondary share-game-btn" id="shareGameBtn" type="button" disabled><span aria-hidden="true">🔗</span> شارك اللعبة</button>
         </div>
         <div class="cat-filter-row" id="catFilterRow" role="tablist" aria-label="تصفية الفئات" hidden></div>
         <div class="category-grid" id="categoryGrid"></div>
@@ -9242,6 +9299,7 @@
       inbox: [],               // personal admin→player messages (approval rewards)
       catTypes: { map: {} },   // admin-set { categoryId: typeName } for the filter
       activeCatFilter: "",     // the type currently filtered on the category screen
+      catSearch: "",           // name search on the category screen
       communityCategories: [],
       myCommunity: [],
       pendingCommunity: [],
@@ -9287,7 +9345,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.77";
+    const IZZBAH_BUILD = "2026-07-10.78";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9995,6 +10053,7 @@
       state.currentGameName = "";
       state.editingSavedGameId = null;
       state.categoryMode = "game";
+      state.catSearch = ""; // start with an empty search
       showScreen("categories");
     }
 
@@ -10891,11 +10950,24 @@
       card.appendChild(wrap);
     }
 
+    // Normalize an Arabic name for search: drop harakat/tatweel, unify
+    // alef/ya/ta-marbuta, lowercase latin, collapse spaces.
+    function catSearchNorm(s) {
+      return String(s || "")
+        .replace(/[ً-ٟـ]/g, "")          // harakat + tatweel
+        .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+        .replace(/\s+/g, " ")
+        .trim().toLowerCase();
+    }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
       const grid = $("#categoryGrid");
       const gameNameInput = $("#gameNameInput");
       if (gameNameInput) gameNameInput.value = state.currentGameName;
+      const searchInput = $("#catSearchInput");
+      if (searchInput && searchInput.value !== state.catSearch) searchInput.value = state.catSearch;
+      const clearBtn = $("#catSearchClear");
+      if (clearBtn) clearBtn.hidden = !state.catSearch;
       grid.innerHTML = "";
       renderCatFilter(); // the admin-defined type chips (game tab only)
       let visibleCategories = visibleCategoryGroup();
@@ -10904,6 +10976,9 @@
       if (state.categoryMode === "game" && state.activeCatFilter) {
         visibleCategories = visibleCategories.filter(c => typeMap[c.id] === state.activeCatFilter);
       }
+      // Name search (both tabs). Arabic-normalized so «عُمان»/«عمان» both match.
+      const term = catSearchNorm(state.catSearch);
+      if (term) visibleCategories = visibleCategories.filter(c => catSearchNorm(c.name).indexOf(term) !== -1);
       $("#gameCategoriesTab").classList.toggle("active", state.categoryMode === "game");
       $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
       $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
@@ -11002,12 +11077,13 @@
         });
         grid.appendChild(card);
       });
+      if (!visibleCategories.length && term) {
+        grid.innerHTML = `<div class="panel category-empty">لا توجد فئة باسم «${escapeHtml(state.catSearch.trim())}». جرّب اسماً آخر.</div>`;
+      }
       const count = state.selected.size;
       $("#categoryStatus").innerHTML = count ? `تم اختيار <span class="clean-number">${toArabicDigits(count)}</span> ${count === 1 ? "فئة" : "فئات"} من <span class="clean-number">6</span>.` : "اختر فئة واحدة على الأقل.";
       $("#categoryStatus").style.color = count > 6 ? "var(--red)" : "var(--dark)";
       $("#goTeams").disabled = count === 0;
-      const shareBtn = $("#shareGameBtn");
-      if (shareBtn) shareBtn.disabled = count === 0;
     }
 
     // ---- Shareable custom-game links ---------------------------------------
@@ -15711,7 +15787,12 @@
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
     $("#manageCustomFromCategories").addEventListener("click", () => openCommunityCategories());
     $("#randomCategories").addEventListener("click", randomizeCategories);
-    $("#shareGameBtn").addEventListener("click", shareGameSetup);
+    (() => {
+      const si = $("#catSearchInput");
+      if (si) si.addEventListener("input", () => { state.catSearch = si.value || ""; renderCategories(); });
+      const sc = $("#catSearchClear");
+      if (sc) sc.addEventListener("click", () => { state.catSearch = ""; if (si) { si.value = ""; si.focus(); } renderCategories(); });
+    })();
     $("#newCustomCategory").addEventListener("click", () => editCustomCategory(blankCustomCategory()));
     $("#customBack").addEventListener("click", () => showScreen(state.customReturn));
     // The welcome-screen gear opens a chooser: content management or
