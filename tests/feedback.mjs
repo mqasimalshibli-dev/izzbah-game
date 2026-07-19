@@ -63,20 +63,43 @@ try {
     user: [...document.querySelectorAll("#feedbackThread .fb-user")].map(n => n.textContent),
     dev: [...document.querySelectorAll("#feedbackThread .fb-dev")].map(n => n.textContent),
     hasComposer: !!document.getElementById("feedbackInput") && !!document.getElementById("feedbackSend"),
+    warnVisible: getComputedStyle(document.getElementById("feedbackWarn")).display !== "none" && /محترم/.test(document.getElementById("feedbackWarn").textContent),
   }));
   check("the feedback thread opens for a signed-in player", thread.open);
   check("it shows the player's own message and the dev reply as distinct bubbles",
     thread.user.some(t => /رياضة/.test(t)) && thread.dev.some(t => /أضفناها/.test(t)) && thread.hasComposer);
+  check("an always-visible respectful-conduct reminder sits above the composer", thread.warnVisible);
 
-  // ---- 3) sending a message calls the bridge and appends it ----
-  const sent = await page.evaluate(async () => {
+  // ---- 3) first send shows a respect reminder that must be agreed to ----
+  const gate = await page.evaluate(async () => {
+    try { localStorage.removeItem("izzbah-feedback-guidelines-v1"); } catch (e) {}
     document.getElementById("feedbackInput").value = "أحب اللعبة كثيراً!";
     sendFeedbackMsg();
-    await new Promise(r => setTimeout(r, 200));
-    return { sent: window.__fb.sent, bubbles: document.querySelectorAll("#feedbackThread .fb-user").length, input: document.getElementById("feedbackInput").value };
+    await new Promise(r => setTimeout(r, 120));
+    const shown = document.getElementById("fbGuidelinesModal").classList.contains("open");
+    const sentYet = window.__fb.sent.length;
+    document.getElementById("fbGuidelinesAgree").click(); // agree & send
+    await new Promise(r => setTimeout(r, 220));
+    return {
+      shown, sentYet, sent: window.__fb.sent.slice(),
+      acked: localStorage.getItem("izzbah-feedback-guidelines-v1"),
+      bubbles: document.querySelectorAll("#feedbackThread .fb-user").length,
+      input: document.getElementById("feedbackInput").value,
+      modalClosed: !document.getElementById("fbGuidelinesModal").classList.contains("open"),
+    };
   });
-  check("sending posts the message through the bridge", sent.sent.length === 1 && sent.sent[0] === "أحب اللعبة كثيراً!");
-  check("the sent message appears in the thread and the box clears", sent.bubbles >= 2 && sent.input === "");
+  check("the FIRST send shows a respectful-conduct reminder and holds the message", gate.shown && gate.sentYet === 0);
+  check("agreeing sends the message, records the acknowledgment, and appends it",
+    gate.sent.length === 1 && gate.sent[0] === "أحب اللعبة كثيراً!" && gate.acked === "1" && gate.bubbles >= 2 && gate.input === "" && gate.modalClosed);
+
+  // ---- 3a) after agreeing once, later sends skip the reminder ----
+  const second = await page.evaluate(async () => {
+    document.getElementById("feedbackInput").value = "رسالة ثانية";
+    sendFeedbackMsg();
+    await new Promise(r => setTimeout(r, 180));
+    return { modal: document.getElementById("fbGuidelinesModal").classList.contains("open"), sent: window.__fb.sent.length };
+  });
+  check("after agreeing once, later sends skip the reminder", !second.modal && second.sent === 2);
 
   // ---- 3b) the player can DELETE their own message, but not the dev's ----
   const del = await page.evaluate(async () => {
