@@ -239,6 +239,34 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // ---- Player ↔ developer feedback (private two-way messages) ------------
+    // A private conversation between one player and the developers, one thread
+    // per player at feedback/{uid}/messages/{msgId}. The player posts messages
+    // as 'user'; an admin replies as 'admin'. ONLY that player and admins may
+    // read the thread — so a player's messages are visible to the creators and
+    // to that player alone. Messages are immutable once written. Admins discover
+    // every thread with a single collection-group query on 'messages' (this is
+    // the only subcollection named 'messages' in the schema).
+    match /feedback/{uid}/messages/{msgId} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['from', 'text', 'name', 'createdAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.createdAt is timestamp
+        && (
+             // the player posting in their OWN thread, as 'user'
+             ( request.auth.uid == uid && request.resource.data.from == 'user' )
+             // an admin replying in ANY thread, as 'admin'
+             || ( isAdmin() && request.resource.data.from == 'admin' )
+           );
+      allow update: if false;
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+    }
+
     // ---- Catalog revision marker (read-cost saver) -------------------------
     // One tiny public doc, meta/catalog, whose `rev` counter every category
     // publish/delete bumps. Players read just THIS doc to learn whether the

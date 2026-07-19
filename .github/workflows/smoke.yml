@@ -133,6 +133,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node annpopup.mjs
 
+      - name: Run player↔dev feedback test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node feedback.mjs
+
       - name: Run in-app-browser guidance test
         working-directory: tests
         run: |

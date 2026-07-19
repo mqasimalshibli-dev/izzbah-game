@@ -4378,6 +4378,33 @@
     .announce-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 2px; }
     .announce-empty { text-align: center; color: #8a7550; font: 600 14px 'Cairo', sans-serif; padding: 22px 8px; }
     .ann-pop-more { text-align: center; color: #8a7550; font: 700 13px 'Cairo', sans-serif; padding: 4px 8px 2px; }
+
+    /* ===== Player ↔ developer feedback (two-way chat) ===== */
+    .feedback-modal { display: flex; flex-direction: column; max-height: 88vh; }
+    .fb-note { color: #8a7550; font: 600 13px 'Cairo', sans-serif; margin: 0 0 8px; line-height: 1.6; }
+    .fb-thread { flex: 1 1 auto; overflow-y: auto; min-height: 180px; max-height: 46vh; display: flex; flex-direction: column; gap: 10px;
+      padding: 12px; border: 1px solid rgba(140, 106, 46, .22); border-radius: 14px; background: #fbf4e4; }
+    .fb-empty { text-align: center; color: #8a7550; font: 600 14px 'Cairo', sans-serif; padding: 26px 12px; line-height: 1.7; margin: auto; }
+    .fb-msg { max-width: 82%; padding: 9px 13px; border-radius: 14px; font-family: 'Cairo', sans-serif; }
+    .fb-msg .fb-who { font-size: 12px; font-weight: 800; margin-bottom: 3px; opacity: .8; }
+    .fb-msg .fb-text { font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .fb-msg .fb-time { font-size: 11px; opacity: .6; margin-top: 4px; }
+    .fb-user { align-self: flex-start; background: linear-gradient(180deg, #fbf1de, #f3e1c0); color: #5a3d12; border: 1px solid rgba(158, 28, 28, .18); border-bottom-right-radius: 4px; }
+    .fb-dev { align-self: flex-end; background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; border-bottom-left-radius: 4px; }
+    .fb-dev .fb-who { color: #ffe6b0; }
+    .fb-composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+    .fb-composer textarea { flex: 1 1 auto; resize: none; min-height: 44px; max-height: 120px; }
+    .fb-composer .primary { flex: 0 0 auto; min-height: 44px; padding: 0 20px; }
+    /* Admin: thread list */
+    .fb-admin-list { display: flex; flex-direction: column; gap: 8px; max-height: 66vh; overflow-y: auto; }
+    .fb-thread-row { display: block; width: 100%; text-align: right; background: #fbf4e4; border: 1px solid rgba(140, 106, 46, .22);
+      border-radius: 12px; padding: 11px 14px; color: var(--dark); box-shadow: none; min-height: 0; }
+    .fb-thread-row:hover { background: #f3e7c8; }
+    .fb-thread-top { display: flex; align-items: center; gap: 8px; }
+    .fb-thread-name { font-weight: 800; font-size: 15px; color: var(--dark); flex: 1 1 auto; }
+    .fb-thread-date { font-size: 12px; color: #9a8a66; font-weight: 700; }
+    .fb-dot { width: 9px; height: 9px; border-radius: 50%; background: #cc2531; flex: 0 0 auto; }
+    .fb-thread-prev { font-size: 13px; color: #7a6a48; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ann-card {
       border: 1px solid rgba(154, 28, 28, .18); border-inline-start: 5px solid var(--ann-accent, #9a1c1c);
       border-radius: 14px; background: #fbf4e4; padding: 13px 15px; box-shadow: 0 4px 12px -8px rgba(80, 20, 20, .3);
@@ -5716,6 +5743,7 @@
       <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico" aria-hidden="true">💬</span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
@@ -5750,6 +5778,33 @@
         <button class="settings-close" id="announceClose" type="button" aria-label="إغلاق">✕</button>
       </div>
       <div class="announce-list" id="announceList"></div>
+    </div>
+  </div>
+
+  <!-- Player ↔ developers: private two-way feedback thread -->
+  <div class="modal-backdrop" id="feedbackModal" aria-hidden="true">
+    <div class="question-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="feedbackTitle">💬 اقتراحاتك وملاحظاتك</h3>
+        <button class="settings-close" id="feedbackClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <p class="fb-note">راسل المطوّرين مباشرة — اقتراحاتك وملاحظاتك تصلهم، ويردّون عليك هنا. المحادثة خاصة بينك وبين فريق العمل فقط.</p>
+      <div class="fb-thread" id="feedbackThread"></div>
+      <div class="fb-composer">
+        <textarea id="feedbackInput" maxlength="2000" rows="2" placeholder="اكتب رسالتك…"></textarea>
+        <button class="primary" id="feedbackSend" type="button">إرسال</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin: all player feedback threads -->
+  <div class="modal-backdrop" id="feedbackAdminModal" aria-hidden="true">
+    <div class="question-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackAdminTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="feedbackAdminTitle">💬 رسائل اللاعبين</h3>
+        <button class="settings-close" id="feedbackAdminClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="fb-admin-list" id="feedbackAdminList"></div>
     </div>
   </div>
 
@@ -6121,6 +6176,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🏷️</span>
             <span class="admin-choice-name">تصنيف الفئات</span>
             <span class="admin-choice-sub">أنواع الفئات لفلترتها في شاشة الاختيار</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceFeedback" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">💬</span>
+            <span class="admin-choice-name">رسائل اللاعبين</span>
+            <span class="admin-choice-sub">اقرأ اقتراحات اللاعبين وردّ عليهم</span>
           </button>
         </div>
         <div class="actions">
@@ -9367,6 +9427,8 @@
       customCategories: [],
       announcements: [],
       inbox: [],               // personal admin→player messages (approval rewards)
+      feedbackAdminUid: null,  // when an admin is viewing a player's feedback thread
+      feedbackLatestAdminTs: 0,// newest dev reply ts, for the feedback unread badge
       catTypes: { map: {} },   // admin-set { categoryId: typeName } for the filter
       activeCatFilter: "",     // the type currently filtered on the category screen
       catSearch: "",           // name search on the category screen
@@ -9415,7 +9477,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.83";
+    const IZZBAH_BUILD = "2026-07-10.84";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12434,8 +12496,7 @@
       const n = annUnreadCount();
       const badge = $("#settingsAnnounceBadge");
       if (badge) { if (n > 0) { badge.hidden = false; badge.textContent = toArabicDigits(n); } else { badge.hidden = true; } }
-      const gear = $("#userSettingsBtn");
-      if (gear) gear.classList.toggle("has-unread", n > 0);
+      if (typeof refreshGearUnread === "function") refreshGearUnread();
     }
     // Build the read-only announcement cards into a container. When withInbox
     // is true (the player's own center), their personal reward messages render
@@ -12539,6 +12600,138 @@
       // A short beat so it lands after the splash clears, not behind it.
       setTimeout(() => { if (!state.gameActive) showAnnouncementPopup(fresh); }, 700);
     }
+
+    // ---- Player ↔ developer feedback (private two-way messages) ----------
+    // A private conversation between one player and the developers. The player
+    // sends suggestions/opinions; the devs reply. Only that player and admins
+    // ever see the thread. (This whole feature is self-contained — the
+    // `feedback` collection, this block, and the two modals — so it can be
+    // pulled cleanly if the decision is reversed.)
+    const FEEDBACK_READ_KEY = "izzbah-feedback-read-v1";
+    function feedbackReadAt() { try { return Number(localStorage.getItem(FEEDBACK_READ_KEY)) || 0; } catch (e) { return 0; } }
+    function setFeedbackReadAt(ts) { try { localStorage.setItem(FEEDBACK_READ_KEY, String(ts)); } catch (e) {} }
+    // Unread = the newest DEV reply is newer than the last time the player
+    // opened their feedback thread.
+    function feedbackUnreadCount() { return (state.feedbackLatestAdminTs || 0) > feedbackReadAt() ? 1 : 0; }
+    // The gear's unread dot reflects BOTH announcements/inbox and dev replies.
+    function refreshGearUnread() {
+      const gear = $("#userSettingsBtn");
+      if (gear) gear.classList.toggle("has-unread", annUnreadCount() > 0 || feedbackUnreadCount() > 0);
+    }
+    function updateFeedbackBadge() {
+      const n = feedbackUnreadCount();
+      const badge = $("#settingsFeedbackBadge");
+      if (badge) { if (n > 0) { badge.hidden = false; badge.textContent = toArabicDigits(n); } else { badge.hidden = true; } }
+      refreshGearUnread();
+    }
+    // Called on sign-in with the player's own thread so the badge reflects any
+    // dev reply they haven't opened yet.
+    window.IZZBAH.applyFeedback = function (list) {
+      const msgs = Array.isArray(list) ? list : [];
+      state.feedbackLatestAdminTs = msgs.filter(m => m.from === "admin").reduce((mx, m) => Math.max(mx, Number(m.createdAt) || 0), 0);
+      updateFeedbackBadge();
+    };
+    function feedbackBubble(m) {
+      const dev = m.from === "admin";
+      const div = document.createElement("div");
+      div.className = "fb-msg " + (dev ? "fb-dev" : "fb-user");
+      const who = dev ? "المطوّر" : (m.name || "أنت");
+      const dateStr = m.createdAt ? new Date(Number(m.createdAt)).toLocaleString("ar", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      div.innerHTML = `<div class="fb-who">${escapeHtml(who)}</div>`
+        + `<div class="fb-text">${escapeHtml(toArabicDigits(m.text || ""))}</div>`
+        + (dateStr ? `<div class="fb-time">${escapeHtml(dateStr)}</div>` : "");
+      return div;
+    }
+    function renderFeedbackThread(list) {
+      const box = $("#feedbackThread");
+      box.innerHTML = "";
+      const msgs = (list || []).slice().sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
+      if (!msgs.length) {
+        box.innerHTML = `<div class="fb-empty">${state.feedbackAdminUid ? "لا رسائل من هذا اللاعب بعد." : "لا رسائل بعد — اكتب اقتراحك أو رأيك للمطوّرين، وسنقرأه ونردّ عليك هنا."}</div>`;
+      } else {
+        msgs.forEach(m => box.appendChild(feedbackBubble(m)));
+      }
+      box.scrollTop = box.scrollHeight;
+    }
+    function feedbackLoader() {
+      if (state.feedbackAdminUid) return (window.IZZBAH.adminLoadFeedback ? window.IZZBAH.adminLoadFeedback(state.feedbackAdminUid) : Promise.resolve([]));
+      return (window.IZZBAH.loadFeedback ? window.IZZBAH.loadFeedback() : Promise.resolve([]));
+    }
+    function openFeedback(adminUid, adminName) {
+      state.feedbackAdminUid = adminUid || null;
+      const isAdminView = !!state.feedbackAdminUid;
+      if (!isAdminView && !state.signedIn) { showToast("سجّل الدخول بحساب Google لمراسلة المطوّرين"); return; }
+      $("#feedbackTitle").textContent = isAdminView ? ("💬 " + (adminName || "رسائل لاعب")) : "💬 اقتراحاتك وملاحظاتك";
+      $("#feedbackInput").value = "";
+      renderFeedbackThread([]);
+      const m = $("#feedbackModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      feedbackLoader().then(list => {
+        renderFeedbackThread(list);
+        if (isAdminView) { markAdminThreadRead(state.feedbackAdminUid); }
+        else {
+          state.feedbackLatestAdminTs = (list || []).filter(x => x.from === "admin").reduce((mx, x) => Math.max(mx, Number(x.createdAt) || 0), 0);
+          setFeedbackReadAt(Date.now());  // opening the thread clears the badge
+          updateFeedbackBadge();
+        }
+      }).catch(() => {});
+      setTimeout(() => $("#feedbackInput").focus(), 60);
+    }
+    function closeFeedback() {
+      const wasAdmin = !!state.feedbackAdminUid;
+      const m = $("#feedbackModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+      state.feedbackAdminUid = null;
+      if (wasAdmin) openFeedbackAdmin(); // step back to the threads list
+    }
+    function sendFeedbackMsg() {
+      const inp = $("#feedbackInput");
+      const text = (inp.value || "").trim();
+      if (!text) return;
+      if (text.length > 2000) { showToast("الرسالة طويلة جداً"); return; }
+      const isAdminView = !!state.feedbackAdminUid;
+      const send = isAdminView
+        ? (window.IZZBAH.adminReplyFeedback ? (t) => window.IZZBAH.adminReplyFeedback(state.feedbackAdminUid, t) : null)
+        : (window.IZZBAH.sendFeedback || null);
+      if (!send) { showToast("الإرسال غير متاح الآن — تحقّق من اتصالك"); return; }
+      const btn = $("#feedbackSend");
+      btn.disabled = true; inp.disabled = true;
+      Promise.resolve(send(text)).then(() => {
+        inp.value = "";
+        return feedbackLoader().then(list => renderFeedbackThread(list));
+      }).catch(() => { showToast("تعذّر الإرسال — حاول مرة أخرى"); })
+        .then(() => { btn.disabled = false; inp.disabled = false; inp.focus(); });
+    }
+    // ---- Admin: every player's feedback thread ----
+    const FB_ADMIN_READ_KEY = "izzbah-fb-admin-read-v1";
+    function fbAdminRead() { try { return JSON.parse(localStorage.getItem(FB_ADMIN_READ_KEY)) || {}; } catch (e) { return {}; } }
+    function markAdminThreadRead(uid) {
+      try { const m = fbAdminRead(); m[uid] = Date.now(); localStorage.setItem(FB_ADMIN_READ_KEY, JSON.stringify(m)); } catch (e) {}
+    }
+    function openFeedbackAdmin() {
+      const box = $("#feedbackAdminList");
+      box.innerHTML = `<div class="fb-empty">جارٍ التحميل…</div>`;
+      const m = $("#feedbackAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      const bridge = window.IZZBAH && window.IZZBAH.adminListFeedback;
+      if (!bridge) { box.innerHTML = `<div class="fb-empty">غير متاح.</div>`; return; }
+      bridge().then(threads => renderFeedbackAdminList(threads || [])).catch(() => { box.innerHTML = `<div class="fb-empty">تعذّر التحميل.</div>`; });
+    }
+    function renderFeedbackAdminList(threads) {
+      const box = $("#feedbackAdminList");
+      box.innerHTML = "";
+      if (!threads.length) { box.innerHTML = `<div class="fb-empty">لا رسائل من اللاعبين بعد.</div>`; return; }
+      const read = fbAdminRead();
+      threads.sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+      threads.forEach(t => {
+        const row = document.createElement("button");
+        row.className = "fb-thread-row"; row.type = "button";
+        const unread = t.lastFrom === "user" && (Number(t.updatedAt) || 0) > (Number(read[t.uid]) || 0);
+        const dateStr = t.updatedAt ? new Date(Number(t.updatedAt)).toLocaleDateString("ar", { month: "short", day: "numeric" }) : "";
+        row.innerHTML = `<div class="fb-thread-top"><span class="fb-thread-name">${escapeHtml(t.name || "لاعب")}</span>${unread ? '<span class="fb-dot"></span>' : ""}<span class="fb-thread-date">${escapeHtml(dateStr)}</span></div>`
+          + `<div class="fb-thread-prev">${escapeHtml(toArabicDigits((t.lastText || "").slice(0, 90)))}</div>`;
+        row.addEventListener("click", () => { closeFeedbackAdmin(); openFeedback(t.uid, t.name || "لاعب"); });
+        box.appendChild(row);
+      });
+    }
+    function closeFeedbackAdmin() { const m = $("#feedbackAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
 
     // ---- Announcements: admin composer + manager ------------------------
     let annEditId = null;      // id of the announcement being edited (else new)
@@ -15964,6 +16157,14 @@
     $("#annPopClose").addEventListener("click", closeAnnouncementPopup);
     $("#annPopAll").addEventListener("click", () => { closeAnnouncementPopup(); openAnnouncements(); });
     $("#annPopModal").addEventListener("click", e => { if (e.target.id === "annPopModal") closeAnnouncementPopup(); });
+    $("#settingsFeedback").addEventListener("click", () => { closeSettings(); openFeedback(); });
+    $("#feedbackClose").addEventListener("click", closeFeedback);
+    $("#feedbackModal").addEventListener("click", e => { if (e.target.id === "feedbackModal") closeFeedback(); });
+    $("#feedbackSend").addEventListener("click", sendFeedbackMsg);
+    $("#feedbackInput").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendFeedbackMsg(); } });
+    $("#adminChoiceFeedback").addEventListener("click", () => { closeAdminChoice(); openFeedbackAdmin(); });
+    $("#feedbackAdminClose").addEventListener("click", closeFeedbackAdmin);
+    $("#feedbackAdminModal").addEventListener("click", e => { if (e.target.id === "feedbackAdminModal") closeFeedbackAdmin(); });
     $("#announceAdminClose").addEventListener("click", closeAnnouncementsAdmin);
     $("#announceAdminModal").addEventListener("click", e => { if (e.target.id === "announceAdminModal") closeAnnouncementsAdmin(); });
     $("#annPublish").addEventListener("click", publishAnnouncement);
@@ -16866,6 +17067,73 @@
           }
           window.IZZBAH.loadInbox = function () { return loadInbox(currentUser); };
 
+          // ---- Player ↔ developer feedback (private two-way) ----------------
+          // Messages live at feedback/{uid}/messages. The player posts as
+          // 'user'; admins reply as 'admin'. Only that player + admins can read
+          // the thread (enforced by rules). Admins list every thread with one
+          // collection-group query on 'messages' (unique to this feature).
+          function mapFeedbackSnap(snap) {
+            const out = [];
+            snap.forEach(doc => {
+              const d = doc.data() || {};
+              out.push({
+                id: doc.id, from: d.from || "user", text: d.text || "", name: d.name || "",
+                createdAt: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0
+              });
+            });
+            out.sort((a, b) => a.createdAt - b.createdAt);
+            return out;
+          }
+          function loadFeedback(user) {
+            const apply = window.IZZBAH.applyFeedback;
+            if (!user) { if (apply) apply([]); return Promise.resolve([]); }
+            return db.collection("feedback").doc(user.uid).collection("messages").get()
+              .then(snap => { const out = mapFeedbackSnap(snap); if (apply) apply(out); return out; })
+              .catch(() => { if (apply) apply([]); return []; });
+          }
+          window.IZZBAH.loadFeedback = function () { return loadFeedback(currentUser); };
+          window.IZZBAH.sendFeedback = function (text) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            const t = String(text || "").slice(0, 2000);
+            if (!t.trim()) return Promise.reject(new Error("empty"));
+            return db.collection("feedback").doc(currentUser.uid).collection("messages").add({
+              from: "user", text: t,
+              name: currentUser.displayName || currentUser.email || "لاعب",
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          };
+          window.IZZBAH.adminLoadFeedback = function (uid) {
+            if (!uid) return Promise.resolve([]);
+            return db.collection("feedback").doc(uid).collection("messages").get().then(mapFeedbackSnap).catch(() => []);
+          };
+          window.IZZBAH.adminReplyFeedback = function (uid, text) {
+            if (!uid) return Promise.reject(new Error("no uid"));
+            const t = String(text || "").slice(0, 2000);
+            if (!t.trim()) return Promise.reject(new Error("empty"));
+            return db.collection("feedback").doc(uid).collection("messages").add({
+              from: "admin", text: t, name: "المطوّر",
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          };
+          window.IZZBAH.adminListFeedback = function () {
+            return db.collectionGroup("messages").get().then(snap => {
+              const byUid = {};
+              snap.forEach(doc => {
+                const parent = doc.ref.parent.parent; // feedback/{uid}
+                if (!parent) return;
+                const uid = parent.id;
+                const d = doc.data() || {};
+                const ts = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0;
+                const cur = byUid[uid] || { uid, name: "", lastText: "", lastFrom: "", updatedAt: 0, count: 0 };
+                cur.count++;
+                if (d.from === "user" && d.name) cur.name = d.name; // the player's own name
+                if (ts >= cur.updatedAt) { cur.updatedAt = ts; cur.lastText = d.text || ""; cur.lastFrom = d.from || ""; }
+                byUid[uid] = cur;
+              });
+              return Object.keys(byUid).map(k => byUid[k]);
+            }).catch(e => { console.warn("adminListFeedback failed", e); return []; });
+          };
+
           function makeCodeString() {
             let s = "";
             if (window.crypto && crypto.getRandomValues) {
@@ -17620,6 +17888,7 @@
             // authoritative sum of redeemed codes last so it always wins.
             loadMyCodes(user);
             loadInbox(user);
+            loadFeedback(user); // dev-reply badge on the feedback row
           });
         })
         .catch((e) => { console.warn("Firebase SDK failed to load", e); if (authBtn) authBtn.style.display = "none"; });
