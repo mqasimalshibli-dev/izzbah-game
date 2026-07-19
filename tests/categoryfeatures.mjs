@@ -246,6 +246,10 @@ try {
       reaction: d({ id: "pub-r", name: "رياكشنات عمانية", questions: [{ q: "", a: "x" }] }),
       // empty category still gets a sentence
       empty: d({ id: "pub-empty", name: "جديدة", custom: true, questions: [] }),
+      // recognizable cloud category TYPES get a tailored blurb by name
+      emoji: d({ id: "pub-em", name: "معنى الإيموجي", questions: [{ q: "😀", a: "x" }] }),
+      riddle: d({ id: "pub-rd", name: "ألغاز", questions: [{ q: "لغز", a: "x" }] }),
+      nearest: d({ id: "pub-nr", name: "الأقرب يفوز", questions: [{ q: "كم؟", a: "10" }] }),
     };
   });
   check("a community/custom category gets a real name-aware description",
@@ -259,6 +263,9 @@ try {
   check("word-guess categories describe the charades flow", /تمثيل صامت|QR/.test(desc.word));
   check("reaction categories get a reaction-flavoured description", desc.reaction.includes("رياكشنات"));
   check("an empty category still gets a full sentence", desc.empty.includes("جديدة") && desc.empty.length > 12);
+  check("«معنى الإيموجي» gets an emoji-flavoured description", /إيموجي|الرموز/.test(desc.emoji));
+  check("«ألغاز» gets a riddle-flavoured description", /ألغاز|أحاج/.test(desc.riddle));
+  check("«الأقرب يفوز» gets an estimation description", /تخمين|الأقرب/.test(desc.nearest));
 
   // ---- 4) picked categories are SHADED (dark overlay + ✓), not just ringed ----
   const shade = await page.evaluate(() => {

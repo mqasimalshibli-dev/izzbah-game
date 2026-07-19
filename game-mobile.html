@@ -9570,7 +9570,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.96";
+    const IZZBAH_BUILD = "2026-07-10.97";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11577,6 +11577,17 @@
       if (isReactionCategory(cat)) {
         return name ? `رياكشنات «${name}» — شاهد الموقف وخمّن ردّة الفعل مع فريقك.`
                     : "رياكشنات — شاهد الموقف وخمّن ردّة الفعل مع فريقك.";
+      }
+      // Recognizable cloud/admin category TYPES (matched by name, so they get a
+      // proper blurb even without a hand-written entry above).
+      if (isEmojiCategory(cat)) {
+        return "خمّن الكلمة أو المثل أو الاسم أو الشخصية من الإيموجي — فكفكوا الرموز مع فريقكم. كل سؤال بـ ٢٠٠ نقطة.";
+      }
+      if (isRiddlesCategory(cat)) {
+        return "ألغاز وأحاجٍ ذكية تتحدّى بديهتكم — فكّروا معاً وخمّنوا الحل قبل خصمكم. كل لغز بـ ٢٠٠ نقطة.";
+      }
+      if (/ال[أا]قرب\s*يفوز/.test(name)) {
+        return "أسئلة تخمين بالأرقام — قدّروا الإجابة، والفريق الأقرب للرقم الصحيح يخطف نقاط الجولة.";
       }
       const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "";
       const lead = name ? `أسئلة منوّعة في «${name}»` : "أسئلة منوّعة ممتعة";
