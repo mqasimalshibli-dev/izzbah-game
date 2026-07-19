@@ -128,7 +128,7 @@ try {
   check("the email is organized: order summary, payment section, code, steps",
     /ملخص الطلب/.test(mail) && /طريقة الدفع/.test(mail) && /كود التفعيل/.test(mail)
     && /PACK-CODE/.test(mail) && /خطوات التفعيل/.test(mail)
-    && /الباقة: باقة ٥ ألعاب/.test(mail) && /izzbah-game\//.test(mail));
+    && /الباقة: باقة ٥ ألعاب/.test(mail) && /izzbah\.com\//.test(mail));
   check("the fulfilled order is removed from the queue",
     fulfil.deleted.length === 1 && fulfil.deleted[0] === "buyer1" && /لا توجد طلبات/.test(fulfil.ordersNow));
   check("the admin sees a clear next step (complete price/payment, send)",
