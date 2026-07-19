@@ -4400,7 +4400,8 @@
       border-radius: 10px; padding: 8px 12px; line-height: 1.6; }
     .fb-guidelines .fb-gl-lead { color: var(--dark); font: 700 15px 'Cairo', sans-serif; margin: 4px 0 10px; line-height: 1.7; }
     .fb-guidelines .fb-gl-list { margin: 0 18px 12px; padding: 0; color: #5a3d12; font: 600 14px 'Cairo', sans-serif; line-height: 2; }
-    .fb-guidelines .fb-gl-foot { color: #9e1322; font: 700 13px 'Cairo', sans-serif; background: #fdeaea; border-radius: 10px; padding: 8px 12px; line-height: 1.7; margin: 0 0 4px; }
+    .fb-guidelines .fb-gl-foot { color: #9e1322; font: 700 13px 'Cairo', sans-serif; background: #fdeaea; border-radius: 10px; padding: 8px 12px; line-height: 1.7; margin: 0 0 8px; }
+    .fb-guidelines .fb-gl-privacy { color: #1f5237; font: 700 13px 'Cairo', sans-serif; background: #e7f4ec; border-radius: 10px; padding: 8px 12px; line-height: 1.7; margin: 0 0 4px; }
     .fb-composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
     .fb-composer textarea { flex: 1 1 auto; resize: none; min-height: 44px; max-height: 120px; }
     .fb-composer .primary { flex: 0 0 auto; min-height: 44px; padding: 0 20px; }
@@ -5829,6 +5830,7 @@
         <li>اكتب اقتراحك أو ملاحظتك بوضوح ولُطف.</li>
       </ul>
       <p class="fb-gl-foot">الرسائل المسيئة قد تُحذف، وقد يُمنع المرسل من المراسلة.</p>
+      <p class="fb-gl-privacy">🔒 محادثتك خاصة تماماً — لا يراها أحد سواك وفريق التطوير.</p>
       <div class="actions">
         <button class="ghost" id="fbGuidelinesCancel" type="button">إلغاء</button>
         <button class="primary" id="fbGuidelinesAgree" type="button">أوافق وأرسل</button>
@@ -9505,7 +9507,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.86";
+    const IZZBAH_BUILD = "2026-07-10.87";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
