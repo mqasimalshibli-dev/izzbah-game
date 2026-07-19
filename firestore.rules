@@ -266,6 +266,16 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
+    // Collection-group query support: the admin panel lists EVERY thread with a
+    // single collectionGroup('messages') query. Firestore does NOT authorize a
+    // collection-group query from the specific-path rule above — it needs a rule
+    // on the recursive wildcard. The {path=**} form can't bind the owner uid, so
+    // this grants ADMINS ONLY (read/list); players still reach their own thread
+    // (and post/delete) through the specific-path rule above. 'messages' is used
+    // by no other collection, so this is scoped to feedback in practice.
+    match /{path=**}/messages/{msgId} {
+      allow read: if isAdmin();
+    }
 
     // ---- Catalog revision marker (read-cost saver) -------------------------
     // One tiny public doc, meta/catalog, whose `rev` counter every category
