@@ -5,7 +5,7 @@
 //   • same-origin static assets are cache-first with a background refresh.
 //   • cross-origin requests (Firebase SDK, fonts, R2 video) pass through
 //     untouched so none of the cloud behavior changes.
-const CACHE = "izzbah-v1";
+const CACHE = "izzbah-v2";
 
 self.addEventListener("install", () => { self.skipWaiting(); });
 
@@ -24,8 +24,12 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin) return; // cloud/CDN traffic untouched
 
   if (req.mode === "navigate") {
+    // NETWORK-FIRST with cache:"reload" so the browser's HTTP cache is bypassed
+    // and every launch pulls the freshest deployed HTML (not a stale copy the
+    // CDN's max-age would otherwise let the SW serve). The cache is only the
+    // offline fallback.
     event.respondWith(
-      fetch(req).then(res => {
+      fetch(req, { cache: "reload" }).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy));
         return res;
