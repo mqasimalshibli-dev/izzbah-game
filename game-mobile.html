@@ -4401,6 +4401,10 @@
       background: #fdeaea; color: #9e1322; border: 1.5px solid rgba(158, 28, 28, .3); box-shadow: none; flex: 0 0 auto; }
     .dup-del:hover { background: #f7d7d7; }
     .dup-del:disabled { opacity: .6; }
+    .dup-sync { font: 700 12.5px 'Cairo', sans-serif; border-radius: 10px; padding: 7px 12px; margin: 0 0 8px; }
+    .dup-sync.busy { background: #fff3d6; border: 1px solid #e0b84f; color: #9a5a12; }
+    .dup-sync.ok { background: #e7f4ec; border: 1px solid #9fd3b4; color: #1f5237; }
+    .dup-sync.err { background: #fdeaea; border: 1px solid #e6a3a3; color: #9e1322; }
 
     /* ===== Player ↔ developer feedback (two-way chat) ===== */
     .feedback-modal { display: flex; flex-direction: column; max-height: 88vh; }
@@ -5823,6 +5827,7 @@
       </div>
       <p class="dup-note">فحص لكل الأسئلة (الفئات الرسمية وفئات المجتمع). <b>مكرّر</b> = السؤال والإجابة متطابقان، <b>تعارض</b> = نفس السؤال بإجابات مختلفة. اضغط «حذف هذه» بجانب أي نسخة لإزالتها والإبقاء على البقية.</p>
       <div class="dup-summary" id="dupSummary"></div>
+      <div class="dup-sync" id="dupSync" hidden></div>
       <div class="dup-list" id="dupList"></div>
       <div class="actions">
         <button class="secondary" id="dupRescan" type="button">↻ إعادة الفحص</button>
@@ -9552,7 +9557,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.90";
+    const IZZBAH_BUILD = "2026-07-10.91";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12926,7 +12931,7 @@
             + `<span class="dup-occ-a">← ${escapeHtml(toArabicDigits(it.a || "—"))}</span>`;
           const del = document.createElement("button");
           del.className = "dup-del"; del.type = "button"; del.textContent = "حذف هذه";
-          del.addEventListener("click", () => resolveDuplicateOccurrence(it, del));
+          del.addEventListener("click", () => resolveDuplicateOccurrence(it));
           row.appendChild(del);
           occ.appendChild(row);
         });
@@ -12945,11 +12950,39 @@
         return cloud(cat).then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); });
       });
     }
-    function resolveDuplicateOccurrence(occ, btn) {
+    // Deletes apply to LOCAL state instantly (the report updates with no wait),
+    // then a single debounced publish per category saves to the cloud in the
+    // background — so rapid deletes on one category coalesce into one publish
+    // and the UI never blocks/hangs on the slow republish.
+    const dupPersistTimers = {};
+    const dupPersistJobs = {};
+    function setDupSyncStatus(msg, kind) {
+      const el = $("#dupSync"); if (!el) return;
+      const busy = Object.keys(dupPersistJobs).length > 0;
+      if (msg) { el.textContent = msg; el.className = "dup-sync " + (kind || ""); el.hidden = false; }
+      else if (busy) { el.textContent = "⏳ جارٍ حفظ التغييرات…"; el.className = "dup-sync busy"; el.hidden = false; }
+      else { el.textContent = "✓ حُفظت كل التغييرات"; el.className = "dup-sync ok"; el.hidden = false; }
+    }
+    function scheduleDupPersist(kind, cat) {
+      dupPersistJobs[cat.id] = { kind, cat };
+      clearTimeout(dupPersistTimers[cat.id]);
+      dupPersistTimers[cat.id] = setTimeout(() => flushDupPersist(cat.id), 700);
+      setDupSyncStatus();
+    }
+    function flushDupPersist(catId) {
+      const job = dupPersistJobs[catId];
+      if (!job) return;
+      const run = job.kind === "community"
+        ? (window.IZZBAH && window.IZZBAH.adminSetCommunityQuestions
+            ? window.IZZBAH.adminSetCommunityQuestions(catId, job.cat.questions) : Promise.reject(new Error("no bridge")))
+        : persistOfficialCategoryEdit(job.cat);
+      run.then(() => { delete dupPersistJobs[catId]; setDupSyncStatus(); })
+         .catch(() => { delete dupPersistJobs[catId]; setDupSyncStatus("⚠ تعذّر حفظ إحدى الفئات — حدّث الصفحة للتأكد", "err"); });
+    }
+    function resolveDuplicateOccurrence(occ) {
       if (!occ) return;
-      if (!window.confirm(`حذف هذا السؤال من فئة «${occ.catName}»؟ يبقى بقية النسخ.`)) return;
-      let cat = null, isCommunity = false;
-      if (occ.community) { cat = (state.communityCategories || []).find(c => c.id === occ.catId); isCommunity = true; }
+      let cat = null, kind = "official";
+      if (occ.community) { cat = (state.communityCategories || []).find(c => c.id === occ.catId); kind = "community"; }
       else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === occ.catId) || m.extras.find(c => c.id === occ.catId); }
       if (!cat) { showToast("تعذّر إيجاد الفئة"); return; }
       const clone = JSON.parse(JSON.stringify(cat));
@@ -12958,22 +12991,19 @@
       if (!(idx >= 0 && clone.questions[idx] && matches(clone.questions[idx]))) idx = clone.questions.findIndex(matches);
       if (idx < 0) { showToast("تعذّر إيجاد السؤال — أعد الفحص"); return; }
       clone.questions.splice(idx, 1);
-      if (btn) { btn.disabled = true; btn.textContent = "جارٍ…"; }
-      const done = () => { showToast("تم حذف السؤال المكرّر"); renderDupReport(); };
-      const fail = () => { showToast("تعذّر الحذف — حاول مرة أخرى"); if (btn) { btn.disabled = false; btn.textContent = "حذف هذه"; } };
-      if (isCommunity) {
-        const b = window.IZZBAH && window.IZZBAH.adminSetCommunityQuestions;
-        if (!b) { fail(); return; }
-        b(clone.id, clone.questions).then(() => {
-          const i = state.communityCategories.findIndex(c => c.id === clone.id);
-          if (i >= 0) state.communityCategories[i] = clone;
-          done();
-        }).catch(fail);
+      // Apply locally first so the report updates instantly…
+      if (kind === "community") {
+        const i = state.communityCategories.findIndex(c => c.id === clone.id);
+        if (i >= 0) state.communityCategories[i] = clone;
       } else {
-        persistOfficialCategoryEdit(clone).then(done).catch(fail);
+        upsertPublished(clone);
       }
+      renderDupReport();
+      // …then persist in the background (debounced/coalesced per category).
+      scheduleDupPersist(kind, clone);
     }
     function openDupModal() {
+      const sync = $("#dupSync"); if (sync) sync.hidden = true;  // clear any stale status
       renderDupReport();
       const m = $("#dupModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
