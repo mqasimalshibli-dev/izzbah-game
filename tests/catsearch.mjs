@@ -73,6 +73,14 @@ try {
   const oman = await names();
   check("searching «عمان» matches diacritic variants", oman.length >= 1);
 
+  // ---- 3b) prefix-only: a letter in the MIDDLE of a word no longer matches ----
+  // «واقع» sits inside «مواقع في عمان» but isn't a prefix of any word, so with
+  // first-letter (prefix) search it must NOT surface that category.
+  await page.fill("#catSearchInput", "واقع");
+  await page.waitForTimeout(200);
+  const mid = await names();
+  check("a mid-word substring («واقع») does NOT match «مواقع…» (prefix search)", !mid.some(n => n.includes("مواقع")));
+
   // ---- 4) a no-match search shows a friendly message ----
   await page.fill("#catSearchInput", "زقنبوتيا");
   await page.waitForTimeout(200);

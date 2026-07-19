@@ -9345,7 +9345,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.78";
+    const IZZBAH_BUILD = "2026-07-10.79";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10959,6 +10959,17 @@
         .replace(/\s+/g, " ")
         .trim().toLowerCase();
     }
+    // Search responds to the FIRST letters typed (a prefix), not a match
+    // anywhere: 2 = the whole name starts with the term, 1 = a word inside the
+    // name starts with it, 0 = no match. So typing «ع» surfaces «علوم» and
+    // «عمان», not every name that merely contains the letter.
+    function catNamePrefixScore(name, term) {
+      if (!term) return 0;
+      if (name.lastIndexOf(term, 0) === 0) return 2;
+      const words = name.split(" ");
+      for (let i = 0; i < words.length; i++) if (words[i].lastIndexOf(term, 0) === 0) return 1;
+      return 0;
+    }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
       const grid = $("#categoryGrid");
@@ -10977,8 +10988,16 @@
         visibleCategories = visibleCategories.filter(c => typeMap[c.id] === state.activeCatFilter);
       }
       // Name search (both tabs). Arabic-normalized so «عُمان»/«عمان» both match.
+      // Responds to the first letters typed (prefix), and names that start with
+      // the term rank above names where a later word starts with it.
       const term = catSearchNorm(state.catSearch);
-      if (term) visibleCategories = visibleCategories.filter(c => catSearchNorm(c.name).indexOf(term) !== -1);
+      if (term) {
+        visibleCategories = visibleCategories
+          .map(c => ({ c, s: catNamePrefixScore(catSearchNorm(c.name), term) }))
+          .filter(x => x.s > 0)
+          .sort((a, b) => b.s - a.s)
+          .map(x => x.c);
+      }
       $("#gameCategoriesTab").classList.toggle("active", state.categoryMode === "game");
       $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
       $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
