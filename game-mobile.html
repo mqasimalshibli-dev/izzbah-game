@@ -4377,6 +4377,7 @@
     .announce-modal, .announce-admin-modal { max-width: 560px; width: 94%; text-align: right; max-height: 88vh; overflow-y: auto; }
     .announce-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 2px; }
     .announce-empty { text-align: center; color: #8a7550; font: 600 14px 'Cairo', sans-serif; padding: 22px 8px; }
+    .ann-pop-more { text-align: center; color: #8a7550; font: 700 13px 'Cairo', sans-serif; padding: 4px 8px 2px; }
     .ann-card {
       border: 1px solid rgba(154, 28, 28, .18); border-inline-start: 5px solid var(--ann-accent, #9a1c1c);
       border-radius: 14px; background: #fbf4e4; padding: 13px 15px; box-shadow: 0 4px 12px -8px rgba(80, 20, 20, .3);
@@ -5749,6 +5750,22 @@
         <button class="settings-close" id="announceClose" type="button" aria-label="إغلاق">✕</button>
       </div>
       <div class="announce-list" id="announceList"></div>
+    </div>
+  </div>
+
+  <!-- Player: one-time launch popup for a NEW announcement -->
+  <div class="modal-backdrop" id="annPopModal" aria-hidden="true">
+    <div class="question-modal announce-modal ann-pop" role="dialog" aria-modal="true" aria-labelledby="annPopTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="annPopTitle">📢 إعلان جديد</h3>
+        <button class="settings-close" id="annPopClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="announce-list" id="annPopBody"></div>
+      <div class="ann-pop-more" id="annPopMore" hidden></div>
+      <div class="actions">
+        <button class="ghost" id="annPopAll" type="button">كل الإعلانات</button>
+        <button class="primary" id="annPopOk" type="button">حسناً</button>
+      </div>
     </div>
   </div>
 
@@ -9398,7 +9415,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.82";
+    const IZZBAH_BUILD = "2026-07-10.83";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12488,6 +12505,40 @@
       const m = $("#announceModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
     function closeAnnouncements() { const m = $("#announceModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+
+    // ---- New-announcement launch popup ----------------------------------
+    // Once per launch (after sign-in), a brand-NEW announcement pops up on top
+    // of whatever screen the player lands on, so they don't miss it. It fires
+    // only for announcements newer than the last one already popped on this
+    // device — the badge on the gear still tracks read/unread separately.
+    const ANN_POPPED_KEY = "izzbah-ann-popped-v1";
+    function annPoppedAt() { try { return Number(localStorage.getItem(ANN_POPPED_KEY)) || 0; } catch (e) { return 0; } }
+    function setAnnPoppedAt(ts) { try { localStorage.setItem(ANN_POPPED_KEY, String(ts)); } catch (e) {} }
+    let annPopShownThisSession = false;
+    function showAnnouncementPopup(freshList) {
+      renderAnnouncementCards($("#annPopBody"), [freshList[0]], false); // newest one
+      const more = $("#annPopMore");
+      if (freshList.length > 1) { more.hidden = false; more.textContent = `و${toArabicDigits(freshList.length - 1)} ${freshList.length - 1 === 1 ? "إعلان آخر" : "إعلانات أخرى"} في مركز الإعلانات`; }
+      else { more.hidden = true; more.textContent = ""; }
+      const m = $("#annPopModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeAnnouncementPopup() { const m = $("#annPopModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    function maybePopAnnouncement() {
+      if (annPopShownThisSession) return;          // at most once per launch
+      if (!state.signedIn) return;                 // only after the player signs in
+      if (state.gameActive) return;                // never interrupt a live game
+      const list = state.announcements || [];
+      if (!list.length) return;
+      const poppedAt = annPoppedAt();
+      const fresh = list
+        .filter(a => (Number(a.createdAt) || 0) > poppedAt)
+        .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+      if (!fresh.length) return;
+      annPopShownThisSession = true;
+      setAnnPoppedAt(annLatestTs(list));           // don't re-pop these again
+      // A short beat so it lands after the splash clears, not behind it.
+      setTimeout(() => { if (!state.gameActive) showAnnouncementPopup(fresh); }, 700);
+    }
 
     // ---- Announcements: admin composer + manager ------------------------
     let annEditId = null;      // id of the announcement being edited (else new)
@@ -15909,6 +15960,10 @@
     $("#settingsAnnounce").addEventListener("click", () => { closeSettings(); openAnnouncements(); });
     $("#announceClose").addEventListener("click", closeAnnouncements);
     $("#announceModal").addEventListener("click", e => { if (e.target.id === "announceModal") closeAnnouncements(); });
+    $("#annPopOk").addEventListener("click", closeAnnouncementPopup);
+    $("#annPopClose").addEventListener("click", closeAnnouncementPopup);
+    $("#annPopAll").addEventListener("click", () => { closeAnnouncementPopup(); openAnnouncements(); });
+    $("#annPopModal").addEventListener("click", e => { if (e.target.id === "annPopModal") closeAnnouncementPopup(); });
     $("#announceAdminClose").addEventListener("click", closeAnnouncementsAdmin);
     $("#announceAdminModal").addEventListener("click", e => { if (e.target.id === "announceAdminModal") closeAnnouncementsAdmin(); });
     $("#annPublish").addEventListener("click", publishAnnouncement);
@@ -16314,7 +16369,11 @@
     window.IZZBAH.applyAuth = function (signedIn, uid) {
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
-      if (typeof loadAnnouncements === "function") loadAnnouncements(); // public feed; refresh the unread badge
+      if (typeof loadAnnouncements === "function") {
+        const p = loadAnnouncements(); // public feed; refresh the unread badge
+        // Once loaded, pop a brand-new announcement over the current screen.
+        if (p && p.then) p.then(() => { if (typeof maybePopAnnouncement === "function") maybePopAnnouncement(); });
+      }
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
