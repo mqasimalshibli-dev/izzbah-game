@@ -4297,7 +4297,7 @@
     .admin-dist-grid input { min-width: 0; }
     .dist-note { font-weight: 600; font-size: 11.5px; opacity: .75; }
     .admin-empty { text-align: center; color: #8a7c5e; padding: 30px; }
-    .admin-foot { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; flex: 0 0 auto; margin: 4px 0 6px; }
+    .admin-foot { display: flex; flex-direction: column; align-items: stretch; gap: 8px; flex: 0 0 auto; width: min(340px, 100%); margin: 4px auto 8px; }
     #adminAddQuestion { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
     .admin-q-modal { max-width: 560px; width: 92%; }
     .admin-q-grid { display: grid; gap: 8px; text-align: right; }
@@ -9567,7 +9567,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.93";
+    const IZZBAH_BUILD = "2026-07-10.94";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
