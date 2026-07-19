@@ -58,15 +58,65 @@ try {
     openDupModal();
     return {
       open: document.getElementById("dupModal").classList.contains("open"),
+      title: document.getElementById("dupTitle").textContent,
+      btnName: document.getElementById("adminChoiceDupes").textContent,
       summary: document.getElementById("dupSummary").textContent,
       groups: document.querySelectorAll("#dupList .dup-group").length,
       hasDupTag: !!document.querySelector("#dupList .dup-tag.dup"),
       hasConfTag: !!document.querySelector("#dupList .dup-tag.conf"),
+      hasDeleteBtns: document.querySelectorAll("#dupList .dup-del").length > 0,
     };
   });
   check("the scanner modal opens and lists duplicate groups", ui.open && ui.groups >= 2);
+  check("the tool is named «المتكررات» (not «الأسئلة المكرّرة»)", /المتكررات/.test(ui.title) && /المتكررات/.test(ui.btnName) && !/الأسئلة المكرّرة/.test(ui.btnName));
   check("the summary reports how many duplicates were found", /مكرّرة|تكرار/.test(ui.summary));
   check("groups are tagged «مكرّر» and «تعارض»", ui.hasDupTag && ui.hasConfTag);
+  check("each occurrence has a «حذف هذه» resolve button", ui.hasDeleteBtns);
+
+  // ---- resolve: deleting a COMMUNITY occurrence removes it & re-scans ----
+  const resolveComm = await page.evaluate(async () => {
+    window.__set = [];
+    window.IZZBAH.adminSetCommunityQuestions = (catId, qs) => { window.__set.push({ catId, qs }); return Promise.resolve(); };
+    // find the delete button of the DUPLICATE group's first occurrence (community فئة أ)
+    const dupGroup = [...document.querySelectorAll("#dupList .dup-group")].find(g => /تكرار فريد/.test(g.textContent));
+    const firstDel = dupGroup.querySelector(".dup-del");
+    firstDel.click();
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      called: window.__set.length,
+      catId: window.__set[0] && window.__set[0].catId,
+      leftInCat: window.__set[0] ? window.__set[0].qs.length : -1,
+      stillDup: [...document.querySelectorAll("#dupList .dup-group")].some(g => /تكرار فريد/.test(g.textContent)),
+    };
+  });
+  check("resolving a community duplicate calls the update bridge with the question removed",
+    resolveComm.called === 1 && resolveComm.catId === "t_a" && resolveComm.leftInCat === 0);
+  check("after resolving, the duplicate no longer appears in the report", !resolveComm.stillDup);
+
+  // ---- resolve: deleting an OFFICIAL (cloud) occurrence publishes the edit ----
+  const resolveOfficial = await page.evaluate(async () => {
+    window.__pub = [];
+    window.IZZBAH.cloudPublish = (cat) => { window.__pub.push(cat); return Promise.resolve(); };
+    window.fitCategoryForPublish = () => Promise.resolve(true); // skip image work offline
+    state.communityCategories = [];
+    state.publishedCategories = [
+      { id: "off1", name: "رسمية أ", custom: true, questions: [{ q: "سؤال رسمي مكرّر فريد جداً؟", a: "ثابت", points: 100, image: "", answerImage: "" }] },
+      { id: "off2", name: "رسمية ب", custom: true, questions: [{ q: "سؤال رسمي مكرّر فريد جداً؟", a: "ثابت", points: 200, image: "", answerImage: "" }] },
+    ];
+    renderDupReport();
+    const grp = [...document.querySelectorAll("#dupList .dup-group")].find(g => /رسمي مكرّر فريد/.test(g.textContent));
+    grp.querySelector(".dup-del").click();
+    await new Promise(r => setTimeout(r, 300));
+    return {
+      published: window.__pub.length,
+      publishedId: window.__pub[0] && window.__pub[0].id,
+      publishedQCount: window.__pub[0] ? window.__pub[0].questions.length : -1,
+      stillDup: [...document.querySelectorAll("#dupList .dup-group")].some(g => /رسمي مكرّر فريد/.test(g.textContent)),
+    };
+  });
+  check("resolving an official duplicate publishes the category with the question removed",
+    resolveOfficial.published === 1 && resolveOfficial.publishedId === "off1" && resolveOfficial.publishedQCount === 0);
+  check("the official duplicate clears from the report after publishing", !resolveOfficial.stillDup);
 
   // A clean catalog (no injected dupes, and none in built-ins) shows the all-clear.
   const clean = await page.evaluate(() => {
