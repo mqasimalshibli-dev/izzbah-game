@@ -4397,6 +4397,10 @@
     .dup-occ-pts { color: var(--gold-dark); font-weight: 800; }
     .dup-occ-a { color: #1f5237; }
     .dup-occ-row.same-cat .dup-occ-cat::after { content: " ⚠"; }
+    .dup-del { min-height: 0; padding: 4px 12px; font: 800 12px 'Cairo', sans-serif; border-radius: 999px; margin-inline-start: auto;
+      background: #fdeaea; color: #9e1322; border: 1.5px solid rgba(158, 28, 28, .3); box-shadow: none; flex: 0 0 auto; }
+    .dup-del:hover { background: #f7d7d7; }
+    .dup-del:disabled { opacity: .6; }
 
     /* ===== Player ↔ developer feedback (two-way chat) ===== */
     .feedback-modal { display: flex; flex-direction: column; max-height: 88vh; }
@@ -5814,10 +5818,10 @@
   <div class="modal-backdrop" id="dupModal" aria-hidden="true">
     <div class="question-modal dup-modal" role="dialog" aria-modal="true" aria-labelledby="dupTitle">
       <div class="settings-head">
-        <h3 class="preview-title" id="dupTitle">🔎 الأسئلة المكرّرة</h3>
+        <h3 class="preview-title" id="dupTitle">🔎 المتكررات</h3>
         <button class="settings-close" id="dupClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص لكل الأسئلة (الفئات الرسمية وفئات المجتمع). <b>مكرّر</b> = السؤال والإجابة متطابقان، <b>تعارض</b> = نفس السؤال بإجابات مختلفة. أداة عرض فقط — عدّل الفئات يدوياً من «إدارة المحتوى».</p>
+      <p class="dup-note">فحص لكل الأسئلة (الفئات الرسمية وفئات المجتمع). <b>مكرّر</b> = السؤال والإجابة متطابقان، <b>تعارض</b> = نفس السؤال بإجابات مختلفة. اضغط «حذف هذه» بجانب أي نسخة لإزالتها والإبقاء على البقية.</p>
       <div class="dup-summary" id="dupSummary"></div>
       <div class="dup-list" id="dupList"></div>
       <div class="actions">
@@ -6250,8 +6254,8 @@
           </button>
           <button class="admin-choice-btn" id="adminChoiceDupes" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🔎</span>
-            <span class="admin-choice-name">الأسئلة المكرّرة</span>
-            <span class="admin-choice-sub">افحص كل الفئات وابحث عن التكرار والتعارض</span>
+            <span class="admin-choice-name">المتكررات</span>
+            <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
           </button>
         </div>
         <div class="actions">
@@ -9548,7 +9552,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.89";
+    const IZZBAH_BUILD = "2026-07-10.90";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12860,15 +12864,15 @@
     // (they're per-device, not part of the shared catalog).
     function collectAllQuestionsForDup() {
       const out = [];
-      const push = cat => (cat.questions || []).forEach(q => {
+      const push = (cat, community) => (cat.questions || []).forEach((q, qIdx) => {
         const qt = (q.q || "").trim();
         if (!qt) return;
-        out.push({ catId: cat.id, catName: cat.name || "بدون اسم", points: q.points || 0, q: qt, a: (q.a || "").trim() });
+        out.push({ catId: cat.id, catName: cat.name || "بدون اسم", points: q.points || 0, q: qt, a: (q.a || "").trim(), qIdx, community: !!community });
       });
       const merged = mergedOfficialCategories();
-      merged.builtins.forEach(push);
-      merged.extras.forEach(push);
-      (state.communityCategories || []).forEach(push);
+      merged.builtins.forEach(c => push(c, false));
+      merged.extras.forEach(c => push(c, false));
+      (state.communityCategories || []).forEach(c => push(c, true));
       return out;
     }
     function findDuplicateQuestions() {
@@ -12910,19 +12914,64 @@
         const box = document.createElement("div");
         box.className = "dup-group" + (g.conflict ? " conflict" : "");
         const tag = g.conflict ? `<span class="dup-tag conf">تعارض</span>` : `<span class="dup-tag dup">مكرّر</span>`;
-        let html = `<div class="dup-q">${escapeHtml(toArabicDigits(g.items[0].q))}${tag}</div><div class="dup-occ">`;
+        box.insertAdjacentHTML("beforeend", `<div class="dup-q">${escapeHtml(toArabicDigits(g.items[0].q))}${tag}</div>`);
+        const occ = document.createElement("div");
+        occ.className = "dup-occ";
         g.items.forEach(it => {
           const sameCat = g.items.filter(x => x.catId === it.catId).length > 1;
-          html += `<div class="dup-occ-row${sameCat ? " same-cat" : ""}">`
-            + `<span class="dup-occ-cat">${escapeHtml(it.catName)}</span>`
+          const row = document.createElement("div");
+          row.className = "dup-occ-row" + (sameCat ? " same-cat" : "");
+          row.innerHTML = `<span class="dup-occ-cat">${escapeHtml(it.catName)}</span>`
             + `<span class="dup-occ-pts">${toArabicDigits(it.points)}</span>`
-            + `<span class="dup-occ-a">← ${escapeHtml(toArabicDigits(it.a || "—"))}</span>`
-            + `</div>`;
+            + `<span class="dup-occ-a">← ${escapeHtml(toArabicDigits(it.a || "—"))}</span>`;
+          const del = document.createElement("button");
+          del.className = "dup-del"; del.type = "button"; del.textContent = "حذف هذه";
+          del.addEventListener("click", () => resolveDuplicateOccurrence(it, del));
+          row.appendChild(del);
+          occ.appendChild(row);
         });
-        html += `</div>`;
-        box.innerHTML = html;
+        box.appendChild(occ);
         list.appendChild(box);
       });
+    }
+    // Resolve a duplicate by removing ONE occurrence from its category and
+    // persisting the change (official categories publish to the cloud catalog;
+    // community categories update their doc). The rest of the group is kept.
+    function persistOfficialCategoryEdit(cat) {
+      const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
+      if (!cloud) return Promise.reject(new Error("no cloud"));
+      return fitCategoryForPublish(cat).then(fits => {
+        if (!fits) throw new Error("images too big");
+        return cloud(cat).then(() => { upsertPublished(JSON.parse(JSON.stringify(cat))); });
+      });
+    }
+    function resolveDuplicateOccurrence(occ, btn) {
+      if (!occ) return;
+      if (!window.confirm(`حذف هذا السؤال من فئة «${occ.catName}»؟ يبقى بقية النسخ.`)) return;
+      let cat = null, isCommunity = false;
+      if (occ.community) { cat = (state.communityCategories || []).find(c => c.id === occ.catId); isCommunity = true; }
+      else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === occ.catId) || m.extras.find(c => c.id === occ.catId); }
+      if (!cat) { showToast("تعذّر إيجاد الفئة"); return; }
+      const clone = JSON.parse(JSON.stringify(cat));
+      let idx = occ.qIdx;
+      const matches = q => (q.q || "").trim() === occ.q && (q.a || "").trim() === occ.a && (q.points || 0) === occ.points;
+      if (!(idx >= 0 && clone.questions[idx] && matches(clone.questions[idx]))) idx = clone.questions.findIndex(matches);
+      if (idx < 0) { showToast("تعذّر إيجاد السؤال — أعد الفحص"); return; }
+      clone.questions.splice(idx, 1);
+      if (btn) { btn.disabled = true; btn.textContent = "جارٍ…"; }
+      const done = () => { showToast("تم حذف السؤال المكرّر"); renderDupReport(); };
+      const fail = () => { showToast("تعذّر الحذف — حاول مرة أخرى"); if (btn) { btn.disabled = false; btn.textContent = "حذف هذه"; } };
+      if (isCommunity) {
+        const b = window.IZZBAH && window.IZZBAH.adminSetCommunityQuestions;
+        if (!b) { fail(); return; }
+        b(clone.id, clone.questions).then(() => {
+          const i = state.communityCategories.findIndex(c => c.id === clone.id);
+          if (i >= 0) state.communityCategories[i] = clone;
+          done();
+        }).catch(fail);
+      } else {
+        persistOfficialCategoryEdit(clone).then(done).catch(fail);
+      }
     }
     function openDupModal() {
       renderDupReport();
@@ -17326,6 +17375,20 @@
             return db.collection("feedback").doc(uid).collection("messages").add({
               from: "admin", text: t, name: "المطوّر",
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          };
+          // Admin edits a community category's questions in place (used by the
+          // duplicate scanner to remove a repeated question). Admin update is
+          // allowed by the community rules; the shape mirrors the stored one.
+          window.IZZBAH.adminSetCommunityQuestions = function (catId, questions) {
+            if (!catId) return Promise.reject(new Error("no category"));
+            return db.collection("community").doc(catId).update({
+              questions: (questions || []).map(q => ({
+                points: q.points || 0, q: q.q || "", a: q.a || "",
+                image: q.image || "", answerImage: q.answerImage || "",
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+              })),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
           };
           window.IZZBAH.adminListFeedback = function () {
