@@ -73,6 +73,34 @@ try {
     && published.icon === "🎉" && published.pinned === true && published.active === true && /^#/.test(published.color));
   check("a brand-new announcement carries no id (create, not edit)", !published.id);
 
+  // ---- 1b) MULTIPLE images: compose several, preview + publish carry them all ----
+  const PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  const multi = await page.evaluate(async (px) => {
+    window.__pub = [];
+    window.IZZBAH.publishAnnouncement = (a) => { window.__pub.push(a); return Promise.resolve("idm"); };
+    resetAnnForm();
+    annDraftImages = [px, px, px];
+    renderAnnImageSlot(); renderAnnPreview();
+    document.getElementById("annTitle").value = "عدة صور";
+    document.getElementById("annTitle").dispatchEvent(new Event("input", { bubbles: true }));
+    const previewImgs = document.querySelectorAll("#annPreview .ann-card .ann-card-img").length;
+    const slotItems = document.querySelectorAll("#annImageSlot .ann-img-item").length; // 3 + 1 add
+    document.getElementById("annPublish").click();
+    await new Promise(r => setTimeout(r, 300));
+    const pub = window.__pub[0] || {};
+    return { previewImgs, slotItems, pubImages: (pub.images || []).length, hasCover: !!pub.image };
+  }, PX);
+  check("the composer previews every image you add", multi.previewImgs === 3);
+  check("the composer shows an «add another» slot after the current images", multi.slotItems === 4);
+  check("publishing carries all images (plus image[0] for older clients)", multi.pubImages === 3 && multi.hasCover);
+
+  const render = await page.evaluate((px) => {
+    const box = document.getElementById("annPreview");
+    renderAnnouncementCards(box, [{ title: "معرض", body: "صور", images: [px, px, px], createdAt: 1 }]);
+    return box.querySelectorAll(".ann-card .ann-card-img").length;
+  }, PX);
+  check("an announcement with several images renders all of them", render === 3);
+
   // ---- 2) ADMIN: existing list -> edit loads the form, delete calls bridge ----
   const manage = await page.evaluate(async () => {
     window.IZZBAH.listAnnouncements = () => Promise.resolve([
