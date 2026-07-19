@@ -77,11 +77,12 @@ try {
     sendFeedbackMsg();
     await new Promise(r => setTimeout(r, 120));
     const shown = document.getElementById("fbGuidelinesModal").classList.contains("open");
+    const privacy = /خاصة/.test(document.getElementById("fbGuidelinesModal").textContent) && /لا يراها/.test(document.getElementById("fbGuidelinesModal").textContent);
     const sentYet = window.__fb.sent.length;
     document.getElementById("fbGuidelinesAgree").click(); // agree & send
     await new Promise(r => setTimeout(r, 220));
     return {
-      shown, sentYet, sent: window.__fb.sent.slice(),
+      shown, privacy, sentYet, sent: window.__fb.sent.slice(),
       acked: localStorage.getItem("izzbah-feedback-guidelines-v1"),
       bubbles: document.querySelectorAll("#feedbackThread .fb-user").length,
       input: document.getElementById("feedbackInput").value,
@@ -89,6 +90,7 @@ try {
     };
   });
   check("the FIRST send shows a respectful-conduct reminder and holds the message", gate.shown && gate.sentYet === 0);
+  check("the reminder states the chat is private (only the player + devs see it)", gate.privacy);
   check("agreeing sends the message, records the acknowledgment, and appends it",
     gate.sent.length === 1 && gate.sent[0] === "أحب اللعبة كثيراً!" && gate.acked === "1" && gate.bubbles >= 2 && gate.input === "" && gate.modalClosed);
 
