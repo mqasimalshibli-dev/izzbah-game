@@ -296,7 +296,7 @@ service cloud.firestore {
     // edit or delete, and the write is shape/size-checked. On edit, createdAt
     // is preserved (affectedKeys excludes it).
     function validAnnounce(ks) {
-      return ks.hasOnly(['title', 'body', 'icon', 'color', 'image', 'active', 'pinned', 'createdAt', 'updatedAt']);
+      return ks.hasOnly(['title', 'body', 'icon', 'color', 'image', 'images', 'active', 'pinned', 'createdAt', 'updatedAt']);
     }
     match /announcements/{id} {
       allow read: if true;
@@ -307,13 +307,19 @@ service cloud.firestore {
         && request.resource.data.icon is string  && request.resource.data.icon.size() <= 8
         && request.resource.data.color is string && request.resource.data.color.size() <= 20
         && request.resource.data.image is string && request.resource.data.image.size() <= 900000
+        // 'images' is an optional gallery (each shrunk client-side; the whole
+        // doc is still bounded by Firestore's 1 MiB limit).
+        && request.resource.data.get('images', []) is list
+        && request.resource.data.get('images', []).size() <= 8
         && request.resource.data.active is bool
         && request.resource.data.pinned is bool;
       allow update: if isAdmin()
         && validAnnounce(request.resource.data.diff(resource.data).affectedKeys())
         && request.resource.data.title is string && request.resource.data.title.size() <= 120
         && request.resource.data.body is string  && request.resource.data.body.size() <= 2000
-        && request.resource.data.image is string && request.resource.data.image.size() <= 900000;
+        && request.resource.data.image is string && request.resource.data.image.size() <= 900000
+        && request.resource.data.get('images', []) is list
+        && request.resource.data.get('images', []).size() <= 8;
       allow delete: if isAdmin();
     }
 
