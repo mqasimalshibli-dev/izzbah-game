@@ -21,27 +21,27 @@
   <link rel="manifest" href="assets/brand/manifest.webmanifest">
   <meta name="theme-color" content="#9E1C1C">
   <meta name="description" content="عِزبة — لعبة أسئلة جماعية عربية. تحدَّ أصدقاءك في فئات متنوّعة: تاريخ، علوم، جغرافيا، رياضة، أفلام، سيرة، وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
-  <link rel="canonical" href="https://mqasimalshibli-dev.github.io/izzbah-game/game-mobile.html">
+  <link rel="canonical" href="https://izzbah.com/game-mobile.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="عِزبة">
   <meta property="og:locale" content="ar_AR">
   <meta property="og:title" content="عِزبة — لعبة أسئلة جماعية عربية">
   <meta property="og:description" content="تحدَّ أصدقاءك في فئات متنوّعة وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
-  <meta property="og:url" content="https://mqasimalshibli-dev.github.io/izzbah-game/game-mobile.html">
-  <meta property="og:image" content="https://mqasimalshibli-dev.github.io/izzbah-game/assets/brand/png/social/og-image.png">
+  <meta property="og:url" content="https://izzbah.com/game-mobile.html">
+  <meta property="og:image" content="https://izzbah.com/assets/brand/png/social/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="عِزبة — لعبة أسئلة جماعية عربية">
   <meta name="twitter:description" content="تحدَّ أصدقاءك في فئات متنوّعة وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
-  <meta name="twitter:image" content="https://mqasimalshibli-dev.github.io/izzbah-game/assets/brand/png/social/og-image.png">
+  <meta name="twitter:image" content="https://izzbah.com/assets/brand/png/social/og-image.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "عِزبة",
     "alternateName": "Izzbah",
-    "url": "https://mqasimalshibli-dev.github.io/izzbah-game/",
+    "url": "https://izzbah.com/",
     "description": "لعبة أسئلة جماعية عربية بفئات متنوّعة وألعاب تمثيل «وش الكلمة». تُلعب مجانًا من المتصفح.",
     "inLanguage": "ar",
     "applicationCategory": "GameApplication",
@@ -9345,7 +9345,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.79";
+    const IZZBAH_BUILD = "2026-07-10.80";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12964,7 +12964,7 @@
         "٢. من شاشة «الألعاب» أو «الإعدادات»، اكتبوا الكود في خانة «عندك كود؟».",
         "٣. اضغطوا «تفعيل» — يُضاف الرصيد إلى حسابكم فوراً.",
         "",
-        "رابط اللعبة: https://mqasimalshibli-dev.github.io/izzbah-game/",
+        "رابط اللعبة: https://izzbah.com/",
         "",
         "لأي استفسار يسعدنا ردّكم على هذه الرسالة مباشرة.",
         "",
@@ -15290,7 +15290,7 @@
       const head = isDraw
         ? `🏆 تعادل في عِزبة بنتيجة ${toArabicDigits(top.score)}!`
         : (top ? `🏆 فاز ${top.name} في عِزبة بـ ${toArabicDigits(top.score)} نقطة!` : "عِزبة \u2014 النتائج النهائية");
-      const link = "https://mqasimalshibli-dev.github.io/izzbah-game/";
+      const link = "https://izzbah.com/";
       return `${head}\n\n${ranked.join("\n")}\n\nالعب عِزبة \u2014 لعبة الأسئلة الجماعية:\n${link}`;
     }
 
@@ -15405,7 +15405,7 @@
         });
         // Footer link
         ctx.fillStyle = "#E8B45A"; ctx.font = "600 30px 'Cairo', sans-serif";
-        ctx.fillText("العب مجاناً — mqasimalshibli-dev.github.io/izzbah-game", W / 2, H - 70);
+        ctx.fillText("العب مجاناً — izzbah.com", W / 2, H - 70);
         // JPEG keeps the card ~10× smaller than PNG (no transparency needed),
         // which shares faster on mobile data.
         return new Promise((resolve, reject) =>
