@@ -2,6 +2,17 @@
 
 ## Pending TODOs (user-requested)
 
+- **Web Push notifications — PARKED until after release (owner's call,
+  2026-07-19).** Today announcements + personal reward messages are in-app
+  only (badge on the settings gear → «إعلانات المطوّر»); nothing reaches the
+  phone's tray. Post-release, build Web Push: a Cloud Function (Blaze is
+  active) that sends FCM pushes when an announcement is published, plus
+  client-side opt-in (friendly button, not an ambush prompt), FCM token
+  storage, and a push handler in sw.js. Start with announcements; wire the
+  personal approval-reward messages second. iOS caveat: Web Push needs the
+  PWA installed to the home screen (16.4+). If the App Store app ships,
+  revisit with native push.
+
 - **Automate the pack-order confirmation email, gated on payment.** Today the
   flow is manual: a player taps a pack → order lands in the admin's
   subscription panel → the admin presses «كود + بريد التأكيد», which mints the
@@ -34,7 +45,8 @@ existing questions or pictures; findings go to the owner, who acts.
 ## Standing conventions in this repo
 
 - Single self-contained game file: `game-mobile.html` (Arabic, RTL). Firebase
-  compat SDK, project `izzbahgame`, FREE Spark plan — no backend/functions.
+  compat SDK, project `izzbahgame`, BLAZE plan (Cloud Functions available but
+  none deployed yet — the game still runs fully client-side).
 - Develop on the designated feature branch, merge `--no-ff` into `root`
   (the GitHub Pages branch), push, and verify the smoke workflow is green.
 - Bump `IZZBAH_BUILD` on every deploy.
