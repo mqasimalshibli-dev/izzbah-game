@@ -17,7 +17,8 @@ const page = await browser.newPage({ viewport: { width: 1300, height: 800 } });
 await page.route("**/firebasejs/**", route => route.abort());
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
-page.on("dialog", d => d.accept().catch(() => {}));
+let lastDialog = "";
+page.on("dialog", d => { lastDialog = d.message(); d.accept().catch(() => {}); });
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 // force a clean, non-privileged player with a known allowance
@@ -125,6 +126,62 @@ try {
   }, paidGameId);
   const abandoned = await snap();
   check("leaving a game without finishing (nav away, no ✕) spends nothing", abandoned.used === 2);
+
+  // ---- hopping to a NEW game ABANDONS a PLAYED unfinished one (warns + charges) ----
+  // Closes the "start, play most of it, leave, start another, repeat" loophole:
+  // starting a fresh game while a game you ACTUALLY played is still unfinished
+  // warns and spends one game for the abandoned board.
+  await page.evaluate(() => {
+    state.isAdmin = false; state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 5; state.gamesUsed = 0;
+    state.editingSavedGameId = null; state.gameCounted = false;
+    state.selected = new Set(["history"]);
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+  });
+  await page.click("#board .board-category-card .cell:not(.used)"); // open a question → "played"
+  const hop = await page.evaluate(() => {
+    saveLiveGame();               // persist the opened-question progress
+    showScreen("categories");     // walk away — NOT the ✕
+    const usedMid = state.gamesUsed;
+    state.editingSavedGameId = null; state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();                  // starting another abandons the played one
+    return { usedMid, usedAfter: state.gamesUsed, screen: document.body.dataset.screen };
+  });
+  check("walking away from a PLAYED game costs nothing on its own", hop.usedMid === 0);
+  check("the new-game warning mentions losing progress AND a game charge",
+    /لم تكتمل/.test(lastDialog) && /تُخصم لعبة واحدة/.test(lastDialog));
+  check("starting another game charges exactly one for the abandoned played game",
+    hop.usedAfter === 1 && hop.screen === "game");
+
+  // ---- starting over an UNTOUCHED game charges nothing (and asks nothing) ----
+  const hop2 = await page.evaluate(() => {
+    showScreen("categories"); // the game just started (hop) had no question opened
+    const before = state.gamesUsed;
+    state.editingSavedGameId = null; state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    return { before, after: state.gamesUsed };
+  });
+  check("starting over an UNTOUCHED game spends nothing (no abandon charge)", hop2.before === hop2.after);
+
+  // ---- an admin hopping to a new game is warned but NOT charged ----
+  const hopAdmin = await page.evaluate(() => {
+    window.IZZBAH.applyAdmin(true); state.isAdmin = true; state.gamesUsed = 3;
+    state.editingSavedGameId = null; state.gameCounted = false;
+    state.selected = new Set(["history"]);
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    state.used.add("history-100"); saveLiveGame(); // pretend a question was played
+    showScreen("categories");
+    state.editingSavedGameId = null; state.gameCounted = false;
+    startGame();
+    return { used: state.gamesUsed };
+  });
+  check("an admin hopping to a new game is NOT charged for the abandoned one", hopAdmin.used === 3);
+  check("the admin new-game warning doesn't threaten a game charge",
+    !/تُخصم لعبة واحدة/.test(lastDialog) && /لم تكتمل/.test(lastDialog));
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
