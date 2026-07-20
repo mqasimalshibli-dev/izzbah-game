@@ -6459,6 +6459,7 @@
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
           <button class="ghost" id="exitGame" aria-label="خروج" title="خروج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+          <button class="ghost" id="pauseGame" aria-label="إيقاف مؤقت" title="إيقاف مؤقت"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
           <button class="ghost" id="soundToggle" aria-label="كتم الأصوات" title="كتم الأصوات"><svg class="snd-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><svg class="snd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
           <button class="gold-btn" id="endGameEarly" aria-label="إنهاء وعرض النتائج" title="إنهاء وعرض النتائج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg></button>
         </div>
@@ -9622,7 +9623,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.102";
+    const IZZBAH_BUILD = "2026-07-10.103";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11517,7 +11518,23 @@
         <button class="ghost" type="button" data-resume-discard><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>تجاهل</span></button>`;
       card.appendChild(actions);
       actions.querySelector("[data-resume-continue]").addEventListener("click", () => { resumeLiveGame(); });
-      actions.querySelector("[data-resume-discard]").addEventListener("click", () => { clearLiveGame(); renderGameLibrary(); });
+      actions.querySelector("[data-resume-discard]").addEventListener("click", () => {
+        // Tossing an unfinished game is an ABANDON, same as the in-game ✕: it
+        // warns, and (unless already counted / admin / subscriber) spends one
+        // game. Closing without a warning would be a free way to dodge the cost.
+        const willCharge = !(live && live.counted) && !state.isAdmin && !premiumActive();
+        const msg = willCharge
+          ? "إذا تجاهلت هذه اللعبة غير المكتملة ستفقد تقدّمك فيها، وتُخصم لعبة واحدة من رصيدك.\nهل تريد تجاهلها؟"
+          : "إذا تجاهلت هذه اللعبة غير المكتملة ستفقد تقدّمك فيها.\nهل تريد تجاهلها؟";
+        if (!window.confirm(msg)) return;
+        if (willCharge) {
+          spendGameCredit();
+          const rec = (live && live.savedGameId) ? state.savedGames.find(g => g.id === live.savedGameId) : null;
+          if (rec) { rec.charged = true; saveSavedGames(); }
+        }
+        clearLiveGame();
+        renderGameLibrary();
+      });
       return card;
     }
 
@@ -16488,6 +16505,16 @@
         if (rec) { rec.charged = true; saveSavedGames(); }
       }
       clearLiveGame();
+      resetScores();
+      showScreen("menu");
+    });
+    $("#pauseGame").addEventListener("click", () => {
+      // Pause = suspend, don't abandon. The board (scores, opened cells, and the
+      // pinned questions) is kept so «متابعة اللعبة» resumes it exactly, and NO
+      // game is charged — the credit is only spent on finish or on an abandon.
+      if (!window.confirm("هل تريد إيقاف اللعبة مؤقتًا؟\nسيُحفظ تقدّمك وتقدر تكملها لاحقًا من «ألعابك»، ولن تُخصم لعبة.")) return;
+      saveLiveGame();
+      state.gameActive = false;
       resetScores();
       showScreen("menu");
     });

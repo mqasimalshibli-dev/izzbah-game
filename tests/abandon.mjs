@@ -1,7 +1,10 @@
 // The in-game ✕ ABANDONS the run: it warns that progress AND one game are lost,
-// then (on confirm) spends one game. Distinct from navigating away / resuming,
-// which keep the board and only charge on finish. Also: an UNSAVED game pins its
-// questions so a resume never re-rolls, and the resume card lists the categories.
+// then (on confirm) spends one game. The resume card's «تجاهل» is the same
+// abandon (warns + charges) so closing an unfinished game can't dodge the cost.
+// The «إيقاف مؤقت» pause is the opposite: it warns, saves, and charges NOTHING —
+// the game stays resumable. Distinct from navigating away / resuming, which keep
+// the board and only charge on finish. Also: an UNSAVED game pins its questions
+// so a resume never re-rolls, and the resume card lists the categories.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -104,6 +107,66 @@ try {
   });
   check("the incomplete-game card shows the categories being played", resumeCard.chips === 3);
   check("the incomplete-game card keeps the «غير مكتملة» badge + a category count", resumeCard.badge && resumeCard.count);
+
+  // ---- 4) «تجاهل» closes an unfinished game — warns + spends one game ----
+  const discard = await page.evaluate(() => {
+    state.isAdmin = false; state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 5; state.gamesUsed = 0;
+    state.savedGames = [{ id: "sg-x", title: "لعبة", categoryIds: ["history"], frozen: {}, charged: false }];
+    const live = { selected: ["history"], currentGameName: "لعبة", counted: false, savedGameId: "sg-x",
+      teams: [{ name: "أ", score: 0 }, { name: "ب", score: 0 }] };
+    const card = buildResumeCard(live);
+    document.body.appendChild(card);
+    const usedBefore = state.gamesUsed;
+    card.querySelector("[data-resume-discard]").click(); // dialog auto-accepted
+    const rec = state.savedGames.find(g => g.id === "sg-x");
+    const stillLive = !!localStorage.getItem("izzbah-trivia-live-game-v1");
+    return { usedBefore, usedAfter: state.gamesUsed, charged: rec && rec.charged, stillLive };
+  });
+  check("«تجاهل» warns that progress AND a game are lost", /لعبة واحدة/.test(lastDialog) && /تفقد تقدّمك/.test(lastDialog));
+  check("confirming «تجاهل» spends exactly one game", discard.usedBefore === 0 && discard.usedAfter === 1);
+  check("the discarded record is marked charged (and the live game is cleared)", discard.charged === true && !discard.stillLive);
+
+  // ---- 4b) an admin closing an unfinished game loses nothing (softer warning)
+  const discardAdmin = await page.evaluate(() => {
+    window.IZZBAH.applyAdmin(true); state.isAdmin = true; state.gamesUsed = 7;
+    state.savedGames = [{ id: "sg-a", title: "ل", categoryIds: ["history"], frozen: {}, charged: false }];
+    const live = { selected: ["history"], counted: false, savedGameId: "sg-a", teams: [{ name: "أ", score: 0 }] };
+    const card = buildResumeCard(live);
+    document.body.appendChild(card);
+    card.querySelector("[data-resume-discard]").click();
+    return { used: state.gamesUsed };
+  });
+  check("an admin «تجاهل» is NOT charged", discardAdmin.used === 7);
+  check("the admin «تجاهل» warning doesn't threaten a game charge", !/لعبة واحدة/.test(lastDialog) && /تفقد تقدّمك/.test(lastDialog));
+
+  // ---- 5) «إيقاف مؤقت» pause — warns, saves, charges NOTHING, stays resumable
+  const pause = await page.evaluate(() => {
+    window.IZZBAH.applyAdmin(false); state.isAdmin = false;
+    state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 5; state.gamesUsed = 0;
+    state.selected = new Set(["history"]); state.editingSavedGameId = null;
+    state.teamCount = 2; state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    const savedId = state.editingSavedGameId;
+    const usedBefore = state.gamesUsed;
+    document.getElementById("pauseGame").click(); // dialog auto-accepted
+    const liveAfter = getLiveGameInfo();
+    return {
+      usedBefore, usedAfter: state.gamesUsed,
+      active: state.gameActive,
+      onMenu: document.getElementById("menu").classList.contains("active"),
+      liveKept: !!liveAfter,
+      liveCounted: liveAfter && !!liveAfter.counted,
+      liveId: liveAfter && liveAfter.savedGameId, savedId,
+    };
+  });
+  check("pause asks the host to confirm", /إيقاف اللعبة مؤقتًا/.test(lastDialog));
+  check("pausing does NOT charge a game", pause.usedBefore === 0 && pause.usedAfter === 0);
+  check("pausing ends the active session and returns to the menu", !pause.active && pause.onMenu);
+  check("pausing keeps the live game resumable (kept, uncounted, same record)",
+    pause.liveKept && !pause.liveCounted && pause.liveId === pause.savedId);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
