@@ -9452,13 +9452,19 @@
     function isRiddlesCategory(cat) {
       return /لغاز/.test(String((cat && cat.name) || ""));
     }
+    // «إيش يجمعهم؟» — the connections game (4 items → find the common link). Like
+    // the emoji and riddle categories, every question is a FLAT 200 points.
+    // Matched by NAME (cloud/admin category); covers «يجمعهم»/«يجمعها» spellings.
+    function isConnectionsCategory(cat) {
+      return /يجمعه[مان]/.test(String((cat && cat.name) || ""));
+    }
     // Every puzzle in the emoji AND riddle categories is worth a FLAT 200 points
     // — whatever board cell it came from — while other categories keep their
     // tier value. The underlying data/tiers are untouched; this only drives what
     // is shown and awarded, so the board cells still stay distinct per tier.
     const EMOJI_REWARD = 200;
     function isFlat200Category(cat) {
-      return isEmojiCategory(cat) || isRiddlesCategory(cat);
+      return isEmojiCategory(cat) || isRiddlesCategory(cat) || isConnectionsCategory(cat);
     }
     function questionReward(cat, q) {
       return isFlat200Category(cat) ? EMOJI_REWARD : ((q && q.points) || 0);
@@ -9626,7 +9632,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.108";
+    const IZZBAH_BUILD = "2026-07-10.109";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11683,6 +11689,9 @@
       }
       if (isRiddlesCategory(cat)) {
         return "ألغاز وأحاجٍ ذكية تتحدّى بديهتكم — فكّروا معاً وخمّنوا الحل قبل خصمكم. كل لغز بـ ٢٠٠ نقطة.";
+      }
+      if (isConnectionsCategory(cat)) {
+        return "أربع كلمات ولها رابط خفيّ — اكتشفوا ما الذي يجمعها قبل خصمكم. كل سؤال بـ ٢٠٠ نقطة.";
       }
       if (isNearestWinsCategory(cat)) {
         return "أسئلة تخمين بالأرقام — قدّروا الإجابة، والفريق الأقرب للرقم الصحيح يخطف نقاط الجولة.";
