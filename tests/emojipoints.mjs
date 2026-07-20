@@ -116,6 +116,16 @@ try {
   check("a connections question shows 200 نقطة", /200/.test(conns.modal) && /نقطة/.test(conns.modal));
   check(`answering a connections question awards exactly 200 (got ${conns.score})`, conns.score === 200);
 
+  // the connections matcher covers BOTH names the category ships under
+  const nameMatch = await page.evaluate(() => ({
+    a: isConnectionsCategory({ name: "إيش يجمعهم؟" }),
+    b: isConnectionsCategory({ name: "وش الرابط؟" }),
+    c: isConnectionsCategory({ name: "ما الرابط بينهم؟" }),
+    d: isConnectionsCategory({ name: "تاريخ" }),
+  }));
+  check("«إيش يجمعهم؟» AND «وش الرابط؟» both count as connections; a normal name doesn't",
+    nameMatch.a && nameMatch.b && nameMatch.c && !nameMatch.d);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
