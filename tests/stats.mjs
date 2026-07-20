@@ -139,6 +139,34 @@ try {
     && /٢٥٪|25٪/.test(view.play) && /١٥ ث|15 ث/.test(view.play)
     && /رصيد ٢٥|رصيد 25/.test(view.play));
 
+  // ---- 3b) the «لم تُلعب بعد» tile is pressable and reveals WHICH categories ----
+  const reveal = await page.evaluate(async () => {
+    const tile = document.querySelector('#statsHealth [data-reveal="never"]');
+    if (!tile) return { hasTile: false };
+    tile.click();
+    await new Promise(r => setTimeout(r, 60));
+    const box = document.getElementById("statsHealthReveal");
+    const chips = [...box.querySelectorAll(".stats-reveal-chip")];
+    return { hasTile: true, revealed: !box.hidden, chipCount: chips.length, firstName: chips[0] ? chips[0].textContent : "" };
+  });
+  check("the «لم تُلعب بعد» tile is pressable (data-reveal)", reveal.hasTile);
+  check("pressing it reveals the never-played category names as chips", reveal.revealed && reveal.chipCount > 0);
+
+  // pressing a category chip opens it in the CMS editor and closes the stats modal
+  const jumped = await page.evaluate(async () => {
+    const chip = document.querySelector("#statsHealthReveal .stats-reveal-chip");
+    const name = chip.textContent;
+    chip.click();
+    await new Promise(r => setTimeout(r, 100));
+    return {
+      modalClosed: !document.getElementById("statsModal").classList.contains("open"),
+      loadedName: state.adminCat ? state.adminCat.name : "",
+      name,
+    };
+  });
+  check("pressing a chip opens that category in the CMS and closes the stats modal",
+    jumped.modalClosed && jumped.loadedName === jumped.name);
+
   // ---- 4) empty stats render friendly placeholders, not a broken board ----
   const empty = await page.evaluate(async () => {
     window.IZZBAH.loadStats = () => Promise.resolve({});

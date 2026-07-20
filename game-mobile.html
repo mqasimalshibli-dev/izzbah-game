@@ -4578,6 +4578,17 @@
     .stats-tile { flex: 1 1 130px; background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 11px; padding: 12px 14px; text-align: center; }
     .stats-tile-num { font: 900 26px 'Cairo', sans-serif; color: #7a1414; line-height: 1.1; }
     .stats-tile-lbl { font: 700 12.5px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; }
+    .stats-tile-sub { font: 700 10.5px 'Cairo', sans-serif; color: #9a7f45; margin-top: 2px; }
+    /* pressable health tiles (never-played / no-cover) reveal their category list */
+    .stats-tile--action { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+    .stats-tile--action:hover { transform: translateY(-1px); border-color: #c8232f; box-shadow: 0 4px 12px rgba(122,20,20,.16); }
+    .stats-tile--action:active { transform: translateY(0); }
+    .stats-tile--action .stats-tile-sub { color: #b51f2b; }
+    .stats-reveal { margin: 4px 0 2px; background: #fbf4e3; border: 1px dashed rgba(201,151,74,.6); border-radius: 11px; padding: 10px 12px; }
+    .stats-reveal-head { font: 800 12.5px 'Cairo', sans-serif; color: #7a6738; margin-bottom: 8px; }
+    .stats-reveal-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .stats-reveal-chip { font: 700 12.5px 'Cairo', sans-serif; color: #7a1414; background: #f7efd9; border: 1px solid rgba(201,151,74,.55); border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+    .stats-reveal-chip:hover { background: #fff; border-color: #c8232f; }
     .stats-bars { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
     .stats-bar-row { background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 9px; padding: 8px 11px; }
     .stats-bar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
@@ -6369,6 +6380,7 @@
 
         <div class="prem-list-head"><span>صحة المحتوى</span></div>
         <div class="stats-tiles" id="statsHealth"></div>
+        <div class="stats-reveal" id="statsHealthReveal" hidden></div>
 
         <div class="prem-list-head"><span>اللاعبون والاشتراكات</span></div>
         <div class="stats-tiles" id="statsPlayers"></div>
@@ -9632,7 +9644,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.111";
+    const IZZBAH_BUILD = "2026-07-10.112";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13413,8 +13425,8 @@
       const c = (typeof allCategories === "function" ? allCategories() : []).find(x => x.id === id);
       return (c && c.name) || id;
     }
-    function statsTileHtml(num, label, sub) {
-      return `<div class="stats-tile"><div class="stats-tile-num">${num}</div><div class="stats-tile-lbl">${label}</div>`
+    function statsTileHtml(num, label, sub, attrs) {
+      return `<div class="stats-tile${attrs ? " stats-tile--action" : ""}"${attrs ? " " + attrs : ""}><div class="stats-tile-num">${num}</div><div class="stats-tile-lbl">${label}</div>`
         + (sub ? `<div class="stats-tile-sub">${sub}</div>` : "") + `</div>`;
     }
     function statsRankedBars(container, rows, emptyMsg) {
@@ -13473,15 +13485,48 @@
 
       // ---- content health (computed from the loaded categories, no reads) ----
       const cats = (typeof allCategories === "function" ? allCategories() : []).filter(c => !c.community && !c.custom);
-      const noCover = cats.filter(c => !c.image && categoryHasQuestions(c)).length;
-      const neverPlayed = cats.filter(c => categoryHasQuestions(c) && !N(plays[c.id])).length;
+      const noCoverCats = cats.filter(c => !c.image && categoryHasQuestions(c));
+      const neverPlayedCats = cats.filter(c => categoryHasQuestions(c) && !N(plays[c.id]));
+      const noCover = noCoverCats.length;
+      const neverPlayed = neverPlayedCats.length;
       const pending = (state.pendingCommunity || []).length;
       const totalQs = cats.reduce((s, c) => s + ((c.questions || []).filter(q => (q && q.q || "").trim() || (q && q.a || "").trim()).length), 0);
       $("#statsHealth").innerHTML =
         statsTileHtml(toArabicDigits(totalQs), "سؤالاً منشوراً")
-        + statsTileHtml(toArabicDigits(neverPlayed), "فئة لم تُلعب بعد")
-        + statsTileHtml(toArabicDigits(noCover), "فئة بلا غلاف")
+        + statsTileHtml(toArabicDigits(neverPlayed), "فئة لم تُلعب بعد", neverPlayed ? "اضغط لعرضها" : "", neverPlayed ? `data-reveal="never" role="button" tabindex="0"` : "")
+        + statsTileHtml(toArabicDigits(noCover), "فئة بلا غلاف", noCover ? "اضغط لعرضها" : "", noCover ? `data-reveal="cover" role="button" tabindex="0"` : "")
         + statsTileHtml(toArabicDigits(pending), "بانتظار المراجعة");
+
+      // Pressing the «لم تُلعب بعد» / «بلا غلاف» tiles reveals WHICH categories
+      // they are, as chips; pressing a chip opens that category in the CMS.
+      const reveal = $("#statsHealthReveal");
+      if (reveal) {
+        reveal.innerHTML = ""; reveal.hidden = true;
+        let openKey = "";
+        const lists = { never: neverPlayedCats, cover: noCoverCats };
+        const titles = { never: "فئات لم تُلعب بعد", cover: "فئات بلا غلاف" };
+        const showList = (key) => {
+          if (openKey === key) { openKey = ""; reveal.hidden = true; reveal.innerHTML = ""; return; }
+          openKey = key;
+          const rows = lists[key] || [];
+          reveal.hidden = false;
+          reveal.innerHTML = `<div class="stats-reveal-head">${titles[key]} — اضغط الفئة لفتحها في المحرّر</div>`;
+          const wrap = document.createElement("div"); wrap.className = "stats-reveal-chips";
+          rows.forEach(c => {
+            const b = document.createElement("button");
+            b.type = "button"; b.className = "stats-reveal-chip";
+            b.textContent = c.name || "بدون اسم";
+            b.addEventListener("click", () => { closeStatsModal(); selectAdminCategory(c.id); });
+            wrap.appendChild(b);
+          });
+          reveal.appendChild(wrap);
+        };
+        $("#statsHealth").querySelectorAll("[data-reveal]").forEach(tile => {
+          const key = tile.getAttribute("data-reveal");
+          tile.addEventListener("click", () => showList(key));
+          tile.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showList(key); } });
+        });
+      }
 
       // ---- players & subscriptions (from the codes + usage the admin loads) ----
       const redeemed = codes.filter(c => c.used && c.usedBy);
