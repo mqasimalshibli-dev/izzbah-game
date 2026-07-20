@@ -9623,7 +9623,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.103";
+    const IZZBAH_BUILD = "2026-07-10.104";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14529,6 +14529,32 @@
         showToast("لا توجد فئات صالحة للّعب — اختر فئة تحتوي على أسئلة.");
         showScreen("categories");
         return;
+      }
+      // Starting a fresh run ABANDONS any earlier game you walked away from
+      // without finishing. Warn first (its progress is lost), and — for paying
+      // players — a game you ACTUALLY played (opened at least one question)
+      // counts as an abandon and spends a game. Otherwise a player could hop
+      // between near-complete boards forever on a single credit. An untouched
+      // board (nothing opened) is dropped silently and costs nothing; pausing
+      // and resuming the SAME game never routes through here.
+      {
+        const prev = getLiveGameInfo();
+        const prevPlayed = prev && !prev.counted &&
+          ((Array.isArray(prev.used) && prev.used.length > 0) ||
+           (Array.isArray(prev.history) && prev.history.length > 0));
+        if (prevPlayed) {
+          const willCharge = !state.isAdmin && !premiumActive();
+          const msg = willCharge
+            ? "لديك لعبة لم تكتمل بعد. إذا بدأت لعبة جديدة الآن ستفقد تقدّمك فيها وتُخصم لعبة واحدة من رصيدك.\nهل تريد بدء لعبة جديدة؟"
+            : "لديك لعبة لم تكتمل بعد. إذا بدأت لعبة جديدة الآن ستفقد تقدّمك فيها.\nهل تريد بدء لعبة جديدة؟";
+          if (!window.confirm(msg)) return; // keep playing the current game
+          if (willCharge) {
+            spendGameCredit();
+            const rec = prev.savedGameId ? state.savedGames.find(g => g.id === prev.savedGameId) : null;
+            if (rec) { rec.charged = true; saveSavedGames(); }
+          }
+          clearLiveGame(); // the abandoned game is settled — never count it twice
+        }
       }
       // Free-play gate: EVERY run costs a game — a re-run of a saved game is a
       // fresh paid game with fresh questions, exactly like a new one. (The
