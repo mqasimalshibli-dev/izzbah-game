@@ -9632,7 +9632,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.110";
+    const IZZBAH_BUILD = "2026-07-10.111";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14348,6 +14348,21 @@
       top.appendChild(colorWrap);
       panel.appendChild(top);
 
+      // ---- Optional description (shown on the category's (!) info button) ----
+      const descWrap = document.createElement("label");
+      descWrap.className = "field-label";
+      descWrap.style.cssText = "display:block;text-align:right;margin-top:2px";
+      descWrap.textContent = "وصف الفئة (اختياري)";
+      const desc = document.createElement("textarea");
+      desc.value = cat.description || "";
+      desc.placeholder = "وصف قصير يظهر عند الضغط على زر المعلومات (!) — اتركه فارغاً لوصف تلقائي.";
+      desc.rows = 2;
+      desc.maxLength = 300;
+      desc.style.cssText = "width:100%;resize:vertical";
+      desc.addEventListener("input", () => { cat.description = desc.value; });
+      descWrap.appendChild(desc);
+      panel.appendChild(descWrap);
+
       // ---- Public / private toggle (not for the admin-published editor) ----
       if (!published) {
         const visRow = document.createElement("div");
@@ -18116,6 +18131,7 @@
             };
             if (cat.color) meta.color = cat.color;
             if (cat.order) meta.order = cat.order;
+            if (cat.description && String(cat.description).trim()) meta.description = String(cat.description).trim().slice(0, 300);
             // Read existing question docs, then write ONLY what changed. Re-writing
             // every question (each up to ~1 MiB of image) on every publish is what
             // made publishing slow — with the diff below, editing one question in a
@@ -18181,6 +18197,7 @@
             const x = d.data() || {};
             return {
               id: d.id, name: x.name || "", image: x.image || "", color: x.color || "",
+              description: x.description || "",
               questions: Array.isArray(x.questions) ? x.questions : [],
               authorUid: x.authorUid || "", authorName: x.authorName || "",
               votes: x.votes || 0, approved: x.approved === true, community: true, custom: true
@@ -18284,6 +18301,7 @@
             // one (even if it was approved) sends it back to the review queue.
             const data = {
               name: cat.name || "", image: cat.image || "", color: cat.color || "",
+              description: (cat.description && String(cat.description).trim()) ? String(cat.description).trim().slice(0, 300) : "",
               questions: (cat.questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
                 image: q.image || "", answerImage: q.answerImage || "",
