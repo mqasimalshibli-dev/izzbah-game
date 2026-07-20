@@ -6155,8 +6155,8 @@
           <textarea id="adminQText" placeholder="نص السؤال"></textarea>
           <label class="field-label">الإجابة الصحيحة</label>
           <input type="text" id="adminQAnswer" placeholder="الإجابة" />
-          <label class="field-label" id="adminQMarginLabel" hidden>هامش الفوز (±) <small class="dist-note">لفئة «الأقرب يفوز» — اتركه فارغاً ليُحسب تلقائياً</small></label>
-          <input type="number" id="adminQMargin" min="1" inputmode="numeric" placeholder="تلقائي" hidden />
+          <label class="field-label" id="adminQMarginLabel">هامش الفوز (±) <small class="dist-note">املأه ليفوز الفريق الأقرب لإجابة رقمية ضمن هذا الهامش — اتركه فارغاً لسؤال عادي</small></label>
+          <input type="number" id="adminQMargin" min="1" inputmode="numeric" placeholder="بدون هامش" />
           <label class="field-label">الخيارات الخاطئة <small class="dist-note">لمساعدة «أربعة خيارات» — اختياري</small></label>
           <div class="admin-dist-grid">
             <input type="text" id="adminQDist1" placeholder="خيار خاطئ ١" autocomplete="off" />
@@ -9631,7 +9631,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.105";
+    const IZZBAH_BUILD = "2026-07-10.106";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12543,15 +12543,20 @@
       $("#adminQDist1").value = dists[0] || "";
       $("#adminQDist2").value = dists[1] || "";
       $("#adminQDist3").value = dists[2] || "";
-      // «الأقرب يفوز» only: the winning-margin field (blank = auto-computed).
+      // The winning-margin field is available on EVERY category now: fill it to
+      // make this question a "closest guess wins" question (±margin). Inside
+      // «الأقرب يفوز», blank falls back to an auto-computed margin; in any other
+      // category, blank simply means a normal (non-estimation) question.
       const nearCat = isNearestWinsCategory(state.adminCat);
-      $("#adminQMarginLabel").hidden = !nearCat;
-      $("#adminQMargin").hidden = !nearCat;
+      $("#adminQMarginLabel").hidden = false;
+      $("#adminQMargin").hidden = false;
+      const mv = Number(q.margin);
+      $("#adminQMargin").value = (Number.isFinite(mv) && mv > 0) ? mv : "";
       if (nearCat) {
-        const mv = Number(q.margin);
-        $("#adminQMargin").value = (Number.isFinite(mv) && mv > 0) ? mv : "";
         const auto = nearestAutoMargin(q);
         $("#adminQMargin").placeholder = auto != null ? ("تلقائي: ±" + auto) : "تلقائي";
+      } else {
+        $("#adminQMargin").placeholder = "بدون هامش";
       }
       state.adminQDraft = { image: q.image || "", answerImage: q.answerImage || "" };
       renderAdminQImages();
@@ -12570,8 +12575,10 @@
       const dists = [$("#adminQDist1").value, $("#adminQDist2").value, $("#adminQDist3").value]
         .map(v => (v || "").trim()).filter(Boolean);
       if (dists.length) obj.distractors = dists;
-      // «الأقرب يفوز»: a filled margin overrides the auto value; blank = auto.
-      if (isNearestWinsCategory(state.adminCat)) {
+      // Winning margin (±) — available on every category. A filled value makes
+      // this a "closest guess wins" question; blank leaves it off (or falls back
+      // to the auto value inside «الأقرب يفوز»).
+      {
         const mv = parseIntLoose($("#adminQMargin").value);
         if (mv > 0) obj.margin = mv;
       }
@@ -15926,12 +15933,13 @@
         $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       }
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
-      // «الأقرب يفوز»: show the winning margin (±) above the question — a guess
-      // within it takes the points. Hidden everywhere else (and when the answer
-      // carries no number to measure against).
+      // Winning-margin pill (±) above the question — a guess within it takes the
+      // points. Shows for the dedicated «الأقرب يفوز» category (auto or explicit
+      // margin) AND for any question in ANY category the admin gave an explicit
+      // margin. Hidden otherwise (and when there's no number to measure against).
       const nearPill = $("#nearMargin");
       if (nearPill) {
-        const m = isNearestWinsCategory(cat) ? nearestMarginFor(q) : null;
+        const m = isNearestWinsCategory(cat) ? nearestMarginFor(q) : (Number(q.margin) > 0 ? Number(q.margin) : null);
         if (m != null) { $("#nearMarginVal").textContent = "±" + toArabicDigits(m); nearPill.hidden = false; }
         else { nearPill.hidden = true; }
       }
