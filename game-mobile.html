@@ -9574,7 +9574,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.98";
+    const IZZBAH_BUILD = "2026-07-10.99";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13150,7 +13150,7 @@
       let imgs = (images || []).filter(Boolean);
       const size = () => JSON.stringify(imgs).length;
       if (size() <= budgetBytes) return imgs;
-      const passes = [[1280, 0.85], [1040, 0.78], [840, 0.7], [660, 0.62], [520, 0.54], [400, 0.46]];
+      const passes = [[1280, 0.85], [1040, 0.78], [840, 0.7], [660, 0.62], [520, 0.54], [400, 0.46], [320, 0.4]];
       for (const [dim, q] of passes) {
         imgs = await Promise.all(imgs.map(u => recompressDataUrl(u, dim, q)));
         if (size() <= budgetBytes) return imgs;
@@ -13163,7 +13163,9 @@
       const bridge = window.IZZBAH && window.IZZBAH.publishAnnouncement;
       if (!bridge) { annStatus("النشر غير متاح — سجّل الدخول كمشرف", "err"); return; }
       annStatus("جارٍ النشر…", "busy");
-      fitAnnouncementImages(d.images, 880000).then(imgs => {
+      // Budget the whole gallery well under 1 MiB (only ONE field carries the
+      // images now, so no duplication eats the budget).
+      fitAnnouncementImages(d.images, 850000).then(imgs => {
         d.images = imgs; d.image = imgs[0] || "";
         return bridge(Object.assign({ id: annEditId || null }, d));
       }).then(() => {
@@ -17652,15 +17654,20 @@
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             a = a || {};
             const ref = a.id ? db.collection("announcements").doc(a.id) : db.collection("announcements").doc();
-            const images = (Array.isArray(a.images) ? a.images : [])
+            const rawImages = (Array.isArray(a.images) ? a.images : [])
               .filter(x => typeof x === "string" && x).slice(0, 6);
+            // NEVER store the first image twice — that duplication blew the doc
+            // past Firestore's 1 MiB limit. `image` holds the picture for 0–1
+            // images; `images` holds the gallery for 2+. Exactly one carries data.
+            const single = rawImages.length <= 1 ? (rawImages[0] || String(a.image || "")) : "";
+            const gallery = rawImages.length > 1 ? rawImages : [];
             const data = {
               title: String(a.title || "").slice(0, 120),
               body: String(a.body || "").slice(0, 2000),
               icon: String(a.icon || "📢").slice(0, 8),
               color: String(a.color || "").slice(0, 20),
-              image: String(a.image || images[0] || "").slice(0, 900000),
-              images: images,
+              image: String(single).slice(0, 900000),
+              images: gallery,
               active: a.active !== false,
               pinned: !!a.pinned,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
