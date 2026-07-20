@@ -4452,6 +4452,15 @@
     .ann-card-title { font: 800 16.5px 'Cairo', sans-serif; color: var(--ann-accent, #9a1c1c); flex: 1; }
     .ann-card-pin { font-size: 13px; }
     .ann-card-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin: 6px 0; display: block; }
+
+    /* «الأقرب يفوز»: the winning-margin pill above the question. Gold — clearly
+       NOT a button (those are red), but at home with the cream/gold theme. */
+    .near-margin { display: inline-flex; align-items: center; gap: 10px; align-self: center; margin: 4px auto 8px;
+      padding: 7px 18px; border-radius: 999px;
+      background: linear-gradient(180deg, #f6d27a, #e8a93b); border: 2px solid #b8860b; color: #5a3d12;
+      font: 800 15px 'Cairo', sans-serif; box-shadow: 0 3px 10px rgba(122, 20, 20, .18), inset 0 1px 0 rgba(255, 255, 255, .45); }
+    .near-margin b { font-size: 19px; direction: ltr; }
+    .near-margin[hidden] { display: none; }
     .ann-image-slot { display: flex; flex-direction: column; gap: 10px; }
     .ann-img-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .ann-img-rm { min-height: 0; padding: 5px 12px; font-size: 13px; flex: 0 0 auto; }
@@ -6138,6 +6147,8 @@
           <textarea id="adminQText" placeholder="نص السؤال"></textarea>
           <label class="field-label">الإجابة الصحيحة</label>
           <input type="text" id="adminQAnswer" placeholder="الإجابة" />
+          <label class="field-label" id="adminQMarginLabel" hidden>هامش الفوز (±) <small class="dist-note">لفئة «الأقرب يفوز» — اتركه فارغاً ليُحسب تلقائياً</small></label>
+          <input type="number" id="adminQMargin" min="1" inputmode="numeric" placeholder="تلقائي" hidden />
           <label class="field-label">الخيارات الخاطئة <small class="dist-note">لمساعدة «أربعة خيارات» — اختياري</small></label>
           <div class="admin-dist-grid">
             <input type="text" id="adminQDist1" placeholder="خيار خاطئ ١" autocomplete="off" />
@@ -6490,6 +6501,7 @@
           </div>
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
+        <div class="near-margin" id="nearMargin" hidden title="الفريق الذي تقع إجابته ضمن هذا الهامش يفوز بالنقاط"><span class="near-label">هامش الفوز</span><b class="clean-number" id="nearMarginVal"></b></div>
         <p class="question-text" id="modalQuestion"></p>
         <div class="qchoices" id="modalChoices" aria-label="خيارات متعددة"></div>
         <div class="qhint" id="modalHint" aria-label="أول حرف"></div>
@@ -9372,6 +9384,43 @@
     function isReactionCategory(cat) {
       return /رياكشن/.test(String((cat && cat.name) || ""));
     }
+    // «الأقرب يفوز» — the estimation category (closest guess wins). Matched by
+    // name (cloud/admin category, no fixed id); both الأقرب/الاقرب spellings.
+    function isNearestWinsCategory(cat) {
+      return /ال[أا]قرب\s*يفوز/.test(String((cat && cat.name) || ""));
+    }
+    // The winning MARGIN for a nearest-wins question: a guess within ±margin of
+    // the answer takes the points. An explicit per-question `margin` (set in the
+    // admin editor) wins; otherwise it's derived from the answer's number —
+    // years get ±5, small counts ±1–2, mid values a fixed step, huge values ~5%
+    // snapped to a round 1/2/5×10ⁿ. Returns null when the answer has no number.
+    function answerNumericValue(a) {
+      if (!a) return null;
+      const s = String(a)
+        .replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))) // Arabic-Indic → Western
+        .replace(/[،,]/g, "");                                    // thousands separators
+      const m = s.match(/\d+(?:\.\d+)?/);
+      return m ? parseFloat(m[0]) : null;
+    }
+    function nearestAutoMargin(q) {
+      const v = answerNumericValue(q && q.a);
+      if (v == null || !isFinite(v)) return null;
+      const text = ((q && q.q) || "") + " " + ((q && q.a) || "");
+      if (v >= 500 && v <= 2100 && /سنة|عام|هجري|ميلادي/.test(text)) return 5; // a year
+      if (v <= 10) return 1;
+      if (v <= 50) return 2;
+      if (v <= 100) return 5;
+      if (v <= 500) return 10;
+      if (v <= 2000) return 50;
+      if (v <= 10000) return 100;
+      const p = v * 0.05, e = Math.floor(Math.log10(p)), b = p / Math.pow(10, e);
+      return (b < 1.5 ? 1 : b < 3.5 ? 2 : b < 7.5 ? 5 : 10) * Math.pow(10, e);
+    }
+    function nearestMarginFor(q) {
+      const m = q && Number(q.margin);
+      if (Number.isFinite(m) && m > 0) return m;
+      return nearestAutoMargin(q);
+    }
     // Specific categories where a multiple-choice list would spoil the round:
     //   • «من الي سجل؟» — guess WHO recorded the clip; four names give it away.
     //   • «الأقرب يفوز» — an estimation game (closest guess wins); showing four
@@ -9381,8 +9430,7 @@
     function isChoiceFreeCategory(cat) {
       if (!cat) return false;
       if (CHOICE_FREE_CATEGORY_IDS.has(String(cat.id || ""))) return true;
-      const name = String(cat.name || "");
-      return /من\s*الل?ي\s*سجل/.test(name) || /ال[أا]قرب\s*يفوز/.test(name);
+      return /من\s*الل?ي\s*سجل/.test(String(cat.name || "")) || isNearestWinsCategory(cat);
     }
     // Emoji-guess categories: the "question" is a short emoji puzzle, so it must
     // be CENTERED in the question card (a short puzzle would otherwise sit at the
@@ -9574,7 +9622,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.99";
+    const IZZBAH_BUILD = "2026-07-10.100";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11590,7 +11638,7 @@
       if (isRiddlesCategory(cat)) {
         return "ألغاز وأحاجٍ ذكية تتحدّى بديهتكم — فكّروا معاً وخمّنوا الحل قبل خصمكم. كل لغز بـ ٢٠٠ نقطة.";
       }
-      if (/ال[أا]قرب\s*يفوز/.test(name)) {
+      if (isNearestWinsCategory(cat)) {
         return "أسئلة تخمين بالأرقام — قدّروا الإجابة، والفريق الأقرب للرقم الصحيح يخطف نقاط الجولة.";
       }
       const who = cat.community ? "فئة من المجتمع" : cat.custom ? "فئة خاصة" : "";
@@ -12444,6 +12492,16 @@
       $("#adminQDist1").value = dists[0] || "";
       $("#adminQDist2").value = dists[1] || "";
       $("#adminQDist3").value = dists[2] || "";
+      // «الأقرب يفوز» only: the winning-margin field (blank = auto-computed).
+      const nearCat = isNearestWinsCategory(state.adminCat);
+      $("#adminQMarginLabel").hidden = !nearCat;
+      $("#adminQMargin").hidden = !nearCat;
+      if (nearCat) {
+        const mv = Number(q.margin);
+        $("#adminQMargin").value = (Number.isFinite(mv) && mv > 0) ? mv : "";
+        const auto = nearestAutoMargin(q);
+        $("#adminQMargin").placeholder = auto != null ? ("تلقائي: ±" + auto) : "تلقائي";
+      }
       state.adminQDraft = { image: q.image || "", answerImage: q.answerImage || "" };
       renderAdminQImages();
       $("#adminQModal").classList.add("open");
@@ -12461,6 +12519,11 @@
       const dists = [$("#adminQDist1").value, $("#adminQDist2").value, $("#adminQDist3").value]
         .map(v => (v || "").trim()).filter(Boolean);
       if (dists.length) obj.distractors = dists;
+      // «الأقرب يفوز»: a filled margin overrides the auto value; blank = auto.
+      if (isNearestWinsCategory(state.adminCat)) {
+        const mv = parseIntLoose($("#adminQMargin").value);
+        if (mv > 0) obj.margin = mv;
+      }
       if (state.adminQIndex >= 0) state.adminCat.questions[state.adminQIndex] = obj;
       else state.adminCat.questions.push(obj);
       state.adminDirty = true;
@@ -15779,6 +15842,15 @@
         $("#modalQuestion").textContent = toArabicDigits(q.q || "—");
       }
       $("#modalAnswer").textContent = toArabicDigits(q.a || "—");
+      // «الأقرب يفوز»: show the winning margin (±) above the question — a guess
+      // within it takes the points. Hidden everywhere else (and when the answer
+      // carries no number to measure against).
+      const nearPill = $("#nearMargin");
+      if (nearPill) {
+        const m = isNearestWinsCategory(cat) ? nearestMarginFor(q) : null;
+        if (m != null) { $("#nearMarginVal").textContent = "±" + toArabicDigits(m); nearPill.hidden = false; }
+        else { nearPill.hidden = true; }
+      }
       // Word-game questions with no stored image (e.g. from a published
       // override) fall back to the built-in QR matching this exact word.
       const qImage = q.image || (isWordGuessCategory(cat) ? (wordQrFor(cat.id, q.a) || makeWordQr(q.a)) : "");
@@ -17257,6 +17329,8 @@
                         const d = (meta && Array.isArray(meta.distractors) && meta.distractors.length) ? meta.distractors
                           : (Array.isArray(q.distractors) && q.distractors.length ? q.distractors : null);
                         if (d) out.distractors = d.slice(0, 3);
+                        // «الأقرب يفوز» winning margin, stored on the meta copy.
+                        if (meta && Number(meta.margin) > 0) out.margin = Number(meta.margin);
                         return out;
                       });
                 return Object.assign({ id: d.id }, data, { questions });
@@ -17485,7 +17559,8 @@
               questions: (questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
                 image: q.image || "", answerImage: q.answerImage || "",
-                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : [],
+                margin: Number(q.margin) > 0 ? Number(q.margin) : 0
               })),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -17898,7 +17973,10 @@
               image: cat.image || "",
               questions: list.map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
-                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : [],
+                // «الأقرب يفوز» winning margin (0 = auto). Lives here, like the
+                // distractors, because the per-question docs are field-locked.
+                margin: Number(q.margin) > 0 ? Number(q.margin) : 0
               })),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -18075,7 +18153,8 @@
               questions: (cat.questions || []).map(q => ({
                 points: q.points || 0, q: q.q || "", a: q.a || "",
                 image: q.image || "", answerImage: q.answerImage || "",
-                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : []
+                distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : [],
+                margin: Number(q.margin) > 0 ? Number(q.margin) : 0
               })),
               authorUid: currentUser.uid,
               authorName: currentUser.displayName || currentUser.email || "عضو",
