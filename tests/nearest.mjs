@@ -150,6 +150,42 @@ try {
   check(`a normal category's placeholder reads «بدون هامش» (${adminOther.ph})`, /بدون هامش/.test(adminOther.ph));
   check("saving stores the margin on a normal-category question", adminOther.saved === 10);
 
+  // ---- 4b) the margin box accepts a UNIT after the number (e.g. "5 سنوات") ----
+  const adminUnit = await page.evaluate(() => {
+    document.getElementById("adminQModal").classList.remove("open");
+    state.adminCat = { id: "history", name: "تاريخ", questions: [{ points: 100, q: "كم سنة؟", a: "٦٣", image: "", answerImage: "" }] };
+    openAdminQuestion(0);
+    document.getElementById("adminQMargin").value = "5 سنوات";
+    saveAdminQuestion();
+    const q = state.adminCat.questions[0];
+    // reopen to confirm the box round-trips the number + unit together
+    openAdminQuestion(0);
+    const reopened = document.getElementById("adminQMargin").value;
+    document.getElementById("adminQModal").classList.remove("open");
+    return { margin: q.margin, unit: q.marginUnit, reopened };
+  });
+  check("a margin with a unit stores the number for scoring", adminUnit.margin === 5);
+  check(`…and keeps the unit label (${adminUnit.unit})`, adminUnit.unit === "سنوات");
+  check(`reopening shows the number + unit together (${adminUnit.reopened})`, adminUnit.reopened === "5 سنوات");
+
+  // the pill renders the unit after the ± value
+  const pillUnit = await page.evaluate(() => {
+    finishQuestion(null);
+    state.publishedCategories = (state.publishedCategories || []).filter(c => c.id !== "unit-test");
+    state.publishedCategories.push({ id: "unit-test", name: "ارتفاعات", custom: true, questions: [
+      { points: 100, q: "كم ارتفاعه؟", a: "٨٢٨", image: "", answerImage: "", margin: 50, marginUnit: "متر" },
+    ] });
+    state.isAdmin = true;
+    state.selected = new Set(["unit-test"]);
+    state.editingSavedGameId = null; state.teamCount = 2;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    document.querySelector("#board .board-category-card .cell:not(.used)").click();
+    const el = document.getElementById("nearMargin");
+    return { hidden: el.hidden, val: document.getElementById("nearMarginVal").textContent };
+  });
+  check("the pill shows the unit after the ± value (±50 متر)", !pillUnit.hidden && pillUnit.val === "±50 متر");
+
   // ---- 5) the cloud meta copy carries the margin (publish round-trip shape) ----
   const meta = await page.evaluate(() => {
     // mirror the cloudPublish meta mapping
