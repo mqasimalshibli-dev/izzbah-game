@@ -183,6 +183,23 @@ try {
   check("the admin new-game warning doesn't threaten a game charge",
     !/تُخصم لعبة واحدة/.test(lastDialog) && /لم تكتمل/.test(lastDialog));
 
+  // ---- finishing lands on «ألعابك» (saved games), NOT the welcome screen ----
+  const finishNav = await page.evaluate(() => {
+    window.IZZBAH.applyAdmin(false); state.isAdmin = false;
+    state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = false; state.gamesUsed = 0; state.codeGamesAllowed = 3;
+    state.editingSavedGameId = null; state.gameCounted = false;
+    state.selected = new Set(["history"]);
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    state.teams[0].score = 100; renderResults();
+    const onResults = document.body.dataset.screen === "results";
+    document.getElementById("resultsMenu").click(); // the results «القائمة» button
+    return { onResults, after: document.body.dataset.screen };
+  });
+  check("finishing shows the results screen", finishNav.onResults);
+  check("leaving results via «القائمة» lands on «ألعابك» (saved games)", finishNav.after === "gameLibrary");
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {

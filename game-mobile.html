@@ -1264,7 +1264,8 @@
       color: white;
     }
 
-    .game-actions #exitGame {
+    .game-actions #exitGame,
+    .game-actions #pauseGame {
       background: transparent;
       border-color: transparent;
       box-shadow: none;
@@ -2682,6 +2683,7 @@
         white-space: nowrap;
       }
       .game-actions #exitGame,
+      .game-actions #pauseGame,
       .game-actions #soundToggle,
       .game-actions #endGameEarly {
         width: 23px;
@@ -3987,6 +3989,7 @@
     }
     /* Premium round action buttons (exit + end game) */
     .game-actions #exitGame,
+    .game-actions #pauseGame,
     .game-actions #soundToggle,
     .game-actions #endGameEarly {
       width: clamp(30px, 4.6vw, 42px) !important;
@@ -4000,6 +4003,7 @@
       transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
     }
     .game-actions #exitGame svg,
+    .game-actions #pauseGame svg,
     .game-actions #soundToggle svg,
     .game-actions #endGameEarly svg { width: 56%; height: 56%; display: block; }
     .game-actions #endGameEarly {
@@ -4011,6 +4015,7 @@
     .game-actions #endGameEarly:hover { transform: scale(1.08); filter: brightness(1.08); }
     .game-actions #endGameEarly:active { transform: scale(.95); }
     .game-actions #exitGame,
+    .game-actions #pauseGame,
     .game-actions #soundToggle {
       background: rgba(0, 0, 0, .22) !important;
       border: 2px solid rgba(255, 255, 255, .65) !important;
@@ -4018,6 +4023,7 @@
       box-shadow: 0 3px 10px rgba(0, 0, 0, .3) !important;
     }
     .game-actions #exitGame:hover,
+    .game-actions #pauseGame:hover,
     .game-actions #soundToggle:hover { transform: scale(1.08); background: rgba(0, 0, 0, .34) !important; }
     /* Sound toggle shows ONE of its two icons; muted state is dimmed. */
     .game-actions #soundToggle .snd-off { display: none !important; }
@@ -4759,6 +4765,7 @@
       box-shadow: 0 12px 26px -14px rgba(120, 10, 16, .6) !important;
     }
     #game .game-actions #exitGame,
+    #game .game-actions #pauseGame,
     #game .game-actions #soundToggle,
     #game .game-actions #endGameEarly {
       background: rgba(255, 255, 255, .12) !important;
@@ -4768,6 +4775,7 @@
     }
     @media (hover: hover) {
       #game .game-actions #exitGame:hover,
+      #game .game-actions #pauseGame:hover,
       #game .game-actions #soundToggle:hover,
       #game .game-actions #endGameEarly:hover { background: rgba(255, 255, 255, .26) !important; }
     }
@@ -6459,7 +6467,7 @@
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
           <button class="ghost" id="exitGame" aria-label="خروج" title="خروج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
-          <button class="ghost" id="pauseGame" aria-label="إيقاف مؤقت" title="إيقاف مؤقت"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+          <button class="ghost" id="pauseGame" aria-label="إيقاف مؤقت" title="إيقاف مؤقت"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14M5 15h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
           <button class="ghost" id="soundToggle" aria-label="كتم الأصوات" title="كتم الأصوات"><svg class="snd-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><svg class="snd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
           <button class="gold-btn" id="endGameEarly" aria-label="إنهاء وعرض النتائج" title="إنهاء وعرض النتائج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg></button>
         </div>
@@ -9623,7 +9631,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.104";
+    const IZZBAH_BUILD = "2026-07-10.105";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -16532,7 +16540,7 @@
       }
       clearLiveGame();
       resetScores();
-      showScreen("menu");
+      openGameLibrary("your"); // land on «ألعابك», not the welcome screen
     });
     $("#pauseGame").addEventListener("click", () => {
       // Pause = suspend, don't abandon. The board (scores, opened cells, and the
@@ -16542,7 +16550,7 @@
       saveLiveGame();
       state.gameActive = false;
       resetScores();
-      showScreen("menu");
+      openGameLibrary("your"); // land on «ألعابك» where the paused game now sits
     });
     $("#endGameEarly").addEventListener("click", renderResults);
     $("#questionBackTop").addEventListener("click", cancelQuestion);
@@ -16565,7 +16573,7 @@
     });
     $("#resultsMenu").addEventListener("click", () => {
       resetScores();
-      showScreen("menu");
+      openGameLibrary("your"); // finishing lands on «ألعابك», not the welcome screen
     });
     $("#shareTop").addEventListener("click", shareResults);
     $("#shareResult").addEventListener("click", shareResults);
