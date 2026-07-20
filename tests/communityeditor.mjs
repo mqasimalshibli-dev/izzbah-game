@@ -66,6 +66,20 @@ try {
   check("a public/private toggle is present, defaulting to public for the community maker",
     editor.hasToggle && editor.defaultPublic && editor.toggleOptions.some(t => /عامة/.test(t)) && editor.toggleOptions.some(t => /خاصة/.test(t)));
 
+  // ---- 2b) the editor exposes a «وصف الفئة» field that feeds the category description ----
+  const descField = await page.evaluate(() => {
+    const panel = document.getElementById("editorPanel");
+    const label = [...panel.querySelectorAll("label.field-label")].find(l => /وصف الفئة/.test(l.textContent));
+    const box = label ? label.querySelector("textarea") : null;
+    if (!box) return { has: false };
+    box.value = "وصف كتبته بنفسي";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    return { has: true, catDesc: state.editingCategory.description, shown: categoryDescription(state.editingCategory) };
+  });
+  check("the editor exposes a «وصف الفئة» field", descField.has);
+  check("typing a description saves it on the category and the (!) info uses it",
+    descField.catDesc === "وصف كتبته بنفسي" && descField.shown === "وصف كتبته بنفسي");
+
   // ---- 3) it supports MORE than 5 questions (add via modal) ----
   const rowsBefore = await page.evaluate(() => document.querySelectorAll("#editorPanel .ce-table tbody tr").length);
   for (let i = 0; i < 4; i++) {
