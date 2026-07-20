@@ -193,6 +193,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node savedgamefreeze.mjs
 
+      - name: Run abandon-charge + resume test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node abandon.mjs
+
       - name: Run saved-game settings (teams-only) test
         working-directory: tests
         run: |

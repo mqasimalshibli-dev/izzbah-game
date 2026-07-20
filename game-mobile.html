@@ -9622,7 +9622,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.101";
+    const IZZBAH_BUILD = "2026-07-10.102";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11465,28 +11465,59 @@
       return `${toArabicDigits(n)} فئة`;
     }
 
+    // The category tiles shown on a saved-game / resume card.
+    function buildCategoryChips(categories) {
+      const chips = document.createElement("div");
+      chips.className = "saved-game-cats";
+      (categories || []).forEach(cat => {
+        const tile = document.createElement("div");
+        tile.className = "saved-game-category";
+        const catColor = categoryColor(cat);
+        tile.style.setProperty("--cat-bg", rgba(catColor, .72));
+        tile.style.setProperty("--cat-border", catColor);
+        if (cat.image) {
+          tile.classList.add("bg-category");
+          tile.style.setProperty("--cat-image", `url("${cat.image}")`);
+        } else {
+          tile.innerHTML = iconSvg(cat.custom ? "custom" : cat.id);
+        }
+        const label = document.createElement("span");
+        label.textContent = cat.name || "فئة بدون اسم";
+        tile.appendChild(label);
+        chips.appendChild(tile);
+      });
+      return chips;
+    }
+
     // "Continue" card for an unfinished game, shown at the top of ألعابك.
     function buildResumeCard(live) {
       const teams = (live.teams || []);
       const title = (live.currentGameName && live.currentGameName.trim()) ? live.currentGameName.trim() : "لعبة غير مكتملة";
+      const cats = (Array.isArray(live.selected) ? live.selected : []).map(id => categoryById(id)).filter(Boolean);
       const card = document.createElement("div");
       card.className = "saved-game-card resume-card";
       const scoresHtml = teams.map((t, i) => {
         const nm = (t.name && t.name.trim()) ? t.name.trim() : `الفريق ${toArabicDigits(i + 1)}`;
         return `<span class="resume-team">${escapeHtml(nm)}<b>${toArabicDigits(t.score || 0)}</b></span>`;
       }).join("");
-      card.innerHTML = `
-        <div class="saved-game-head">
-          <div class="saved-game-title">${escapeHtml(title)}</div>
-          <span class="resume-badge">غير مكتملة</span>
-        </div>
-        <div class="resume-scores">${scoresHtml}</div>
-        <div class="saved-game-actions">
-          <button class="primary" type="button" data-resume-continue><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>متابعة اللعبة</span></button>
-          <button class="ghost" type="button" data-resume-discard><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>تجاهل</span></button>
-        </div>`;
-      card.querySelector("[data-resume-continue]").addEventListener("click", () => { resumeLiveGame(); });
-      card.querySelector("[data-resume-discard]").addEventListener("click", () => { clearLiveGame(); renderGameLibrary(); });
+      const head = document.createElement("div");
+      head.className = "saved-game-head";
+      head.innerHTML = `<div class="saved-game-title">${escapeHtml(title)}</div>`
+        + `<span class="saved-game-count">${escapeHtml(categoryCountLabel(cats.length))}</span>`
+        + `<span class="resume-badge">غير مكتملة</span>`;
+      card.appendChild(head);
+      card.appendChild(buildCategoryChips(cats));
+      const scores = document.createElement("div");
+      scores.className = "resume-scores"; scores.innerHTML = scoresHtml;
+      card.appendChild(scores);
+      const actions = document.createElement("div");
+      actions.className = "saved-game-actions";
+      actions.innerHTML = `
+        <button class="primary" type="button" data-resume-continue><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>متابعة اللعبة</span></button>
+        <button class="ghost" type="button" data-resume-discard><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>تجاهل</span></button>`;
+      card.appendChild(actions);
+      actions.querySelector("[data-resume-continue]").addEventListener("click", () => { resumeLiveGame(); });
+      actions.querySelector("[data-resume-discard]").addEventListener("click", () => { clearLiveGame(); renderGameLibrary(); });
       return card;
     }
 
@@ -14614,11 +14645,13 @@
       const board = $("#board");
       board.style.setProperty("--cat-count", cats.length);
       board.innerHTML = "";
-      // Pin this RUN's questions onto its saved-game record: each cell keeps
-      // the exact question it was first given, so a resumed run is identical.
-      // (startGame clears the pins per run — a re-run draws fresh questions.)
+      // Pin this RUN's questions onto its saved-game record — every game gets a
+      // record when it starts (see saveCurrentGameCategories) — so a resume is
+      // identical: un-opened cells never re-roll. Only a fresh start/re-run
+      // clears the pins (startGame) and draws new questions.
       const record = activeSavedGameRecord();
       if (record && !record.frozen) record.frozen = {};
+      const frozen = record ? record.frozen : {};
       let frozenDirty = false;
       cats.forEach(cat => {
         const catColor = categoryColor(cat);
@@ -14652,19 +14685,16 @@
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(isFlat200Category(cat) ? EMOJI_REWARD : points);
           cell.disabled = used;
-          // Decide this cell's question ONCE and pin it. On a saved game we
-          // reuse the frozen one (so replays match); a brand-new draw prefers an
-          // UNSEEN question (pickUnseen) and is then frozen for next time.
+          // Decide this cell's question ONCE and pin it. We reuse the frozen
+          // one (so a resume matches); a brand-new draw prefers an UNSEEN
+          // question (pickUnseen) and is then frozen for the rest of the run.
           let chosen = null;
-          if (record) {
-            const sig = record.frozen[key];
-            if (sig) chosen = resolveFrozenQuestion(cat, points, sig);
-            if (!chosen) {
-              chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
-              if (chosen) { record.frozen[key] = questionSig(chosen); frozenDirty = true; }
-            }
+          const sig = frozen[key];
+          if (sig) chosen = resolveFrozenQuestion(cat, points, sig);
+          if (!chosen) {
+            chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
+            if (chosen) { frozen[key] = questionSig(chosen); frozenDirty = true; }
           }
-          if (!chosen) chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
           cell.addEventListener("click", () => openQuestion(cat, chosen, key));
           pointsRow.appendChild(cell);
         });
@@ -16443,7 +16473,21 @@
     $("#setupBack").addEventListener("click", () => showScreen(state.setupReturn === "gameLibrary" ? "gameLibrary" : "categories"));
     $("#startGame").addEventListener("click", startGame);
     $("#exitGame").addEventListener("click", () => {
-      clearLiveGame(); // leaving via ✕ ends the game — start fresh next time
+      // Leaving via ✕ ABANDONS the run: progress is lost AND one game is spent
+      // (unlike a resume, which keeps the board and only charges on finish).
+      // Admins/subscribers play unlimited, so they lose only the progress.
+      const willCharge = !state.gameCounted && !state.isAdmin && !premiumActive();
+      const msg = willCharge
+        ? "إذا خرجت الآن ستفقد تقدّمك في هذه اللعبة، وتُخصم لعبة واحدة من رصيدك.\nهل تريد الخروج؟"
+        : "إذا خرجت الآن ستفقد تقدّمك في هذه اللعبة.\nهل تريد الخروج؟";
+      if (!window.confirm(msg)) return;
+      if (willCharge) {
+        state.gameCounted = true;
+        spendGameCredit();
+        const rec = activeSavedGameRecord();
+        if (rec) { rec.charged = true; saveSavedGames(); }
+      }
+      clearLiveGame();
       resetScores();
       showScreen("menu");
     });

@@ -111,7 +111,7 @@ try {
   check("with 0 credits a re-run hits the paywall (no free replays)",
     gateReplay.screen !== "game" && gateReplay.paywall && !gateReplay.active);
 
-  // ---- abandoning games (new or re-runs) never drains the allowance ----
+  // ---- leaving a game WITHOUT finishing and WITHOUT the ✕ (nav away) is free ----
   await page.evaluate((id) => {
     const m = document.getElementById("plansModal"); m.classList.remove("open");
     state.codeGamesAllowed = 5; state.gamesUsed = 2; // restore a known balance
@@ -124,7 +124,7 @@ try {
     state.teams.forEach(t => { t.score = 0; }); startGame(); showScreen("categories");
   }, paidGameId);
   const abandoned = await snap();
-  check("abandoning games (new or re-runs) spends nothing", abandoned.used === 2);
+  check("leaving a game without finishing (nav away, no ✕) spends nothing", abandoned.used === 2);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
