@@ -64,7 +64,7 @@
       --white: #fffdfa;
       --game-vw: 100vw;
       --game-vh: 100vh;
-      --screen-bg: linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%);
+      --screen-bg: none; /* pattern removed; the play screens keep their white (#fbeee9) background */
     }
 
     * { box-sizing: border-box; }
@@ -9626,7 +9626,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.107";
+    const IZZBAH_BUILD = "2026-07-10.108";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
