@@ -1,8 +1,10 @@
 // «الأقرب يفوز» winning-margin pill: a small gold box above the question shows
 // ±margin — a guess within it takes the points. The margin is auto-derived from
 // the answer's number (years ±5, small counts ±1–2, ~5% for huge values), a
-// per-question `margin` overrides it, and the admin question modal exposes an
-// adjust field ONLY for this category.
+// per-question `margin` overrides it. The admin question modal exposes the
+// margin field on EVERY category now (blank = auto inside «الأقرب يفوز», or a
+// normal question elsewhere); an explicit margin turns ANY category's question
+// into a closest-wins one, showing the pill in play.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -85,7 +87,8 @@ try {
   });
   check(`an explicit per-question margin overrides the auto value (${overridden})`, overridden === "±250");
 
-  // ---- 3) other categories never show the pill ----
+  // ---- 3) a normal question shows no pill, but an EXPLICIT margin turns any
+  //         category's question into a closest-wins one (pill shows) ----
   const other = await page.evaluate(() => {
     finishQuestion(null);
     state.selected = new Set(["history"]);
@@ -94,10 +97,29 @@ try {
     document.querySelector("#board .board-category-card .cell:not(.used)").click();
     return document.getElementById("nearMargin").hidden;
   });
-  check("a normal category shows no margin pill", other === true);
+  check("a normal category question (no margin) shows no pill", other === true);
 
-  // ---- 4) the admin question modal exposes the margin ONLY for this category ----
+  const otherWithMargin = await page.evaluate(() => {
+    finishQuestion(null);
+    state.publishedCategories = (state.publishedCategories || []).filter(c => c.id !== "hist-margin");
+    state.publishedCategories.push({ id: "hist-margin", name: "تاريخ بالأرقام", custom: true, questions: [
+      { points: 100, q: "كم سنة استمرّت الحرب؟", a: "40", image: "", answerImage: "", margin: 3 },
+    ] });
+    state.isAdmin = true; // bypass the play gate for a private category
+    state.selected = new Set(["hist-margin"]);
+    state.editingSavedGameId = null; state.teamCount = 2;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    document.querySelector("#board .board-category-card .cell:not(.used)").click();
+    const el = document.getElementById("nearMargin");
+    return { hidden: el.hidden, val: document.getElementById("nearMarginVal").textContent };
+  });
+  check("an EXPLICIT margin makes ANY category show the pill (±3)",
+    !otherWithMargin.hidden && otherWithMargin.val === "±3");
+
+  // ---- 4) the admin question modal exposes the margin for EVERY category ----
   const adminNear = await page.evaluate(() => {
+    finishQuestion(null);
     state.adminCat = { id: "near-test", name: "الأقرب يفوز", custom: true, questions: [
       { points: 100, q: "كم عدد القارات في العالم؟", a: "7", image: "", answerImage: "" },
     ] };
@@ -114,13 +136,19 @@ try {
 
   const adminOther = await page.evaluate(() => {
     document.getElementById("adminQModal").classList.remove("open");
-    state.adminCat = { id: "history", name: "تاريخ", questions: [{ points: 100, q: "س", a: "ج", image: "", answerImage: "" }] };
+    state.adminCat = { id: "history", name: "تاريخ", questions: [{ points: 100, q: "كم دولة في العالم؟", a: "195", image: "", answerImage: "" }] };
     openAdminQuestion(0);
-    const hidden = document.getElementById("adminQMargin").hidden;
+    const shown = !document.getElementById("adminQMargin").hidden;
+    const ph = document.getElementById("adminQMargin").placeholder;
+    document.getElementById("adminQMargin").value = "10";
+    saveAdminQuestion();
+    const saved = state.adminCat.questions[0].margin;
     document.getElementById("adminQModal").classList.remove("open");
-    return hidden;
+    return { shown, ph, saved };
   });
-  check("the margin field stays hidden for other categories", adminOther === true);
+  check("the margin field now shows for EVERY category", adminOther.shown);
+  check(`a normal category's placeholder reads «بدون هامش» (${adminOther.ph})`, /بدون هامش/.test(adminOther.ph));
+  check("saving stores the margin on a normal-category question", adminOther.saved === 10);
 
   // ---- 5) the cloud meta copy carries the margin (publish round-trip shape) ----
   const meta = await page.evaluate(() => {
