@@ -9622,7 +9622,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.100";
+    const IZZBAH_BUILD = "2026-07-10.101";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10185,19 +10185,14 @@
 
     // The saved-game record the current game plays from (set when a saved game
     // is opened/replayed, and when a brand-new game first starts). Its `frozen`
-    // map pins the exact question drawn for each board cell so REPLAYING a saved
-    // game always serves the SAME questions — a player who wants new questions
-    // starts a new game instead.
+    // map pins the exact question drawn for each board cell WITHIN a run, so a
+    // resumed game serves the same questions. Every NEW run (startGame) clears
+    // the pins — each re-run of a saved game draws fresh questions and costs a
+    // game credit like any new game. `charged` marks the current run as counted
+    // (so a resume-after-finish can't recharge); startGame resets it per run.
     function activeSavedGameRecord() {
       if (!state.editingSavedGameId) return null;
       return state.savedGames.find(g => g.id === state.editingSavedGameId) || null;
-    }
-    // Replaying an ALREADY-PAID saved game is free: same questions, no new
-    // credit and no gate. A record is marked `charged` the first time its play
-    // reaches the results screen (see renderResults). New games still cost.
-    function isFreeReplay() {
-      const rec = activeSavedGameRecord();
-      return !!(rec && rec.charged);
     }
     // Resolve a frozen question (stored by its signature) back to a full
     // question object: the category's own list first (published/custom), then
@@ -14487,13 +14482,20 @@
         showScreen("categories");
         return;
       }
-      // Free-play gate: a non-admin, non-subscriber may start only one NEW game.
-      // Replaying an already-paid saved game (same questions) is always free.
-      if (!isFreeReplay()) {
-        // Private/custom categories are premium: the free game never unlocks
-        // them — the player needs a subscription or bought/redeemed games.
-        if (selectionHasPrivate() && !hasPaidAccess()) { openSubscribeGate({ reason: "private" }); return; }
-        if (!canStartNewGame()) { openSubscribeGate(); return; }
+      // Free-play gate: EVERY run costs a game — a re-run of a saved game is a
+      // fresh paid game with fresh questions, exactly like a new one. (The
+      // credit itself is spent on FINISH, so abandoning a run never charges.)
+      // Private/custom categories are premium: the free game never unlocks
+      // them — the player needs a subscription or bought/redeemed games.
+      if (selectionHasPrivate() && !hasPaidAccess()) { openSubscribeGate({ reason: "private" }); return; }
+      if (!canStartNewGame()) { openSubscribeGate(); return; }
+      // A fresh RUN of a saved game re-rolls its questions and becomes
+      // chargeable again. Questions stay pinned only WITHIN a run (a resume
+      // keeps them); once a run finishes or is abandoned, the next start —
+      // right here — clears the pins so the board draws fresh.
+      {
+        const rec = activeSavedGameRecord();
+        if (rec) { rec.frozen = {}; rec.charged = false; saveSavedGames(); }
       }
       state.pendingSharedGame = false; // shared preset consumed once the game starts
       saveCurrentGameCategories();
@@ -14612,8 +14614,9 @@
       const board = $("#board");
       board.style.setProperty("--cat-count", cats.length);
       board.innerHTML = "";
-      // Freeze this game's questions onto its saved-game record: each cell keeps
-      // the exact question it was first given, so replays are identical.
+      // Pin this RUN's questions onto its saved-game record: each cell keeps
+      // the exact question it was first given, so a resumed run is identical.
+      // (startGame clears the pins per run — a re-run draws fresh questions.)
       const record = activeSavedGameRecord();
       if (record && !record.frozen) record.frozen = {};
       let frozenDirty = false;
@@ -16096,14 +16099,14 @@
 
       // Spend the play credit HERE — the game is finished. Entering a game and
       // leaving (without reaching this screen) never charges; only a completed
-      // game does, and the guard makes it exactly once per game. Replaying an
-      // already-paid saved game is FREE: no new credit, and the record is
-      // marked so its first (charged) play is the only one that ever costs.
+      // run does, and the guard makes it exactly once per RUN. Every run of a
+      // saved game counts like a new game (fresh questions each run — there are
+      // no free replays); `charged` marks the run only so a resume-after-finish
+      // can't recharge it, and startGame resets it for the next run.
       if (!state.gameCounted) {
         state.gameCounted = true;
         const rec = activeSavedGameRecord();
-        const freeReplay = !!(rec && rec.charged);
-        const credit = freeReplay ? "replay" : spendGameCredit();
+        const credit = (rec && rec.charged) ? "replay" : spendGameCredit();
         if (rec && !rec.charged) { rec.charged = true; saveSavedGames(); }
         recordGameStats(credit); // tally this finished game + its categories (global insights)
         saveLiveGame(); // persist the "counted" flag so a resume can't recharge

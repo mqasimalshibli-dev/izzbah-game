@@ -55,3 +55,10 @@ existing questions or pictures; findings go to the owner, who acts.
   `.github/workflows/smoke.yml`.
 - Whenever `firestore.rules` changes, paste the FULL updated rules file in the
   chat reply — the user publishes it manually in the Firebase console.
+- Saved-game policy (owner REVERSED the old rule on 2026-07-20 — do not
+  restore it): a saved game keeps only its SETUP (name/categories/teams).
+  EVERY run — including re-runs of a saved game — draws fresh questions and
+  costs a game credit (gated at start, charged on finish; abandoning a run
+  never charges). Questions are pinned (`record.frozen`) only WITHIN a run so
+  a resume serves the same board; `startGame` clears the pins and `charged`
+  per run. The old model (frozen-forever questions + free replays) is gone.

@@ -1,7 +1,8 @@
-// A saved game's questions are FROZEN: replaying it always serves the same
-// question in every cell. Only a brand-NEW game draws fresh questions. Without
-// freezing, a tier with several questions would re-roll on each replay — this
-// drives a 6-question tier and proves it never changes across replays.
+// Saved-game question policy: questions are pinned only WITHIN a run — a
+// resumed board serves the same question — but every NEW run (a re-run of the
+// saved game) clears the pins and draws FRESH questions, and is gated like a
+// new paid game. (Policy change 2026-07-20: re-runs are no longer free and no
+// longer serve the same questions.)
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -28,14 +29,13 @@ try {
 
   await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "adm");
-    window.IZZBAH.applyAdmin(true); // admin bypasses the one-free-game gate
-    // A category with SIX distinct questions in the 100 tier — re-rolling would
-    // almost never repeat the same one five times in a row.
+    window.IZZBAH.applyAdmin(true); // admin bypasses the play gate for the draw checks
+    // A category with SIX distinct questions in the 100 tier, so fresh draws
+    // are observable.
     window.IZZBAH.applyPublished([{
       id: "pub-freeze-test", name: "تجميد", image: "", order: 1,
       questions: Array.from({ length: 6 }, (_, i) => ({ points: 100, q: "سؤال " + i, a: "جواب " + i, image: "", answerImage: "" })),
     }]);
-    // helpers used by the harness
     window.__startFresh = () => {
       state.selected = new Set(["pub-freeze-test"]);
       state.currentGameName = "";
@@ -44,16 +44,18 @@ try {
       startGame();
       return state.editingSavedGameId; // the record it created
     };
-    window.__replay = (id) => { playSavedGame(id); startGame(); };
+    window.__rerun = (id) => { playSavedGame(id); startGame(); };
     window.__served = () => {
       const card = [...document.querySelectorAll(".board-category-card")].find(c => c.textContent.includes("تجميد"));
       const cell = card.querySelector(".cell:not(.used)");
       cell.click();
-      return state.activeQuestion.q.a;
+      const a = state.activeQuestion.q.a;
+      finishQuestion(null); // close it (marks it seen for the unseen-first draw)
+      return a;
     };
   });
 
-  // ---- 1) first play of a NEW game creates a record and freezes a question ----
+  // ---- 1) a new game creates a record and pins this RUN's question ----
   const first = await page.evaluate(() => {
     const id = window.__startFresh();
     const rec = state.savedGames.find(g => g.id === id);
@@ -61,33 +63,48 @@ try {
     return { id, frozenSig: rec && rec.frozen && rec.frozen["pub-freeze-test-100"], served };
   });
   check("a new game creates a saved-game record", !!first.id);
-  check("the played cell's question is frozen onto the record", !!first.frozenSig);
+  check("the played cell's question is pinned onto the record for this run", !!first.frozenSig);
   check("the served question is one of the six", /^جواب [0-5]$/.test(first.served));
 
-  // ---- 2) replaying that saved game serves the SAME question, every time ----
-  const replays = [];
+  // ---- 2) WITHIN the run (a resume re-render), the pin holds ----
+  const resumed = await page.evaluate((id) => {
+    renderGame(); // what a resume does — re-render the same run's board
+    const rec = state.savedGames.find(g => g.id === id);
+    return rec.frozen["pub-freeze-test-100"];
+  }, first.id);
+  check("re-rendering the same run keeps the pinned question (resume-safe)", resumed === first.frozenSig);
+
+  // ---- 3) every RE-RUN clears the pins and draws fresh questions ----
+  const rerunAnswers = [];
   for (let i = 0; i < 5; i++) {
-    replays.push(await page.evaluate((id) => { window.__replay(id); return window.__served(); }, first.id));
+    rerunAnswers.push(await page.evaluate((id) => { window.__rerun(id); return window.__served(); }, first.id));
   }
-  check(`5 replays all serve the SAME question (${first.served} → ${JSON.stringify(replays)})`,
-    replays.every(a => a === first.served));
+  const distinct = new Set([first.served, ...rerunAnswers]);
+  check(`re-runs draw FRESH questions (${JSON.stringify([first.served, ...rerunAnswers])} → ${distinct.size} distinct)`,
+    distinct.size >= 2);
 
-  // the frozen signature never changed across those replays
-  const sigStable = await page.evaluate((id) =>
-    state.savedGames.find(g => g.id === id).frozen["pub-freeze-test-100"], first.id);
-  check("the frozen signature is unchanged after replays", sigStable === first.frozenSig);
+  // ---- 4) a re-run resets the record's charge (paid like a new game) ----
+  const recState = await page.evaluate((id) => {
+    const rec = state.savedGames.find(g => g.id === id);
+    rec.charged = true; // as after a finished run
+    window.__rerun(id);
+    return state.savedGames.find(g => g.id === id).charged;
+  }, first.id);
+  check("starting a re-run makes the record chargeable again", recState === false);
 
-  // ---- 3) a brand-NEW game is a separate record (its own fresh draw) ----
-  const second = await page.evaluate(() => {
-    const id = window.__startFresh();
-    return { id, served: window.__served() };
-  });
-  check("a brand-new game is a DIFFERENT saved-game record", second.id && second.id !== first.id);
-  check("the new game's question is independently valid", /^جواب [0-5]$/.test(second.served));
-
-  // ---- 4) the original record still holds its original question ----
-  const back = await page.evaluate((id) => { window.__replay(id); return window.__served(); }, first.id);
-  check("re-opening the original saved game STILL serves its frozen question", back === first.served);
+  // ---- 5) with no credits at all, a re-run is blocked by the paywall ----
+  const gated = await page.evaluate((id) => {
+    window.IZZBAH.applyAdmin(false);
+    state.isPremium = false; state.codePremium = false;
+    state.gamesAllowed = 0; state.codeGamesAllowed = 0; state.gamesUsed = 0;
+    state.freeGamePlayed = true; state.gameActive = false;
+    window.__rerun(id);
+    return {
+      paywall: document.getElementById("plansModal").classList.contains("open"),
+      active: state.gameActive,
+    };
+  }, first.id);
+  check("a re-run with no balance hits the paywall (no free replays)", gated.paywall && !gated.active);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
