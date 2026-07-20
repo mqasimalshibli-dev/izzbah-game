@@ -46,13 +46,13 @@ try {
       usedAfter: state.gamesUsed,
       counted: state.gameCounted,
       active: state.gameActive,
-      onMenu: document.getElementById("menu").classList.contains("active"),
+      onLibrary: document.body.dataset.screen === "gameLibrary",
     };
   });
   check("starting the game doesn't charge yet", abandon.usedBeforeExit === 0);
   check("the ✕ warns that a game will be lost", /لعبة واحدة/.test(lastDialog) && /تفقد تقدّمك/.test(lastDialog));
   check("confirming the ✕ spends exactly one game", abandon.usedAfter === 1);
-  check("after abandoning, the game ends (back at the menu, not active)", !abandon.active && abandon.onMenu);
+  check("after abandoning, the game ends on «ألعابك» (not active, not the welcome screen)", !abandon.active && abandon.onLibrary);
 
   // ---- 1b) an admin/subscriber loses only the progress (no charge, softer warning)
   const adminExit = await page.evaluate(() => {
@@ -151,20 +151,29 @@ try {
     startGame();
     const savedId = state.editingSavedGameId;
     const usedBefore = state.gamesUsed;
+    // the pause button must actually be VISIBLE (sized, bordered, drawn icon)
+    const btn = document.getElementById("pauseGame");
+    const bcs = getComputedStyle(btn);
+    const svg = btn.querySelector("svg");
+    const shown = btn.offsetWidth > 10 && btn.offsetHeight > 10
+      && parseFloat(bcs.borderTopWidth) > 0
+      && svg && svg.getBoundingClientRect().width > 4;
     document.getElementById("pauseGame").click(); // dialog auto-accepted
     const liveAfter = getLiveGameInfo();
     return {
+      shown,
       usedBefore, usedAfter: state.gamesUsed,
       active: state.gameActive,
-      onMenu: document.getElementById("menu").classList.contains("active"),
+      onLibrary: document.body.dataset.screen === "gameLibrary",
       liveKept: !!liveAfter,
       liveCounted: liveAfter && !!liveAfter.counted,
       liveId: liveAfter && liveAfter.savedGameId, savedId,
     };
   });
+  check("the pause button is actually visible (sized, bordered, drawn icon)", pause.shown);
   check("pause asks the host to confirm", /إيقاف اللعبة مؤقتًا/.test(lastDialog));
   check("pausing does NOT charge a game", pause.usedBefore === 0 && pause.usedAfter === 0);
-  check("pausing ends the active session and returns to the menu", !pause.active && pause.onMenu);
+  check("pausing ends the active session and lands on «ألعابك»", !pause.active && pause.onLibrary);
   check("pausing keeps the live game resumable (kept, uncounted, same record)",
     pause.liveKept && !pause.liveCounted && pause.liveId === pause.savedId);
 
