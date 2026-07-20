@@ -1,7 +1,7 @@
-// The emoji category «خمّن الإيموجي» AND the riddles category «ألغاز» are worth
-// a FLAT 200 points: every board cell shows 200, the question screen shows 200,
-// and answering awards exactly 200 (×2 only with the double-points helper).
-// Other categories keep their per-tier values.
+// The emoji «خمّن الإيموجي», riddles «ألغاز», AND connections «إيش يجمعهم؟»
+// categories are worth a FLAT 200 points: every board cell shows 200, the
+// question screen shows 200, and answering awards exactly 200 (×2 only with the
+// double-points helper). Other categories keep their per-tier values.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -92,6 +92,29 @@ try {
     riddles.labels.length > 0 && riddles.labels.every(t => t === "200"));
   check("a riddle question shows 200 نقطة", /200/.test(riddles.modal) && /نقطة/.test(riddles.modal));
   check(`answering a riddle awards exactly 200 (got ${riddles.score})`, riddles.score === 200);
+
+  // ---- «إيش يجمعهم؟» (connections) is ALSO flat 200 (matched by name) ----
+  const conns = await page.evaluate(() => {
+    state.publishedCategories = (state.publishedCategories || []).filter(c => c.id !== "conns-test");
+    state.publishedCategories.push({ id: "conns-test", name: "إيش يجمعهم؟", questions: [
+      { q: "أحمر · أخضر · أزرق · أصفر", a: "ألوان", points: 100 },
+      { q: "ميسي · رونالدو · نيمار · صلاح", a: "لاعبو كرة قدم", points: 400 },
+      { q: "عطارد · الزهرة · الأرض · المريخ", a: "كواكب", points: 500 },
+    ] });
+    state.selected = new Set(["conns-test"]);
+    state.editingSavedGameId = null;
+    state.teams.forEach(t => { t.score = 0; t.doubleArmed = false; });
+    startGame();
+    const labels = [...document.querySelectorAll("#board .board-category-card .cell")].map(c => c.textContent);
+    document.querySelector("#board .board-category-card .cell:not(.used)").click();
+    const modal = document.getElementById("modalPoints").textContent;
+    finishQuestion(0);
+    return { labels, modal, score: state.teams[0].score };
+  });
+  check(`every «إيش يجمعهم؟» cell is worth 200 (${JSON.stringify(conns.labels)})`,
+    conns.labels.length > 0 && conns.labels.every(t => t === "200"));
+  check("a connections question shows 200 نقطة", /200/.test(conns.modal) && /نقطة/.test(conns.modal));
+  check(`answering a connections question awards exactly 200 (got ${conns.score})`, conns.score === 200);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
