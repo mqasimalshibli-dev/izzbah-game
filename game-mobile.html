@@ -64,7 +64,7 @@
       --white: #fffdfa;
       --game-vw: 100vw;
       --game-vh: 100vh;
-      --screen-bg: url("assets/img/screen-bg.webp");
+      --screen-bg: linear-gradient(180deg, #3a0a0d 0%, #2a0709 55%, #190406 100%);
     }
 
     * { box-sizing: border-box; }
@@ -137,13 +137,10 @@
       pointer-events: none;
     }
 
-    /* Background ornament — a whisper-light eight-point star lattice (echoes the
-       star in the عزبة logo), faded toward the bottom so content stays the hero. */
+    /* Background ornament removed — the star/diamond lattice is no longer drawn
+       on any page (owner request); the pseudo-element stays inert. */
     .app::before {
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.15'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.3'/%3E%3Cg fill='%23911820' fill-opacity='.06'%3E%3Cpath d='M0 -7 7 0 0 7 -7 0z'/%3E%3Cpath d='M120 -7 127 0 120 7 113 0z'/%3E%3Cpath d='M0 113 7 120 0 127 -7 120z'/%3E%3Cpath d='M120 113 127 120 120 127 113 120z'/%3E%3C/g%3E%3C/svg%3E");
-      background-size: 120px 120px;
-      mask-image: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, .85), rgba(0, 0, 0, .2));
-      -webkit-mask-image: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, .85), rgba(0, 0, 0, .2));
+      background: none;
     }
 
     /* Ambient warmth + gold arch rings in the corners (majlis-arch motif). */
@@ -4930,7 +4927,6 @@
       width: 100% !important; max-width: 100% !important; padding: 0 !important;
       background:
         radial-gradient(135% 95% at 50% -22%, #fcefd4 0%, rgba(252, 239, 212, 0) 56%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.12'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.22'/%3E%3C/svg%3E") 0 0 / 120px 120px,
         linear-gradient(180deg, #f5e7cb, #ecd6b2) !important;
     }
     #setup.center { justify-content: flex-start !important; align-items: stretch !important; gap: 0 !important; overflow-y: auto !important; text-align: right !important; }
@@ -5036,9 +5032,8 @@
     #gameLibrary, #questionPage, #answerPage {
       background-color: #f1e2bf !important;
       background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23a97c3f' stroke-opacity='.13'%3E%3Crect x='42' y='42' width='36' height='36'/%3E%3Crect x='42' y='42' width='36' height='36' transform='rotate(45 60 60)'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='1.8' fill='%23a97c3f' fill-opacity='.24'/%3E%3C/svg%3E"),
         radial-gradient(120% 90% at 50% 0%, #f6ead0 0%, #efe0ba 55%, #e9d6a9 100%) !important;
-      background-size: 120px 120px, auto !important;
+      background-size: auto !important;
     }
     /* main screen (games library) — dark-red to match the final-score screen */
     #gameLibrary {
@@ -9631,7 +9626,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.106";
+    const IZZBAH_BUILD = "2026-07-10.107";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
