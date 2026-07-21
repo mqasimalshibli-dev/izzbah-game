@@ -9640,7 +9640,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.118";
+    const IZZBAH_BUILD = "2026-07-10.119";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10635,6 +10635,12 @@
     }
 
     function showScreen(id, options = {}) {
+      // A new build arrived while a game was live — apply it now that the player
+      // is off the board (menu / library), so they never lose a game to a reload.
+      if (state.pendingSwReload && !state.gameActive && (id === "menu" || id === "gameLibrary")) {
+        location.reload();
+        return;
+      }
       syncGameViewport();
       if (!options.keepQuestion) clearQuestionView();
       document.querySelectorAll(".screen, .game-screen").forEach(screen => screen.classList.remove("active"));
@@ -14122,7 +14128,26 @@
     // NATIVE one-tap install dialog. iOS Safari has no install API at all, so
     // there (and only there) we fall back to add-to-home-screen instructions.
     if ("serviceWorker" in navigator) {
-      try { navigator.serviceWorker.register("sw.js"); } catch (e) {}
+      try {
+        // updateViaCache:"none" -> the sw.js script itself is always checked
+        // against the network, so a new deploy is detected promptly.
+        navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+        let swReloaded = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (swReloaded) return;
+          // A newer build's service worker just took over. Reload onto it — but
+          // NEVER yank a live game; defer the refresh to a safe screen.
+          if (state && state.gameActive) { state.pendingSwReload = true; return; }
+          swReloaded = true;
+          location.reload();
+        });
+        // Re-check for a newer deploy whenever the app is reopened/refocused.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+          }
+        });
+      } catch (e) {}
     }
     let deferredInstallPrompt = null;
     window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstallPrompt = e; });
