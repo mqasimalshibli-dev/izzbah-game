@@ -6119,6 +6119,7 @@
           <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
           <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
+          <button class="secondary" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية">⬇ نسخة احتياطية</button>
         </div>
         <div class="admin-controls">
           <div class="admin-search">
@@ -9640,7 +9641,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.119";
+    const IZZBAH_BUILD = "2026-07-10.120";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -16903,6 +16904,33 @@
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
     $("#adminImportQuestions").addEventListener("click", () => openImportModal("admin"));
+    // ---- Full-catalog backup: downloads EVERYTHING the admin can lose ----
+    // (published categories with all questions/images, community submissions,
+    // and this device's custom categories) as one JSON file. Restoring is
+    // manual today — the point is that no bulk mistake is ever unrecoverable.
+    function buildCatalogBackup() {
+      return {
+        kind: "izzbah-catalog-backup",
+        version: 1,
+        build: IZZBAH_BUILD,
+        exportedAt: new Date().toISOString(),
+        published: state.publishedCategories || [],
+        community: state.communityCategories || [],
+        custom: state.customCategories || []
+      };
+    }
+    function exportCatalogBackup() {
+      const data = buildCatalogBackup();
+      const nQs = (list) => (list || []).reduce((s, c) => s + ((c.questions || []).length), 0);
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "izzbah-backup-" + data.exportedAt.slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      showToast(`تم تنزيل النسخة الاحتياطية — ${toArabicDigits(data.published.length)} فئة منشورة (${toArabicDigits(nQs(data.published))} سؤالاً)`);
+    }
+    $("#adminExportAll").addEventListener("click", exportCatalogBackup);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
     $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
