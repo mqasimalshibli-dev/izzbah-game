@@ -26,6 +26,27 @@
   plan (no Cloud Functions, no server). Design the payment-confirmation step
   first; never send the code before payment.
 
+- **Online / remote multiplayer — PARKED for v2 (owner-requested 2026-07-21).**
+  Turn عِزبة from single-device pass-and-play into each player on their own
+  phone, synced in real time. RECOMMENDED architecture = **host-authoritative
+  rooms** (NOT server-authoritative, NOT peer): one player hosts (their device
+  runs the existing game + holds the ANSWERS + judges); others join a room by
+  short code and get a companion screen (board, scores, turn, buzzer/answer
+  box) that NEVER receives the answer — so no one can peek in dev tools, and no
+  Cloud Function/server is needed. Build pieces: (1) a `rooms/{code}` Firestore
+  doc all devices listen to via onSnapshot (RTDB optional for snappier buzzers
+  + onDisconnect presence); (2) enable **Anonymous auth** so friends join with
+  just a name + code; (3) lobby (create room → share code → start); (4) host
+  publishes PUBLIC state each action (board, scores, turn, question prompt/image
+  only — never the answer); (5) player companion view; (6) buzzer/judging flow +
+  disconnect/heartbeat handling; (7) Firestore rules so a player can only join
+  and write their OWN input doc, never edit scores or read answers. Effort: the
+  biggest feature discussed — days-to-weeks. Owner's confirmed sequencing: SHIP
+  the local party game first, then build this as v2; let launch traffic confirm
+  demand before investing. Open decision to confirm when starting: "friends in
+  different places" vs "same room, own phones" (same tech, different networking
+  assumptions).
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are
