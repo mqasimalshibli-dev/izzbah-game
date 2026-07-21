@@ -1,6 +1,7 @@
-// Verifies the PWA layer: a valid linked manifest with icons, a service
-// worker that registers and (critically) serves NAVIGATIONS network-first so
-// deployed updates are never trapped behind the cache.
+// Verifies the PWA layer: a valid linked manifest with icons, and a service
+// worker that launches INSTANTLY (cache-first navigation) yet never traps a
+// stale build — the cache is versioned per deploy, refreshed in the background,
+// and the page auto-reloads onto a new build (deferred out of a live game).
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -18,7 +19,7 @@ await new Promise(r => setTimeout(r, 1200));
 // ---- static checks ----
 const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
 check("the page links a web app manifest", /<link rel="manifest" href="assets\/brand\/manifest\.webmanifest">/.test(html));
-check("the page registers the service worker", /serviceWorker\.register\("sw\.js"\)/.test(html));
+check("the page registers the service worker", /serviceWorker\.register\("sw\.js"/.test(html));
 
 const manifest = JSON.parse(readFileSync(join(ROOT, "assets/brand/manifest.webmanifest"), "utf8"));
 check("manifest: standalone display + start_url + id",
@@ -31,10 +32,18 @@ const iconsExist = manifest.icons.every(i => { try { readFileSync(join(ROOT, "as
 check("manifest: every icon file exists on disk", iconsExist);
 
 const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-check("service worker: navigations are network-first AND bypass the HTTP cache (updates can't be trapped)",
+check("service worker: navigations are CACHE-FIRST for an instant launch (cache looked up before the network)",
   /mode === "navigate"/.test(sw)
-  && /fetch\(req,\s*\{\s*cache:\s*["']reload["']\s*\}\)/.test(sw)
-  && sw.indexOf('cache: "reload"') < sw.indexOf("caches.match(req)"));
+  && sw.indexOf("caches.match(req)") < sw.indexOf('cache: "reload"')   // cache lookup precedes the network fetch
+  && /return hit \|\| net/.test(sw));
+check("service worker: the shell is still refreshed in the background (cache:reload keeps it self-healing)",
+  /fetch\(req,\s*\{\s*cache:\s*["']reload["']\s*\}\)/.test(sw));
+check("service worker: the cache is versioned per build so a new deploy invalidates it",
+  /const CACHE = "izzbah-/.test(sw) && /k !== CACHE/.test(sw));
+check("the page auto-updates onto a new build (controllerchange → reload)",
+  /controllerchange/.test(html) && /location\.reload\(\)/.test(html) && /updateViaCache:\s*"none"/.test(html));
+check("the auto-reload never interrupts a live game (deferred via pendingSwReload)",
+  /pendingSwReload/.test(html) && /state\.gameActive/.test(html));
 check("service worker: cross-origin (Firebase/CDN) requests pass through untouched",
   /origin !== self\.location\.origin\) return/.test(sw));
 
