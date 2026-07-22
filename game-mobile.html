@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.128";
+    const IZZBAH_BUILD = "2026-07-10.129";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -16340,12 +16340,15 @@
         const gained = questionReward(active.cat, active.q) * (winnerTeam.doubleArmed ? 2 : 1);
         winnerTeam.score = Math.min(maxTotalScore, winnerTeam.score + gained);
         if (winnerTeam.doubleArmed) winnerTeam.doubleArmed = false; // consumed on an answered question
-        state.activeTeam = (winnerIndex + 1) % state.teamCount;
         playSfx("correct");
       } else {
-        state.activeTeam = (state.activeTeam + 1) % state.teamCount;
         playSfx("none");
       }
+      // The turn belongs to whoever PICKED the question and always passes to the
+      // NEXT team in order — a strict back-and-forth — no matter which team
+      // actually answered. (A "سؤال عشوائي" still overrides via forcedNextTeam
+      // below; "سرقة الدور" already moved the pick to the stealer.)
+      state.activeTeam = (state.activeTeam + 1) % state.teamCount;
       // The ×2 (مضاعفة النقاط) is armed for THIS question only — consume it
       // however the question resolves (win, loss, or "لا أحد"), so it can never
       // leak into a later question the arming team happens to win.
