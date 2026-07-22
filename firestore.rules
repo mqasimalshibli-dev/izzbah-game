@@ -130,20 +130,32 @@ service cloud.firestore {
           && request.resource.data.usedAt is timestamp );
     }
 
-    // ---- Per-player game usage (soft consumed-count, admin-visible) ---------
-    // A player writes ONLY their own usage doc — how many allowance games they
-    // have consumed. An admin may read every player's doc to show each player's
-    // REMAINING balance (granted − used) in the subscription panel. It holds no
-    // personal data beyond the count. Client-updated, so not billing-grade — it
-    // matches the free-plan soft-counter model used elsewhere.
+    // ---- Per-player game usage + balance mirror (admin-visible) -------------
+    // A player writes ONLY their own usage doc. It holds:
+    //   • gamesUsed    — how many allowance games they've consumed (soft counter).
+    //   • gamesGranted — a MIRROR of the games their redeemed codes total.
+    //   • premium      — whether they hold unlimited play.
+    // The admin reads every player's doc to show each player's REMAINING balance
+    // (granted − used) in the subscription panel with ONE query — no per-code
+    // read, no code-count ceiling. The mirror is a convenience CACHE: a player's
+    // REAL entitlement is still the authoritative code docs, so a tampered mirror
+    // grants no games — it can only misstate the dashboard, which the admin's
+    // «rebuild» recomputes from codes. Client-updated (not billing-grade), same
+    // soft-counter model used elsewhere. An admin may also write any player's doc
+    // (to rebuild the mirror from codes / repair after a revoke).
     match /usage/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if isSignedIn()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['gamesUsed', 'updatedAt'])
+        && (request.auth.uid == uid || isAdmin())
+        && request.resource.data.keys().hasOnly(['gamesUsed', 'gamesGranted', 'premium', 'updatedAt'])
         && request.resource.data.gamesUsed is int
         && request.resource.data.gamesUsed >= 0
         && request.resource.data.gamesUsed <= 100000
+        && (!('gamesGranted' in request.resource.data)
+            || (request.resource.data.gamesGranted is int
+                && request.resource.data.gamesGranted >= 0
+                && request.resource.data.gamesGranted <= 1000000))
+        && (!('premium' in request.resource.data) || request.resource.data.premium is bool)
         && request.resource.data.updatedAt is timestamp;
       // A player may delete their own usage doc; an admin may delete any
       // player's, to CLEAR that player's record from the subscription panel.

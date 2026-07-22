@@ -236,7 +236,13 @@ try {
       { code: "EEEE-5555", gamesAllowed: 2,  premium: false, used: true,  usedBy: "userCCC", usedAt: 1750000000000 },
       { code: "DDDD-4444", gamesAllowed: 3,  premium: false, used: false, usedBy: "" },
     ]);
-    window.IZZBAH.listUsage = () => Promise.resolve({ userAAA: 6, userBBB: 99, userCCC: 5 });
+    // Players now derive from the usage MIRROR (uid -> {used, granted, premium}),
+    // not from a per-code scan — one read, no code-count ceiling.
+    window.IZZBAH.listUsage = () => Promise.resolve({
+      userAAA: { used: 6,  granted: 15, premium: false },
+      userBBB: { used: 99, granted: 0,  premium: true  },
+      userCCC: { used: 5,  granted: 2,  premium: false },
+    });
     document.getElementById("premRefresh").click();
     await new Promise(r => setTimeout(r, 200));
     const rowText = uid => ([...document.querySelectorAll("#premPlayers .prem-row")]
@@ -269,7 +275,7 @@ try {
     window.IZZBAH.listCodes = () => Promise.resolve([
       { code: "CCCC-3333", gamesAllowed: 0, premium: true, used: true, usedBy: "userBBB", usedAt: 1750000000000 },
     ]);
-    window.IZZBAH.listUsage = () => Promise.resolve({ userBBB: 0 });
+    window.IZZBAH.listUsage = () => Promise.resolve({ userBBB: { used: 0, granted: 0, premium: true } });
     const hadBtn = !!btn && /مسح/.test(btn.textContent);
     if (btn) btn.click();               // confirm() auto-accepted by the dialog handler
     await new Promise(r => setTimeout(r, 250));

@@ -6356,7 +6356,11 @@
 
         <div class="prem-list-head">
           <span>اللاعبون ورصيدهم</span>
-          <button class="ghost prem-refresh" id="premRefresh" type="button">تحديث ↻</button>
+          <span style="display:flex;gap:8px">
+            <button class="ghost" id="premRebuild" type="button"
+                    title="يعيد حساب رصيد كل لاعب من أكواده الفعلية — استخدمه بعد إلغاء أكواد أو لأول مرة">إعادة بناء ⟳</button>
+            <button class="ghost prem-refresh" id="premRefresh" type="button">تحديث ↻</button>
+          </span>
         </div>
         <div class="prem-list" id="premPlayers"></div>
 
@@ -9645,7 +9649,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.124";
+    const IZZBAH_BUILD = "2026-07-10.125";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -9719,9 +9723,19 @@
       syncUsageToCloud();
     }
     // Publish the player's consumed-game count to the cloud so the admin panel's
-    // per-player "games left" stays live. Best-effort; no-op when signed out.
+    // per-player "games left" stays live, PLUS a mirror of their granted balance
+    // (code games + unlimited) so the admin players view reads O(players) with no
+    // per-code cost. The mirror is a convenience cache only — the real
+    // entitlement is the authoritative code docs. Best-effort; no-op signed out.
     function syncUsageToCloud() {
-      try { if (window.IZZBAH && window.IZZBAH.pushUsage) window.IZZBAH.pushUsage(state.gamesUsed || 0); } catch (e) {}
+      try {
+        if (window.IZZBAH && window.IZZBAH.pushUsage) {
+          window.IZZBAH.pushUsage(state.gamesUsed || 0, {
+            granted: state.codeGamesAllowed || 0,
+            premium: premiumActive()
+          });
+        }
+      } catch (e) {}
     }
     // Unlimited play: an active entitlement OR a redeemed unlimited code.
     function premiumActive() { return !!state.isPremium || !!state.codePremium; }
@@ -13699,10 +13713,20 @@
       bridge(code).then(() => { premSetStatus("تم الحذف.", "ok"); refreshPremiumList(); })
         .catch(err => { console.warn("delete code failed", err); premSetStatus("تعذّر الحذف.", "err"); });
     }
-    // Render the per-CODE list (who redeemed what).
-    function renderCodeList(list, rows) {
+    // Render the per-CODE audit list (who redeemed what). `truncated` = the raw
+    // code query hit its cap, so this list is only the most recent slice — shown
+    // as a note. This NO LONGER affects any balance: player balances come from
+    // the usage mirror, so a capped audit list can't under-count a player.
+    function renderCodeList(list, rows, truncated) {
       if (!rows.length) { list.innerHTML = '<div class="prem-empty">لا توجد أكواد بعد — أنشئ أول كود أعلاه.</div>'; return; }
       list.innerHTML = "";
+      if (truncated) {
+        const note = document.createElement("div");
+        note.className = "prem-empty";
+        note.style.cssText = "text-align:center;color:var(--gold-dark);font-size:14px";
+        note.textContent = "يُعرض أحدث ٢٠٠٠ كود فقط · الأرصدة غير متأثرة (تُحسب من سجل اللاعبين)";
+        list.appendChild(note);
+      }
       rows.forEach(r => {
         const row = document.createElement("div");
         row.className = "prem-row";
@@ -13730,29 +13754,26 @@
       });
     }
 
-    // Render the per-PLAYER balance: group redeemed codes by the account that
-    // used them, then subtract that player's live consumed-game count (usage
-    // map) to show how many games they have LEFT. Unlimited subscribers show ∞.
-    function renderPlayers(container, rows, usage, uidFilter) {
+    // Render the per-PLAYER balance from the usage MIRROR (uid -> {used, granted,
+    // premium}): one collection read, no per-code scan, no code-count ceiling.
+    // `granted` is each player's own mirror of their authoritative codes; `left`
+    // = granted − used. Unlimited subscribers show ∞. A player appears once they
+    // hold any grant (games or unlimited).
+    function renderPlayers(container, usage, uidFilter) {
       if (!container) return;
-      const byUser = new Map();
-      rows.forEach(r => {
-        if (!r.used || !r.usedBy) return;
-        const u = byUser.get(r.usedBy) || { uid: r.usedBy, granted: 0, unlimited: false, codes: 0 };
-        u.unlimited = u.unlimited || !!r.premium;
-        if (!r.premium) u.granted += Number(r.gamesAllowed) || 0;
-        u.codes++;
-        byUser.set(r.usedBy, u);
-      });
-      if (!byUser.size) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعبون فعّلوا أكواداً بعد.</div>'; return; }
+      let players = Object.keys(usage || {}).map(uid => {
+        const d = usage[uid] || {};
+        return { uid, granted: Math.max(0, Math.floor(Number(d.granted) || 0)), unlimited: !!d.premium, used: Math.max(0, Math.floor(Number(d.used) || 0)) };
+      }).filter(u => u.granted > 0 || u.unlimited);
+      if (!players.length) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعبون فعّلوا أكواداً بعد.</div>'; return; }
       // most games granted first
-      let players = [...byUser.values()].sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
+      players.sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
       const q = (uidFilter || "").trim().toLowerCase();
       if (q) players = players.filter(u => (u.uid || "").toLowerCase().includes(q));
       if (!players.length) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعب مطابق للبحث.</div>'; return; }
       container.innerHTML = "";
       players.forEach(u => {
-        const used = Math.max(0, Math.floor(Number(usage[u.uid]) || 0));
+        const used = u.used;
         const left = u.unlimited ? Infinity : Math.max(0, u.granted - used);
         const row = document.createElement("div");
         row.className = "prem-row";
@@ -13915,6 +13936,26 @@
         .catch(err => { console.warn("clear player failed", err); premSetStatus("تعذّر المسح — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
 
+    // Admin: rebuild every player's granted mirror from the authoritative codes.
+    // The migration step (run once after publishing the new rules), and a repair
+    // button for after bulk code deletions. Safe + idempotent.
+    function rebuildBalancesFromAdmin() {
+      const bridge = window.IZZBAH && window.IZZBAH.rebuildBalances;
+      if (!bridge) { premSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!confirm("إعادة بناء أرصدة كل اللاعبين من الأكواد الفعلية؟\nعملية آمنة — تُطابق لوحة الاشتراكات مع الأكواد المُفعّلة.")) return;
+      const btn = $("#premRebuild");
+      if (btn) btn.disabled = true;
+      premSetStatus("جارٍ إعادة بناء الأرصدة من الأكواد…", "busy");
+      bridge().then(n => {
+        premSetStatus(`✅ أُعيد بناء رصيد ${toArabicDigits(n)} لاعب من الأكواد.`, "ok");
+        if (btn) btn.disabled = false;
+        refreshPremiumList();
+      }).catch(err => {
+        console.warn("rebuild balances failed", err);
+        premSetStatus("تعذّر إعادة البناء: " + ((err && (err.code || err.message)) || "خطأ"), "err");
+        if (btn) btn.disabled = false;
+      });
+    }
     // The last-loaded subscription data, kept so the search box can re-filter the
     // three lists WITHOUT re-reading Firestore, and so the live orders listener
     // can refresh just the orders in place.
@@ -13933,8 +13974,8 @@
       const fCodes = q ? codes.filter(c => (c.code || "").toLowerCase().includes(q) || (c.usedBy || "").toLowerCase().includes(q)) : codes;
       const fOrders = q ? orderRows.filter(o => `${o.email || ""} ${o.uid || ""} ${o.pack || ""}`.toLowerCase().includes(q)) : orderRows;
       if (orders) renderOrders(orders, fOrders);
-      if (players) renderPlayers(players, codes, usage, q); // players filter by uid inside
-      if (list) renderCodeList(list, fCodes);
+      if (players) renderPlayers(players, usage, q); // from the usage mirror, filter by uid inside
+      if (list) renderCodeList(list, fCodes, codes.length >= 2000);
     }
     function refreshPremiumList() {
       const list = $("#premList");
@@ -17033,6 +17074,7 @@
     $("#premGenerate").addEventListener("click", generateCodeFromAdmin);
     $("#codeCopy").addEventListener("click", copyGeneratedCode);
     $("#premRefresh").addEventListener("click", refreshPremiumList);
+    $("#premRebuild").addEventListener("click", rebuildBalancesFromAdmin);
     // Filter the (already-loaded) code/player/order lists as the admin types —
     // no extra Firestore reads, so it's instant even with a long history.
     $("#premSearch").addEventListener("input", renderPremLists);
@@ -17945,11 +17987,37 @@
               return out;
             });
           };
+          // Re-derive ONE player's granted mirror from their authoritative codes
+          // and write it to their usage doc (preserving the consumed count). Runs
+          // after an admin revokes a used code so the dashboard stays exact for
+          // that player without a full rebuild. Admin-only (rules let an admin
+          // write any usage doc). Best-effort.
+          function resyncPlayerMirror(uid) {
+            const u = String(uid || "");
+            if (!u) return Promise.resolve(false);
+            return db.collection("codes").where("usedBy", "==", u).get().then(snap => {
+              let games = 0, premium = false;
+              snap.forEach(doc => { const x = doc.data() || {}; if (x.premium) premium = true; else games += Number(x.gamesAllowed) || 0; });
+              return db.collection("usage").doc(u).get().then(d => {
+                const used = d.exists ? Number((d.data() || {}).gamesUsed) || 0 : 0;
+                return db.collection("usage").doc(u).set({
+                  gamesUsed: used, gamesGranted: games, premium: premium,
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+              });
+            }).then(() => true).catch(e => { console.warn("resync mirror failed", e && (e.code || e)); return false; });
+          }
           // Admin-only: delete a code (unused = void it; used = pull the games
-          // back from the player who redeemed it, since balances sum live).
+          // back from the player who redeemed it, since balances sum live). When
+          // a USED code is revoked, re-derive that player's granted mirror so the
+          // admin players view matches the remaining codes immediately.
           window.IZZBAH.deleteCode = function (code) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            return db.collection("codes").doc(normalizeCode(code)).delete();
+            const ref = db.collection("codes").doc(normalizeCode(code));
+            return ref.get().then(doc => {
+              const usedBy = doc.exists ? ((doc.data() || {}).usedBy || "") : "";
+              return ref.delete().then(() => (usedBy ? resyncPlayerMirror(usedBy) : null));
+            });
           };
           // Admin-only: clear a player's whole record from the subscription
           // panel — drop their consumed-game counter (usage doc), then delete
@@ -18184,26 +18252,51 @@
             if (!currentUser) return Promise.resolve(false);
             return loadMyCodes(currentUser);
           };
-          // Player: publish their own soft consumed-game counter to usage/{uid}
-          // so the admin panel can show each player's remaining balance. Deduped
-          // — only writes when the value actually changed.
-          let lastUsagePushed = -1;
-          window.IZZBAH.pushUsage = function (n) {
+          // Player: publish their own usage doc — the soft consumed-game counter
+          // AND a MIRROR of their granted balance (sum of their redeemed codes +
+          // whether they hold unlimited). The mirror is what lets the admin panel
+          // read O(players) instead of scanning every code — so the players view
+          // has no per-code read cost and no code-count ceiling. It is only a
+          // convenience cache: the player's REAL entitlement is still the
+          // authoritative code docs (loadMyCodes), so a tampered mirror grants no
+          // games — it can only misstate the admin dashboard, which «rebuild»
+          // recomputes from codes. Deduped on the whole {used,granted,premium}.
+          let lastUsagePushed = "";
+          window.IZZBAH.pushUsage = function (n, grant) {
             if (!currentUser) return Promise.resolve(false);
             const v = Math.max(0, Math.floor(Number(n) || 0));
-            if (v === lastUsagePushed) return Promise.resolve(true);
+            const hasGrant = grant && typeof grant === "object";
+            const g = hasGrant ? Math.max(0, Math.min(1000000, Math.floor(Number(grant.granted) || 0))) : null;
+            const prem = hasGrant ? !!grant.premium : null;
+            // Don't create an empty (0 used, 0 granted, not premium) doc: a pure
+            // free-player has nothing to record, and writing one would make the
+            // admin players-view read scale with EVERY signed-in user instead of
+            // just subscribers. A player only earns a usage doc once they consume
+            // an allowance game or hold a grant.
+            if (v === 0 && (g === null || g === 0) && (prem === null || prem === false)) {
+              return Promise.resolve(true);
+            }
+            const key = v + "|" + (g === null ? "-" : g) + "|" + (prem === null ? "-" : prem);
+            if (key === lastUsagePushed) return Promise.resolve(true);
             const ref = db.collection("usage").doc(currentUser.uid);
-            // MONOTONIC: the consumed count can only ever GO UP. A fresh device
-            // or cleared storage has a local count of 0 — writing that blindly
-            // used to wipe the real cloud count. The transaction keeps
-            // max(cloud, local), so a lower device value can never reset it.
+            // MONOTONIC on the consumed count: it can only ever GO UP. A fresh
+            // device or cleared storage has a local count of 0 — writing that
+            // blindly used to wipe the real cloud count. The transaction keeps
+            // max(cloud, local). granted/premium track the current code total
+            // (they can go up or down as codes are redeemed or revoked), and
+            // when this call carries no grant they are PRESERVED, never dropped.
             return db.runTransaction(tx => tx.get(ref).then(doc => {
-              const cur = doc.exists ? (Number((doc.data() || {}).gamesUsed) || 0) : 0;
-              const next = Math.max(cur, v);
-              tx.set(ref, { gamesUsed: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-              return next;
-            })).then(next => { lastUsagePushed = next; return true; })
-              .catch(e => { console.warn("usage push failed", e && (e.code || e)); lastUsagePushed = -1; return false; });
+              const d = doc.exists ? (doc.data() || {}) : {};
+              const nextUsed = Math.max(Number(d.gamesUsed) || 0, v);
+              tx.set(ref, {
+                gamesUsed: nextUsed,
+                gamesGranted: g === null ? (Number(d.gamesGranted) || 0) : g,
+                premium: prem === null ? !!d.premium : prem,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+              return nextUsed;
+            })).then(() => { lastUsagePushed = key; return true; })
+              .catch(e => { console.warn("usage push failed", e && (e.code || e)); lastUsagePushed = ""; return false; });
           };
           // Player: read the authoritative consumed count from the cloud.
           window.IZZBAH.loadMyUsage = function () {
@@ -18212,14 +18305,77 @@
               .then(doc => (doc.exists ? Number((doc.data() || {}).gamesUsed) || 0 : 0))
               .catch(() => 0);
           };
-          // Admin-only: every player's consumed-game count (uid -> gamesUsed),
-          // used to compute their remaining balance in the subscription panel.
+          // Admin-only: every player's balance record, uid -> {used, granted,
+          // premium}. This ONE query over the usage collection is now the whole
+          // players view — no per-code reads, no code-count ceiling. `granted`
+          // and `premium` are the mirror each player publishes from their own
+          // authoritative codes (see pushUsage); `used` is their consumed count.
           window.IZZBAH.listUsage = function () {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
-            return db.collection("usage").limit(1000).get().then(snap => {
+            return db.collection("usage").limit(5000).get().then(snap => {
               const map = {};
-              snap.forEach(doc => { const d = doc.data() || {}; map[doc.id] = Number(d.gamesUsed) || 0; });
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                map[doc.id] = {
+                  used: Number(d.gamesUsed) || 0,
+                  granted: Number(d.gamesGranted) || 0,
+                  premium: !!d.premium
+                };
+              });
               return map;
+            });
+          };
+          // Admin-only, one-time / repair: rebuild every player's granted mirror
+          // from the AUTHORITATIVE codes. Reads all codes ONCE (paginated so it is
+          // not bounded by any single-query cap), sums games + unlimited per
+          // redeemer, then writes each player's usage doc — preserving their
+          // consumed count. Use it to migrate existing players onto the mirror, or
+          // to repair the dashboard after bulk code deletions. Returns the number
+          // of player rows rebuilt.
+          window.IZZBAH.rebuildBalances = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const byUser = {};
+            const scanPage = function (after) {
+              let q = db.collection("codes").orderBy(firebase.firestore.FieldPath.documentId()).limit(1000);
+              if (after) q = q.startAfter(after);
+              return q.get().then(snap => {
+                if (snap.empty) return null;
+                let last = null;
+                snap.forEach(doc => {
+                  last = doc;
+                  const d = doc.data() || {};
+                  if (!d.used || !d.usedBy) return;
+                  const u = byUser[d.usedBy] || (byUser[d.usedBy] = { granted: 0, premium: false });
+                  if (d.premium) u.premium = true; else u.granted += Number(d.gamesAllowed) || 0;
+                });
+                return snap.size < 1000 ? null : scanPage(last);
+              });
+            };
+            return scanPage(null).then(() => {
+              const uids = Object.keys(byUser);
+              // Read existing usage docs so a rebuild preserves each player's
+              // consumed count (and doesn't resurrect a cleared player who has no
+              // remaining codes — only redeemers appear in byUser).
+              return Promise.all(uids.map(uid =>
+                db.collection("usage").doc(uid).get().then(doc => ({ uid, used: doc.exists ? Number((doc.data() || {}).gamesUsed) || 0 : 0 })).catch(() => ({ uid, used: 0 }))
+              )).then(existing => {
+                const usedByUid = {};
+                existing.forEach(e => { usedByUid[e.uid] = e.used; });
+                let batch = db.batch(), n = 0, total = 0;
+                const commits = [];
+                uids.forEach(uid => {
+                  batch.set(db.collection("usage").doc(uid), {
+                    gamesUsed: usedByUid[uid] || 0,
+                    gamesGranted: byUser[uid].granted,
+                    premium: byUser[uid].premium,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  });
+                  n++; total++;
+                  if (n >= 400) { commits.push(batch.commit()); batch = db.batch(); n = 0; }
+                });
+                if (n > 0) commits.push(batch.commit());
+                return Promise.all(commits).then(() => total);
+              });
             });
           };
           // Player: permanently delete their account — the cloud save doc, then
