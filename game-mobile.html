@@ -6390,6 +6390,9 @@
         <div class="stats-tiles" id="statsHealth"></div>
         <div class="stats-reveal" id="statsHealthReveal" hidden></div>
 
+        <div class="prem-list-head"><span>المبيعات</span></div>
+        <div class="stats-tiles" id="statsSales"></div>
+
         <div class="prem-list-head"><span>اللاعبون والاشتراكات</span></div>
         <div class="stats-tiles" id="statsPlayers"></div>
 
@@ -9649,7 +9652,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.126";
+    const IZZBAH_BUILD = "2026-07-10.127";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12692,7 +12695,7 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
-      ["statsTiles", "statsCats", "statsCommunity", "statsHealth", "statsPlayers", "statsPlay"]
+      ["statsTiles", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsPlayers", "statsPlay"]
         .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
       const m = $("#statsModal");
       m.classList.add("open");
@@ -13492,8 +13495,9 @@
       } catch (e) {}
       return new Date(ms).toLocaleDateString("ar");
     }
-    function renderStatsView(stats, codes, usage) {
+    function renderStatsView(stats, codes, usage, sales) {
       stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
+      sales = Array.isArray(sales) ? sales : [];
       const N = v => Math.max(0, Math.floor(Number(v) || 0));
 
       // ---- overview: totals, weekly trend, avg duration, avg teams ----
@@ -13584,6 +13588,28 @@
         });
       }
 
+      // ---- sales & revenue (from the persistent sales records) ----
+      const salesEl = $("#statsSales");
+      if (salesEl) {
+        if (!sales.length) {
+          salesEl.innerHTML = statsTileHtml(omr(0), "إجمالي الإيرادات", "تُسجَّل المبيعات عند تنفيذ الطلبات");
+        } else {
+          const totalRev = sales.reduce((s, x) => s + (Number(x.priceOMR) || 0), 0);
+          const gamesSold = sales.reduce((s, x) => s + N(x.games), 0);
+          const now = new Date();
+          const monthRev = sales.reduce((s, x) => {
+            if (!x.createdAt) return s;
+            const d = new Date(x.createdAt);
+            return (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) ? s + (Number(x.priceOMR) || 0) : s;
+          }, 0);
+          const avg = sales.length ? totalRev / sales.length : 0;
+          salesEl.innerHTML =
+            statsTileHtml(omr(totalRev), "إجمالي الإيرادات", `${toArabicDigits(sales.length)} عملية بيع · ${toArabicDigits(gamesSold)} لعبة مباعة`)
+            + statsTileHtml(omr(monthRev), "إيرادات هذا الشهر")
+            + statsTileHtml(omr(avg), "متوسط قيمة البيع");
+        }
+      }
+
       // ---- players & subscriptions (from the codes + usage the admin loads) ----
       const redeemed = codes.filter(c => c.used && c.usedBy);
       const players = new Set(redeemed.map(c => c.usedBy));
@@ -13619,8 +13645,9 @@
       // published) still renders the rest with zeros.
       const codesP = (window.IZZBAH.listCodes ? window.IZZBAH.listCodes() : Promise.resolve([])).catch(() => []);
       const usageP = (window.IZZBAH.listUsage ? window.IZZBAH.listUsage() : Promise.resolve({})).catch(() => ({}));
-      Promise.all([bridge(), codesP, usageP])
-        .then(([stats, codes, usage]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}); })
+      const salesP = (window.IZZBAH.listSales ? window.IZZBAH.listSales() : Promise.resolve([])).catch(() => []);
+      Promise.all([bridge(), codesP, usageP, salesP])
+        .then(([stats, codes, usage, sales]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}, sales || []); })
         .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
     // Tally a FINISHED game into the global counters — categories, team count,
@@ -13938,6 +13965,13 @@
           a.href = "mailto:" + (o.email || "") + "?subject=" + encodeURIComponent(mail.subject) + "&body=" + encodeURIComponent(mail.body);
           document.body.appendChild(a); a.click(); a.remove();
         }
+        // Record the sale (persists after the order is deleted) so the insights
+        // «المبيعات» view can total revenue. Priced from the matching plan; a
+        // best-effort write that never blocks fulfilment.
+        const rec = window.IZZBAH && window.IZZBAH.recordSale;
+        if (rec) {
+          try { rec({ pack: o.pack, games: o.games || 0, premium: !!o.premium, priceOMR: planPriceForOrder(o), email: o.email || "", uid: o.uid || "" }).catch(() => {}); } catch (e) {}
+        }
         const del = window.IZZBAH && window.IZZBAH.deleteOrder;
         return (del ? del(o.uid).catch(() => {}) : Promise.resolve()).then(() => {
           premSetStatus(`✅ أُنشئ الكود ${code} وفُتح بريد التأكيد من حساب izzbah — أكمل السعر وتفاصيل الدفع ثم أرسل.`, "ok");
@@ -14072,10 +14106,20 @@
     // the actual grant is the one-time code the admin generates and sends after
     // the player picks a plan (price shows only when set, e.g. "٢ ر.ع").
     const PLAY_PLANS = [
-      { id: "g2", icon: "🎲", name: "باقة لعبتين", desc: "جولتان — جرّب اللعبة مع أصحابك", price: "٠٫٩٠٠ ر.ع", games: 2, premium: false },
-      { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "١٫٥٠٠ ر.ع", games: 5, premium: false },
-      { id: "g15", icon: "🏆", name: "باقة ١٥ لعبة", desc: "خمس عشرة جولة — الأنسب للعزبات المتكررة", price: "٣٫٥٠٠ ر.ع", games: 15, premium: false, featured: true, tag: "الأكثر طلباً" },
+      { id: "g2", icon: "🎲", name: "باقة لعبتين", desc: "جولتان — جرّب اللعبة مع أصحابك", price: "٠٫٩٠٠ ر.ع", priceOMR: 0.9, games: 2, premium: false },
+      { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "١٫٥٠٠ ر.ع", priceOMR: 1.5, games: 5, premium: false },
+      { id: "g15", icon: "🏆", name: "باقة ١٥ لعبة", desc: "خمس عشرة جولة — الأنسب للعزبات المتكررة", price: "٣٫٥٠٠ ر.ع", priceOMR: 3.5, games: 15, premium: false, featured: true, tag: "الأكثر طلباً" },
     ];
+    // The list price (in OMR) an order was sold at — matched by pack shape, so a
+    // fulfilled order records real revenue. Unknown packs record 0 (still counted
+    // as a sale, just no price), so the total never silently invents money.
+    function planPriceForOrder(o) {
+      o = o || {};
+      const p = PLAY_PLANS.find(pl => !!pl.premium === !!o.premium && (pl.games || 0) === (Number(o.games) || 0));
+      return p ? Number(p.priceOMR) || 0 : 0;
+    }
+    // Format an OMR amount the Omani way — 3 decimals (baisa) + ر.ع.
+    function omr(n) { return (Math.max(0, Number(n) || 0)).toFixed(3) + " ر.ع"; }
     function renderPlans() {
       const grid = $("#plansGrid");
       if (!grid) return;
@@ -18117,6 +18161,42 @@
           window.IZZBAH.deleteOrder = function (uid) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("orders").doc(String(uid || "")).delete();
+          };
+
+          // ---- Sales (persistent revenue record) -----------------------------
+          // Orders are DELETED once fulfilled, so a fulfilment also writes an
+          // immutable sale here — pack, size, list price at sale time, buyer —
+          // giving the insights «المبيعات» view a real revenue history. Admin-only
+          // (only an admin fulfils), so it can't be spoofed by a player.
+          window.IZZBAH.recordSale = function (s) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            s = s || {};
+            return db.collection("sales").add({
+              pack: String(s.pack || "").slice(0, 80),
+              games: Math.max(0, Math.min(1000, Math.floor(Number(s.games) || 0))),
+              premium: !!s.premium,
+              priceOMR: Math.max(0, Math.min(100000, Number(s.priceOMR) || 0)),
+              email: String(s.email || "").slice(0, 320),
+              uid: String(s.uid || "").slice(0, 128),
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(ref => ref.id);
+          };
+          window.IZZBAH.listSales = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("sales").limit(5000).get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  id: doc.id, pack: d.pack || "", games: Number(d.games) || 0,
+                  premium: !!d.premium, priceOMR: Number(d.priceOMR) || 0,
+                  email: d.email || "", uid: d.uid || "",
+                  createdAt: d.createdAt && typeof d.createdAt.toMillis === "function" ? d.createdAt.toMillis() : 0
+                });
+              });
+              out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              return out;
+            });
           };
 
           // ---- Announcements (developer -> players) ----
