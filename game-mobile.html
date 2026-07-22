@@ -6480,7 +6480,7 @@
         <div class="turn-box" data-turn-box></div>
       </div>
       <div class="score-row" id="scoreRow"></div>
-      <img class="game-watermark" src="assets/img/watermark.webp" alt="" aria-hidden="true">
+      <img class="game-watermark" src="assets/img/watermark.webp" alt="" aria-hidden="true" loading="lazy" decoding="async">
       <div class="board-scroll" id="boardScroll">
         <div class="board" id="board"></div>
       </div>
@@ -9637,7 +9637,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.122";
+    const IZZBAH_BUILD = "2026-07-10.123";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -11290,6 +11290,18 @@
       grid.innerHTML = "";
       renderCatFilter(); // the admin-defined type chips (game tab only)
       let visibleCategories = visibleCategoryGroup();
+      // Official categories with no playable questions are hidden from the player
+      // grid outright — a permanent «قريباً» card just clutters the picker and
+      // can't be played. They stay fully visible/editable in the admin CMS, so
+      // adding a single question brings the card straight back. (Community keeps
+      // its «قريباً» state so an author still sees their own in-progress card.)
+      if (state.categoryMode === "game") {
+        visibleCategories = visibleCategories.filter(cat => {
+          if (categoryHasQuestions(cat)) return true;
+          state.selected.delete(cat.id); // never leave an empty one selected
+          return false;
+        });
+      }
       // Apply the active type filter (game tab only; community keeps its own list).
       const typeMap = (state.catTypes && state.catTypes.map) || {};
       if (state.categoryMode === "game" && state.activeCatFilter) {
@@ -11897,7 +11909,7 @@
         row.className = "custom-row";
         if (hidden) row.style.opacity = ".55";
         row.innerHTML = `
-          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg(builtin ? cat.id : "custom")}</div>
+          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="" loading="lazy" decoding="async">` : iconSvg(builtin ? cat.id : "custom")}</div>
           <div>
             <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}${statusLabel}</div>
             <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(done)}/${toArabicDigits(total)}</span> أسئلة</div>
@@ -12228,7 +12240,7 @@
             wrap.title = "معاينة";
             const inner = kind === "video" ? `<video class="q-thumb" src="${escapeHtml(src)}" muted preload="metadata"></video>`
               : kind === "audio" ? `<span class="q-thumb q-thumb--media">🔊</span>`
-              : `<img class="q-thumb" src="${escapeHtml(src)}" alt="">`;
+              : `<img class="q-thumb" src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async">`;
             wrap.innerHTML = inner
               + `<span class="q-thumb-tag ${cls}">${tag}</span>`
               + `<span class="q-thumb-play">${kind === "image" ? "🔍" : "▶"}</span>`;
@@ -12807,7 +12819,7 @@
           + (a.pinned ? `<span class="ann-card-pin" title="مثبّت">📌</span>` : "")
           + `</div>`
           + ((Array.isArray(a.images) && a.images.length ? a.images : (a.image ? [a.image] : []))
-               .map(u => `<img class="ann-card-img" src="${escapeHtml(u)}" alt="">`).join(""))
+               .map(u => `<img class="ann-card-img" src="${escapeHtml(u)}" alt="" loading="lazy" decoding="async">`).join(""))
           + `<div class="ann-card-body">${escapeHtml(toArabicDigits(a.body || ""))}</div>`
           + (dateStr ? `<div class="ann-card-date">${escapeHtml(dateStr)}</div>` : "");
         container.appendChild(card);
@@ -14281,7 +14293,7 @@
           row.className = "custom-row";
           const filled = (cat.questions || []).filter(q => q.q && q.q.trim()).length;
           row.innerHTML = `
-            <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
+            <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="" loading="lazy" decoding="async">` : iconSvg("custom")}</div>
             <div>
               <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
               <div style="font-size:16px;color:var(--gold-dark)">من ${escapeHtml(cat.authorName || "عضو")} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة</div>
@@ -14332,7 +14344,7 @@
           ? `${status} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`
           : `🔒 خاصة · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة`;
         row.innerHTML = `
-          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="">` : iconSvg("custom")}</div>
+          <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="" loading="lazy" decoding="async">` : iconSvg("custom")}</div>
           <div>
             <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
             <div style="font-size:17px;color:var(--gold-dark)">${meta}</div>
