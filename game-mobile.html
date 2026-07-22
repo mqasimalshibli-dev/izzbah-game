@@ -6481,10 +6481,6 @@
       </div>
       <div class="score-row" id="scoreRow"></div>
       <img class="game-watermark" src="assets/img/watermark.webp" alt="" aria-hidden="true">
-      <div class="done-banner" id="doneBanner">
-        انتهت الأسئلة!
-        <button class="gold-btn" id="showResults" style="margin-right:12px">عرض النتائج</button>
-      </div>
       <div class="board-scroll" id="boardScroll">
         <div class="board" id="board"></div>
       </div>
@@ -9641,7 +9637,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.121";
+    const IZZBAH_BUILD = "2026-07-10.122";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -14857,7 +14853,18 @@
       });
       if (frozenDirty) saveSavedGames();
       const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
-      $("#doneBanner").classList.toggle("visible", total > 0 && state.used.size >= total);
+      // Every cell played → go STRAIGHT to the results (no «انتهت الأسئلة» box or
+      // manual «عرض النتائج» button). Deferred one frame so the board finishes
+      // rendering first; guarded to fire once, only during live play, and never
+      // while a question is open or once results are already showing.
+      if (total > 0 && state.used.size >= total && state.gameActive && document.body.dataset.screen !== "results") {
+        requestAnimationFrame(() => {
+          if (state.gameActive && !state.activeQuestion && document.body.dataset.screen !== "results"
+              && state.used.size >= total) {
+            renderResults();
+          }
+        });
+      }
       centerBoardScroll();
       saveLiveGameSoon();
     }
@@ -16671,7 +16678,6 @@
       resumeAnswerTimer(); // same question → keep the elapsed time (and pause state)
     });
     $("#continueAnswer").addEventListener("click", () => finishQuestion(state.pendingWinner));
-    $("#showResults").addEventListener("click", renderResults);
     $("#newGame").addEventListener("click", () => {
       resetScores();
       openGameLibrary("your");

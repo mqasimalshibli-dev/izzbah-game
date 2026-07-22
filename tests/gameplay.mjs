@@ -81,6 +81,34 @@ try {
   });
   check("startGame refuses to start with no playable category", guard.playable === 0 && !guard.started);
 
+  // ---- answering the LAST cell jumps STRAIGHT to results (no «عرض النتائج» box) ----
+  const auto = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    // a tiny 2-cell category so the board completes fast
+    state.publishedCategories = (state.publishedCategories || []).filter(c => c.id !== "done-test");
+    state.publishedCategories.push({ id: "done-test", name: "نهاية", custom: true,
+      questions: [{ points: 100, q: "س", a: "ج" }, { points: 200, q: "س٢", a: "ج٢" }] });
+    window.IZZBAH.applyAdmin(true); state.isAdmin = true;
+    state.selected = new Set(["done-test"]);
+    state.editingSavedGameId = null; state.teamCount = 2; state.gameCounted = false;
+    state.teams.forEach(t => { t.score = 0; });
+    startGame();
+    const totalCells = document.querySelectorAll("#board .cell").length;
+    // answer every cell (re-query each round — the board re-renders after each)
+    for (let i = 0; i < 8; i++) {
+      const cell = document.querySelector("#board .board-category-card .cell:not(.used)");
+      if (!cell) break;
+      cell.click(); await sleep(30);
+      if (state.activeQuestion) finishQuestion(0);
+      await sleep(50);
+    }
+    await sleep(150); // let the deferred (rAF) jump fire
+    return { totalCells, screen: document.body.dataset.screen,
+             noBanner: !document.getElementById("doneBanner"), noBtn: !document.getElementById("showResults") };
+  });
+  check("a fully-played board auto-jumps to the results screen (no manual step)", auto.screen === "results");
+  check("the old «انتهت الأسئلة» banner + «عرض النتائج» button are gone", auto.noBanner && auto.noBtn);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
