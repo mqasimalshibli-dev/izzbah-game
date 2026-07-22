@@ -6343,7 +6343,15 @@
 
         <div class="prem-status" id="premStatus" aria-live="polite"></div>
 
-        <div class="prem-list-head"><span>طلبات شراء الباقات</span></div>
+        <input type="text" id="premSearch" class="redeem-input" autocomplete="off"
+               placeholder="🔎 ابحث بالبريد أو المعرّف أو الكود…"
+               style="width:100%;box-sizing:border-box;margin:8px 0 2px;text-align:right" />
+
+        <div class="prem-list-head">
+          <span>طلبات شراء الباقات</span>
+          <span id="premOrdersLive" title="تُحدَّث الطلبات مباشرةً"
+                style="font-size:13px;color:#2fa15a;font-weight:700">● مباشر</span>
+        </div>
         <div class="prem-list" id="premOrders"></div>
 
         <div class="prem-list-head">
@@ -9637,7 +9645,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.123";
+    const IZZBAH_BUILD = "2026-07-10.124";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13624,15 +13632,29 @@
       $("#codeResultCode").textContent = "";
       premSetStatus("", "");
       $("#premList").innerHTML = "";
+      const search = $("#premSearch");
+      if (search) search.value = "";
       const m = $("#premiumModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
       refreshPremiumList();
+      // Live orders: while the panel is open, new pack requests appear instantly
+      // (the orders collection is tiny + short-lived, so the listener is cheap).
+      if (premOrdersUnsub) { try { premOrdersUnsub(); } catch (e) {} premOrdersUnsub = null; }
+      const watch = window.IZZBAH && window.IZZBAH.watchOrders;
+      if (watch) {
+        premOrdersUnsub = watch(orders => {
+          premData.orders = orders || [];
+          if ($("#premiumModal").classList.contains("open")) renderPremLists();
+        });
+      }
     }
     function closePremiumModal() {
       const m = $("#premiumModal");
       m.classList.remove("open");
       m.setAttribute("aria-hidden", "true");
+      // Stop the live orders listener — nothing should keep reading once closed.
+      if (premOrdersUnsub) { try { premOrdersUnsub(); } catch (e) {} premOrdersUnsub = null; }
     }
     function premModeChanged() {
       $("#premGamesWrap").style.display = $("#premMode").value === "games" ? "" : "none";
@@ -13711,7 +13733,7 @@
     // Render the per-PLAYER balance: group redeemed codes by the account that
     // used them, then subtract that player's live consumed-game count (usage
     // map) to show how many games they have LEFT. Unlimited subscribers show ∞.
-    function renderPlayers(container, rows, usage) {
+    function renderPlayers(container, rows, usage, uidFilter) {
       if (!container) return;
       const byUser = new Map();
       rows.forEach(r => {
@@ -13724,7 +13746,10 @@
       });
       if (!byUser.size) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعبون فعّلوا أكواداً بعد.</div>'; return; }
       // most games granted first
-      const players = [...byUser.values()].sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
+      let players = [...byUser.values()].sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
+      const q = (uidFilter || "").trim().toLowerCase();
+      if (q) players = players.filter(u => (u.uid || "").toLowerCase().includes(q));
+      if (!players.length) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعب مطابق للبحث.</div>'; return; }
       container.innerHTML = "";
       players.forEach(u => {
         const used = Math.max(0, Math.floor(Number(usage[u.uid]) || 0));
@@ -13890,6 +13915,27 @@
         .catch(err => { console.warn("clear player failed", err); premSetStatus("تعذّر المسح — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
 
+    // The last-loaded subscription data, kept so the search box can re-filter the
+    // three lists WITHOUT re-reading Firestore, and so the live orders listener
+    // can refresh just the orders in place.
+    let premData = { codes: [], usage: {}, orders: [] };
+    let premOrdersUnsub = null;
+    function premFilterTerm() {
+      const el = $("#premSearch");
+      return ((el && el.value) || "").trim().toLowerCase();
+    }
+    // Render all three lists from the cache, applying the current search term.
+    // Codes match on code/redeemer-uid; orders on email/uid/pack; players on uid.
+    function renderPremLists() {
+      const list = $("#premList"), players = $("#premPlayers"), orders = $("#premOrders");
+      const q = premFilterTerm();
+      const codes = premData.codes || [], usage = premData.usage || {}, orderRows = premData.orders || [];
+      const fCodes = q ? codes.filter(c => (c.code || "").toLowerCase().includes(q) || (c.usedBy || "").toLowerCase().includes(q)) : codes;
+      const fOrders = q ? orderRows.filter(o => `${o.email || ""} ${o.uid || ""} ${o.pack || ""}`.toLowerCase().includes(q)) : orderRows;
+      if (orders) renderOrders(orders, fOrders);
+      if (players) renderPlayers(players, codes, usage, q); // players filter by uid inside
+      if (list) renderCodeList(list, fCodes);
+    }
     function refreshPremiumList() {
       const list = $("#premList");
       const players = $("#premPlayers");
@@ -13913,9 +13959,8 @@
         usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({}),
         ordersBridge ? ordersBridge().catch(() => []) : Promise.resolve([])
       ]).then(([rows, usage, orderRows]) => {
-        renderCodeList(list, rows);
-        renderPlayers(players, rows, usage || {});
-        renderOrders(orders, orderRows || []);
+        premData = { codes: rows || [], usage: usage || {}, orders: orderRows || [] };
+        renderPremLists();
       }).catch(err => {
         console.warn("list codes failed", err);
         list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (مجموعة الأكواد).</div>';
@@ -16988,6 +17033,9 @@
     $("#premGenerate").addEventListener("click", generateCodeFromAdmin);
     $("#codeCopy").addEventListener("click", copyGeneratedCode);
     $("#premRefresh").addEventListener("click", refreshPremiumList);
+    // Filter the (already-loaded) code/player/order lists as the admin types —
+    // no extra Firestore reads, so it's instant even with a long history.
+    $("#premSearch").addEventListener("input", renderPremLists);
     $("#premiumModal").addEventListener("click", event => { if (event.target.id === "premiumModal") closePremiumModal(); });
     $("#playBalance").addEventListener("click", () => {
       const bridge = window.IZZBAH && window.IZZBAH.refreshMyCodes;
@@ -17953,6 +18001,25 @@
               out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
               return out;
             });
+          };
+          // Admin-only: live pending orders. While the subscription panel is
+          // open, a new pack request (or a fulfilled/removed one) updates the
+          // list in place with no manual refresh. Returns an unsubscribe fn.
+          window.IZZBAH.watchOrders = function (cb) {
+            if (!cloudIsAdmin || typeof cb !== "function") return function () {};
+            return db.collection("orders").limit(200).onSnapshot(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  uid: doc.id, email: d.email || "", pack: d.pack || "",
+                  games: Number(d.games) || 0, premium: !!d.premium,
+                  createdAt: d.createdAt && typeof d.createdAt.toMillis === "function" ? d.createdAt.toMillis() : null
+                });
+              });
+              out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              try { cb(out); } catch (e) {}
+            }, err => { console.warn("watch orders failed", err && (err.code || err)); });
           };
           // Admin-only: remove an order (after fulfilling it, or to reject it).
           window.IZZBAH.deleteOrder = function (uid) {
