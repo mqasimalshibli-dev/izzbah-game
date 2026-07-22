@@ -50,7 +50,11 @@ try {
       { code: "BBBB-2222", gamesAllowed: 3, premium: false, used: true,  usedBy: "userBOB",   usedAt: 1750000000000 },
       { code: "ZZZZ-9999", gamesAllowed: 9, premium: false, used: false, usedBy: "" },
     ]);
-    window.IZZBAH.listUsage = () => Promise.resolve({ userALICE: 1, userBOB: 0 });
+    // Players derive from the usage mirror (uid -> {used, granted, premium}).
+    window.IZZBAH.listUsage = () => Promise.resolve({
+      userALICE: { used: 1, granted: 5, premium: false },
+      userBOB: { used: 0, granted: 3, premium: false },
+    });
     window.IZZBAH.listOrders = () => Promise.resolve([
       { uid: "userALICE", email: "alice@example.com", pack: "باقة ٥ ألعاب", games: 5, premium: false, createdAt: 1750000000000 },
     ]);
