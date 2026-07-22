@@ -148,10 +148,13 @@ try {
   check("answers against the replaced built-in samples don't count (0%)", overrideProg.stalePct === 0);
   check("3 of 9 published questions shows 33%", overrideProg.pct === 33);
 
-  // ---- 3) empty categories are locked and shown as "coming soon" ----
+  // ---- 3) empty categories: hidden from the GAME grid, «قريباً» in community ----
+  // Official (game-tab) categories with no playable questions are hidden from the
+  // player grid entirely (a permanent unplayable card just clutters the picker;
+  // they stay editable in the CMS). Community categories KEEP the locked «قريباً»
+  // card so an author still sees their own in-progress work.
   const soon = await page.evaluate(() => {
-    // inject cloud categories: one with real questions, one with only blank
-    // placeholders, one with an empty questions array.
+    // GAME tab: one real category, one with only blank placeholders, one empty.
     window.IZZBAH.applyPublished([
       { id: "pub-full",  name: "فئة كاملة",  color: "#123", order: 1, questions: [{ points: 100, q: "سؤال؟", a: "جواب", image: "", answerImage: "" }] },
       { id: "pub-blank", name: "فئة فارغة",  color: "#123", order: 2, questions: [{ points: 100, q: "", a: "", image: "", answerImage: "" }, { points: 200, q: "", a: "", image: "", answerImage: "" }] },
@@ -171,24 +174,34 @@ try {
         soon: !!c.querySelector(".cat-soon") && /قريبا/.test(c.querySelector(".cat-soon").textContent),
       };
     };
+    const gameFull = info("فئة كاملة"), gameBlank = info("فئة فارغة"), gameNone = info("بدون أسئلة");
+
+    // COMMUNITY tab: an empty community category stays as a locked «قريباً» card.
+    state.communityCategories = [
+      { id: "comm-blank", name: "مجتمع فارغ", community: true, questions: [{ points: 100, q: "", a: "" }] },
+    ];
+    state.customCategories = [];
+    setCategoryMode("community");
+    const commBlank = info("مجتمع فارغ");
+    // clicking a locked (coming-soon) card must NOT select it
+    const blankCard = cardFor("مجتمع فارغ");
+    if (blankCard) blankCard.click();
+
     // predicate directly
     const has = (qs) => categoryHasQuestions({ id: "x", questions: qs });
-    // try to click a locked card — it must NOT become selected
-    const blankCard = cardFor("فئة فارغة");
-    if (blankCard) blankCard.click();
-    const full = info("فئة كاملة"), blank = info("فئة فارغة"), none = info("بدون أسئلة");
     // a real built-in bank category must stay available
     const builtin = allCategories().find(c => c.id === "history");
     return {
-      full, blank, none,
-      blankSelected: state.selected.has("pub-blank"),
+      gameFull, gameBlank, gameNone, commBlank,
+      blankSelected: state.selected.has("comm-blank"),
       predFull: has([{ q: "س", a: "ج" }]), predBlank: has([{ q: "", a: "" }]), predEmpty: has([]),
       builtinPlayable: categoryHasQuestions(builtin),
     };
   });
-  check("a category WITH questions is not locked", soon.full.present && !soon.full.locked && !soon.full.soon);
-  check("a category with only blank questions is locked + «قريباً»", soon.blank.present && soon.blank.locked && soon.blank.soon);
-  check("a category with an empty questions array is locked + «قريباً»", soon.none.present && soon.none.locked && soon.none.soon);
+  check("a category WITH questions is not locked", soon.gameFull.present && !soon.gameFull.locked && !soon.gameFull.soon);
+  check("an empty official category (blank placeholders) is HIDDEN from the game grid", soon.gameBlank.present === false);
+  check("an empty official category (empty array) is HIDDEN from the game grid", soon.gameNone.present === false);
+  check("an empty COMMUNITY category stays as a locked «قريباً» card", soon.commBlank.present && soon.commBlank.locked && soon.commBlank.soon);
   check("clicking a locked (coming-soon) card does not select it", soon.blankSelected === false);
   check("categoryHasQuestions: true for real, false for blank/empty",
     soon.predFull === true && soon.predBlank === false && soon.predEmpty === false);
