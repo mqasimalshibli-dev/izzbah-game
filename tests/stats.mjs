@@ -89,6 +89,7 @@ try {
       answers: { answered: 300, noAnswer: 100 },           // 25% no-answer
       answerSecsSum: 4500, answerTimedCount: 300,          // avg 15s
       credits: { free: 12, allowance: 25, premium: 5 },
+      updatedAt: Date.now() - 3600000,                     // last game ~1h ago
     });
     window.IZZBAH.listCodes = () => Promise.resolve([
       { code: "AAAA-1111", gamesAllowed: 5, premium: false, used: true, usedBy: "uA" },
@@ -96,7 +97,10 @@ try {
       { code: "CCCC-3333", gamesAllowed: 0, premium: true, used: true, usedBy: "uB" },
       { code: "DDDD-4444", gamesAllowed: 3, premium: false, used: false, usedBy: "" },
     ]);
-    window.IZZBAH.listUsage = () => Promise.resolve({ uA: 6, uB: 2 });
+    window.IZZBAH.listUsage = () => Promise.resolve({
+      uA: { used: 6, granted: 15, premium: false },
+      uB: { used: 2, granted: 0, premium: true },
+    });
     state.communityCategories = [
       { name: "فئة المجتمع الأولى", votes: 9, approved: true },
       { name: "فئة المجتمع الثانية", votes: 4, approved: true },
@@ -121,6 +125,7 @@ try {
   check("overview shows totals + weekly trend + avg duration + avg teams",
     /٤٢|42/.test(view.tiles) && /هذا الأسبوع/.test(view.tiles) && /٧|7/.test(view.tiles)
     && /٢٠|20/.test(view.tiles) && /متوسط عدد الفرق/.test(view.tiles) && /trend-up/.test(view.tilesHtml));
+  check("overview shows the time of the last game played", /آخر لعبة/.test(view.tiles));
   check("all four played categories are ranked, top at 100%",
     view.rowCount === 4 && view.firstIsRank1 && view.firstFillPct === "100%");
   check("categories are shown by NAME, not raw id",

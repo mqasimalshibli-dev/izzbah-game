@@ -9649,7 +9649,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.125";
+    const IZZBAH_BUILD = "2026-07-10.126";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -13477,6 +13477,21 @@
         container.appendChild(row);
       });
     }
+    // A short Arabic "time ago" (proper pluralization via Intl), for the last
+    // game played. Falls back to an absolute date beyond a month.
+    function arRelativeTime(ms) {
+      if (!ms) return "";
+      const diff = Number(ms) - Date.now(); // negative = in the past
+      const abs = Math.abs(diff), min = 60000, hr = 3600000, day = 86400000;
+      try {
+        const rtf = new Intl.RelativeTimeFormat("ar", { numeric: "auto" });
+        if (abs < min) return "الآن";
+        if (abs < hr) return rtf.format(Math.round(diff / min), "minute");
+        if (abs < day) return rtf.format(Math.round(diff / hr), "hour");
+        if (abs < 30 * day) return rtf.format(Math.round(diff / day), "day");
+      } catch (e) {}
+      return new Date(ms).toLocaleDateString("ar");
+    }
     function renderStatsView(stats, codes, usage) {
       stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
       const N = v => Math.max(0, Math.floor(Number(v) || 0));
@@ -13497,9 +13512,17 @@
       let teamsSum = 0, teamsGames = 0;
       Object.keys(tc).forEach(k => { const n = N(tc[k]); teamsSum += n * (parseInt(k, 10) || 0); teamsGames += n; });
       const avgTeams = teamsGames ? (teamsSum / teamsGames).toFixed(1) : "";
+      // Last game played — stats/global.updatedAt is stamped on every finished
+      // game, so it IS the time of the most recent completed game.
+      const lastMs = stats.updatedAt && typeof stats.updatedAt.toMillis === "function"
+        ? stats.updatedAt.toMillis()
+        : (typeof stats.updatedAt === "number" ? stats.updatedAt : 0);
+      const lastRel = arRelativeTime(lastMs);
+      const lastAbs = lastMs ? new Date(lastMs).toLocaleString("ar", { dateStyle: "medium", timeStyle: "short" }) : "";
       $("#statsTiles").innerHTML =
         statsTileHtml(toArabicDigits(games), "لعبة مكتملة")
         + statsTileHtml(toArabicDigits(thisWeek) + trend, "هذا الأسبوع", `الأسبوع الماضي ${toArabicDigits(lastWeek)}`)
+        + (lastMs ? statsTileHtml(lastRel, "آخر لعبة", lastAbs) : "")
         + (avgDurMin ? statsTileHtml(toArabicDigits(avgDurMin) + " د", "متوسط مدة اللعبة") : "")
         + (avgTeams ? statsTileHtml(toArabicDigits(avgTeams), "متوسط عدد الفرق") : "");
 
@@ -13566,7 +13589,8 @@
       const players = new Set(redeemed.map(c => c.usedBy));
       const unlimited = new Set(redeemed.filter(c => c.premium).map(c => c.usedBy));
       const granted = redeemed.filter(c => !c.premium).reduce((s, c) => s + N(c.gamesAllowed), 0);
-      const consumed = Object.keys(usage).reduce((s, k) => s + N(usage[k]), 0);
+      // usage is the mirror map (uid -> {used, granted, premium}); sum the used.
+      const consumed = Object.keys(usage).reduce((s, k) => s + N((usage[k] || {}).used), 0);
       $("#statsPlayers").innerHTML =
         statsTileHtml(toArabicDigits(players.size), "لاعباً فعّل أكواداً", `${toArabicDigits(unlimited.size)} اشتراك مفتوح`)
         + statsTileHtml(toArabicDigits(granted), "لعبة ممنوحة", `استُهلك ${toArabicDigits(consumed)}`)
