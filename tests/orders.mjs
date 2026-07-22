@@ -104,21 +104,25 @@ try {
 
   // ---- 5) fulfil: mints the pack's code + opens Gmail compose FROM izzbah ----
   const fulfil = await page.evaluate(async () => {
-    const created = [], deleted = [];
+    const created = [], deleted = [], sales = [];
     window.__gmail = "";
     window.open = (url) => { window.__gmail = url; return { closed: false }; }; // capture the compose window
     window.IZZBAH.createCode = (opts) => { created.push(opts); return Promise.resolve("PACK-CODE"); };
     window.IZZBAH.deleteOrder = (uid) => { deleted.push(uid); return Promise.resolve(true); };
+    window.IZZBAH.recordSale = (s) => { sales.push(s); return Promise.resolve("sale1"); };
     window.IZZBAH.listOrders = () => Promise.resolve([]); // queue empties after fulfil
     document.querySelector("#premOrders .prem-fulfil").click();
     await new Promise(r => setTimeout(r, 300));
     return {
-      created, deleted,
+      created, deleted, sales,
       gmail: window.__gmail,
       status: document.getElementById("premStatus").textContent,
       ordersNow: document.getElementById("premOrders").textContent,
     };
   });
+  check("fulfilling an order records a sale priced from the matching plan (5 games → 1.5 OMR)",
+    fulfil.sales.length === 1 && fulfil.sales[0].games === 5 && fulfil.sales[0].priceOMR === 1.5
+    && fulfil.sales[0].uid === "buyer1");
   check("fulfil mints a code matching the ordered pack (5 games, not premium)",
     fulfil.created.length === 1 && fulfil.created[0].gamesAllowed === 5 && fulfil.created[0].premium === false);
   const mail = decodeURIComponent(fulfil.gmail || "");

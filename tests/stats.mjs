@@ -101,6 +101,11 @@ try {
       uA: { used: 6, granted: 15, premium: false },
       uB: { used: 2, granted: 0, premium: true },
     });
+    window.IZZBAH.listSales = () => Promise.resolve([
+      { id: "s1", pack: "باقة ٥ ألعاب", games: 5, premium: false, priceOMR: 1.5, createdAt: Date.now() },
+      { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, createdAt: Date.now() },
+      { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, createdAt: Date.now() },
+    ]); // total 5.900 ر.ع, 3 sales, 22 games
     state.communityCategories = [
       { name: "فئة المجتمع الأولى", votes: 9, approved: true },
       { name: "فئة المجتمع الثانية", votes: 4, approved: true },
@@ -114,7 +119,7 @@ try {
       modalOpen: document.getElementById("statsModal").classList.contains("open"),
       chooserClosed: !document.getElementById("adminChoiceModal").classList.contains("open"),
       tiles: txt("statsTiles"), cats: txt("statsCats"), community: txt("statsCommunity"),
-      health: txt("statsHealth"), players: txt("statsPlayers"), play: txt("statsPlay"),
+      health: txt("statsHealth"), sales: txt("statsSales"), players: txt("statsPlayers"), play: txt("statsPlay"),
       rowCount: rows.length,
       firstIsRank1: rows[0] ? rows[0].classList.contains("rank-1") : false,
       firstFillPct: rows[0] ? rows[0].querySelector(".stats-bar-fill").style.width : "",
@@ -135,6 +140,9 @@ try {
   check("content health shows question total, unplayed, no-cover and pending counts",
     /سؤالاً منشوراً/.test(view.health) && /لم تُلعب/.test(view.health)
     && /بلا غلاف/.test(view.health) && /بانتظار المراجعة/.test(view.health) && /١(?![٠-٩])|(?<![0-9])1(?![0-9])/.test(view.health));
+  check("sales section totals revenue, sale count and games sold",
+    /إجمالي الإيرادات/.test(view.sales) && /5\.900|٥٫٩٠٠/.test(view.sales)
+    && /3|٣/.test(view.sales) && /22|٢٢/.test(view.sales) && /متوسط قيمة البيع/.test(view.sales));
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
@@ -177,6 +185,7 @@ try {
     window.IZZBAH.loadStats = () => Promise.resolve({});
     window.IZZBAH.listCodes = () => Promise.resolve([]);
     window.IZZBAH.listUsage = () => Promise.resolve({});
+    window.IZZBAH.listSales = () => Promise.resolve([]);
     state.communityCategories = [];
     document.getElementById("statsRefresh").click();
     await new Promise(r => setTimeout(r, 200));

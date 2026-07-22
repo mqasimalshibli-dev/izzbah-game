@@ -187,6 +187,27 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
     }
 
+    // ---- Sales (persistent revenue record, admin-only) ---------------------
+    // Fulfilling an order deletes the order and writes an immutable sale here —
+    // the pack, its size, the LIST PRICE at sale time (OMR), and the buyer — so
+    // the insights «المبيعات» view can total revenue. Only an admin can write it
+    // (only an admin fulfils an order), so a player can never inject fake sales.
+    // Records are never edited; an admin may delete one to correct a mistake.
+    match /sales/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['pack', 'games', 'premium', 'priceOMR', 'email', 'uid', 'createdAt'])
+        && request.resource.data.pack is string     && request.resource.data.pack.size() <= 80
+        && request.resource.data.games is int        && request.resource.data.games >= 0 && request.resource.data.games <= 1000
+        && request.resource.data.premium is bool
+        && request.resource.data.priceOMR is number  && request.resource.data.priceOMR >= 0 && request.resource.data.priceOMR <= 100000
+        && request.resource.data.email is string     && request.resource.data.email.size() <= 320
+        && request.resource.data.uid is string       && request.resource.data.uid.size() <= 128
+        && request.resource.data.createdAt is timestamp;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // ---- Global usage insights (admin-visible counters) --------------------
     // One small doc (stats/global) holds a total games-played counter and a map
     // of per-category play counts. Every signed-in player increments it once per
