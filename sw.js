@@ -9,7 +9,7 @@
 //   • Same-origin static assets are cache-first with a background refresh.
 //   • Cross-origin requests (Firebase SDK, fonts, R2 video) pass through
 //     untouched so none of the cloud behavior changes.
-const CACHE = "izzbah-2026-07-10.123";
+const CACHE = "izzbah-2026-07-10.124";
 
 self.addEventListener("install", () => { self.skipWaiting(); });
 
