@@ -6380,6 +6380,9 @@
         </div>
         <div class="stats-tiles" id="statsTiles"></div>
 
+        <div class="prem-list-head"><span>اللاعبون: جدد وعائدون</span></div>
+        <div class="stats-tiles" id="statsAudience"></div>
+
         <div class="prem-list-head"><span>الفئات الأكثر لعباً</span></div>
         <div class="stats-bars" id="statsCats"></div>
 
@@ -9652,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.127";
+    const IZZBAH_BUILD = "2026-07-10.128";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -12695,7 +12698,7 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
-      ["statsTiles", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsPlayers", "statsPlay"]
+      ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsPlayers", "statsPlay"]
         .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
       const m = $("#statsModal");
       m.classList.add("open");
@@ -13495,9 +13498,10 @@
       } catch (e) {}
       return new Date(ms).toLocaleDateString("ar");
     }
-    function renderStatsView(stats, codes, usage, sales) {
+    function renderStatsView(stats, codes, usage, sales, playerStats) {
       stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
       sales = Array.isArray(sales) ? sales : [];
+      playerStats = Array.isArray(playerStats) ? playerStats : [];
       const N = v => Math.max(0, Math.floor(Number(v) || 0));
 
       // ---- overview: totals, weekly trend, avg duration, avg teams ----
@@ -13529,6 +13533,27 @@
         + (lastMs ? statsTileHtml(lastRel, "آخر لعبة", lastAbs) : "")
         + (avgDurMin ? statsTileHtml(toArabicDigits(avgDurMin) + " د", "متوسط مدة اللعبة") : "")
         + (avgTeams ? statsTileHtml(toArabicDigits(avgTeams), "متوسط عدد الفرق") : "");
+
+      // ---- audience: new vs returning players ----
+      // A "returning" player has finished 2+ games; "new" has played once. Weekly
+      // slices come from each player's first/last play time.
+      const audEl = $("#statsAudience");
+      if (audEl) {
+        if (!playerStats.length) {
+          audEl.innerHTML = statsTileHtml("٠", "لاعباً", "تُحتسب بعد أن يُكمل اللاعبون المسجّلون ألعابهم");
+        } else {
+          const weekAgo = Date.now() - 7 * 86400000;
+          const total = playerStats.length;
+          const returning = playerStats.filter(p => N(p.games) >= 2).length;
+          const newThisWeek = playerStats.filter(p => p.firstAt && p.firstAt >= weekAgo).length;
+          const activeThisWeek = playerStats.filter(p => p.lastAt && p.lastAt >= weekAgo).length;
+          const returnRate = total ? Math.round(returning * 100 / total) : 0;
+          audEl.innerHTML =
+            statsTileHtml(toArabicDigits(total), "لاعباً مميزاً", `نشِط هذا الأسبوع ${toArabicDigits(activeThisWeek)}`)
+            + statsTileHtml(toArabicDigits(returning), "لاعباً عائداً", `نسبة العودة ${toArabicDigits(returnRate)}٪`)
+            + statsTileHtml(toArabicDigits(newThisWeek), "لاعب جديد هذا الأسبوع");
+        }
+      }
 
       // ---- most-played categories (ranked bars) ----
       const plays = stats.categoryPlays || {};
@@ -13646,8 +13671,9 @@
       const codesP = (window.IZZBAH.listCodes ? window.IZZBAH.listCodes() : Promise.resolve([])).catch(() => []);
       const usageP = (window.IZZBAH.listUsage ? window.IZZBAH.listUsage() : Promise.resolve({})).catch(() => ({}));
       const salesP = (window.IZZBAH.listSales ? window.IZZBAH.listSales() : Promise.resolve([])).catch(() => []);
-      Promise.all([bridge(), codesP, usageP, salesP])
-        .then(([stats, codes, usage, sales]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}, sales || []); })
+      const playersP = (window.IZZBAH.listPlayerStats ? window.IZZBAH.listPlayerStats() : Promise.resolve([])).catch(() => []);
+      Promise.all([bridge(), codesP, usageP, salesP, playersP])
+        .then(([stats, codes, usage, sales, playerStats]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}, sales || [], playerStats || []); })
         .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
     // Tally a FINISHED game into the global counters — categories, team count,
@@ -13679,6 +13705,9 @@
           timedCount: timed.length,
           helpers
         });
+        // Per-player play record (signed-in players): powers the new-vs-returning
+        // audience view. One tiny doc per player, +1 per finished game.
+        if (window.IZZBAH.recordPlayerPlay) window.IZZBAH.recordPlayerPlay();
       } catch (e) {}
     }
 
@@ -18195,6 +18224,44 @@
                 });
               });
               out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              return out;
+            });
+          };
+
+          // ---- Per-player play record (new-vs-returning audience) ------------
+          // A signed-in player finishing a game bumps their own tiny players/{uid}
+          // doc: a games counter, firstAt (set once), lastAt. The admin reads the
+          // collection to split new (1 game) vs returning (2+) and weekly active.
+          // A 3s floor de-dups any accidental double-finish, like recordGamePlay.
+          let lastPlayWrite = 0;
+          window.IZZBAH.recordPlayerPlay = function () {
+            if (!currentUser || !db) return Promise.resolve(false);
+            const nowMs = Date.now();
+            if (nowMs - lastPlayWrite < 3000) return Promise.resolve(false);
+            lastPlayWrite = nowMs;
+            const ref = db.collection("players").doc(currentUser.uid);
+            return db.runTransaction(tx => tx.get(ref).then(doc => {
+              const now = firebase.firestore.FieldValue.serverTimestamp();
+              const data = { games: firebase.firestore.FieldValue.increment(1), lastAt: now };
+              if (!doc.exists) data.firstAt = now;
+              tx.set(ref, data, { merge: true });
+              return true;
+            })).catch(e => { console.warn("record player play failed", e && (e.code || e)); lastPlayWrite = 0; return false; });
+          };
+          // Admin-only: every player's play record (games count + first/last play
+          // time), for the new-vs-returning audience view.
+          window.IZZBAH.listPlayerStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("players").limit(5000).get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  games: Number(d.games) || 0,
+                  firstAt: d.firstAt && typeof d.firstAt.toMillis === "function" ? d.firstAt.toMillis() : 0,
+                  lastAt: d.lastAt && typeof d.lastAt.toMillis === "function" ? d.lastAt.toMillis() : 0
+                });
+              });
               return out;
             });
           };
