@@ -67,9 +67,14 @@ try {
   await page.evaluate(() => { const b = document.querySelectorAll("#awardRow .team-award")[1]; if (b) b.click(); });
   await page.evaluate(() => document.getElementById("continueAnswer").click());
   await page.waitForTimeout(400);
-  const res = await page.evaluate(() => ({ leak: state.teams[0].doubleArmed, t1After: state.teams[1].score }));
+  const res = await page.evaluate(() => ({ leak: state.teams[0].doubleArmed, t1After: state.teams[1].score, activeTeam: state.activeTeam, teamCount: state.teamCount }));
   check("×2 armed by team 0 but lost is cleared (no leak)", res.leak === false);
   check(`the winning team got NORMAL points, not doubled (+${res.t1After - setup.t1Before} for a ${setup.pts})`, res.t1After - setup.t1Before === setup.pts);
+  // Turn is a strict back-and-forth from the PICKER, not a follow-the-answerer:
+  // team 0 picked, team 1 answered → the turn passes to team 1 (picker+1),
+  // NOT to (winner+1) which with 2 teams would loop back to team 0.
+  check(`the turn alternates from the picker regardless of who answered (→ team ${res.activeTeam})`,
+    res.activeTeam === (0 + 1) % res.teamCount);
 
   // ---- blank-board guard ----
   const guard = await page.evaluate(() => {
