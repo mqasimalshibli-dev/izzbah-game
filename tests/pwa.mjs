@@ -46,6 +46,11 @@ check("the auto-reload never interrupts a live game (deferred via pendingSwReloa
   /pendingSwReload/.test(html) && /state\.gameActive/.test(html));
 check("service worker: cross-origin (Firebase/CDN) requests pass through untouched",
   /origin !== self\.location\.origin\) return/.test(sw));
+// Guard the clone-race bug: the response must be cloned SYNCHRONOUSLY, never
+// inside the async caches.open().then() (which throws "body already used").
+check("service worker: responses are cloned synchronously, not inside caches.open (no clone-race)",
+  !/caches\.open\([^)]*\)\.then\(\s*c\s*=>\s*c\.put\([^)]*res\.clone\(\)/.test(sw)
+  && (sw.match(/const copy = res\.clone\(\)/g) || []).length >= 2);
 
 // ---- live: the SW registers on localhost ----
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });

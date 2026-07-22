@@ -9,7 +9,7 @@
 //   • Same-origin static assets are cache-first with a background refresh.
 //   • Cross-origin requests (Firebase SDK, fonts, R2 video) pass through
 //     untouched so none of the cloud behavior changes.
-const CACHE = "izzbah-2026-07-10.120";
+const CACHE = "izzbah-2026-07-10.121";
 
 self.addEventListener("install", () => { self.skipWaiting(); });
 
@@ -49,7 +49,13 @@ self.addEventListener("fetch", event => {
   event.respondWith(
     caches.match(req).then(hit => {
       const refresh = fetch(req).then(res => {
-        if (res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+        // Clone SYNCHRONOUSLY, before `res` is returned and its body consumed —
+        // cloning later (inside the async caches.open) races the body read and
+        // throws "Response body is already used".
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
         return res;
       }).catch(() => hit);
       return hit || refresh;
