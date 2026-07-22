@@ -106,6 +106,13 @@ try {
       { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, createdAt: Date.now() },
       { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, createdAt: Date.now() },
     ]); // total 5.900 ر.ع, 3 sales, 22 games
+    const nowMs = Date.now(), monthAgo = nowMs - 30 * 86400000;
+    window.IZZBAH.listPlayerStats = () => Promise.resolve([
+      { games: 1, firstAt: nowMs,    lastAt: nowMs },     // new this week
+      { games: 5, firstAt: monthAgo, lastAt: nowMs },     // returning, active this week
+      { games: 3, firstAt: monthAgo, lastAt: monthAgo },  // returning, not active
+      { games: 1, firstAt: monthAgo, lastAt: monthAgo },  // old one-timer
+    ]); // 4 total, 2 returning (50%), 1 new this week
     state.communityCategories = [
       { name: "فئة المجتمع الأولى", votes: 9, approved: true },
       { name: "فئة المجتمع الثانية", votes: 4, approved: true },
@@ -119,7 +126,8 @@ try {
       modalOpen: document.getElementById("statsModal").classList.contains("open"),
       chooserClosed: !document.getElementById("adminChoiceModal").classList.contains("open"),
       tiles: txt("statsTiles"), cats: txt("statsCats"), community: txt("statsCommunity"),
-      health: txt("statsHealth"), sales: txt("statsSales"), players: txt("statsPlayers"), play: txt("statsPlay"),
+      health: txt("statsHealth"), sales: txt("statsSales"), audience: txt("statsAudience"),
+      players: txt("statsPlayers"), play: txt("statsPlay"),
       rowCount: rows.length,
       firstIsRank1: rows[0] ? rows[0].classList.contains("rank-1") : false,
       firstFillPct: rows[0] ? rows[0].querySelector(".stats-bar-fill").style.width : "",
@@ -140,6 +148,10 @@ try {
   check("content health shows question total, unplayed, no-cover and pending counts",
     /سؤالاً منشوراً/.test(view.health) && /لم تُلعب/.test(view.health)
     && /بلا غلاف/.test(view.health) && /بانتظار المراجعة/.test(view.health) && /١(?![٠-٩])|(?<![0-9])1(?![0-9])/.test(view.health));
+  check("audience splits new vs returning players with a return rate",
+    /لاعباً مميزاً/.test(view.audience) && /لاعباً عائداً/.test(view.audience)
+    && /نسبة العودة/.test(view.audience) && /٥٠|50/.test(view.audience)
+    && /لاعب جديد هذا الأسبوع/.test(view.audience));
   check("sales section totals revenue, sale count and games sold",
     /إجمالي الإيرادات/.test(view.sales) && /5\.900|٥٫٩٠٠/.test(view.sales)
     && /3|٣/.test(view.sales) && /22|٢٢/.test(view.sales) && /متوسط قيمة البيع/.test(view.sales));
@@ -186,6 +198,7 @@ try {
     window.IZZBAH.listCodes = () => Promise.resolve([]);
     window.IZZBAH.listUsage = () => Promise.resolve({});
     window.IZZBAH.listSales = () => Promise.resolve([]);
+    window.IZZBAH.listPlayerStats = () => Promise.resolve([]);
     state.communityCategories = [];
     document.getElementById("statsRefresh").click();
     await new Promise(r => setTimeout(r, 200));
