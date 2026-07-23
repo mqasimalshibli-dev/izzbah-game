@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.132";
+    const IZZBAH_BUILD = "2026-07-10.133";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -17758,10 +17758,21 @@
           // Read a category's questions from its /questions subcollection (new
           // model: each question is its own doc, so each gets the full 1 MiB).
           // Falls back to the inline `questions` array for old-format docs.
+          // How many of a category's questions carry any media. Distinguishes a
+          // genuinely text-only category from one that LOST its images by
+          // falling back to the parent doc's text-only copy (see below).
+          function questionMediaCount(qs) {
+            return (qs || []).reduce((n, q) => n + ((q && (q.image || q.answerImage)) ? 1 : 0), 0);
+          }
           function loadCategoryDoc(d) {
             const data = d.data() || {};
             const inline = Array.isArray(data.questions) ? data.questions : [];
-            return d.ref.collection("questions").get()
+            // source:"server" — a plain get() on a flaky connection can "succeed"
+            // with an EMPTY snapshot from the SDK's own cache, which read as
+            // "this category has no question docs" and silently served the
+            // parent's TEXT-ONLY copy — players then saw questions with no
+            // pictures. A server read rejects instead and lands in the catch.
+            return d.ref.collection("questions").get({ source: "server" })
               .then(qsnap => {
                 readStats.questionDocs += qsnap.size;
                 const questions = qsnap.empty
@@ -17784,7 +17795,12 @@
                       });
                 return Object.assign({ id: d.id }, data, { questions });
               })
-              .catch(() => Object.assign({ id: d.id }, data, { questions: inline }));
+              // Read failed (offline / App Check hiccup / quota): serve the
+              // text-only copy so the game still works, but MARK it degraded so
+              // it is never written into the device cache — an imageless
+              // category cached under an unchanged publish timestamp used to
+              // stick forever (pictures gone until the next republish).
+              .catch(() => Object.assign({ id: d.id, __degraded: true }, data, { questions: inline }));
           }
           // Serve the cached official categories (used when the network fails or
           // stalls). A fresher network result arriving later simply re-applies.
@@ -17810,6 +17826,14 @@
               const revHit = cache && cache.get(CATALOG_REV_KEY);
               const cachedRev = revHit && typeof revHit.rev === "number" ? revHit.rev : null;
               const haveCats = cache && [...cache.keys()].some(k => typeof k === "string" && k.indexOf("__") !== 0);
+              // A legacy cache entry with zero media may be the frozen text-only
+              // fallback (the "no pictures" bug). The rev fast-path would serve
+              // it forever — skip the fast path until the full pass has healed
+              // (re-read + stamped imgN on) every suspect entry.
+              const cacheSuspect = cache && [...cache.entries()].some(([k, v]) =>
+                typeof k === "string" && k.indexOf("__") !== 0 && v && v.imgN == null && v.cat
+                && Array.isArray(v.cat.questions) && v.cat.questions.length > 0
+                && questionMediaCount(v.cat.questions) === 0);
               // ONE read of meta/catalog decides everything. Read it first (a
               // player, not an admin — admins always take the full path so their
               // own just-published edits appear at once). Any failure (doc
@@ -17826,7 +17850,7 @@
                 // FAST PATH: the catalog revision is unchanged and we hold a
                 // populated cache — serve it and skip reading every category
                 // doc (1 read this whole load instead of ~one-per-category).
-                if (freshRev != null && cachedRev != null && freshRev === cachedRev && haveCats) {
+                if (freshRev != null && cachedRev != null && freshRev === cachedRev && haveCats && !cacheSuspect) {
                   readStats.versionSkips++;
                   applyCachedCategories(cache, true);
                   return;
@@ -17850,7 +17874,15 @@
                       const data = d.data() || {};
                       const ver = data.updatedAt && typeof data.updatedAt.toMillis === "function" ? data.updatedAt.toMillis() : 0;
                       const hit = cache && cache.get(d.id);
-                      if (hit && ver > 0 && hit.ver === ver && hit.cat && Array.isArray(hit.cat.questions)) {
+                      // Legacy entries (no imgN) whose questions carry ZERO media
+                      // are suspect: they may be a text-only fallback that got
+                      // cached by the old code (the "no pictures" bug). Re-read
+                      // them once — the rewrite below stamps imgN, so a genuinely
+                      // text-only category takes this one extra read only once.
+                      const suspect = hit && hit.imgN == null && hit.cat
+                        && Array.isArray(hit.cat.questions) && hit.cat.questions.length > 0
+                        && questionMediaCount(hit.cat.questions) === 0;
+                      if (hit && !suspect && ver > 0 && hit.ver === ver && hit.cat && Array.isArray(hit.cat.questions)) {
                         readStats.cacheHits++;
                         return hit.cat;
                       }
@@ -17858,9 +17890,15 @@
                       return loadCategoryDoc(d).then(cat => {
                         // Strip the Firestore Timestamp before storing; the cache
                         // key is `ver`, and plain JSON survives IndexedDB cleanly.
-                        const plain = Object.assign({}, cat);
-                        delete plain.updatedAt;
-                        catCache.put(d.id, { ver, cat: plain });
+                        // A DEGRADED result (text-only fallback after a failed
+                        // questions read) is served but NEVER cached — the next
+                        // load retries the full read instead of freezing an
+                        // imageless copy under an unchanged version.
+                        if (!cat.__degraded) {
+                          const plain = Object.assign({}, cat);
+                          delete plain.updatedAt;
+                          catCache.put(d.id, { ver, imgN: questionMediaCount(cat.questions), cat: plain });
+                        }
                         return cat;
                       });
                     })).then(cats => {
