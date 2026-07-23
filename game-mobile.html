@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.133";
+    const IZZBAH_BUILD = "2026-07-10.134";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -16862,7 +16862,17 @@
       resetScores();
       openGameLibrary("your"); // land on «ألعابك» where the paused game now sits
     });
-    $("#endGameEarly").addEventListener("click", renderResults);
+    // Ending early with questions still on the board asks first — the results
+    // screen CHARGES the game and there is no way back to the board, so an
+    // accidental tap must not burn a credit. A fully-played board ends quietly
+    // (auto-results already covers that case anyway).
+    $("#endGameEarly").addEventListener("click", () => {
+      const total = activeCategories().reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
+      const left = Math.max(0, total - state.used.size);
+      if (left > 0 && !window.confirm(
+        `إنهاء اللعبة وعرض النتائج؟\nتبقّى ${toArabicDigits(left)} من الأسئلة على اللوحة — ستُحتسب اللعبة ولن يمكن الرجوع.`)) return;
+      renderResults();
+    });
     $("#questionBackTop").addEventListener("click", cancelQuestion);
     $("#answerBackTop").addEventListener("click", cancelQuestion);
     $("#revealAnswer").addEventListener("click", revealAnswer);

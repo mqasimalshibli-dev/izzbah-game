@@ -76,6 +76,32 @@ try {
   check(`the turn alternates from the picker regardless of who answered (→ team ${res.activeTeam})`,
     res.activeTeam === (0 + 1) % res.teamCount);
 
+  // ---- ending early (flag button) warns while questions remain ----
+  const early = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const asked = [];
+    const origConfirm = window.confirm;
+    // decline: must stay on the board
+    window.confirm = (msg) => { asked.push(msg); return false; };
+    document.getElementById("endGameEarly").click();
+    await sleep(150);
+    const stayed = document.body.dataset.screen !== "results" && state.gameActive;
+    // accept: ends the game
+    window.confirm = (msg) => { asked.push(msg); return true; };
+    document.getElementById("endGameEarly").click();
+    await sleep(250);
+    const ended = document.body.dataset.screen === "results";
+    window.confirm = origConfirm;
+    return { asked, stayed, ended };
+  });
+  check("ending early with questions left asks for confirmation (mentions remaining + charge)",
+    early.asked.length === 2 && /تبقّى/.test(early.asked[0]) && /ستُحتسب/.test(early.asked[0]));
+  check("declining the early-end warning keeps the board", early.stayed);
+  check("accepting the early-end warning shows the results", early.ended);
+  // back to a fresh board state for the tests below
+  await page.evaluate(() => { showScreen("game", { keepQuestion: true }); });
+  await page.waitForTimeout(200);
+
   // ---- blank-board guard ----
   const guard = await page.evaluate(() => {
     // simulate a selection of only non-existent categories, then try to start
