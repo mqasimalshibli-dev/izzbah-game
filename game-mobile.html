@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.130";
+    const IZZBAH_BUILD = "2026-07-10.131";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10725,7 +10725,7 @@
         }
         return false;
       };
-      const MIN = 22;
+      const MIN = 15;
       let size = parseFloat(getComputedStyle(el).fontSize) || 40;
       // GROW a short clue to FILL the card (no picture questions only — an image
       // question shares the card with a flex:1 image and must not crowd it out).
