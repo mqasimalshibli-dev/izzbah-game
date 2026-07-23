@@ -2922,8 +2922,8 @@
       #questionPage .question-main-card .question-text {
         flex: 0 0 auto;
         min-height: 0;
-        font-size: clamp(21px, 3.7vw, 35px) !important;
-        line-height: 1.18 !important;
+        font-size: clamp(26px, 4.5vw, 46px) !important;
+        line-height: 1.2 !important;
         margin: 0 auto !important;
       }
       .question-main-card .question-meta {
@@ -5284,7 +5284,7 @@
     #questionPage .meta-box, #answerPage .meta-box { font-size: inherit; }
     /* question text */
     #questionPage .question-text {
-      font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; font-size: clamp(40px, 5.6vw, 64px) !important;
+      font-family: 'Cairo', sans-serif !important; font-weight: 800 !important; font-size: clamp(48px, 6.4vw, 80px) !important;
       line-height: 1.5 !important; color: #1f5237 !important; max-width: 800px; margin: 0 auto !important; text-wrap: balance;
     }
     /* fitQuestionText sizes the font (by real geometry) so the question fills
@@ -5309,7 +5309,7 @@
        resets to this size first, then grows/shrinks to fit the box exactly. */
     #questionPage .question-main-card.text-only .question-text {
       margin-top: auto !important; margin-bottom: auto !important;
-      font-size: clamp(40px, 6.2vw, 80px) !important;
+      font-size: clamp(48px, 7vw, 96px) !important;
       line-height: 1.38 !important;
     }
     /* Prompt + emojis-on-their-own-line: readable question on top, BIG emoji
@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.129";
+    const IZZBAH_BUILD = "2026-07-10.130";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10725,7 +10725,7 @@
         }
         return false;
       };
-      const MIN = 15;
+      const MIN = 22;
       let size = parseFloat(getComputedStyle(el).fontSize) || 40;
       // GROW a short clue to FILL the card (no picture questions only — an image
       // question shares the card with a flex:1 image and must not crowd it out).
