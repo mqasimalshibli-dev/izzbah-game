@@ -1981,8 +1981,8 @@
 
     .question-image {
       display: none;
-      max-width: min(580px, 94%);
-      max-height: 48vh;
+      max-width: min(680px, 96%);
+      max-height: 56vh;
       width: auto;
       height: auto;
       object-fit: contain;
@@ -5601,14 +5601,14 @@
       }
       #questionPage .question-main-card .question-image {
         flex: 0 1 auto !important;
-        max-height: 32vh !important;
+        max-height: 42vh !important;
         width: auto !important; height: auto !important;
         max-width: 100% !important; object-fit: contain !important;
         margin: 0 auto !important;
       }
       #questionPage .question-text {
         flex: 0 0 auto !important;
-        font-size: clamp(16px, 4vw, 26px) !important; line-height: 1.28 !important;
+        font-size: clamp(22px, 5.2vw, 36px) !important; line-height: 1.28 !important;
       }
       /* when the four-choices helper is up, shrink the image and stack options;
          the reveal button is pinned to the card bottom, so reserve room for it. */
@@ -5699,7 +5699,7 @@
         flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important;
         padding: clamp(36px, 7vh, 84px) 44px clamp(36px, 6vh, 74px) !important;
       }
-      #questionPage .question-main-card .question-image { max-height: 34vh !important; }
+      #questionPage .question-main-card .question-image { max-height: 42vh !important; }
       #questionPage .question-main-card:has(.qchoices.visible) .question-image { max-height: 22vh !important; }
 
       #answerPage .answer-layout { flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
@@ -9655,7 +9655,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.131";
+    const IZZBAH_BUILD = "2026-07-10.132";
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
