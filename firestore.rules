@@ -151,6 +151,15 @@ service cloud.firestore {
         && request.resource.data.gamesUsed is int
         && request.resource.data.gamesUsed >= 0
         && request.resource.data.gamesUsed <= 100000
+        // MONOTONIC consumed count: a player can only ever RAISE their own
+        // gamesUsed, never lower it. This closes the one revenue leak — a
+        // technical player writing gamesUsed back down to replay games they
+        // already spent. The client already writes max(cloud, local), so every
+        // legit write passes. An ADMIN is exempt, so «مسح»/rebuild can still
+        // correct an inflated counter. (On create, resource is null → allowed.)
+        && ( isAdmin()
+             || resource == null
+             || request.resource.data.gamesUsed >= resource.data.gamesUsed )
         && (!('gamesGranted' in request.resource.data)
             || (request.resource.data.gamesGranted is int
                 && request.resource.data.gamesGranted >= 0
