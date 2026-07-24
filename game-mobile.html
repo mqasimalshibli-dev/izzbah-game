@@ -4055,7 +4055,14 @@
     #menu.center { padding: 0; gap: 0; }
     .wlc {
       position: fixed; inset: 0; z-index: 0; overflow-y: auto; overflow-x: hidden;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      /* flex-start + auto margins on .wlc-center (NOT justify-content:center):
+         centering a too-tall column pushes the overflow ABOVE the scroll
+         origin where overflow-y:auto can never reach — on short laptop
+         windows the logo was cut off and the screen wouldn't scroll. Auto
+         margins center when there's room and collapse to 0 when there isn't,
+         so everything stays reachable in every browser (Safari ignores the
+         `safe` keyword, so this is the portable form of `safe center`). */
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
       padding: clamp(28px, 6vh, 60px) 22px;
       font-family: 'Cairo', sans-serif;
       background:
@@ -4083,7 +4090,7 @@
     .wlc-bg, .wlc-star { display: none !important; }
     .wlc-star i { position: absolute; inset: 0; background: #dcbd71; }
     .wlc-star i + i { transform: rotate(45deg); }
-    .wlc-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.4vh, 30px); max-width: 560px; width: 100%; }
+    .wlc-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.4vh, 30px); max-width: 560px; width: 100%; margin-top: auto; margin-bottom: auto; }
     .wlc-logo {
       position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px,2vw,16px);
       padding: 0;
@@ -9704,7 +9711,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.137";
+    const IZZBAH_BUILD = "2026-07-10.138";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:

@@ -154,6 +154,33 @@ try {
   });
   check("opening a loader paints a skeleton (not bare text)", sk === "skeleton");
 
+  // Welcome screen on a SHORT laptop window: the old justify-content:center
+  // pushed the overflowing top (tent + logo) above the scroll origin — cut off
+  // and unreachable, and the page "wouldn't scroll". With the auto-margin fix
+  // the column pins to a reachable top and the whole screen scrolls.
+  const shortPage = await browser.newPage({ viewport: { width: 1100, height: 420 } });
+  await shortPage.route("**/firebasejs/**", route => route.abort());
+  await shortPage.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+  await shortPage.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await shortPage.waitForTimeout(1600);
+  const wlc = await shortPage.evaluate(() => {
+    const box = document.querySelector(".wlc");
+    const center = document.querySelector(".wlc-center");
+    if (!box || !center) return { ok: false };
+    box.scrollTop = 0;
+    const topReachable = center.getBoundingClientRect().top >= box.getBoundingClientRect().top - 1;
+    const overflowing = box.scrollHeight > box.clientHeight + 4;
+    box.scrollTop = 99999;
+    const canScrollToBottom = !overflowing || box.scrollTop > 0;
+    return { ok: true, topReachable, overflowing, canScrollToBottom,
+             centersWhenRoom: getComputedStyle(center).marginTop !== "0px" || overflowing };
+  });
+  check("short-window welcome: the logo/top is reachable (not clipped above the fold)",
+    wlc.ok && wlc.topReachable);
+  check("short-window welcome: the screen scrolls when it overflows",
+    wlc.ok && wlc.canScrollToBottom);
+  await shortPage.close();
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
