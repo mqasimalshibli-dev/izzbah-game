@@ -4561,6 +4561,12 @@
     .prem-status.busy { color: #6a5a2f; }
     .prem-list-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font: 800 14px 'Cairo', sans-serif; color: var(--dark); border-top: 1px solid rgba(201,151,74,.4); padding-top: 12px; }
     .prem-refresh { padding: 4px 10px; font-size: 12.5px; }
+    /* admin timestamps: the «آخر تحديث» stamp beside the stats refresh button
+       and the 🕒 time on each sale/order row */
+    .stats-updated { font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; }
+    .sale-time { display: inline-block; font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; white-space: nowrap; }
+    .stats-sales-list { margin-top: 8px; }
+    .stats-sales-list:empty { display: none; }
     .prem-list { max-height: 230px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; }
     .prem-row {
       display: flex; align-items: center; gap: 8px; justify-content: space-between;
@@ -6431,7 +6437,7 @@
         <p class="import-help">نظرة كاملة على استخدام اللعبة. تُحتسب الألعاب التي وصلت إلى شاشة النتائج للاعبين المسجّلين.</p>
 
         <div class="prem-list-head">
-          <span>نظرة عامة</span>
+          <span>نظرة عامة <b class="stats-updated" id="statsUpdatedAt"></b></span>
           <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
         </div>
         <div class="stats-tiles" id="statsTiles"></div>
@@ -6449,8 +6455,12 @@
         <div class="stats-tiles" id="statsHealth"></div>
         <div class="stats-reveal" id="statsHealthReveal" hidden></div>
 
-        <div class="prem-list-head"><span>المبيعات</span></div>
+        <div class="prem-list-head">
+          <span>المبيعات</span>
+          <button class="ghost prem-refresh" id="salesRefresh" type="button">تحديث ↻</button>
+        </div>
         <div class="stats-tiles" id="statsSales"></div>
+        <div class="prem-list stats-sales-list" id="statsSalesList"></div>
 
         <div class="prem-list-head"><span>اللاعبون والاشتراكات</span></div>
         <div class="stats-tiles" id="statsPlayers"></div>
@@ -9711,7 +9721,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.140";
+    const IZZBAH_BUILD = "2026-07-10.141";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12835,7 +12845,7 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
-      ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsPlayers", "statsPlay"]
+      ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsSalesList", "statsPlayers", "statsPlay"]
         .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
       const m = $("#statsModal");
       m.classList.add("open");
@@ -13651,6 +13661,14 @@
       } catch (e) {}
       return new Date(ms).toLocaleDateString("ar");
     }
+    // One format for every admin-facing timestamp (sales, orders): an absolute
+    // Arabic date + time, with the relative form in parentheses when known.
+    function arStamp(ms) {
+      if (!ms) return "";
+      const abs = new Date(Number(ms)).toLocaleString("ar", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const rel = arRelativeTime(ms);
+      return rel ? `${abs} (${rel})` : abs;
+    }
     function renderStatsView(stats, codes, usage, sales, playerStats) {
       stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
       sales = Array.isArray(sales) ? sales : [];
@@ -13787,6 +13805,32 @@
             + statsTileHtml(omr(avg), "متوسط قيمة البيع");
         }
       }
+      // Every sale as its own row WITH its timestamp (newest first — listSales
+      // pre-sorts). The admin sees exactly when each purchase was made.
+      const salesList = $("#statsSalesList");
+      if (salesList) {
+        salesList.innerHTML = "";
+        const SHOW = 12;
+        sales.slice(0, SHOW).forEach(s => {
+          const row = document.createElement("div");
+          row.className = "prem-row";
+          const badge = s.premium
+            ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
+            : `<span class="prem-badge games">${toArabicDigits(s.games)} ألعاب</span>`;
+          row.innerHTML = `<div class="prem-row-main">
+              <div class="prem-row-id">${escapeHtml(s.pack || "باقة")} · ${omr(s.priceOMR)}</div>
+              <div class="prem-row-sub">${escapeHtml(s.email || shortUid(s.uid || ""))} ${badge}
+                <span class="sale-time">🕒 ${escapeHtml(s.createdAt ? arStamp(s.createdAt) : "بدون توقيت (بيع قديم)")}</span></div>
+            </div>`;
+          salesList.appendChild(row);
+        });
+        if (sales.length > SHOW) {
+          const more = document.createElement("div");
+          more.className = "prem-empty";
+          more.textContent = `+${toArabicDigits(sales.length - SHOW)} عملية أقدم`;
+          salesList.appendChild(more);
+        }
+      }
 
       // ---- players & subscriptions (from the codes + usage the admin loads) ----
       const redeemed = codes.filter(c => c.used && c.usedBy);
@@ -13826,7 +13870,13 @@
       const salesP = (window.IZZBAH.listSales ? window.IZZBAH.listSales() : Promise.resolve([])).catch(() => []);
       const playersP = (window.IZZBAH.listPlayerStats ? window.IZZBAH.listPlayerStats() : Promise.resolve([])).catch(() => []);
       Promise.all([bridge(), codesP, usageP, salesP, playersP])
-        .then(([stats, codes, usage, sales, playerStats]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}, sales || [], playerStats || []); })
+        .then(([stats, codes, usage, sales, playerStats]) => {
+          statsSetStatus("", "");
+          renderStatsView(stats || {}, codes || [], usage || {}, sales || [], playerStats || []);
+          // Stamp WHEN this snapshot was taken, right next to the refresh button.
+          const up = $("#statsUpdatedAt");
+          if (up) up.textContent = "· آخر تحديث " + new Date().toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+        })
         .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
     // Tally a FINISHED game into the global counters — categories, team count,
@@ -14058,7 +14108,9 @@
         const badge = o.premium
           ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
           : `<span class="prem-badge games">${toArabicDigits(o.games)} ألعاب</span>`;
-        sub.innerHTML = `${escapeHtml(o.pack)} ${badge}` + (o.createdAt ? ` · ${new Date(o.createdAt).toLocaleDateString("ar")}` : "");
+        // Full timestamp (date + time + relative), not just the date — the
+        // admin needs to see exactly WHEN each purchase request came in.
+        sub.innerHTML = `${escapeHtml(o.pack)} ${badge}` + (o.createdAt ? ` <span class="sale-time">🕒 ${escapeHtml(arStamp(o.createdAt))}</span>` : "");
         main.appendChild(id); main.appendChild(sub);
         const ok = document.createElement("button");
         ok.className = "prem-fulfil"; ok.type = "button";
@@ -17317,6 +17369,7 @@
     $("#adminChoiceModal").addEventListener("click", event => { if (event.target.id === "adminChoiceModal") closeAdminChoice(); });
     $("#statsCancel").addEventListener("click", closeStatsModal);
     $("#statsRefresh").addEventListener("click", refreshStats);
+    $("#salesRefresh").addEventListener("click", refreshStats);
     $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));

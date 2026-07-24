@@ -102,9 +102,9 @@ try {
       uB: { used: 2, granted: 0, premium: true },
     });
     window.IZZBAH.listSales = () => Promise.resolve([
-      { id: "s1", pack: "باقة ٥ ألعاب", games: 5, premium: false, priceOMR: 1.5, createdAt: Date.now() },
-      { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, createdAt: Date.now() },
-      { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, createdAt: Date.now() },
+      { id: "s1", pack: "باقة ٥ ألعاب", games: 5, premium: false, priceOMR: 1.5, email: "buyer1@x.com", createdAt: Date.now() },
+      { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, email: "buyer2@x.com", createdAt: Date.now() - 3 * 3600000 },
+      { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, email: "buyer3@x.com", createdAt: Date.now() - 2 * 86400000 },
     ]); // total 5.900 ر.ع, 3 sales, 22 games
     const nowMs = Date.now(), monthAgo = nowMs - 30 * 86400000;
     window.IZZBAH.listPlayerStats = () => Promise.resolve([
@@ -128,6 +128,8 @@ try {
       tiles: txt("statsTiles"), cats: txt("statsCats"), community: txt("statsCommunity"),
       health: txt("statsHealth"), sales: txt("statsSales"), audience: txt("statsAudience"),
       players: txt("statsPlayers"), play: txt("statsPlay"),
+      salesList: txt("statsSalesList"), salesRows: document.querySelectorAll("#statsSalesList .prem-row").length,
+      updatedAt: txt("statsUpdatedAt"), hasSalesRefresh: !!document.getElementById("salesRefresh"),
       rowCount: rows.length,
       firstIsRank1: rows[0] ? rows[0].classList.contains("rank-1") : false,
       firstFillPct: rows[0] ? rows[0].querySelector(".stats-bar-fill").style.width : "",
@@ -155,6 +157,12 @@ try {
   check("sales section totals revenue, sale count and games sold",
     /إجمالي الإيرادات/.test(view.sales) && /5\.900|٥٫٩٠٠/.test(view.sales)
     && /3|٣/.test(view.sales) && /22|٢٢/.test(view.sales) && /متوسط قيمة البيع/.test(view.sales));
+  check("every purchase is listed as a row with its OWN timestamp (🕒 + relative)",
+    view.salesRows === 3 && /🕒/.test(view.salesList)
+    && /الآن/.test(view.salesList)                      // the just-now sale
+    && /buyer1@x\.com/.test(view.salesList) && /باقة لعبتين/.test(view.salesList));
+  check("the sales section has its own refresh button", view.hasSalesRefresh);
+  check("the stats header stamps when the data was last refreshed", /آخر تحديث/.test(view.updatedAt));
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
