@@ -1,0 +1,6 @@
+# Test dependencies — installed fresh by CI (npm install --no-save) and by
+# local runs; never committed. Cover any directory so a stray npm install
+# at the repo root can't dirty the tree either.
+node_modules/
+package.json
+package-lock.json

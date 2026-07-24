@@ -101,6 +101,7 @@ try {
   check("the admin sees the order (buyer email + pack) in the subscription panel",
     /buyer@example\.com/.test(adminView.text) && /باقة ٥ ألعاب/.test(adminView.text));
   check("the order row offers fulfil (code+email) and delete options", adminView.hasFulfil && adminView.hasDelete);
+  check("the order row shows a full timestamp (🕒 date + time)", /🕒/.test(adminView.text));
 
   // ---- 5) fulfil: mints the pack's code + opens Gmail compose FROM izzbah ----
   const fulfil = await page.evaluate(async () => {
@@ -125,9 +126,20 @@ try {
     && fulfil.sales[0].uid === "buyer1");
   check("fulfil mints a code matching the ordered pack (5 games, not premium)",
     fulfil.created.length === 1 && fulfil.created[0].gamesAllowed === 5 && fulfil.created[0].premium === false);
-  const mail = decodeURIComponent(fulfil.gmail || "");
-  check("the email opens in Gmail compose pinned to the izzbah account",
-    mail.startsWith("https://mail.google.com/mail/") && mail.includes("authuser=izzbahgame@gmail.com"));
+  // Double-decode: the compose URL is URL-encoded inside the chooser's
+  // continue= param, so its own params (to/su/body) are encoded twice.
+  const mail = decodeURIComponent(decodeURIComponent(fulfil.gmail || ""));
+  // The compose must be routed through Google's ACCOUNT CHOOSER pinned to the
+  // izzbah address — authuser= and the bare /mail/u/<email>/ path both proved
+  // unreliable (Gmail silently bounced to the admin's personal /u/0/ when it
+  // couldn't resolve the session). The chooser switches the session (or asks
+  // to sign in to exactly that account) before continuing to the compose,
+  // which itself keeps the /u/<email>/ path as a second lock.
+  check("the email is routed through the account chooser pinned to the izzbah account",
+    mail.startsWith("https://accounts.google.com/AccountChooser?Email=izzbahgame@gmail.com")
+    && mail.includes("continue="));
+  check("the chooser continues to a compose locked to the izzbah account's Gmail",
+    /continue=https:\/\/mail\.google\.com\/mail\/u\/izzbahgame@gmail\.com\//.test(mail) && !mail.includes("authuser="));
   check("the confirmation email goes TO the buyer", mail.includes("to=buyer@example.com"));
   check("the email is organized: order summary, payment section, code, steps",
     /ملخص الطلب/.test(mail) && /طريقة الدفع/.test(mail) && /كود التفعيل/.test(mail)

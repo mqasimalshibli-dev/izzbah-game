@@ -102,9 +102,9 @@ try {
       uB: { used: 2, granted: 0, premium: true },
     });
     window.IZZBAH.listSales = () => Promise.resolve([
-      { id: "s1", pack: "باقة ٥ ألعاب", games: 5, premium: false, priceOMR: 1.5, createdAt: Date.now() },
-      { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, createdAt: Date.now() },
-      { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, createdAt: Date.now() },
+      { id: "s1", pack: "باقة ٥ ألعاب", games: 5, premium: false, priceOMR: 1.5, email: "buyer1@x.com", createdAt: Date.now() },
+      { id: "s2", pack: "باقة ١٥ لعبة", games: 15, premium: false, priceOMR: 3.5, email: "buyer2@x.com", createdAt: Date.now() - 3 * 3600000 },
+      { id: "s3", pack: "باقة لعبتين", games: 2, premium: false, priceOMR: 0.9, email: "buyer3@x.com", createdAt: Date.now() - 2 * 86400000 },
     ]); // total 5.900 ر.ع, 3 sales, 22 games
     const nowMs = Date.now(), monthAgo = nowMs - 30 * 86400000;
     window.IZZBAH.listPlayerStats = () => Promise.resolve([
@@ -128,6 +128,8 @@ try {
       tiles: txt("statsTiles"), cats: txt("statsCats"), community: txt("statsCommunity"),
       health: txt("statsHealth"), sales: txt("statsSales"), audience: txt("statsAudience"),
       players: txt("statsPlayers"), play: txt("statsPlay"),
+      salesList: txt("statsSalesList"), salesRows: document.querySelectorAll("#statsSalesList .prem-row").length,
+      updatedAt: txt("statsUpdatedAt"), hasSalesRefresh: !!document.getElementById("salesRefresh"),
       rowCount: rows.length,
       firstIsRank1: rows[0] ? rows[0].classList.contains("rank-1") : false,
       firstFillPct: rows[0] ? rows[0].querySelector(".stats-bar-fill").style.width : "",
@@ -155,6 +157,93 @@ try {
   check("sales section totals revenue, sale count and games sold",
     /إجمالي الإيرادات/.test(view.sales) && /5\.900|٥٫٩٠٠/.test(view.sales)
     && /3|٣/.test(view.sales) && /22|٢٢/.test(view.sales) && /متوسط قيمة البيع/.test(view.sales));
+  check("every purchase is listed as a row with its OWN timestamp (🕒 + relative)",
+    view.salesRows === 3 && /🕒/.test(view.salesList)
+    && /الآن/.test(view.salesList)                      // the just-now sale
+    && /buyer1@x\.com/.test(view.salesList) && /باقة لعبتين/.test(view.salesList));
+  check("the sales section has its own refresh button", view.hasSalesRefresh);
+  check("the stats header stamps when the data was last refreshed", /آخر تحديث/.test(view.updatedAt));
+
+  // ---- 3a-2) «تصفير» resets the play counters behind a DOUBLE confirm ----
+  const reset = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const calls = [];
+    window.IZZBAH.resetStats = () => { calls.push(1); return Promise.resolve(true); };
+    const btn = document.getElementById("statsReset");
+    if (!btn) return { hasBtn: false };
+    const origConfirm = window.confirm;
+    const asked = [];
+    // decline the FIRST confirm → nothing happens
+    window.confirm = m => { asked.push(m); return false; };
+    btn.click(); await sleep(80);
+    const afterDecline = calls.length;
+    // accept the first, decline the SECOND → still nothing
+    let n = 0;
+    window.confirm = m => { asked.push(m); return ++n === 1; };
+    btn.click(); await sleep(80);
+    const afterSecondDecline = calls.length;
+    // accept both → the bridge runs
+    window.confirm = m => { asked.push(m); return true; };
+    btn.click(); await sleep(120);
+    window.confirm = origConfirm;
+    return { hasBtn: true, afterDecline, afterSecondDecline, calls: calls.length, asked };
+  });
+  check("the stats header has a «تصفير» reset button", reset.hasBtn);
+  check("the reset confirm spells out what is erased AND what is kept",
+    reset.asked.length >= 1 && /سيُمسح/.test(reset.asked[0]) && /لن يُمسح/.test(reset.asked[0])
+    && /المبيعات/.test(reset.asked[0]) && /الأكواد/.test(reset.asked[0]));
+  check("declining either confirm leaves the stats untouched",
+    reset.afterDecline === 0 && reset.afterSecondDecline === 0);
+  check("accepting both confirms wipes the play counters (bridge called once)", reset.calls === 1);
+
+  // ---- 3a-3) the REVENUE counter has its OWN reset, fully independent ----
+  const salesReset = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const statsCalls = [], salesCalls = [];
+    window.IZZBAH.resetStats = () => { statsCalls.push(1); return Promise.resolve(true); };
+    window.IZZBAH.resetSales = () => { salesCalls.push(1); return Promise.resolve(3); };
+    const btn = document.getElementById("salesReset");
+    if (!btn) return { hasBtn: false };
+    const origConfirm = window.confirm;
+    const asked = [];
+    window.confirm = m => { asked.push(m); return false; };   // decline → no-op
+    btn.click(); await sleep(80);
+    const afterDecline = salesCalls.length;
+    window.confirm = m => { asked.push(m); return true; };    // accept both
+    btn.click(); await sleep(120);
+    window.confirm = origConfirm;
+    const warns = [...document.querySelectorAll("#statsModal .reset-warn")].map(w => w.textContent);
+    return { hasBtn: true, afterDecline, salesCalls: salesCalls.length,
+             statsCalls: statsCalls.length, asked, warns };
+  });
+  check("the sales section has its OWN «تصفير» reset button", salesReset.hasBtn);
+  check("the sales reset confirm scopes itself to revenue only (keeps play stats + orders)",
+    salesReset.asked.length >= 1 && /المبيعات والإيرادات/.test(salesReset.asked[0])
+    && /لن يُمسح/.test(salesReset.asked[0]) && /إحصائيات اللعب/.test(salesReset.asked[0])
+    && /الطلبات المعلّقة/.test(salesReset.asked[0]));
+  check("declining leaves the sales records untouched", salesReset.afterDecline === 0);
+  check("accepting wipes ONLY sales — the play-stats reset is never called",
+    salesReset.salesCalls === 1 && salesReset.statsCalls === 0);
+  check("both resets carry an always-visible ⚠️ warning line (before any click)",
+    salesReset.warns.length === 2 && salesReset.warns.every(w => /⚠️/.test(w) && /لا يمكن التراجع/.test(w))
+    && /عدّادات اللعب/.test(salesReset.warns[0]) && /المبيعات والإيرادات/.test(salesReset.warns[1]));
+
+  // ---- 3a-4) the reset buttons are VISIBLE (label readable, style distinct) ----
+  // Regression guard: the first ship styled the reset's text the same red as
+  // the theme's filled buttons — an invisible label. Text and fill must differ,
+  // and the danger button must not look identical to the refresh next to it.
+  const visib = await page.evaluate(() => {
+    const pick = id => {
+      const el = document.getElementById(id);
+      const cs = getComputedStyle(el);
+      return { color: cs.color, bg: cs.backgroundColor, display: cs.display };
+    };
+    return { reset: pick("statsReset"), refresh: pick("statsRefresh"), sales: pick("salesReset") };
+  });
+  check("reset labels are readable (text colour ≠ fill colour)",
+    visib.reset.color !== visib.reset.bg && visib.sales.color !== visib.sales.bg);
+  check("the danger reset is visually distinct from the refresh beside it",
+    visib.reset.bg !== visib.refresh.bg);
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)

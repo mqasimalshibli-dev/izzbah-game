@@ -344,16 +344,32 @@ try {
   });
   check("tapping the balance line refreshes it from the cloud", refreshTap === 1);
 
-  // tapping the game-count badge (signed in) also refreshes from the cloud
+  // tapping the game-count badge (signed in) opens the "my games" box —
+  // current count + the packs + a redeem field — and refreshes from the cloud
   const badgeTap = await page.evaluate(async () => {
     let called = 0;
     window.IZZBAH.refreshMyCodes = () => { called++; return Promise.resolve(true); };
     state.signedIn = true;
+    state.isAdmin = false; state.isPremium = false; state.codePremium = false;
+    state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 4; state.gamesUsed = 1;
     document.getElementById("gameCountBadge").click();
-    await new Promise(r => setTimeout(r, 150));
-    return called;
+    await new Promise(r => setTimeout(r, 200));
+    const modal = document.getElementById("plansModal");
+    const bal = document.getElementById("plansBalance");
+    const out = {
+      called,
+      opened: !!modal && modal.classList.contains("open"),
+      balShown: !!bal && /[3٣]/.test(bal.textContent),        // 0 free + (4−1) = 3
+      packs: document.querySelectorAll("#plansGrid .plan-card").length,
+      redeem: !!document.getElementById("redeemInputPlans")
+    };
+    if (modal) { modal.classList.remove("open"); modal.setAttribute("aria-hidden", "true"); }
+    return out;
   });
-  check("tapping the game-count badge refreshes the balance", badgeTap === 1);
+  check("tapping the game-count badge opens the my-games box (not just a toast)", badgeTap.opened);
+  check("the box shows the CURRENT game count", badgeTap.balShown);
+  check("the box lists the game packs + a redeem field", badgeTap.packs >= 3 && badgeTap.redeem);
+  check("the badge tap still re-checks the balance from the cloud", badgeTap.called === 1);
 
   // the footer version tag opens the diagnostics popup
   const diag = await page.evaluate(async () => {

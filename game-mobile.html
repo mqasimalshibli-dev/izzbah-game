@@ -20,20 +20,20 @@
   <link rel="apple-touch-icon" href="assets/brand/png/app-icon/maskable-180.png">
   <link rel="manifest" href="assets/brand/manifest.webmanifest">
   <meta name="theme-color" content="#9E1C1C">
-  <meta name="description" content="عِزبة — لعبة أسئلة جماعية عربية. تحدَّ أصدقاءك في فئات متنوّعة: تاريخ، علوم، جغرافيا، رياضة، أفلام، سيرة، وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
+  <meta name="description" content="عِزبة — لعبة أسئلة جماعية تجمع الربع في تحدٍّ واحد. +٣٠ فئة منوّعة وفئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، وأول لعبة مجانية. العبوها الليلة!">
   <link rel="canonical" href="https://izzbah.com/game-mobile.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="عِزبة">
   <meta property="og:locale" content="ar_AR">
   <meta property="og:title" content="عِزبة — لعبة أسئلة جماعية عربية">
-  <meta property="og:description" content="تحدَّ أصدقاءك في فئات متنوّعة وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
+  <meta property="og:description" content="لعبة أسئلة جماعية تجمع الربع: +٣٠ فئة منوّعة وفئات عمانية ١٠٠٪ — وأول لعبة مجانية.">
   <meta property="og:url" content="https://izzbah.com/game-mobile.html">
   <meta property="og:image" content="https://izzbah.com/assets/brand/png/social/og-image.png?v=3">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="عِزبة — لعبة أسئلة جماعية عربية">
-  <meta name="twitter:description" content="تحدَّ أصدقاءك في فئات متنوّعة وألعاب تمثيل «وش الكلمة». العب مجانًا من المتصفح.">
+  <meta name="twitter:description" content="لعبة أسئلة جماعية تجمع الربع: +٣٠ فئة منوّعة وفئات عمانية ١٠٠٪ — وأول لعبة مجانية.">
   <meta name="twitter:image" content="https://izzbah.com/assets/brand/png/social/og-image.png?v=3">
   <script type="application/ld+json">
   {
@@ -4055,7 +4055,14 @@
     #menu.center { padding: 0; gap: 0; }
     .wlc {
       position: fixed; inset: 0; z-index: 0; overflow-y: auto; overflow-x: hidden;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      /* flex-start + auto margins on .wlc-center (NOT justify-content:center):
+         centering a too-tall column pushes the overflow ABOVE the scroll
+         origin where overflow-y:auto can never reach — on short laptop
+         windows the logo was cut off and the screen wouldn't scroll. Auto
+         margins center when there's room and collapse to 0 when there isn't,
+         so everything stays reachable in every browser (Safari ignores the
+         `safe` keyword, so this is the portable form of `safe center`). */
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
       padding: clamp(28px, 6vh, 60px) 22px;
       font-family: 'Cairo', sans-serif;
       background:
@@ -4083,7 +4090,7 @@
     .wlc-bg, .wlc-star { display: none !important; }
     .wlc-star i { position: absolute; inset: 0; background: #dcbd71; }
     .wlc-star i + i { transform: rotate(45deg); }
-    .wlc-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.4vh, 30px); max-width: 560px; width: 100%; }
+    .wlc-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.4vh, 30px); max-width: 560px; width: 100%; margin-top: auto; margin-bottom: auto; }
     .wlc-logo {
       position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px,2vw,16px);
       padding: 0;
@@ -4554,6 +4561,21 @@
     .prem-status.busy { color: #6a5a2f; }
     .prem-list-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font: 800 14px 'Cairo', sans-serif; color: var(--dark); border-top: 1px solid rgba(201,151,74,.4); padding-top: 12px; }
     .prem-refresh { padding: 4px 10px; font-size: 12.5px; }
+    /* admin timestamps: the «آخر تحديث» stamp beside the stats refresh button
+       and the 🕒 time on each sale/order row */
+    .stats-updated { font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; }
+    .stats-head-btns { display: inline-flex; gap: 6px; }
+    /* the reset is a DANGER button: darker maroon fill + warm amber label, so
+       it reads clearly against the theme's red buttons (the base .ghost is
+       red-on-red-filled — a red text override there was invisible) */
+    .stats-reset { background: #6d0d12; color: #ffd9a0; border-color: #4a080c; }
+    .stats-reset:hover { background: #7d1218; }
+    /* always-visible caution under each reset — the danger is readable BEFORE
+       anyone clicks, not only inside the confirm dialog */
+    .reset-warn { font: 600 11px 'Cairo', sans-serif; color: #a34733; line-height: 1.6; margin: 2px 2px 8px; }
+    .sale-time { display: inline-block; font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; white-space: nowrap; }
+    .stats-sales-list { margin-top: 8px; }
+    .stats-sales-list:empty { display: none; }
     .prem-list { max-height: 230px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; }
     .prem-row {
       display: flex; align-items: center; gap: 8px; justify-content: space-between;
@@ -5766,6 +5788,97 @@
     #appSplash .splash-dots i:nth-child(3) { animation-delay: .36s; }
     @keyframes splashDot { 0%,100% { opacity: .35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-5px); } }
     @media (prefers-reduced-motion: reduce) { #appSplash .splash-mark, #appSplash .splash-dots i { animation: none; } }
+
+    /* ── Skeleton loaders (UI polish pack) ─────────────────────────────────
+       Shimmering placeholders shaped like the list that's loading, shown in
+       place of a bare «جارٍ التحميل…». JS injects `.sk-wrap` only when the
+       UI_POLISH flag is on, so removing the flag removes these entirely. */
+    .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .sk-wrap { display: flex; flex-direction: column; gap: 10px; padding: 8px 4px; }
+    .sk-row { display: flex; align-items: center; gap: 10px; }
+    .sk-col { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+    .sk { position: relative; overflow: hidden; background: #e9dcc6; border-radius: 8px; }
+    .sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+      animation: skShimmer 1.25s ease-in-out infinite; }
+    .sk-line { height: 12px; width: 100%; }
+    .sk-line.w70 { width: 70%; } .sk-line.w60 { width: 60%; } .sk-line.w45 { width: 45%; }
+    .sk-line.w40 { width: 40%; } .sk-line.w30 { width: 30%; } .sk-line.w20 { width: 20%; }
+    .sk-avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; }
+    .sk-pill { width: 54px; height: 22px; border-radius: 11px; flex: none; }
+    @keyframes skShimmer { to { transform: translateX(100%); } }
+    /* A message optimistically shown while its send is still in flight. */
+    .fb-msg.fb-pending { opacity: .58; }
+    @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+
+    /* ── Custom tooltip for icon-only buttons (UI polish pack) ─────────────
+       One floating bubble driven by JS on hover/focus — a dark rounded chip
+       with an arrow that fades in, matching the demo. Replaces the browser's
+       native `title` tooltip (which JS strips on the wordless controls it
+       handles, so there's never a double tooltip). */
+    .izz-tip { position: fixed; z-index: 100000; transform: translate(-50%, 4px);
+      background: #33240f; color: #fbf1dc; font: 800 12px/1.35 'Cairo', sans-serif;
+      padding: 5px 11px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity .15s ease, transform .15s ease; box-shadow: 0 6px 16px rgba(0,0,0,.32);
+      max-width: 74vw; overflow: hidden; text-overflow: ellipsis; }
+    .izz-tip.show { opacity: 1; transform: translate(-50%, 0); }
+    .izz-tip::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: #33240f; }
+    .izz-tip.below { transform: translate(-50%, -4px); }
+    .izz-tip.below.show { transform: translate(-50%, 0); }
+    .izz-tip.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #33240f; }
+    @media (prefers-reduced-motion: reduce) { .izz-tip { transition: none; } }
+
+    /* ── First-run coaching (تعليمات أول لعبة) ─────────────────────────────
+       A small floating card that teaches each screen the FIRST time it's
+       seen. Non-blocking: the wrapper ignores pointer events, only the card
+       itself is interactive, and any tap anywhere dismisses it — so it can
+       never trap a player (or an automated test) behind an overlay. */
+    .coach-pop { position: fixed; inset-inline: 0; bottom: max(84px, env(safe-area-inset-bottom, 0px) + 72px);
+      display: flex; justify-content: center; z-index: 60000; pointer-events: none; padding: 0 14px; }
+    .coach-card { pointer-events: auto; max-width: 380px; width: 100%;
+      background: linear-gradient(170deg, #fdf6e5, #f6e9cd); border: 2px solid #d9b96a; border-radius: 16px;
+      box-shadow: 0 14px 34px rgba(70, 30, 10, .35); padding: 14px 16px 12px;
+      font-family: 'Cairo', sans-serif; color: #4a3208; direction: rtl;
+      animation: coachIn .38s cubic-bezier(.3,1.3,.4,1); }
+    @keyframes coachIn { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+    .coach-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15.5px; color: #8f1622; margin-bottom: 4px; }
+    .coach-body { font-weight: 600; font-size: 13px; line-height: 1.75; }
+    .coach-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; }
+    .coach-ok { font: 800 13.5px 'Cairo', sans-serif; color: #fff; background: linear-gradient(180deg, #c8332f, #9e1c1c);
+      border: 0; border-radius: 10px; padding: 8px 22px; cursor: pointer; box-shadow: 0 4px 10px rgba(140, 20, 20, .35); }
+    .coach-ok:active { transform: scale(.96); }
+    .coach-skip { font: 700 11.5px 'Cairo', sans-serif; color: #8a7550; background: none; border: 0; cursor: pointer; text-decoration: underline; padding: 4px; }
+    @media (prefers-reduced-motion: reduce) { .coach-card { animation: none; } }
+
+    /* ── Admin editor for the coaching tips (التعليمات الإرشادية) ── */
+    .coach-admin-modal { max-width: 660px; }
+    .coach-admin-list { display: flex; flex-direction: column; gap: 12px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+    .coach-tip-row { background: #fdf6e5; border: 1.5px solid #e4d4b3; border-radius: 12px; padding: 10px 12px; }
+    .coach-tip-row.off { opacity: .55; }
+    .coach-tip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .coach-tip-screen { font: 800 13px 'Cairo', sans-serif; color: #8f1622; margin-inline-end: auto; }
+    .coach-tip-toggle { display: inline-flex; align-items: center; gap: 5px; font: 700 11.5px 'Cairo', sans-serif; color: #6a5326; cursor: pointer; }
+    .coach-tip-preview { font: 700 11.5px 'Cairo', sans-serif; color: #6a5326; background: #f3e7d0; border: 1px solid #d9b96a; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+    .coach-tip-del { font: 700 11.5px 'Cairo', sans-serif; color: #a32633; background: none; border: 0; cursor: pointer; text-decoration: underline; }
+    .coach-tip-row input[type="text"], .coach-tip-row textarea {
+      width: 100%; border: 1px solid #d9c9a5; border-radius: 8px; background: #fff;
+      font: 600 13px 'Cairo', sans-serif; color: #3a2a15; padding: 7px 10px; box-sizing: border-box; }
+    .coach-tip-row textarea { resize: vertical; min-height: 56px; margin-top: 6px; line-height: 1.7; }
+    .coach-tip-titlerow { display: flex; gap: 6px; }
+    .coach-tip-titlerow .coach-tip-icon { width: 64px; flex: none; text-align: center; }
+    .coach-admin-add { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+    .coach-admin-add select { flex: 1; border: 1px solid #d9c9a5; border-radius: 8px; background: #fff;
+      font: 700 13px 'Cairo', sans-serif; color: #3a2a15; padding: 8px 10px; }
+    .coach-admin-actions { flex-wrap: wrap; }
+
+    /* ── "My games" balance header inside the packs box ── */
+    .plans-balance { display: flex; align-items: center; gap: 12px; justify-content: center; text-align: center;
+      background: linear-gradient(150deg, #fff4dd, #f6e7c4); border: 1px solid #e4d4b3; border-radius: 15px;
+      padding: 12px 16px; margin: 4px auto 14px; max-width: 420px; box-shadow: 0 4px 12px rgba(74,53,20,.1); }
+    .plans-balance .pb-num { font: 900 30px 'Cairo', sans-serif; color: #c11f38; line-height: 1; flex: none;
+      font-variant-numeric: tabular-nums; }
+    .plans-balance .pb-lbl { font: 700 13.5px 'Cairo', sans-serif; color: #6a5326; text-align: right; }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -5776,7 +5889,7 @@
   <button id="userSettingsBtn" type="button" aria-label="الإعدادات والحساب" title="الإعدادات والحساب">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
   </button>
-  <button id="gameCountBadge" type="button" aria-label="عدد ألعابك المتبقية" title="ألعابك المتبقية — اضغط للتحديث">
+  <button id="gameCountBadge" type="button" aria-label="ألعابك المتبقية والباقات" title="ألعابك المتبقية والباقات">
     <span class="gcb-ico" aria-hidden="true">🎮</span><span class="gcb-num" id="gameCountNum">—</span>
   </button>
 
@@ -6287,6 +6400,11 @@
             <span class="admin-choice-name">المتكررات</span>
             <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
           </button>
+          <button class="admin-choice-btn" id="adminChoiceCoach" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🧭</span>
+            <span class="admin-choice-name">التعليمات الإرشادية</span>
+            <span class="admin-choice-sub">عدّل نصوص تعليمات أول لعبة وأماكن ظهورها</span>
+          </button>
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
@@ -6294,9 +6412,28 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="coachAdminModal" aria-hidden="true">
+      <div class="question-modal coach-admin-modal" role="dialog" aria-modal="true" aria-labelledby="coachAdminTitle">
+        <h3 class="preview-title" id="coachAdminTitle">🧭 التعليمات الإرشادية</h3>
+        <p class="import-help">بطاقات صغيرة تعلّم اللاعب كل شاشة <b>أول مرة</b> يدخلها. عدّل النص والأيقونة، أطفئ أي تعليمة، أو أضف تعليمة لشاشة ما لها وحدة — والتغيير يوصل لكل اللاعبين فور الحفظ.</p>
+        <div class="coach-admin-list" id="coachAdminList"></div>
+        <div class="coach-admin-add">
+          <select id="coachAddScreen" aria-label="اختر شاشة للتعليمة الجديدة"></select>
+          <button class="secondary" id="coachAddBtn" type="button">+ إضافة تعليمة</button>
+        </div>
+        <div class="prem-status" id="coachAdminStatus" aria-live="polite"></div>
+        <div class="actions coach-admin-actions">
+          <button class="ghost" id="coachResetLocal" type="button" title="يمسح سجلّ «شوهدت» في هذا الجهاز فقط — لتجربة الجولة من جديد">↺ أعد عرضها على جهازي</button>
+          <button class="ghost" id="coachAdminClose" type="button">إغلاق</button>
+          <button class="primary" id="coachAdminSave" type="button">💾 حفظ للجميع</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="plansModal" aria-hidden="true">
       <div class="question-modal plans-modal" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
-        <h3 class="preview-title" id="plansTitle">🎟️ باقات اللعب</h3>
+        <h3 class="preview-title" id="plansTitle">🎟️ ألعابي والباقات</h3>
+        <div class="plans-balance" id="plansBalance"></div>
         <p class="plans-sub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
         <div class="plans-grid" id="plansGrid"></div>
         <div class="plans-contact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
@@ -6375,9 +6512,13 @@
         <p class="import-help">نظرة كاملة على استخدام اللعبة. تُحتسب الألعاب التي وصلت إلى شاشة النتائج للاعبين المسجّلين.</p>
 
         <div class="prem-list-head">
-          <span>نظرة عامة</span>
-          <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
+          <span>نظرة عامة <b class="stats-updated" id="statsUpdatedAt"></b></span>
+          <span class="stats-head-btns">
+            <button class="ghost prem-refresh stats-reset" id="statsReset" type="button" title="يصفّر عدّادات اللعب فقط — لا يمسّ المبيعات أو الأكواد أو أرصدة اللاعبين">تصفير ⚠</button>
+            <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
+          </span>
         </div>
+        <div class="reset-warn">⚠️ «تصفير» يمسح عدّادات اللعب نهائياً ولا يمكن التراجع — لا يشمل المبيعات أو الأكواد أو أرصدة اللاعبين.</div>
         <div class="stats-tiles" id="statsTiles"></div>
 
         <div class="prem-list-head"><span>اللاعبون: جدد وعائدون</span></div>
@@ -6393,8 +6534,16 @@
         <div class="stats-tiles" id="statsHealth"></div>
         <div class="stats-reveal" id="statsHealthReveal" hidden></div>
 
-        <div class="prem-list-head"><span>المبيعات</span></div>
+        <div class="prem-list-head">
+          <span>المبيعات</span>
+          <span class="stats-head-btns">
+            <button class="ghost prem-refresh stats-reset" id="salesReset" type="button" title="يصفّر سجلّ المبيعات والإيرادات فقط — لا يمسّ إحصائيات اللعب أو الطلبات المعلّقة">تصفير ⚠</button>
+            <button class="ghost prem-refresh" id="salesRefresh" type="button">تحديث ↻</button>
+          </span>
+        </div>
+        <div class="reset-warn">⚠️ «تصفير» يمسح سجلّ المبيعات والإيرادات نهائياً ولا يمكن التراجع — لا يشمل إحصائيات اللعب أو الطلبات المعلّقة أو أرصدة اللاعبين.</div>
         <div class="stats-tiles" id="statsSales"></div>
+        <div class="prem-list stats-sales-list" id="statsSalesList"></div>
 
         <div class="prem-list-head"><span>اللاعبون والاشتراكات</span></div>
         <div class="stats-tiles" id="statsPlayers"></div>
@@ -9655,7 +9804,76 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.134";
+    const IZZBAH_BUILD = "2026-07-10.146";
+
+    // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
+    // Turns on three cosmetic upgrades together:
+    //   • skeleton loaders in place of the «جارٍ التحميل…» text placeholders
+    //   • optimistic rendering with rollback (community vote / delete, feedback send)
+    //   • hover & keyboard tooltips for icon-only buttons (aria-label → title)
+    // Set UI_POLISH to false to restore the EXACT previous behaviour — nothing
+    // else depends on these, so it's a clean on/off that only needs a refresh
+    // (no data change, no rules change, no redeploy).
+    const UI_POLISH = true;
+    try { document.documentElement.classList.toggle("ui-polish", !!UI_POLISH); } catch (e) {}
+
+    // Shimmering placeholder rows shaped like the list that's loading. `variant`
+    // picks a row template, `n` how many. With the flag off it returns the old
+    // plain loading text, so every caller stays a one-liner either way.
+    function skeleton(variant, n, legacy) {
+      if (!UI_POLISH) return `<div class="prem-empty">${legacy || "جارٍ التحميل…"}</div>`;
+      const rows = {
+        prem: '<div class="sk-row"><span class="sk sk-avatar"></span><span class="sk-col"><span class="sk sk-line w60"></span><span class="sk sk-line w40"></span></span><span class="sk sk-pill"></span></div>',
+        line: '<div class="sk-row"><span class="sk-col"><span class="sk sk-line w70"></span><span class="sk sk-line w45"></span></span></div>'
+      };
+      const row = rows[variant] || rows.line;
+      return `<div class="sk-wrap">${row.repeat(Math.max(1, n || 3))}</div>`
+        + `<span class="sr-only" role="status">جارٍ التحميل…</span>`;
+    }
+
+    // Icon-only controls carry an aria-label (and often a `title`) but a plain
+    // browser tooltip is slow and unstyled. Drive ONE floating bubble on
+    // hover/focus instead — a dark rounded chip with an arrow, matching the
+    // demo — for any control whose visible text has NO words (just a symbol,
+    // emoji or an <svg>). Delegated, so dynamically-rendered buttons are covered
+    // with zero per-button wiring. The native `title` is stripped on the
+    // controls we handle so there's never a double tooltip.
+    if (UI_POLISH) {
+      const wordless = el => !/[\p{L}\p{N}]/u.test((el.textContent || "").replace(/\s+/g, ""));
+      const labelable = t => t && t.closest && t.closest(
+        "button[aria-label], a[aria-label], [role=button][aria-label], button[title], a[title], [role=button][title]");
+      let tipEl = null, tipFor = null;
+      const ensureTip = () => {
+        if (!tipEl) { tipEl = document.createElement("div"); tipEl.className = "izz-tip"; document.body.appendChild(tipEl); }
+        return tipEl;
+      };
+      const labelOf = el => ((el.getAttribute("aria-label") || (el.hasAttribute("title") ? el.getAttribute("title") : "")) || "").trim();
+      const showTip = el => {
+        if (!el || !wordless(el)) return;
+        const label = labelOf(el);
+        if (!label) return;
+        // Suppress the browser's native tooltip; keep the label reachable for AT.
+        if (!el.hasAttribute("aria-label")) el.setAttribute("aria-label", label);
+        if (el.hasAttribute("title")) { el.dataset.izzTitle = el.getAttribute("title"); el.removeAttribute("title"); }
+        const tip = ensureTip();
+        tip.textContent = label; tipFor = el; tip.classList.remove("below");
+        tip.classList.add("show"); // measure with layout applied
+        const r = el.getBoundingClientRect();
+        const tw = tip.offsetWidth, th = tip.offsetHeight;
+        let left = Math.max(8 + tw / 2, Math.min(window.innerWidth - 8 - tw / 2, r.left + r.width / 2));
+        let top = r.top - th - 10;
+        if (top < 6) { top = r.bottom + 10; tip.classList.add("below"); } // flip below near the top edge
+        tip.style.left = left + "px"; tip.style.top = top + "px";
+      };
+      const hideTip = () => { if (tipEl) tipEl.classList.remove("show"); tipFor = null; };
+      document.addEventListener("pointerover", e => { const el = labelable(e.target); if (el && el !== tipFor) showTip(el); }, true);
+      document.addEventListener("pointerout", e => { const el = labelable(e.target); if (el && el === tipFor) hideTip(); }, true);
+      document.addEventListener("focusin", e => { const el = labelable(e.target); if (el) showTip(el); }, true);
+      document.addEventListener("focusout", hideTip, true);
+      document.addEventListener("click", hideTip, true);
+      window.addEventListener("scroll", hideTip, true);
+    }
+
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
     // (Instagram / WhatsApp / Facebook / TikTok / Snapchat …) — it returns
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
@@ -10353,10 +10571,17 @@
       if (!(window.IZZBAH && window.IZZBAH.communityVote)) return;
       const had = state.myVotes.has(cat.id);
       const shouldVote = !had;
-      if (shouldVote) { state.myVotes.add(cat.id); cat.votes = (cat.votes || 0) + 1; }
-      else { state.myVotes.delete(cat.id); cat.votes = Math.max(0, (cat.votes || 0) - 1); }
+      const prevVotes = cat.votes || 0; // snapshot so a failed write can roll back
+      // Optimistic: flip the heart + count NOW, then confirm with the server.
+      if (shouldVote) { state.myVotes.add(cat.id); cat.votes = prevVotes + 1; }
+      else { state.myVotes.delete(cat.id); cat.votes = Math.max(0, prevVotes - 1); }
       renderCategories();
       window.IZZBAH.communityVote(cat.id, shouldVote).catch(() => {
+        if (UI_POLISH) { // reconcile: undo the optimistic change on failure
+          if (shouldVote) state.myVotes.delete(cat.id); else state.myVotes.add(cat.id);
+          cat.votes = prevVotes;
+          renderCategories();
+        }
         showToast("تعذّر التصويت");
       });
     }
@@ -10659,6 +10884,100 @@
       syncTimerPill();
     }
 
+    // ─── First-run coaching (تعليمات أول لعبة) ──────────────────────────────
+    // Teaches every core screen the FIRST time the player reaches it: category
+    // selection, team setup, the board, the question page (helpers/timer), the
+    // answer page (awarding the team), the library and the results. Each tip
+    // fires ONCE ever (per device), one at a time, and the card never blocks
+    // the game: taps pass through everywhere else and any interaction
+    // dismisses it. «إخفاء كل التعليمات» silences the whole tour at once.
+    const COACH_KEY = "izzbah-coach-v1";
+    function coachSeen() { try { return JSON.parse(localStorage.getItem(COACH_KEY)) || {}; } catch (e) { return {}; } }
+    function coachMark(id) { try { const m = coachSeen(); m[id] = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
+    function coachMarkAll() { try { const m = coachSeen(); Object.keys(coachTips).forEach(k => { m[k] = 1; }); m.__all = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
+    // Every screen a tip may attach to (id → admin-facing name). The admin's
+    // «التعليمات الإرشادية» panel lets the owner edit each tip's text/icon,
+    // switch tips off, and add tips to screens that don't have one yet.
+    const COACH_SCREENS = {
+      menu: "الشاشة الرئيسية", gameLibrary: "مكتبة الألعاب", categories: "اختيار الفئات",
+      setup: "إعداد الفرق", game: "لوحة اللعب", questionPage: "شاشة السؤال",
+      answerPage: "شاشة الإجابة", results: "النتائج", customManager: "فئاتي الخاصة",
+      customEditor: "محرر الفئة"
+    };
+    const COACH_DEFAULTS = {
+      gameLibrary: { icon: "📚", title: "مكتبة ألعابك", body: "هنا تنحفظ إعدادات ألعابك. أنشئ لعبة جديدة، وكل ما أعدت تشغيل لعبة محفوظة تنسحب لك أسئلة جديدة بنفس فئاتها." },
+      categories: { icon: "🗂️", title: "اختر فئات لعبتك", body: "اضغط على الفئة لاختيارها — حتى ٦ فئات. جرّب 🎲 للاختيار العشوائي، واستخدم البحث للوصول السريع، وزر ⓘ على البطاقة يعرض وصف الفئة." },
+      setup: { icon: "👥", title: "جهّز فرقانك", body: "تقدر تسمّي لعبتك من فوق، وتغيّر اسم كل فريق، وتضغط على صورة الفريق لتبديلها. زر ⇄ يحدد أي فريق يبدأ أول." },
+      game: { icon: "🎯", title: "هذي لوحة اللعب", body: "كل عمود فئة، وكل رقم سؤال — الأعلى أصعب وأكثر نقاطاً. الفريق المُضاء هو من يختار السؤال الحين. زر العلم فوق ينهي اللعبة ويعرض النتائج." },
+      questionPage: { icon: "❓", title: "شلون تلعبون السؤال", body: "اقرأوا السؤال وتناقشوا. تحت السؤال وسائل مساعدة لكل فريق — «٤ خيارات»، «أول حرف»، و«×٢» يضاعف النقاط — كل وحدة مرة وحدة بالمباراة. المؤقّت فوق: اضغطه للإيقاف أو الاستئناف. إذا جاهزين اضغطوا «الإجابة»." },
+      answerPage: { icon: "🏆", title: "من جاوب صح؟", body: "اضغط على الفريق اللي جاوب صح ليأخذ النقاط — أو «محد جاوب» إذا ما أحد عرفها. بعدها «متابعة»، والدور ينتقل للفريق الثاني تلقائياً." },
+      results: { icon: "🎉", title: "النتائج", body: "مبروك للفائز! تقدر تشارك بطاقة النتيجة مع الربع من زر المشاركة، ولعبتك محفوظة بالمكتبة تعيدها متى ما حبيتوا بأسئلة جديدة." }
+    };
+    // Live tips = defaults overridden by the admin's config/coach doc (loaded
+    // at boot). A stored entry REPLACES its default; on:false disables it.
+    let coachTips = JSON.parse(JSON.stringify(COACH_DEFAULTS));
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.applyCoachConfig = function (map) {
+      const next = JSON.parse(JSON.stringify(COACH_DEFAULTS));
+      Object.keys(map || {}).forEach(id => {
+        if (!COACH_SCREENS[id]) return; // only known screens
+        const t = map[id] || {};
+        next[id] = {
+          icon: String(t.icon || (COACH_DEFAULTS[id] || {}).icon || "💡").slice(0, 8),
+          title: String(t.title || (COACH_DEFAULTS[id] || {}).title || "").slice(0, 80),
+          body: String(t.body || (COACH_DEFAULTS[id] || {}).body || "").slice(0, 400),
+          on: t.on !== false
+        };
+        if (!next[id].title || !next[id].body) delete next[id];
+      });
+      coachTips = next;
+    };
+    function loadCoachConfig() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadCoachConfig;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => window.IZZBAH.applyCoachConfig((cfg && cfg.map) || {})).catch(() => {});
+    }
+    let coachEl = null, coachArmTs = 0;
+    function closeCoach() {
+      if (coachEl) { coachEl.remove(); coachEl = null; }
+      document.removeEventListener("pointerdown", coachAnyTap, true);
+    }
+    function coachAnyTap(e) {
+      // Any interaction dismisses the tip — but not the very tap that opened
+      // the screen (arming delay), and taps ON the card use its own buttons.
+      if (Date.now() < coachArmTs) return;
+      if (coachEl && coachEl.contains(e.target)) return;
+      closeCoach();
+    }
+    function openCoachCard(tip, preview) {
+      const wrap = document.createElement("div");
+      wrap.className = "coach-pop";
+      wrap.innerHTML = `<div class="coach-card" role="status">
+          <div class="coach-title"><span>${escapeHtml(tip.icon || "💡")}</span><span>${escapeHtml(tip.title || "")}</span></div>
+          <div class="coach-body">${escapeHtml(tip.body || "")}</div>
+          <div class="coach-actions">
+            <button type="button" class="coach-skip">${preview ? "معاينة — اضغط لأي مكان للإغلاق" : "إخفاء كل التعليمات"}</button>
+            <button type="button" class="coach-ok">فهمت ✓</button>
+          </div>
+        </div>`;
+      wrap.querySelector(".coach-ok").addEventListener("click", closeCoach);
+      wrap.querySelector(".coach-skip").addEventListener("click", () => {
+        if (!preview) { coachMarkAll(); showToast("أخفينا التعليمات — تلقاها دوماً في «كيف تلعب؟»"); }
+        closeCoach();
+      });
+      document.body.appendChild(wrap);
+      coachEl = wrap;
+      coachArmTs = Date.now() + 650;
+      document.addEventListener("pointerdown", coachAnyTap, true);
+    }
+    function coachOnScreen(id) {
+      closeCoach(); // a tip never outlives its screen
+      const tip = coachTips[id];
+      if (!tip || tip.on === false || coachSeen()[id]) return;
+      coachMark(id); // fires once ever, even if dismissed by a stray tap
+      openCoachCard(tip, false);
+    }
+
     function showScreen(id, options = {}) {
       // A new build arrived while a game was live — apply it now that the player
       // is off the board (menu / library), so they never lose a game to a reload.
@@ -10681,6 +11000,8 @@
       // Long questions: shrink the font until the whole question fits its box
       // (second pass after fonts/layout settle).
       if (id === "questionPage") requestAnimationFrame(() => { fitQuestionText(); setTimeout(fitQuestionText, 150); });
+      // First-run tour: after the screen paints, show its one-time tip.
+      setTimeout(() => { if (document.body.dataset.screen === id) coachOnScreen(id); }, 420);
     }
 
     // A long question must be READ, not scrolled: its box is bounded to the
@@ -11423,7 +11744,12 @@
           event.stopPropagation();
           if (window.confirm(`حذف فئة «${cat.name || ""}» من المجتمع؟`)) {
             if (window.IZZBAH && window.IZZBAH.communityDelete) {
-              window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم حذف الفئة")).catch(() => showToast("تعذّر الحذف"));
+              // Optimistic: the card vanishes at once; if the delete fails it
+              // reappears and we tell the owner.
+              if (UI_POLISH) card.style.display = "none";
+              window.IZZBAH.communityDelete(cat.id)
+                .then(() => showToast("تم حذف الفئة"))
+                .catch(() => { if (UI_POLISH) card.style.display = ""; showToast("تعذّر الحذف"); });
             }
           }
         });
@@ -12698,7 +13024,7 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
-      ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsPlayers", "statsPlay"]
+      ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsSalesList", "statsPlayers", "statsPlay"]
         .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
       const m = $("#statsModal");
       m.classList.add("open");
@@ -12986,6 +13312,7 @@
       $("#feedbackInput").value = "";
       renderFeedbackThread([]);
       const m = $("#feedbackModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      if (UI_POLISH) $("#feedbackThread").innerHTML = skeleton("line", 3);
       feedbackLoader().then(list => {
         renderFeedbackThread(list);
         if (isAdminView) { markAdminThreadRead(state.feedbackAdminUid); }
@@ -13029,12 +13356,27 @@
         : (window.IZZBAH.sendFeedback || null);
       if (!send) { showToast("الإرسال غير متاح الآن — تحقّق من اتصالك"); return; }
       const btn = $("#feedbackSend");
+      // Optimistic: drop the outgoing bubble into the thread and clear the box
+      // immediately, so sending feels instant. The server round-trip then
+      // replaces it with the stored copy; on failure we pull it back and
+      // restore the text. (Flag off → original wait-for-the-round-trip flow.)
+      let pending = null;
+      if (UI_POLISH) {
+        const box = $("#feedbackThread");
+        const empty = box.querySelector(".fb-empty, .sk-wrap"); if (empty) box.innerHTML = "";
+        pending = feedbackBubble({ from: isAdminView ? "admin" : "user", name: "أنت", text, createdAt: Date.now() }, null);
+        pending.classList.add("fb-pending");
+        box.appendChild(pending); box.scrollTop = box.scrollHeight;
+        inp.value = "";
+      }
       btn.disabled = true; inp.disabled = true;
       Promise.resolve(send(text)).then(() => {
         inp.value = "";
         return feedbackLoader().then(list => renderFeedbackThread(list));
-      }).catch(() => { showToast("تعذّر الإرسال — حاول مرة أخرى"); })
-        .then(() => { btn.disabled = false; inp.disabled = false; inp.focus(); });
+      }).catch(() => {
+        if (pending) { pending.remove(); inp.value = text; } // roll back the optimistic bubble
+        showToast("تعذّر الإرسال — حاول مرة أخرى");
+      }).then(() => { btn.disabled = false; inp.disabled = false; inp.focus(); });
     }
     // ---- Admin: every player's feedback thread ----
     const FB_ADMIN_READ_KEY = "izzbah-fb-admin-read-v1";
@@ -13044,7 +13386,7 @@
     }
     function openFeedbackAdmin() {
       const box = $("#feedbackAdminList");
-      box.innerHTML = `<div class="fb-empty">جارٍ التحميل…</div>`;
+      box.innerHTML = skeleton("line", 4);
       const m = $("#feedbackAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       const bridge = window.IZZBAH && window.IZZBAH.adminListFeedback;
       if (!bridge) { box.innerHTML = `<div class="fb-empty">غير متاح.</div>`; return; }
@@ -13460,6 +13802,78 @@
       }).catch(e => catFilterStatus("تعذّر الحفظ: " + publishErrorReason(e), "err"));
     }
 
+    // ---- Admin: first-run coaching tips editor (التعليمات الإرشادية) --------
+    // Edit each tip's icon/title/body, switch tips off, preview the card live,
+    // add a tip to a screen that has none, and reset THIS device's seen-state
+    // to replay the tour. Saving publishes config/coach for every player.
+    let coachDraft = {};
+    const coachAdminStatus = (msg, kind) => { const el = $("#coachAdminStatus"); if (el) { el.textContent = msg || ""; el.className = "prem-status" + (kind ? " " + kind : ""); } };
+    function openCoachAdmin() {
+      coachDraft = JSON.parse(JSON.stringify(coachTips));
+      coachAdminStatus("", "");
+      renderCoachAdmin();
+      const bridge = window.IZZBAH && window.IZZBAH.loadCoachConfig;
+      if (bridge) bridge().then(cfg => {
+        const map = (cfg && cfg.map) || {};
+        Object.keys(map).forEach(id => { if (COACH_SCREENS[id]) coachDraft[id] = Object.assign({ on: true }, coachTips[id] || {}, map[id]); });
+        renderCoachAdmin();
+      }).catch(() => {});
+      const m = $("#coachAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeCoachAdmin() { const m = $("#coachAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    function renderCoachAdmin() {
+      const list = $("#coachAdminList");
+      if (!list) return;
+      list.innerHTML = "";
+      const order = ["gameLibrary", "categories", "setup", "game", "questionPage", "answerPage", "results", "menu", "customManager", "customEditor"];
+      order.filter(id => coachDraft[id]).forEach(id => {
+        const t = coachDraft[id];
+        const row = document.createElement("div");
+        row.className = "coach-tip-row" + (t.on === false ? " off" : "");
+        const isDefault = !!COACH_DEFAULTS[id];
+        row.innerHTML = `<div class="coach-tip-head">
+            <span class="coach-tip-screen">📍 ${escapeHtml(COACH_SCREENS[id] || id)}</span>
+            <label class="coach-tip-toggle"><input type="checkbox" class="ct-on" ${t.on === false ? "" : "checked"}> ظاهرة</label>
+            <button type="button" class="coach-tip-preview">👁 معاينة</button>
+            ${isDefault ? "" : '<button type="button" class="coach-tip-del">حذف</button>'}
+          </div>
+          <div class="coach-tip-titlerow">
+            <input type="text" class="coach-tip-icon ct-icon" maxlength="8" value="${escapeHtml(t.icon || "")}" aria-label="الأيقونة">
+            <input type="text" class="ct-title" maxlength="80" value="${escapeHtml(t.title || "")}" placeholder="العنوان" aria-label="العنوان">
+          </div>
+          <textarea class="ct-body" maxlength="400" placeholder="نص التعليمة" aria-label="نص التعليمة">${escapeHtml(t.body || "")}</textarea>`;
+        row.querySelector(".ct-on").addEventListener("change", e => { t.on = !!e.target.checked; row.classList.toggle("off", !t.on); });
+        row.querySelector(".ct-icon").addEventListener("input", e => { t.icon = e.target.value; });
+        row.querySelector(".ct-title").addEventListener("input", e => { t.title = e.target.value; });
+        row.querySelector(".ct-body").addEventListener("input", e => { t.body = e.target.value; });
+        row.querySelector(".coach-tip-preview").addEventListener("click", () => openCoachCard(t, true));
+        const del = row.querySelector(".coach-tip-del");
+        if (del) del.addEventListener("click", () => { delete coachDraft[id]; renderCoachAdmin(); });
+        list.appendChild(row);
+      });
+      // the add-tip dropdown offers only screens that don't have a tip yet
+      const sel = $("#coachAddScreen");
+      if (sel) {
+        sel.innerHTML = "";
+        Object.keys(COACH_SCREENS).filter(id => !coachDraft[id]).forEach(id => {
+          const o = document.createElement("option"); o.value = id; o.textContent = COACH_SCREENS[id]; sel.appendChild(o);
+        });
+        sel.parentElement.style.display = sel.options.length ? "" : "none";
+      }
+    }
+    function saveCoachAdmin() {
+      const bridge = window.IZZBAH && window.IZZBAH.saveCoachConfig;
+      if (!bridge) { coachAdminStatus("الحفظ غير متاح — سجّل الدخول كمشرف", "err"); return; }
+      const incomplete = Object.keys(coachDraft).find(id => !String(coachDraft[id].title || "").trim() || !String(coachDraft[id].body || "").trim());
+      if (incomplete) { coachAdminStatus(`أكمل عنوان ونص تعليمة «${COACH_SCREENS[incomplete] || incomplete}» أو احذفها`, "err"); return; }
+      coachAdminStatus("جارٍ الحفظ…", "busy");
+      const map = JSON.parse(JSON.stringify(coachDraft));
+      bridge(map).then(() => {
+        window.IZZBAH.applyCoachConfig(map); // this device applies it instantly
+        coachAdminStatus("تم الحفظ — التعليمات الجديدة وصلت لكل اللاعبين", "ok");
+      }).catch(e => coachAdminStatus("تعذّر الحفظ: " + publishErrorReason(e), "err"));
+    }
+
     function catNameFromId(id) {
       const c = (typeof allCategories === "function" ? allCategories() : []).find(x => x.id === id);
       return (c && c.name) || id;
@@ -13497,6 +13911,14 @@
         if (abs < 30 * day) return rtf.format(Math.round(diff / day), "day");
       } catch (e) {}
       return new Date(ms).toLocaleDateString("ar");
+    }
+    // One format for every admin-facing timestamp (sales, orders): an absolute
+    // Arabic date + time, with the relative form in parentheses when known.
+    function arStamp(ms) {
+      if (!ms) return "";
+      const abs = new Date(Number(ms)).toLocaleString("ar", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const rel = arRelativeTime(ms);
+      return rel ? `${abs} (${rel})` : abs;
     }
     function renderStatsView(stats, codes, usage, sales, playerStats) {
       stats = stats || {}; codes = Array.isArray(codes) ? codes : []; usage = usage || {};
@@ -13634,6 +14056,32 @@
             + statsTileHtml(omr(avg), "متوسط قيمة البيع");
         }
       }
+      // Every sale as its own row WITH its timestamp (newest first — listSales
+      // pre-sorts). The admin sees exactly when each purchase was made.
+      const salesList = $("#statsSalesList");
+      if (salesList) {
+        salesList.innerHTML = "";
+        const SHOW = 12;
+        sales.slice(0, SHOW).forEach(s => {
+          const row = document.createElement("div");
+          row.className = "prem-row";
+          const badge = s.premium
+            ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
+            : `<span class="prem-badge games">${toArabicDigits(s.games)} ألعاب</span>`;
+          row.innerHTML = `<div class="prem-row-main">
+              <div class="prem-row-id">${escapeHtml(s.pack || "باقة")} · ${omr(s.priceOMR)}</div>
+              <div class="prem-row-sub">${escapeHtml(s.email || shortUid(s.uid || ""))} ${badge}
+                <span class="sale-time">🕒 ${escapeHtml(s.createdAt ? arStamp(s.createdAt) : "بدون توقيت (بيع قديم)")}</span></div>
+            </div>`;
+          salesList.appendChild(row);
+        });
+        if (sales.length > SHOW) {
+          const more = document.createElement("div");
+          more.className = "prem-empty";
+          more.textContent = `+${toArabicDigits(sales.length - SHOW)} عملية أقدم`;
+          salesList.appendChild(more);
+        }
+      }
 
       // ---- players & subscriptions (from the codes + usage the admin loads) ----
       const redeemed = codes.filter(c => c.used && c.usedBy);
@@ -13673,7 +14121,13 @@
       const salesP = (window.IZZBAH.listSales ? window.IZZBAH.listSales() : Promise.resolve([])).catch(() => []);
       const playersP = (window.IZZBAH.listPlayerStats ? window.IZZBAH.listPlayerStats() : Promise.resolve([])).catch(() => []);
       Promise.all([bridge(), codesP, usageP, salesP, playersP])
-        .then(([stats, codes, usage, sales, playerStats]) => { statsSetStatus("", ""); renderStatsView(stats || {}, codes || [], usage || {}, sales || [], playerStats || []); })
+        .then(([stats, codes, usage, sales, playerStats]) => {
+          statsSetStatus("", "");
+          renderStatsView(stats || {}, codes || [], usage || {}, sales || [], playerStats || []);
+          // Stamp WHEN this snapshot was taken, right next to the refresh button.
+          const up = $("#statsUpdatedAt");
+          if (up) up.textContent = "· آخر تحديث " + new Date().toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+        })
         .catch(err => { console.warn("load stats failed", err); statsSetStatus("تعذّر تحميل الإحصائيات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"); });
     }
     // Tally a FINISHED game into the global counters — categories, team count,
@@ -13905,7 +14359,9 @@
         const badge = o.premium
           ? '<span class="prem-badge unlimited">اشتراك مفتوح</span>'
           : `<span class="prem-badge games">${toArabicDigits(o.games)} ألعاب</span>`;
-        sub.innerHTML = `${escapeHtml(o.pack)} ${badge}` + (o.createdAt ? ` · ${new Date(o.createdAt).toLocaleDateString("ar")}` : "");
+        // Full timestamp (date + time + relative), not just the date — the
+        // admin needs to see exactly WHEN each purchase request came in.
+        sub.innerHTML = `${escapeHtml(o.pack)} ${badge}` + (o.createdAt ? ` <span class="sale-time">🕒 ${escapeHtml(arStamp(o.createdAt))}</span>` : "");
         main.appendChild(id); main.appendChild(sub);
         const ok = document.createElement("button");
         ok.className = "prem-fulfil"; ok.type = "button";
@@ -13978,15 +14434,22 @@
       premSetStatus("جارٍ إنشاء الكود وتجهيز بريد التأكيد…", "busy");
       create({ premium: !!o.premium, gamesAllowed: o.games || 0 }).then(code => {
         const mail = orderConfirmationEmail(o, code);
-        // Open Gmail compose PINNED to the izzbah account (authuser), so the
-        // confirmation is sent FROM izzbahgame@gmail.com — not the device's
-        // default mail account. Falls back to a plain mail draft if the popup
-        // is blocked or Gmail isn't available.
-        const gmail = "https://mail.google.com/mail/?view=cm&fs=1"
-          + "&authuser=" + encodeURIComponent(IZZBAH_MAIL)
+        // Open Gmail compose PINNED to the izzbah account, routed through
+        // Google's ACCOUNT CHOOSER. Both authuser= and the /mail/u/<email>/
+        // path form proved unreliable — when Gmail can't resolve the account
+        // session it silently bounces to /u/0/ (the admin's PERSONAL default)
+        // instead of asking. The AccountChooser hop actually SWITCHES the
+        // session to izzbahgame@gmail.com first (or shows a sign-in page for
+        // exactly that account) and only then continues to the compose — a
+        // fallback to the wrong sender is impossible. The compose target keeps
+        // the /u/<email>/ path too, as a second lock once the session is
+        // switched. Plain mail draft if the popup is blocked.
+        const compose = "https://mail.google.com/mail/u/" + encodeURIComponent(IZZBAH_MAIL) + "/?view=cm&fs=1"
           + "&to=" + encodeURIComponent(o.email || "")
           + "&su=" + encodeURIComponent(mail.subject)
           + "&body=" + encodeURIComponent(mail.body);
+        const gmail = "https://accounts.google.com/AccountChooser?Email=" + encodeURIComponent(IZZBAH_MAIL)
+          + "&continue=" + encodeURIComponent(compose);
         let opened = null;
         try { opened = window.open(gmail, "_blank", "noopener"); } catch (e) {}
         if (!opened) {
@@ -14075,10 +14538,10 @@
         if (players) players.innerHTML = "";
         return;
       }
-      list.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
-      if (players) players.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
+      list.innerHTML = skeleton("prem", 5);
+      if (players) players.innerHTML = skeleton("prem", 4);
       const orders = $("#premOrders");
-      if (orders) orders.innerHTML = '<div class="prem-empty">جارٍ التحميل…</div>';
+      if (orders) orders.innerHTML = skeleton("line", 3);
       // Codes + usage + orders in parallel; a usage/orders failure (e.g. rules
       // not yet published) still lets the code list and a used=0 view render.
       const ordersBridge = window.IZZBAH && window.IZZBAH.listOrders;
@@ -14101,6 +14564,26 @@
     function redeemCodeFlow(inputEl) {
       const raw = (inputEl.value || "").trim();
       if (!raw) { showToast("أدخل الكود أولاً"); inputEl.focus(); return; }
+      // A code entered right after the app opens used to be REFUSED: Firebase
+      // takes a moment to restore the signed-in session (and to attach the
+      // redeem bridge), so for the first seconds state.signedIn is still false
+      // and the player saw «سجّل الدخول أولاً» — "the code won't activate" —
+      // even though they were signed in. Wait for auth restore + the bridge
+      // (up to ~8s) before deciding, instead of refusing instantly.
+      const ready = () => state.signedIn && window.IZZBAH && window.IZZBAH.redeemCode;
+      if (!ready() && !state.authReady) {
+        showToast("لحظة — جارٍ استئناف تسجيل الدخول…");
+        let waited = 0;
+        const tick = () => {
+          if (ready()) { redeemCodeFlow(inputEl); return; }
+          if (state.authReady && !state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+          waited += 250;
+          if (waited >= 8000) { showToast(state.signedIn ? "التفعيل غير متاح الآن — تحقّق من اتصالك" : "سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+          setTimeout(tick, 250);
+        };
+        setTimeout(tick, 250);
+        return;
+      }
       if (!state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
       const bridge = window.IZZBAH && window.IZZBAH.redeemCode;
       if (!bridge) { showToast("التفعيل غير متاح الآن — تحقّق من اتصالك"); return; }
@@ -14189,8 +14672,28 @@
           showToast("تعذّر إرسال الطلب — تأكّد من نشر قواعد Firestore المحدّثة أو راسلنا: izzbahgame@gmail.com");
         });
     }
+    // The count line at the top of the packs box — a big current-balance number
+    // so the player sees exactly what they have before (and right after) they
+    // buy a pack or activate a code.
+    function renderPlansBalance() {
+      const el = $("#plansBalance");
+      if (!el) return;
+      if (state.isAdmin || premiumActive()) {
+        el.innerHTML = `<span class="pb-num">∞</span><span class="pb-lbl">${state.isAdmin ? "لعب غير محدود (مشرف)" : "اشتراك مفتوح — لعب غير محدود"}</span>`;
+        return;
+      }
+      const free = state.freeGamePlayed ? 0 : 1;
+      const rem = gamesRemaining();
+      const total = free + rem;
+      const bits = [];
+      if (free) bits.push("لعبة مجانية");
+      if (rem > 0) bits.push(`${toArabicDigits(rem)} من الأكواد`);
+      el.innerHTML = `<span class="pb-num">${toArabicDigits(total)}</span>`
+        + `<span class="pb-lbl">${total === 1 ? "لعبة متبقية" : "ألعاب متبقية"}${bits.length ? "<br>" + bits.join(" + ") : ""}</span>`;
+    }
     function openPlans() {
       renderPlans();
+      renderPlansBalance();
       const inp = $("#redeemInputPlans");
       if (inp) inp.value = "";
       const m = $("#plansModal");
@@ -14242,6 +14745,9 @@
       // keep the settings sheet's balance line in sync if it's open
       const sb = $("#settingsBalance");
       if (sb && $("#settingsModal") && $("#settingsModal").classList.contains("open")) renderSettingsSheet();
+      // …and the big count at the top of the packs box, if that's open
+      const pm = $("#plansModal");
+      if (pm && pm.classList.contains("open") && typeof renderPlansBalance === "function") renderPlansBalance();
     }
 
     // ---- User settings / account sheet (top-right button) ------------------
@@ -17102,6 +17608,21 @@
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
+    $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
+    $("#coachAdminClose").addEventListener("click", closeCoachAdmin);
+    $("#coachAdminModal").addEventListener("click", e => { if (e.target.id === "coachAdminModal") closeCoachAdmin(); });
+    $("#coachAdminSave").addEventListener("click", saveCoachAdmin);
+    $("#coachAddBtn").addEventListener("click", () => {
+      const sel = $("#coachAddScreen");
+      const id = sel && sel.value;
+      if (!id || coachDraft[id]) return;
+      coachDraft[id] = { icon: "💡", title: "", body: "", on: true };
+      renderCoachAdmin();
+    });
+    $("#coachResetLocal").addEventListener("click", () => {
+      try { localStorage.removeItem(COACH_KEY); } catch (e) {}
+      showToast("↺ ستظهر التعليمات من جديد على هذا الجهاز");
+    });
     $("#dupClose").addEventListener("click", closeDupModal);
     $("#dupCloseBtn").addEventListener("click", closeDupModal);
     $("#dupRescan").addEventListener("click", renderDupReport);
@@ -17114,6 +17635,37 @@
     $("#adminChoiceModal").addEventListener("click", event => { if (event.target.id === "adminChoiceModal") closeAdminChoice(); });
     $("#statsCancel").addEventListener("click", closeStatsModal);
     $("#statsRefresh").addEventListener("click", refreshStats);
+    $("#salesRefresh").addEventListener("click", refreshStats);
+    // «تصفير»: wipe the PLAY counters only, behind a double confirm that
+    // spells out exactly what is and is not erased. Irreversible.
+    $("#statsReset").addEventListener("click", () => {
+      const bridge = window.IZZBAH && window.IZZBAH.resetStats;
+      if (!bridge) { statsSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!window.confirm(
+        "تصفير إحصائيات اللعب؟\n\n"
+        + "سيُمسح: عدد الألعاب واتجاه الأسبوع، الفئات الأكثر لعباً، وسائل المساعدة، أزمنة الإجابة، مزيج الرصيد، ووقت آخر لعبة.\n"
+        + "لن يُمسح: المبيعات والإيرادات، الأكواد وأرصدة اللاعبين، سجل اللاعبين (جدد/عائدون)، وفئات المجتمع.")) return;
+      if (!window.confirm("متأكد؟ لا يمكن التراجع عن التصفير.")) return;
+      statsSetStatus("جارٍ التصفير…", "busy");
+      bridge()
+        .then(() => { showToast("تم تصفير إحصائيات اللعب — بداية جديدة"); refreshStats(); })
+        .catch(() => statsSetStatus("تعذّر التصفير — تأكّد من نشر قواعد Firestore المحدّثة.", "err"));
+    });
+    // «تصفير» المبيعات: wipes ONLY the sales/revenue records, with its own
+    // double confirm. Play stats, codes, balances and pending orders untouched.
+    $("#salesReset").addEventListener("click", () => {
+      const bridge = window.IZZBAH && window.IZZBAH.resetSales;
+      if (!bridge) { statsSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!window.confirm(
+        "تصفير سجلّ المبيعات والإيرادات؟\n\n"
+        + "سيُمسح: كل عمليات البيع المسجّلة وإجمالي الإيرادات وإيرادات الشهر ومتوسط البيع.\n"
+        + "لن يُمسح: إحصائيات اللعب، الأكواد وأرصدة اللاعبين، والطلبات المعلّقة في لوحة الاشتراكات.")) return;
+      if (!window.confirm("متأكد؟ حذف سجلّ المبيعات نهائي ولا يمكن التراجع.")) return;
+      statsSetStatus("جارٍ تصفير المبيعات…", "busy");
+      bridge()
+        .then(n => { showToast(`تم تصفير المبيعات — حُذف ${toArabicDigits(n || 0)} سجلاً`); refreshStats(); })
+        .catch(() => statsSetStatus("تعذّر تصفير المبيعات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"));
+    });
     $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
@@ -17199,13 +17751,13 @@
       });
     });
     $("#gameCountBadge").addEventListener("click", () => {
+      if (!state.signedIn) { openSettings(); return; } // signed-out: route to sign-in / buy
+      // Open the "my games" box (current count + the packs + a redeem field)
+      // instead of just toasting «تم تحديث الرصيد». The cloud re-check runs in
+      // the background and the big number updates in place when it lands.
+      openPlans();
       const bridge = window.IZZBAH && window.IZZBAH.refreshMyCodes;
-      if (!bridge || !state.signedIn) { openSettings(); return; } // signed-out: route to sign-in / buy
-      showToast("جارٍ تحديث الرصيد…");
-      bridge().then(ok => {
-        renderPlayBalance();
-        showToast(ok ? "تم تحديث الرصيد" : "تعذّر تحديث الرصيد — تحقّق من نشر قواعد Firestore المحدّثة");
-      });
+      if (bridge) bridge().then(() => { renderPlayBalance(); renderPlansBalance(); });
     });
     $("#plansClose").addEventListener("click", closePlans);
     $("#plansModal").addEventListener("click", event => { if (event.target.id === "plansModal") closePlans(); });
@@ -17451,6 +18003,7 @@
       });
     };
     window.IZZBAH.applyAuth = function (signedIn, uid) {
+      state.authReady = true; // first fire = the session restore has resolved
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
       if (typeof loadAnnouncements === "function") {
@@ -17459,6 +18012,7 @@
         if (p && p.then) p.then(() => { if (typeof maybePopAnnouncement === "function") maybePopAnnouncement(); });
       }
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
+      if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -18390,6 +18944,28 @@
             return db.collection("config").doc("catFilter")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
+          // First-run coaching tips (config/coach): public read so every player
+          // gets the admin's wording; admin-only write, shape-clamped. Fits the
+          // existing /config rules ({map, updatedAt}) — no rules change needed.
+          window.IZZBAH.loadCoachConfig = function () {
+            return db.collection("config").doc("coach").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveCoachConfig = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 40).forEach(k => {
+              const t = (map || {})[k] || {};
+              clean[String(k).slice(0, 24)] = {
+                icon: String(t.icon || "💡").slice(0, 8),
+                title: String(t.title || "").slice(0, 80),
+                body: String(t.body || "").slice(0, 400),
+                on: t.on !== false
+              };
+            });
+            return db.collection("config").doc("coach")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
           // Global usage insights (admin panel). One tiny doc, stats/global,
           // holds a total games counter + a map of per-category play counts.
           // Each finished game increments it once (games + each category), so
@@ -18444,6 +19020,32 @@
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("stats").doc("global").get()
               .then(doc => (doc.exists ? (doc.data() || {}) : {}));
+          };
+          // Admin-only: wipe the play counters and start fresh (e.g. clearing
+          // test-period numbers at launch). Deleting the doc is a clean zero —
+          // recordGamePlay recreates it with set-merge increments. Sales,
+          // codes, usage and player records live elsewhere and are untouched.
+          window.IZZBAH.resetStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("stats").doc("global").delete().then(() => true);
+          };
+          // Admin-only: wipe the SALES RECORDS (the revenue counter) — and
+          // nothing else. Deletes every sales doc in write batches (Firestore
+          // caps a batch at 500 ops). Play stats, codes, balances and pending
+          // orders all live elsewhere and are untouched. Returns the count.
+          window.IZZBAH.resetSales = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("sales").limit(5000).get().then(snap => {
+              const docs = snap.docs;
+              if (!docs.length) return 0;
+              const chunks = [];
+              for (let i = 0; i < docs.length; i += 450) chunks.push(docs.slice(i, i + 450));
+              return chunks.reduce((p, chunk) => p.then(() => {
+                const batch = db.batch();
+                chunk.forEach(d => batch.delete(d.ref));
+                return batch.commit();
+              }), Promise.resolve()).then(() => docs.length);
+            });
           };
           // Sum the signed-in player's redeemed codes into their play balance.
           // Resolves true when the (authoritative) query succeeded, false when
