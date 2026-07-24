@@ -9804,7 +9804,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.146";
+    const IZZBAH_BUILD = "2026-07-10.147";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10342,12 +10342,34 @@
     function isCategoryHidden(id) {
       return Array.isArray(state.hiddenCategories) && state.hiddenCategories.includes(id);
     }
+    // Hiding is GLOBAL: an admin toggle pulls the category off EVERY player's
+    // selection screen (config/hidden), while leaving its content fully intact
+    // — the opposite of delete. The local list is an offline cache/mirror; the
+    // cloud doc (loaded at boot) is the source of truth. Player devices only
+    // read it; only an admin's toggle writes it.
     function setCategoryHidden(id, hidden) {
       const set = new Set(state.hiddenCategories || []);
       if (hidden) { set.add(id); state.selected.delete(id); }
       else set.delete(id);
       state.hiddenCategories = [...set];
-      saveHiddenCategories();
+      saveHiddenCategories(); // local cache (instant + offline)
+      const bridge = window.IZZBAH && window.IZZBAH.saveHidden;
+      if (bridge) {
+        const map = {}; state.hiddenCategories.forEach(c => { map[c] = true; });
+        bridge(map).catch(() => showToast("تعذّر حفظ الإخفاء في السحابة — تأكّد من تسجيل الدخول كمشرف"));
+      }
+    }
+    // Boot: pull the global hidden set so every player's picker matches the
+    // admin's choice (runs beside the category-filter / coach config loaders).
+    function loadHiddenConfig() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadHidden;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => {
+        const map = (cfg && cfg.map) || {};
+        state.hiddenCategories = Object.keys(map).filter(k => map[k]);
+        saveHiddenCategories();
+        if (typeof renderCategories === "function" && document.body.dataset.screen === "categories") renderCategories();
+      }).catch(() => {});
     }
 
     function categoryHasQuestions(cat) {
@@ -12433,26 +12455,33 @@
       pub.id = "adminPublishBtn";
       pub.textContent = "نشر التعديلات";
       pub.addEventListener("click", publishAdminCategory);
-      // Remove a category from the game: brand-new (cloud) categories are
-      // deleted outright; built-in ones can't be deleted from the app, so they
-      // get a reversible hide/show toggle (skipped in the category picker).
+      // Two SEPARATE controls, side by side:
+      //   • «إخفاء الفئة» (reversible): pulls it off every player's selection
+      //     screen but KEEPS all its content. Available for every category.
+      //   • «حذف الفئة» (permanent): only for cloud categories; built-ins can't
+      //     be deleted from the app, so they only get hide.
       const isBuiltin = builtinCategories.some(b => b.id === cat.id);
-      const del = document.createElement("button");
-      del.className = "danger ac-delete";
-      if (isBuiltin) {
-        const hidden = isCategoryHidden(cat.id);
-        del.textContent = hidden ? "إظهار الفئة" : "إخفاء الفئة";
-        del.title = hidden ? "إظهارها في شاشة اختيار الفئات" : "إخفاؤها من شاشة اختيار الفئات";
+      const hidden = isCategoryHidden(cat.id);
+      const hideBtn = document.createElement("button");
+      hideBtn.className = (hidden ? "secondary" : "ghost") + " ac-hide";
+      hideBtn.textContent = hidden ? "👁 إظهار الفئة" : "🙈 إخفاء الفئة";
+      hideBtn.title = hidden
+        ? "إعادتها إلى شاشة اختيار الفئات لكل اللاعبين"
+        : "إخفاؤها من شاشة اختيار الفئات لكل اللاعبين — تبقى محفوظة ويمكن إظهارها لاحقاً";
+      hideBtn.addEventListener("click", () => {
+        setCategoryHidden(cat.id, !hidden);
+        showToast(hidden ? "تم إظهار الفئة للاعبين" : "تم إخفاء الفئة من شاشة الاختيار (لم تُحذف)");
+        renderAdminCatHead();
+        if (typeof renderAdminCategoryList === "function") renderAdminCategoryList();
+      });
+      const controls = [hideBtn];
+      if (!isBuiltin) {
+        const del = document.createElement("button");
+        del.className = "danger ac-delete";
+        del.textContent = "🗑 حذف الفئة";
+        del.title = "حذف هذه الفئة وكل أسئلتها نهائيًا للجميع — لا يمكن التراجع";
         del.addEventListener("click", () => {
-          setCategoryHidden(cat.id, !hidden);
-          showToast(hidden ? "تم إظهار الفئة" : "تم إخفاء الفئة من اختيار الفئات");
-          renderAdminCatHead();
-        });
-      } else {
-        del.textContent = "حذف الفئة";
-        del.title = "حذف هذه الفئة نهائيًا للجميع";
-        del.addEventListener("click", () => {
-          if (!window.confirm(`حذف الفئة «${cat.name || ""}» نهائيًا للجميع؟`)) return;
+          if (!window.confirm(`حذف الفئة «${cat.name || ""}» وكل أسئلتها نهائيًا للجميع؟\n(لإخفائها مؤقتاً بدل حذفها استخدم «إخفاء الفئة».)`)) return;
           const cloud = window.IZZBAH && window.IZZBAH.cloudDelete;
           if (!cloud) { showToast("الحذف السحابي غير متاح — سجّل الدخول"); return; }
           cloud(cat.id)
@@ -12465,8 +12494,9 @@
             })
             .catch(() => showToast("تعذّر الحذف"));
         });
+        controls.push(del);
       }
-      head.append(name, colorLbl, imgLbl, count, tierCounts, pub, del);
+      head.append(name, colorLbl, imgLbl, count, tierCounts, pub, ...controls);
       markAdminDirty();
     }
 
@@ -18013,6 +18043,7 @@
       }
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
       if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
+      if (typeof loadHiddenConfig === "function") loadHiddenConfig();   // globally hidden categories
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -18964,6 +18995,20 @@
               };
             });
             return db.collection("config").doc("coach")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // Globally hidden categories (config/hidden): public read so every
+          // player's picker matches the admin's choice; admin-only write. Fits
+          // the existing /config rules ({map, updatedAt}) — no rules change.
+          window.IZZBAH.loadHidden = function () {
+            return db.collection("config").doc("hidden").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveHidden = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 500).forEach(k => { if ((map || {})[k]) clean[String(k).slice(0, 128)] = true; });
+            return db.collection("config").doc("hidden")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,
