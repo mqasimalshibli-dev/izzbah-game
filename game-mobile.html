@@ -5851,6 +5851,27 @@
     .coach-skip { font: 700 11.5px 'Cairo', sans-serif; color: #8a7550; background: none; border: 0; cursor: pointer; text-decoration: underline; padding: 4px; }
     @media (prefers-reduced-motion: reduce) { .coach-card { animation: none; } }
 
+    /* ── Admin editor for the coaching tips (التعليمات الإرشادية) ── */
+    .coach-admin-modal { max-width: 660px; }
+    .coach-admin-list { display: flex; flex-direction: column; gap: 12px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+    .coach-tip-row { background: #fdf6e5; border: 1.5px solid #e4d4b3; border-radius: 12px; padding: 10px 12px; }
+    .coach-tip-row.off { opacity: .55; }
+    .coach-tip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .coach-tip-screen { font: 800 13px 'Cairo', sans-serif; color: #8f1622; margin-inline-end: auto; }
+    .coach-tip-toggle { display: inline-flex; align-items: center; gap: 5px; font: 700 11.5px 'Cairo', sans-serif; color: #6a5326; cursor: pointer; }
+    .coach-tip-preview { font: 700 11.5px 'Cairo', sans-serif; color: #6a5326; background: #f3e7d0; border: 1px solid #d9b96a; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+    .coach-tip-del { font: 700 11.5px 'Cairo', sans-serif; color: #a32633; background: none; border: 0; cursor: pointer; text-decoration: underline; }
+    .coach-tip-row input[type="text"], .coach-tip-row textarea {
+      width: 100%; border: 1px solid #d9c9a5; border-radius: 8px; background: #fff;
+      font: 600 13px 'Cairo', sans-serif; color: #3a2a15; padding: 7px 10px; box-sizing: border-box; }
+    .coach-tip-row textarea { resize: vertical; min-height: 56px; margin-top: 6px; line-height: 1.7; }
+    .coach-tip-titlerow { display: flex; gap: 6px; }
+    .coach-tip-titlerow .coach-tip-icon { width: 64px; flex: none; text-align: center; }
+    .coach-admin-add { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+    .coach-admin-add select { flex: 1; border: 1px solid #d9c9a5; border-radius: 8px; background: #fff;
+      font: 700 13px 'Cairo', sans-serif; color: #3a2a15; padding: 8px 10px; }
+    .coach-admin-actions { flex-wrap: wrap; }
+
     /* ── "My games" balance header inside the packs box ── */
     .plans-balance { display: flex; align-items: center; gap: 12px; justify-content: center; text-align: center;
       background: linear-gradient(150deg, #fff4dd, #f6e7c4); border: 1px solid #e4d4b3; border-radius: 15px;
@@ -6379,9 +6400,32 @@
             <span class="admin-choice-name">المتكررات</span>
             <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
           </button>
+          <button class="admin-choice-btn" id="adminChoiceCoach" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🧭</span>
+            <span class="admin-choice-name">التعليمات الإرشادية</span>
+            <span class="admin-choice-sub">عدّل نصوص تعليمات أول لعبة وأماكن ظهورها</span>
+          </button>
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="coachAdminModal" aria-hidden="true">
+      <div class="question-modal coach-admin-modal" role="dialog" aria-modal="true" aria-labelledby="coachAdminTitle">
+        <h3 class="preview-title" id="coachAdminTitle">🧭 التعليمات الإرشادية</h3>
+        <p class="import-help">بطاقات صغيرة تعلّم اللاعب كل شاشة <b>أول مرة</b> يدخلها. عدّل النص والأيقونة، أطفئ أي تعليمة، أو أضف تعليمة لشاشة ما لها وحدة — والتغيير يوصل لكل اللاعبين فور الحفظ.</p>
+        <div class="coach-admin-list" id="coachAdminList"></div>
+        <div class="coach-admin-add">
+          <select id="coachAddScreen" aria-label="اختر شاشة للتعليمة الجديدة"></select>
+          <button class="secondary" id="coachAddBtn" type="button">+ إضافة تعليمة</button>
+        </div>
+        <div class="prem-status" id="coachAdminStatus" aria-live="polite"></div>
+        <div class="actions coach-admin-actions">
+          <button class="ghost" id="coachResetLocal" type="button" title="يمسح سجلّ «شوهدت» في هذا الجهاز فقط — لتجربة الجولة من جديد">↺ أعد عرضها على جهازي</button>
+          <button class="ghost" id="coachAdminClose" type="button">إغلاق</button>
+          <button class="primary" id="coachAdminSave" type="button">💾 حفظ للجميع</button>
         </div>
       </div>
     </div>
@@ -9760,7 +9804,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.145";
+    const IZZBAH_BUILD = "2026-07-10.146";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10850,8 +10894,17 @@
     const COACH_KEY = "izzbah-coach-v1";
     function coachSeen() { try { return JSON.parse(localStorage.getItem(COACH_KEY)) || {}; } catch (e) { return {}; } }
     function coachMark(id) { try { const m = coachSeen(); m[id] = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
-    function coachMarkAll() { try { const m = coachSeen(); Object.keys(COACH_TIPS).forEach(k => { m[k] = 1; }); m.__all = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
-    const COACH_TIPS = {
+    function coachMarkAll() { try { const m = coachSeen(); Object.keys(coachTips).forEach(k => { m[k] = 1; }); m.__all = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
+    // Every screen a tip may attach to (id → admin-facing name). The admin's
+    // «التعليمات الإرشادية» panel lets the owner edit each tip's text/icon,
+    // switch tips off, and add tips to screens that don't have one yet.
+    const COACH_SCREENS = {
+      menu: "الشاشة الرئيسية", gameLibrary: "مكتبة الألعاب", categories: "اختيار الفئات",
+      setup: "إعداد الفرق", game: "لوحة اللعب", questionPage: "شاشة السؤال",
+      answerPage: "شاشة الإجابة", results: "النتائج", customManager: "فئاتي الخاصة",
+      customEditor: "محرر الفئة"
+    };
+    const COACH_DEFAULTS = {
       gameLibrary: { icon: "📚", title: "مكتبة ألعابك", body: "هنا تنحفظ إعدادات ألعابك. أنشئ لعبة جديدة، وكل ما أعدت تشغيل لعبة محفوظة تنسحب لك أسئلة جديدة بنفس فئاتها." },
       categories: { icon: "🗂️", title: "اختر فئات لعبتك", body: "اضغط على الفئة لاختيارها — حتى ٦ فئات. جرّب 🎲 للاختيار العشوائي، واستخدم البحث للوصول السريع، وزر ⓘ على البطاقة يعرض وصف الفئة." },
       setup: { icon: "👥", title: "جهّز فرقانك", body: "تقدر تسمّي لعبتك من فوق، وتغيّر اسم كل فريق، وتضغط على صورة الفريق لتبديلها. زر ⇄ يحدد أي فريق يبدأ أول." },
@@ -10860,6 +10913,30 @@
       answerPage: { icon: "🏆", title: "من جاوب صح؟", body: "اضغط على الفريق اللي جاوب صح ليأخذ النقاط — أو «محد جاوب» إذا ما أحد عرفها. بعدها «متابعة»، والدور ينتقل للفريق الثاني تلقائياً." },
       results: { icon: "🎉", title: "النتائج", body: "مبروك للفائز! تقدر تشارك بطاقة النتيجة مع الربع من زر المشاركة، ولعبتك محفوظة بالمكتبة تعيدها متى ما حبيتوا بأسئلة جديدة." }
     };
+    // Live tips = defaults overridden by the admin's config/coach doc (loaded
+    // at boot). A stored entry REPLACES its default; on:false disables it.
+    let coachTips = JSON.parse(JSON.stringify(COACH_DEFAULTS));
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.applyCoachConfig = function (map) {
+      const next = JSON.parse(JSON.stringify(COACH_DEFAULTS));
+      Object.keys(map || {}).forEach(id => {
+        if (!COACH_SCREENS[id]) return; // only known screens
+        const t = map[id] || {};
+        next[id] = {
+          icon: String(t.icon || (COACH_DEFAULTS[id] || {}).icon || "💡").slice(0, 8),
+          title: String(t.title || (COACH_DEFAULTS[id] || {}).title || "").slice(0, 80),
+          body: String(t.body || (COACH_DEFAULTS[id] || {}).body || "").slice(0, 400),
+          on: t.on !== false
+        };
+        if (!next[id].title || !next[id].body) delete next[id];
+      });
+      coachTips = next;
+    };
+    function loadCoachConfig() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadCoachConfig;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => window.IZZBAH.applyCoachConfig((cfg && cfg.map) || {})).catch(() => {});
+    }
     let coachEl = null, coachArmTs = 0;
     function closeCoach() {
       if (coachEl) { coachEl.remove(); coachEl = null; }
@@ -10872,27 +10949,33 @@
       if (coachEl && coachEl.contains(e.target)) return;
       closeCoach();
     }
-    function coachOnScreen(id) {
-      closeCoach(); // a tip never outlives its screen
-      const tip = COACH_TIPS[id];
-      if (!tip || coachSeen()[id]) return;
-      coachMark(id); // fires once ever, even if dismissed by a stray tap
+    function openCoachCard(tip, preview) {
       const wrap = document.createElement("div");
       wrap.className = "coach-pop";
       wrap.innerHTML = `<div class="coach-card" role="status">
-          <div class="coach-title"><span>${tip.icon}</span><span>${tip.title}</span></div>
-          <div class="coach-body">${tip.body}</div>
+          <div class="coach-title"><span>${escapeHtml(tip.icon || "💡")}</span><span>${escapeHtml(tip.title || "")}</span></div>
+          <div class="coach-body">${escapeHtml(tip.body || "")}</div>
           <div class="coach-actions">
-            <button type="button" class="coach-skip">إخفاء كل التعليمات</button>
+            <button type="button" class="coach-skip">${preview ? "معاينة — اضغط لأي مكان للإغلاق" : "إخفاء كل التعليمات"}</button>
             <button type="button" class="coach-ok">فهمت ✓</button>
           </div>
         </div>`;
       wrap.querySelector(".coach-ok").addEventListener("click", closeCoach);
-      wrap.querySelector(".coach-skip").addEventListener("click", () => { coachMarkAll(); closeCoach(); showToast("أخفينا التعليمات — تلقاها دوماً في «كيف تلعب؟»"); });
+      wrap.querySelector(".coach-skip").addEventListener("click", () => {
+        if (!preview) { coachMarkAll(); showToast("أخفينا التعليمات — تلقاها دوماً في «كيف تلعب؟»"); }
+        closeCoach();
+      });
       document.body.appendChild(wrap);
       coachEl = wrap;
       coachArmTs = Date.now() + 650;
       document.addEventListener("pointerdown", coachAnyTap, true);
+    }
+    function coachOnScreen(id) {
+      closeCoach(); // a tip never outlives its screen
+      const tip = coachTips[id];
+      if (!tip || tip.on === false || coachSeen()[id]) return;
+      coachMark(id); // fires once ever, even if dismissed by a stray tap
+      openCoachCard(tip, false);
     }
 
     function showScreen(id, options = {}) {
@@ -13717,6 +13800,78 @@
         renderCatFilter();
         if (document.body.dataset.screen === "categories") renderCategories();
       }).catch(e => catFilterStatus("تعذّر الحفظ: " + publishErrorReason(e), "err"));
+    }
+
+    // ---- Admin: first-run coaching tips editor (التعليمات الإرشادية) --------
+    // Edit each tip's icon/title/body, switch tips off, preview the card live,
+    // add a tip to a screen that has none, and reset THIS device's seen-state
+    // to replay the tour. Saving publishes config/coach for every player.
+    let coachDraft = {};
+    const coachAdminStatus = (msg, kind) => { const el = $("#coachAdminStatus"); if (el) { el.textContent = msg || ""; el.className = "prem-status" + (kind ? " " + kind : ""); } };
+    function openCoachAdmin() {
+      coachDraft = JSON.parse(JSON.stringify(coachTips));
+      coachAdminStatus("", "");
+      renderCoachAdmin();
+      const bridge = window.IZZBAH && window.IZZBAH.loadCoachConfig;
+      if (bridge) bridge().then(cfg => {
+        const map = (cfg && cfg.map) || {};
+        Object.keys(map).forEach(id => { if (COACH_SCREENS[id]) coachDraft[id] = Object.assign({ on: true }, coachTips[id] || {}, map[id]); });
+        renderCoachAdmin();
+      }).catch(() => {});
+      const m = $("#coachAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeCoachAdmin() { const m = $("#coachAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    function renderCoachAdmin() {
+      const list = $("#coachAdminList");
+      if (!list) return;
+      list.innerHTML = "";
+      const order = ["gameLibrary", "categories", "setup", "game", "questionPage", "answerPage", "results", "menu", "customManager", "customEditor"];
+      order.filter(id => coachDraft[id]).forEach(id => {
+        const t = coachDraft[id];
+        const row = document.createElement("div");
+        row.className = "coach-tip-row" + (t.on === false ? " off" : "");
+        const isDefault = !!COACH_DEFAULTS[id];
+        row.innerHTML = `<div class="coach-tip-head">
+            <span class="coach-tip-screen">📍 ${escapeHtml(COACH_SCREENS[id] || id)}</span>
+            <label class="coach-tip-toggle"><input type="checkbox" class="ct-on" ${t.on === false ? "" : "checked"}> ظاهرة</label>
+            <button type="button" class="coach-tip-preview">👁 معاينة</button>
+            ${isDefault ? "" : '<button type="button" class="coach-tip-del">حذف</button>'}
+          </div>
+          <div class="coach-tip-titlerow">
+            <input type="text" class="coach-tip-icon ct-icon" maxlength="8" value="${escapeHtml(t.icon || "")}" aria-label="الأيقونة">
+            <input type="text" class="ct-title" maxlength="80" value="${escapeHtml(t.title || "")}" placeholder="العنوان" aria-label="العنوان">
+          </div>
+          <textarea class="ct-body" maxlength="400" placeholder="نص التعليمة" aria-label="نص التعليمة">${escapeHtml(t.body || "")}</textarea>`;
+        row.querySelector(".ct-on").addEventListener("change", e => { t.on = !!e.target.checked; row.classList.toggle("off", !t.on); });
+        row.querySelector(".ct-icon").addEventListener("input", e => { t.icon = e.target.value; });
+        row.querySelector(".ct-title").addEventListener("input", e => { t.title = e.target.value; });
+        row.querySelector(".ct-body").addEventListener("input", e => { t.body = e.target.value; });
+        row.querySelector(".coach-tip-preview").addEventListener("click", () => openCoachCard(t, true));
+        const del = row.querySelector(".coach-tip-del");
+        if (del) del.addEventListener("click", () => { delete coachDraft[id]; renderCoachAdmin(); });
+        list.appendChild(row);
+      });
+      // the add-tip dropdown offers only screens that don't have a tip yet
+      const sel = $("#coachAddScreen");
+      if (sel) {
+        sel.innerHTML = "";
+        Object.keys(COACH_SCREENS).filter(id => !coachDraft[id]).forEach(id => {
+          const o = document.createElement("option"); o.value = id; o.textContent = COACH_SCREENS[id]; sel.appendChild(o);
+        });
+        sel.parentElement.style.display = sel.options.length ? "" : "none";
+      }
+    }
+    function saveCoachAdmin() {
+      const bridge = window.IZZBAH && window.IZZBAH.saveCoachConfig;
+      if (!bridge) { coachAdminStatus("الحفظ غير متاح — سجّل الدخول كمشرف", "err"); return; }
+      const incomplete = Object.keys(coachDraft).find(id => !String(coachDraft[id].title || "").trim() || !String(coachDraft[id].body || "").trim());
+      if (incomplete) { coachAdminStatus(`أكمل عنوان ونص تعليمة «${COACH_SCREENS[incomplete] || incomplete}» أو احذفها`, "err"); return; }
+      coachAdminStatus("جارٍ الحفظ…", "busy");
+      const map = JSON.parse(JSON.stringify(coachDraft));
+      bridge(map).then(() => {
+        window.IZZBAH.applyCoachConfig(map); // this device applies it instantly
+        coachAdminStatus("تم الحفظ — التعليمات الجديدة وصلت لكل اللاعبين", "ok");
+      }).catch(e => coachAdminStatus("تعذّر الحفظ: " + publishErrorReason(e), "err"));
     }
 
     function catNameFromId(id) {
@@ -17453,6 +17608,21 @@
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
+    $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
+    $("#coachAdminClose").addEventListener("click", closeCoachAdmin);
+    $("#coachAdminModal").addEventListener("click", e => { if (e.target.id === "coachAdminModal") closeCoachAdmin(); });
+    $("#coachAdminSave").addEventListener("click", saveCoachAdmin);
+    $("#coachAddBtn").addEventListener("click", () => {
+      const sel = $("#coachAddScreen");
+      const id = sel && sel.value;
+      if (!id || coachDraft[id]) return;
+      coachDraft[id] = { icon: "💡", title: "", body: "", on: true };
+      renderCoachAdmin();
+    });
+    $("#coachResetLocal").addEventListener("click", () => {
+      try { localStorage.removeItem(COACH_KEY); } catch (e) {}
+      showToast("↺ ستظهر التعليمات من جديد على هذا الجهاز");
+    });
     $("#dupClose").addEventListener("click", closeDupModal);
     $("#dupCloseBtn").addEventListener("click", closeDupModal);
     $("#dupRescan").addEventListener("click", renderDupReport);
@@ -17842,6 +18012,7 @@
         if (p && p.then) p.then(() => { if (typeof maybePopAnnouncement === "function") maybePopAnnouncement(); });
       }
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
+      if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -18771,6 +18942,28 @@
               if (v) clean[String(k).slice(0, 128)] = v;
             });
             return db.collection("config").doc("catFilter")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // First-run coaching tips (config/coach): public read so every player
+          // gets the admin's wording; admin-only write, shape-clamped. Fits the
+          // existing /config rules ({map, updatedAt}) — no rules change needed.
+          window.IZZBAH.loadCoachConfig = function () {
+            return db.collection("config").doc("coach").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveCoachConfig = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 40).forEach(k => {
+              const t = (map || {})[k] || {};
+              clean[String(k).slice(0, 24)] = {
+                icon: String(t.icon || "💡").slice(0, 8),
+                title: String(t.title || "").slice(0, 80),
+                body: String(t.body || "").slice(0, 400),
+                on: t.on !== false
+              };
+            });
+            return db.collection("config").doc("coach")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,
