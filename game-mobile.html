@@ -4565,8 +4565,11 @@
        and the 🕒 time on each sale/order row */
     .stats-updated { font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; }
     .stats-head-btns { display: inline-flex; gap: 6px; }
-    .stats-reset { color: #a32633; border-color: #d9a3a3; }
-    .stats-reset:hover { background: #fbe9e9; }
+    /* the reset is a DANGER button: darker maroon fill + warm amber label, so
+       it reads clearly against the theme's red buttons (the base .ghost is
+       red-on-red-filled — a red text override there was invisible) */
+    .stats-reset { background: #6d0d12; color: #ffd9a0; border-color: #4a080c; }
+    .stats-reset:hover { background: #7d1218; }
     /* always-visible caution under each reset — the danger is readable BEFORE
        anyone clicks, not only inside the confirm dialog */
     .reset-warn { font: 600 11px 'Cairo', sans-serif; color: #a34733; line-height: 1.6; margin: 2px 2px 8px; }
@@ -9735,7 +9738,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.143";
+    const IZZBAH_BUILD = "2026-07-10.144";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:

@@ -227,6 +227,23 @@ try {
   check("both resets carry an always-visible ⚠️ warning line (before any click)",
     salesReset.warns.length === 2 && salesReset.warns.every(w => /⚠️/.test(w) && /لا يمكن التراجع/.test(w))
     && /عدّادات اللعب/.test(salesReset.warns[0]) && /المبيعات والإيرادات/.test(salesReset.warns[1]));
+
+  // ---- 3a-4) the reset buttons are VISIBLE (label readable, style distinct) ----
+  // Regression guard: the first ship styled the reset's text the same red as
+  // the theme's filled buttons — an invisible label. Text and fill must differ,
+  // and the danger button must not look identical to the refresh next to it.
+  const visib = await page.evaluate(() => {
+    const pick = id => {
+      const el = document.getElementById(id);
+      const cs = getComputedStyle(el);
+      return { color: cs.color, bg: cs.backgroundColor, display: cs.display };
+    };
+    return { reset: pick("statsReset"), refresh: pick("statsRefresh"), sales: pick("salesReset") };
+  });
+  check("reset labels are readable (text colour ≠ fill colour)",
+    visib.reset.color !== visib.reset.bg && visib.sales.color !== visib.sales.bg);
+  check("the danger reset is visually distinct from the refresh beside it",
+    visib.reset.bg !== visib.refresh.bg);
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
