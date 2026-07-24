@@ -5829,6 +5829,28 @@
     .izz-tip.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #33240f; }
     @media (prefers-reduced-motion: reduce) { .izz-tip { transition: none; } }
 
+    /* ── First-run coaching (تعليمات أول لعبة) ─────────────────────────────
+       A small floating card that teaches each screen the FIRST time it's
+       seen. Non-blocking: the wrapper ignores pointer events, only the card
+       itself is interactive, and any tap anywhere dismisses it — so it can
+       never trap a player (or an automated test) behind an overlay. */
+    .coach-pop { position: fixed; inset-inline: 0; bottom: max(84px, env(safe-area-inset-bottom, 0px) + 72px);
+      display: flex; justify-content: center; z-index: 60000; pointer-events: none; padding: 0 14px; }
+    .coach-card { pointer-events: auto; max-width: 380px; width: 100%;
+      background: linear-gradient(170deg, #fdf6e5, #f6e9cd); border: 2px solid #d9b96a; border-radius: 16px;
+      box-shadow: 0 14px 34px rgba(70, 30, 10, .35); padding: 14px 16px 12px;
+      font-family: 'Cairo', sans-serif; color: #4a3208; direction: rtl;
+      animation: coachIn .38s cubic-bezier(.3,1.3,.4,1); }
+    @keyframes coachIn { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+    .coach-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15.5px; color: #8f1622; margin-bottom: 4px; }
+    .coach-body { font-weight: 600; font-size: 13px; line-height: 1.75; }
+    .coach-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; }
+    .coach-ok { font: 800 13.5px 'Cairo', sans-serif; color: #fff; background: linear-gradient(180deg, #c8332f, #9e1c1c);
+      border: 0; border-radius: 10px; padding: 8px 22px; cursor: pointer; box-shadow: 0 4px 10px rgba(140, 20, 20, .35); }
+    .coach-ok:active { transform: scale(.96); }
+    .coach-skip { font: 700 11.5px 'Cairo', sans-serif; color: #8a7550; background: none; border: 0; cursor: pointer; text-decoration: underline; padding: 4px; }
+    @media (prefers-reduced-motion: reduce) { .coach-card { animation: none; } }
+
     /* ── "My games" balance header inside the packs box ── */
     .plans-balance { display: flex; align-items: center; gap: 12px; justify-content: center; text-align: center;
       background: linear-gradient(150deg, #fff4dd, #f6e7c4); border: 1px solid #e4d4b3; border-radius: 15px;
@@ -9738,7 +9760,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.144";
+    const IZZBAH_BUILD = "2026-07-10.145";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10818,6 +10840,61 @@
       syncTimerPill();
     }
 
+    // ─── First-run coaching (تعليمات أول لعبة) ──────────────────────────────
+    // Teaches every core screen the FIRST time the player reaches it: category
+    // selection, team setup, the board, the question page (helpers/timer), the
+    // answer page (awarding the team), the library and the results. Each tip
+    // fires ONCE ever (per device), one at a time, and the card never blocks
+    // the game: taps pass through everywhere else and any interaction
+    // dismisses it. «إخفاء كل التعليمات» silences the whole tour at once.
+    const COACH_KEY = "izzbah-coach-v1";
+    function coachSeen() { try { return JSON.parse(localStorage.getItem(COACH_KEY)) || {}; } catch (e) { return {}; } }
+    function coachMark(id) { try { const m = coachSeen(); m[id] = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
+    function coachMarkAll() { try { const m = coachSeen(); Object.keys(COACH_TIPS).forEach(k => { m[k] = 1; }); m.__all = 1; localStorage.setItem(COACH_KEY, JSON.stringify(m)); } catch (e) {} }
+    const COACH_TIPS = {
+      gameLibrary: { icon: "📚", title: "مكتبة ألعابك", body: "هنا تنحفظ إعدادات ألعابك. أنشئ لعبة جديدة، وكل ما أعدت تشغيل لعبة محفوظة تنسحب لك أسئلة جديدة بنفس فئاتها." },
+      categories: { icon: "🗂️", title: "اختر فئات لعبتك", body: "اضغط على الفئة لاختيارها — حتى ٦ فئات. جرّب 🎲 للاختيار العشوائي، واستخدم البحث للوصول السريع، وزر ⓘ على البطاقة يعرض وصف الفئة." },
+      setup: { icon: "👥", title: "جهّز فرقانك", body: "تقدر تسمّي لعبتك من فوق، وتغيّر اسم كل فريق، وتضغط على صورة الفريق لتبديلها. زر ⇄ يحدد أي فريق يبدأ أول." },
+      game: { icon: "🎯", title: "هذي لوحة اللعب", body: "كل عمود فئة، وكل رقم سؤال — الأعلى أصعب وأكثر نقاطاً. الفريق المُضاء هو من يختار السؤال الحين. زر العلم فوق ينهي اللعبة ويعرض النتائج." },
+      questionPage: { icon: "❓", title: "شلون تلعبون السؤال", body: "اقرأوا السؤال وتناقشوا. تحت السؤال وسائل مساعدة لكل فريق — «٤ خيارات»، «أول حرف»، و«×٢» يضاعف النقاط — كل وحدة مرة وحدة بالمباراة. المؤقّت فوق: اضغطه للإيقاف أو الاستئناف. إذا جاهزين اضغطوا «الإجابة»." },
+      answerPage: { icon: "🏆", title: "من جاوب صح؟", body: "اضغط على الفريق اللي جاوب صح ليأخذ النقاط — أو «محد جاوب» إذا ما أحد عرفها. بعدها «متابعة»، والدور ينتقل للفريق الثاني تلقائياً." },
+      results: { icon: "🎉", title: "النتائج", body: "مبروك للفائز! تقدر تشارك بطاقة النتيجة مع الربع من زر المشاركة، ولعبتك محفوظة بالمكتبة تعيدها متى ما حبيتوا بأسئلة جديدة." }
+    };
+    let coachEl = null, coachArmTs = 0;
+    function closeCoach() {
+      if (coachEl) { coachEl.remove(); coachEl = null; }
+      document.removeEventListener("pointerdown", coachAnyTap, true);
+    }
+    function coachAnyTap(e) {
+      // Any interaction dismisses the tip — but not the very tap that opened
+      // the screen (arming delay), and taps ON the card use its own buttons.
+      if (Date.now() < coachArmTs) return;
+      if (coachEl && coachEl.contains(e.target)) return;
+      closeCoach();
+    }
+    function coachOnScreen(id) {
+      closeCoach(); // a tip never outlives its screen
+      const tip = COACH_TIPS[id];
+      if (!tip || coachSeen()[id]) return;
+      coachMark(id); // fires once ever, even if dismissed by a stray tap
+      const wrap = document.createElement("div");
+      wrap.className = "coach-pop";
+      wrap.innerHTML = `<div class="coach-card" role="status">
+          <div class="coach-title"><span>${tip.icon}</span><span>${tip.title}</span></div>
+          <div class="coach-body">${tip.body}</div>
+          <div class="coach-actions">
+            <button type="button" class="coach-skip">إخفاء كل التعليمات</button>
+            <button type="button" class="coach-ok">فهمت ✓</button>
+          </div>
+        </div>`;
+      wrap.querySelector(".coach-ok").addEventListener("click", closeCoach);
+      wrap.querySelector(".coach-skip").addEventListener("click", () => { coachMarkAll(); closeCoach(); showToast("أخفينا التعليمات — تلقاها دوماً في «كيف تلعب؟»"); });
+      document.body.appendChild(wrap);
+      coachEl = wrap;
+      coachArmTs = Date.now() + 650;
+      document.addEventListener("pointerdown", coachAnyTap, true);
+    }
+
     function showScreen(id, options = {}) {
       // A new build arrived while a game was live — apply it now that the player
       // is off the board (menu / library), so they never lose a game to a reload.
@@ -10840,6 +10917,8 @@
       // Long questions: shrink the font until the whole question fits its box
       // (second pass after fonts/layout settle).
       if (id === "questionPage") requestAnimationFrame(() => { fitQuestionText(); setTimeout(fitQuestionText, 150); });
+      // First-run tour: after the screen paints, show its one-time tip.
+      setTimeout(() => { if (document.body.dataset.screen === id) coachOnScreen(id); }, 420);
     }
 
     // A long question must be READ, not scrolled: its box is bounded to the
