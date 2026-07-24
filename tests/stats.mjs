@@ -163,6 +163,38 @@ try {
     && /buyer1@x\.com/.test(view.salesList) && /باقة لعبتين/.test(view.salesList));
   check("the sales section has its own refresh button", view.hasSalesRefresh);
   check("the stats header stamps when the data was last refreshed", /آخر تحديث/.test(view.updatedAt));
+
+  // ---- 3a-2) «تصفير» resets the play counters behind a DOUBLE confirm ----
+  const reset = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const calls = [];
+    window.IZZBAH.resetStats = () => { calls.push(1); return Promise.resolve(true); };
+    const btn = document.getElementById("statsReset");
+    if (!btn) return { hasBtn: false };
+    const origConfirm = window.confirm;
+    const asked = [];
+    // decline the FIRST confirm → nothing happens
+    window.confirm = m => { asked.push(m); return false; };
+    btn.click(); await sleep(80);
+    const afterDecline = calls.length;
+    // accept the first, decline the SECOND → still nothing
+    let n = 0;
+    window.confirm = m => { asked.push(m); return ++n === 1; };
+    btn.click(); await sleep(80);
+    const afterSecondDecline = calls.length;
+    // accept both → the bridge runs
+    window.confirm = m => { asked.push(m); return true; };
+    btn.click(); await sleep(120);
+    window.confirm = origConfirm;
+    return { hasBtn: true, afterDecline, afterSecondDecline, calls: calls.length, asked };
+  });
+  check("the stats header has a «تصفير» reset button", reset.hasBtn);
+  check("the reset confirm spells out what is erased AND what is kept",
+    reset.asked.length >= 1 && /سيُمسح/.test(reset.asked[0]) && /لن يُمسح/.test(reset.asked[0])
+    && /المبيعات/.test(reset.asked[0]) && /الأكواد/.test(reset.asked[0]));
+  check("declining either confirm leaves the stats untouched",
+    reset.afterDecline === 0 && reset.afterSecondDecline === 0);
+  check("accepting both confirms wipes the play counters (bridge called once)", reset.calls === 1);
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
