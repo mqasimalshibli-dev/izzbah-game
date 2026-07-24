@@ -126,8 +126,12 @@ try {
   check("fulfil mints a code matching the ordered pack (5 games, not premium)",
     fulfil.created.length === 1 && fulfil.created[0].gamesAllowed === 5 && fulfil.created[0].premium === false);
   const mail = decodeURIComponent(fulfil.gmail || "");
-  check("the email opens in Gmail compose pinned to the izzbah account",
-    mail.startsWith("https://mail.google.com/mail/") && mail.includes("authuser=izzbahgame@gmail.com"));
+  // The account must be in the URL PATH (/mail/u/<email>/) — the authuser=
+  // query param is unreliable with compose deep-links and Gmail bounces it to
+  // the default account, which sent confirmations from the admin's personal
+  // address.
+  check("the email opens in Gmail compose pinned to the izzbah account (path form, not authuser)",
+    mail.startsWith("https://mail.google.com/mail/u/izzbahgame@gmail.com/") && !mail.includes("authuser="));
   check("the confirmation email goes TO the buyer", mail.includes("to=buyer@example.com"));
   check("the email is organized: order summary, payment section, code, steps",
     /ملخص الطلب/.test(mail) && /طريقة الدفع/.test(mail) && /كود التفعيل/.test(mail)
