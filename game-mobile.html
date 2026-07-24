@@ -9711,7 +9711,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.139";
+    const IZZBAH_BUILD = "2026-07-10.140";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14131,17 +14131,22 @@
       premSetStatus("جارٍ إنشاء الكود وتجهيز بريد التأكيد…", "busy");
       create({ premium: !!o.premium, gamesAllowed: o.games || 0 }).then(code => {
         const mail = orderConfirmationEmail(o, code);
-        // Open Gmail compose PINNED to the izzbah account. The account goes in
-        // the URL PATH (/mail/u/<email>/) — the authuser= query param is
-        // unreliable with compose deep-links and Gmail often bounces it to the
-        // default account (/u/0/). With the path form Gmail opens the compose
-        // FROM izzbahgame@gmail.com when that account is signed in, and asks
-        // to sign in to it when it isn't — it never silently falls back to the
-        // personal account. Plain mail draft if the popup is blocked.
-        const gmail = "https://mail.google.com/mail/u/" + encodeURIComponent(IZZBAH_MAIL) + "/?view=cm&fs=1"
+        // Open Gmail compose PINNED to the izzbah account, routed through
+        // Google's ACCOUNT CHOOSER. Both authuser= and the /mail/u/<email>/
+        // path form proved unreliable — when Gmail can't resolve the account
+        // session it silently bounces to /u/0/ (the admin's PERSONAL default)
+        // instead of asking. The AccountChooser hop actually SWITCHES the
+        // session to izzbahgame@gmail.com first (or shows a sign-in page for
+        // exactly that account) and only then continues to the compose — a
+        // fallback to the wrong sender is impossible. The compose target keeps
+        // the /u/<email>/ path too, as a second lock once the session is
+        // switched. Plain mail draft if the popup is blocked.
+        const compose = "https://mail.google.com/mail/u/" + encodeURIComponent(IZZBAH_MAIL) + "/?view=cm&fs=1"
           + "&to=" + encodeURIComponent(o.email || "")
           + "&su=" + encodeURIComponent(mail.subject)
           + "&body=" + encodeURIComponent(mail.body);
+        const gmail = "https://accounts.google.com/AccountChooser?Email=" + encodeURIComponent(IZZBAH_MAIL)
+          + "&continue=" + encodeURIComponent(compose);
         let opened = null;
         try { opened = window.open(gmail, "_blank", "noopener"); } catch (e) {}
         if (!opened) {
