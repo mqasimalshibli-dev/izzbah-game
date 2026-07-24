@@ -195,6 +195,38 @@ try {
   check("declining either confirm leaves the stats untouched",
     reset.afterDecline === 0 && reset.afterSecondDecline === 0);
   check("accepting both confirms wipes the play counters (bridge called once)", reset.calls === 1);
+
+  // ---- 3a-3) the REVENUE counter has its OWN reset, fully independent ----
+  const salesReset = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const statsCalls = [], salesCalls = [];
+    window.IZZBAH.resetStats = () => { statsCalls.push(1); return Promise.resolve(true); };
+    window.IZZBAH.resetSales = () => { salesCalls.push(1); return Promise.resolve(3); };
+    const btn = document.getElementById("salesReset");
+    if (!btn) return { hasBtn: false };
+    const origConfirm = window.confirm;
+    const asked = [];
+    window.confirm = m => { asked.push(m); return false; };   // decline → no-op
+    btn.click(); await sleep(80);
+    const afterDecline = salesCalls.length;
+    window.confirm = m => { asked.push(m); return true; };    // accept both
+    btn.click(); await sleep(120);
+    window.confirm = origConfirm;
+    const warns = [...document.querySelectorAll("#statsModal .reset-warn")].map(w => w.textContent);
+    return { hasBtn: true, afterDecline, salesCalls: salesCalls.length,
+             statsCalls: statsCalls.length, asked, warns };
+  });
+  check("the sales section has its OWN «تصفير» reset button", salesReset.hasBtn);
+  check("the sales reset confirm scopes itself to revenue only (keeps play stats + orders)",
+    salesReset.asked.length >= 1 && /المبيعات والإيرادات/.test(salesReset.asked[0])
+    && /لن يُمسح/.test(salesReset.asked[0]) && /إحصائيات اللعب/.test(salesReset.asked[0])
+    && /الطلبات المعلّقة/.test(salesReset.asked[0]));
+  check("declining leaves the sales records untouched", salesReset.afterDecline === 0);
+  check("accepting wipes ONLY sales — the play-stats reset is never called",
+    salesReset.salesCalls === 1 && salesReset.statsCalls === 0);
+  check("both resets carry an always-visible ⚠️ warning line (before any click)",
+    salesReset.warns.length === 2 && salesReset.warns.every(w => /⚠️/.test(w) && /لا يمكن التراجع/.test(w))
+    && /عدّادات اللعب/.test(salesReset.warns[0]) && /المبيعات والإيرادات/.test(salesReset.warns[1]));
   check("players section shows redeemers, granted vs consumed, and unused codes",
     /٢|2/.test(view.players) && /لاعباً فعّل/.test(view.players)
     && /١٥|15/.test(view.players) && /استُهلك ٨|استُهلك 8/.test(view.players)
