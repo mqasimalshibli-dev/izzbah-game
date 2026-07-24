@@ -101,6 +101,7 @@ try {
   check("the admin sees the order (buyer email + pack) in the subscription panel",
     /buyer@example\.com/.test(adminView.text) && /باقة ٥ ألعاب/.test(adminView.text));
   check("the order row offers fulfil (code+email) and delete options", adminView.hasFulfil && adminView.hasDelete);
+  check("the order row shows a full timestamp (🕒 date + time)", /🕒/.test(adminView.text));
 
   // ---- 5) fulfil: mints the pack's code + opens Gmail compose FROM izzbah ----
   const fulfil = await page.evaluate(async () => {
