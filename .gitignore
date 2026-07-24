@@ -1,0 +1,5 @@
+# Test dependencies — installed fresh by CI (npm install --no-save) and by
+# local runs; never committed.
+tests/node_modules/
+tests/package.json
+tests/package-lock.json
