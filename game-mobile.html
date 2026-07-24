@@ -4564,6 +4564,9 @@
     /* admin timestamps: the «آخر تحديث» stamp beside the stats refresh button
        and the 🕒 time on each sale/order row */
     .stats-updated { font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; }
+    .stats-head-btns { display: inline-flex; gap: 6px; }
+    .stats-reset { color: #a32633; border-color: #d9a3a3; }
+    .stats-reset:hover { background: #fbe9e9; }
     .sale-time { display: inline-block; font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; white-space: nowrap; }
     .stats-sales-list { margin-top: 8px; }
     .stats-sales-list:empty { display: none; }
@@ -6438,7 +6441,10 @@
 
         <div class="prem-list-head">
           <span>نظرة عامة <b class="stats-updated" id="statsUpdatedAt"></b></span>
-          <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
+          <span class="stats-head-btns">
+            <button class="ghost prem-refresh stats-reset" id="statsReset" type="button" title="يصفّر عدّادات اللعب فقط — لا يمسّ المبيعات أو الأكواد أو أرصدة اللاعبين">تصفير ⚠</button>
+            <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
+          </span>
         </div>
         <div class="stats-tiles" id="statsTiles"></div>
 
@@ -9721,7 +9727,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.141";
+    const IZZBAH_BUILD = "2026-07-10.142";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17370,6 +17376,21 @@
     $("#statsCancel").addEventListener("click", closeStatsModal);
     $("#statsRefresh").addEventListener("click", refreshStats);
     $("#salesRefresh").addEventListener("click", refreshStats);
+    // «تصفير»: wipe the PLAY counters only, behind a double confirm that
+    // spells out exactly what is and is not erased. Irreversible.
+    $("#statsReset").addEventListener("click", () => {
+      const bridge = window.IZZBAH && window.IZZBAH.resetStats;
+      if (!bridge) { statsSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!window.confirm(
+        "تصفير إحصائيات اللعب؟\n\n"
+        + "سيُمسح: عدد الألعاب واتجاه الأسبوع، الفئات الأكثر لعباً، وسائل المساعدة، أزمنة الإجابة، مزيج الرصيد، ووقت آخر لعبة.\n"
+        + "لن يُمسح: المبيعات والإيرادات، الأكواد وأرصدة اللاعبين، سجل اللاعبين (جدد/عائدون)، وفئات المجتمع.")) return;
+      if (!window.confirm("متأكد؟ لا يمكن التراجع عن التصفير.")) return;
+      statsSetStatus("جارٍ التصفير…", "busy");
+      bridge()
+        .then(() => { showToast("تم تصفير إحصائيات اللعب — بداية جديدة"); refreshStats(); })
+        .catch(() => statsSetStatus("تعذّر التصفير — تأكّد من نشر قواعد Firestore المحدّثة.", "err"));
+    });
     $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
@@ -18701,6 +18722,14 @@
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("stats").doc("global").get()
               .then(doc => (doc.exists ? (doc.data() || {}) : {}));
+          };
+          // Admin-only: wipe the play counters and start fresh (e.g. clearing
+          // test-period numbers at launch). Deleting the doc is a clean zero —
+          // recordGamePlay recreates it with set-merge increments. Sales,
+          // codes, usage and player records live elsewhere and are untouched.
+          window.IZZBAH.resetStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("stats").doc("global").delete().then(() => true);
           };
           // Sum the signed-in player's redeemed codes into their play balance.
           // Resolves true when the (authoritative) query succeeded, false when

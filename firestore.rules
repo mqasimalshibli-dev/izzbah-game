@@ -259,6 +259,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && validStatsKeys(request.resource.data.keys());
       allow update: if isSignedIn()
         && validStatsKeys(request.resource.data.diff(resource.data).affectedKeys());
+      // «تصفير» in the stats panel: the admin may wipe the play counters and
+      // start fresh (e.g. at launch, clearing test-period numbers). Sales,
+      // codes, usage and players records live in their own collections and
+      // are NOT touched by this.
+      allow delete: if isAdmin();
     }
 
     // ---- Community-submission throttle (anti-spam) -------------------------
