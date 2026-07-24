@@ -21,7 +21,13 @@ await page.route("**/firebasejs/**", route => route.abort());
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
-await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+await page.addInitScript(() => { try {
+  localStorage.setItem("izzbah-legal-consent-v1", "1");
+  // This test hit-tests with elementFromPoint — run with the first-run coach
+  // tour already seen so its floating card never sits over a sampled point
+  // (the tour has its own suites: coach.mjs / coachadmin.mjs).
+  localStorage.setItem("izzbah-coach-v1", JSON.stringify({ gameLibrary: 1, categories: 1, setup: 1, game: 1, questionPage: 1, answerPage: 1, results: 1, menu: 1, customManager: 1, customEditor: 1, __all: 1 }));
+} catch (e) {} });
 
 // Flip a card's (!) open and report whether its description overflows, plus the
 // natural (un-fitted) overflow so we can prove the fitter actually did work.
