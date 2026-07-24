@@ -4567,6 +4567,9 @@
     .stats-head-btns { display: inline-flex; gap: 6px; }
     .stats-reset { color: #a32633; border-color: #d9a3a3; }
     .stats-reset:hover { background: #fbe9e9; }
+    /* always-visible caution under each reset — the danger is readable BEFORE
+       anyone clicks, not only inside the confirm dialog */
+    .reset-warn { font: 600 11px 'Cairo', sans-serif; color: #a34733; line-height: 1.6; margin: 2px 2px 8px; }
     .sale-time { display: inline-block; font: 600 11.5px 'Cairo', sans-serif; color: #8a7550; white-space: nowrap; }
     .stats-sales-list { margin-top: 8px; }
     .stats-sales-list:empty { display: none; }
@@ -6446,6 +6449,7 @@
             <button class="ghost prem-refresh" id="statsRefresh" type="button">تحديث ↻</button>
           </span>
         </div>
+        <div class="reset-warn">⚠️ «تصفير» يمسح عدّادات اللعب نهائياً ولا يمكن التراجع — لا يشمل المبيعات أو الأكواد أو أرصدة اللاعبين.</div>
         <div class="stats-tiles" id="statsTiles"></div>
 
         <div class="prem-list-head"><span>اللاعبون: جدد وعائدون</span></div>
@@ -6463,8 +6467,12 @@
 
         <div class="prem-list-head">
           <span>المبيعات</span>
-          <button class="ghost prem-refresh" id="salesRefresh" type="button">تحديث ↻</button>
+          <span class="stats-head-btns">
+            <button class="ghost prem-refresh stats-reset" id="salesReset" type="button" title="يصفّر سجلّ المبيعات والإيرادات فقط — لا يمسّ إحصائيات اللعب أو الطلبات المعلّقة">تصفير ⚠</button>
+            <button class="ghost prem-refresh" id="salesRefresh" type="button">تحديث ↻</button>
+          </span>
         </div>
+        <div class="reset-warn">⚠️ «تصفير» يمسح سجلّ المبيعات والإيرادات نهائياً ولا يمكن التراجع — لا يشمل إحصائيات اللعب أو الطلبات المعلّقة أو أرصدة اللاعبين.</div>
         <div class="stats-tiles" id="statsSales"></div>
         <div class="prem-list stats-sales-list" id="statsSalesList"></div>
 
@@ -9727,7 +9735,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.142";
+    const IZZBAH_BUILD = "2026-07-10.143";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17391,6 +17399,21 @@
         .then(() => { showToast("تم تصفير إحصائيات اللعب — بداية جديدة"); refreshStats(); })
         .catch(() => statsSetStatus("تعذّر التصفير — تأكّد من نشر قواعد Firestore المحدّثة.", "err"));
     });
+    // «تصفير» المبيعات: wipes ONLY the sales/revenue records, with its own
+    // double confirm. Play stats, codes, balances and pending orders untouched.
+    $("#salesReset").addEventListener("click", () => {
+      const bridge = window.IZZBAH && window.IZZBAH.resetSales;
+      if (!bridge) { statsSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      if (!window.confirm(
+        "تصفير سجلّ المبيعات والإيرادات؟\n\n"
+        + "سيُمسح: كل عمليات البيع المسجّلة وإجمالي الإيرادات وإيرادات الشهر ومتوسط البيع.\n"
+        + "لن يُمسح: إحصائيات اللعب، الأكواد وأرصدة اللاعبين، والطلبات المعلّقة في لوحة الاشتراكات.")) return;
+      if (!window.confirm("متأكد؟ حذف سجلّ المبيعات نهائي ولا يمكن التراجع.")) return;
+      statsSetStatus("جارٍ تصفير المبيعات…", "busy");
+      bridge()
+        .then(n => { showToast(`تم تصفير المبيعات — حُذف ${toArabicDigits(n || 0)} سجلاً`); refreshStats(); })
+        .catch(() => statsSetStatus("تعذّر تصفير المبيعات — تأكّد من نشر قواعد Firestore المحدّثة.", "err"));
+    });
     $("#statsModal").addEventListener("click", event => { if (event.target.id === "statsModal") closeStatsModal(); });
     $("#adminClose").addEventListener("click", () => { if (confirmDiscard()) showScreen("menu"); });
     $("#adminAddQuestion").addEventListener("click", () => openAdminQuestion(-1));
@@ -18730,6 +18753,24 @@
           window.IZZBAH.resetStats = function () {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("stats").doc("global").delete().then(() => true);
+          };
+          // Admin-only: wipe the SALES RECORDS (the revenue counter) — and
+          // nothing else. Deletes every sales doc in write batches (Firestore
+          // caps a batch at 500 ops). Play stats, codes, balances and pending
+          // orders all live elsewhere and are untouched. Returns the count.
+          window.IZZBAH.resetSales = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("sales").limit(5000).get().then(snap => {
+              const docs = snap.docs;
+              if (!docs.length) return 0;
+              const chunks = [];
+              for (let i = 0; i < docs.length; i += 450) chunks.push(docs.slice(i, i + 450));
+              return chunks.reduce((p, chunk) => p.then(() => {
+                const batch = db.batch();
+                chunk.forEach(d => batch.delete(d.ref));
+                return batch.commit();
+              }), Promise.resolve()).then(() => docs.length);
+            });
           };
           // Sum the signed-in player's redeemed codes into their play balance.
           // Resolves true when the (authoritative) query succeeded, false when
