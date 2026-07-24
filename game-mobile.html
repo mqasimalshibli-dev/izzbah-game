@@ -5788,6 +5788,32 @@
     /* A message optimistically shown while its send is still in flight. */
     .fb-msg.fb-pending { opacity: .58; }
     @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+
+    /* ── Custom tooltip for icon-only buttons (UI polish pack) ─────────────
+       One floating bubble driven by JS on hover/focus — a dark rounded chip
+       with an arrow that fades in, matching the demo. Replaces the browser's
+       native `title` tooltip (which JS strips on the wordless controls it
+       handles, so there's never a double tooltip). */
+    .izz-tip { position: fixed; z-index: 100000; transform: translate(-50%, 4px);
+      background: #33240f; color: #fbf1dc; font: 800 12px/1.35 'Cairo', sans-serif;
+      padding: 5px 11px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity .15s ease, transform .15s ease; box-shadow: 0 6px 16px rgba(0,0,0,.32);
+      max-width: 74vw; overflow: hidden; text-overflow: ellipsis; }
+    .izz-tip.show { opacity: 1; transform: translate(-50%, 0); }
+    .izz-tip::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: #33240f; }
+    .izz-tip.below { transform: translate(-50%, -4px); }
+    .izz-tip.below.show { transform: translate(-50%, 0); }
+    .izz-tip.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #33240f; }
+    @media (prefers-reduced-motion: reduce) { .izz-tip { transition: none; } }
+
+    /* ── "My games" balance header inside the packs box ── */
+    .plans-balance { display: flex; align-items: center; gap: 12px; justify-content: center; text-align: center;
+      background: linear-gradient(150deg, #fff4dd, #f6e7c4); border: 1px solid #e4d4b3; border-radius: 15px;
+      padding: 12px 16px; margin: 4px auto 14px; max-width: 420px; box-shadow: 0 4px 12px rgba(74,53,20,.1); }
+    .plans-balance .pb-num { font: 900 30px 'Cairo', sans-serif; color: #c11f38; line-height: 1; flex: none;
+      font-variant-numeric: tabular-nums; }
+    .plans-balance .pb-lbl { font: 700 13.5px 'Cairo', sans-serif; color: #6a5326; text-align: right; }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -5798,7 +5824,7 @@
   <button id="userSettingsBtn" type="button" aria-label="الإعدادات والحساب" title="الإعدادات والحساب">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
   </button>
-  <button id="gameCountBadge" type="button" aria-label="عدد ألعابك المتبقية" title="ألعابك المتبقية — اضغط للتحديث">
+  <button id="gameCountBadge" type="button" aria-label="ألعابك المتبقية والباقات" title="ألعابك المتبقية والباقات">
     <span class="gcb-ico" aria-hidden="true">🎮</span><span class="gcb-num" id="gameCountNum">—</span>
   </button>
 
@@ -6318,7 +6344,8 @@
 
     <div class="modal-backdrop" id="plansModal" aria-hidden="true">
       <div class="question-modal plans-modal" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
-        <h3 class="preview-title" id="plansTitle">🎟️ باقات اللعب</h3>
+        <h3 class="preview-title" id="plansTitle">🎟️ ألعابي والباقات</h3>
+        <div class="plans-balance" id="plansBalance"></div>
         <p class="plans-sub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
         <div class="plans-grid" id="plansGrid"></div>
         <div class="plans-contact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
@@ -9677,7 +9704,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.136";
+    const IZZBAH_BUILD = "2026-07-10.137";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -9704,21 +9731,47 @@
         + `<span class="sr-only" role="status">جارٍ التحميل…</span>`;
     }
 
-    // Icon-only controls carry an aria-label for screen readers but usually no
-    // `title`, so a hovering mouse (or a key user tabbing through) gets no hint.
-    // Lazily mirror the aria-label into a title the first time such a control is
-    // hovered or focused — but only when its visible text has NO words (just a
-    // symbol, emoji or an <svg>). Delegated, so dynamically-rendered buttons are
-    // covered too, with zero per-button wiring. Purely additive.
+    // Icon-only controls carry an aria-label (and often a `title`) but a plain
+    // browser tooltip is slow and unstyled. Drive ONE floating bubble on
+    // hover/focus instead — a dark rounded chip with an arrow, matching the
+    // demo — for any control whose visible text has NO words (just a symbol,
+    // emoji or an <svg>). Delegated, so dynamically-rendered buttons are covered
+    // with zero per-button wiring. The native `title` is stripped on the
+    // controls we handle so there's never a double tooltip.
     if (UI_POLISH) {
       const wordless = el => !/[\p{L}\p{N}]/u.test((el.textContent || "").replace(/\s+/g, ""));
-      const addHint = target => {
-        const el = target && target.closest && target.closest("button[aria-label], a[aria-label], [role=button][aria-label]");
-        if (!el || el.hasAttribute("title") || !wordless(el)) return;
-        el.setAttribute("title", el.getAttribute("aria-label"));
+      const labelable = t => t && t.closest && t.closest(
+        "button[aria-label], a[aria-label], [role=button][aria-label], button[title], a[title], [role=button][title]");
+      let tipEl = null, tipFor = null;
+      const ensureTip = () => {
+        if (!tipEl) { tipEl = document.createElement("div"); tipEl.className = "izz-tip"; document.body.appendChild(tipEl); }
+        return tipEl;
       };
-      document.addEventListener("pointerover", e => addHint(e.target), true);
-      document.addEventListener("focusin", e => addHint(e.target), true);
+      const labelOf = el => ((el.getAttribute("aria-label") || (el.hasAttribute("title") ? el.getAttribute("title") : "")) || "").trim();
+      const showTip = el => {
+        if (!el || !wordless(el)) return;
+        const label = labelOf(el);
+        if (!label) return;
+        // Suppress the browser's native tooltip; keep the label reachable for AT.
+        if (!el.hasAttribute("aria-label")) el.setAttribute("aria-label", label);
+        if (el.hasAttribute("title")) { el.dataset.izzTitle = el.getAttribute("title"); el.removeAttribute("title"); }
+        const tip = ensureTip();
+        tip.textContent = label; tipFor = el; tip.classList.remove("below");
+        tip.classList.add("show"); // measure with layout applied
+        const r = el.getBoundingClientRect();
+        const tw = tip.offsetWidth, th = tip.offsetHeight;
+        let left = Math.max(8 + tw / 2, Math.min(window.innerWidth - 8 - tw / 2, r.left + r.width / 2));
+        let top = r.top - th - 10;
+        if (top < 6) { top = r.bottom + 10; tip.classList.add("below"); } // flip below near the top edge
+        tip.style.left = left + "px"; tip.style.top = top + "px";
+      };
+      const hideTip = () => { if (tipEl) tipEl.classList.remove("show"); tipFor = null; };
+      document.addEventListener("pointerover", e => { const el = labelable(e.target); if (el && el !== tipFor) showTip(el); }, true);
+      document.addEventListener("pointerout", e => { const el = labelable(e.target); if (el && el === tipFor) hideTip(); }, true);
+      document.addEventListener("focusin", e => { const el = labelable(e.target); if (el) showTip(el); }, true);
+      document.addEventListener("focusout", hideTip, true);
+      document.addEventListener("click", hideTip, true);
+      window.addEventListener("scroll", hideTip, true);
     }
 
     // Google's OAuth refuses to run inside an app's embedded "in-app browser"
@@ -14194,6 +14247,26 @@
     function redeemCodeFlow(inputEl) {
       const raw = (inputEl.value || "").trim();
       if (!raw) { showToast("أدخل الكود أولاً"); inputEl.focus(); return; }
+      // A code entered right after the app opens used to be REFUSED: Firebase
+      // takes a moment to restore the signed-in session (and to attach the
+      // redeem bridge), so for the first seconds state.signedIn is still false
+      // and the player saw «سجّل الدخول أولاً» — "the code won't activate" —
+      // even though they were signed in. Wait for auth restore + the bridge
+      // (up to ~8s) before deciding, instead of refusing instantly.
+      const ready = () => state.signedIn && window.IZZBAH && window.IZZBAH.redeemCode;
+      if (!ready() && !state.authReady) {
+        showToast("لحظة — جارٍ استئناف تسجيل الدخول…");
+        let waited = 0;
+        const tick = () => {
+          if (ready()) { redeemCodeFlow(inputEl); return; }
+          if (state.authReady && !state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+          waited += 250;
+          if (waited >= 8000) { showToast(state.signedIn ? "التفعيل غير متاح الآن — تحقّق من اتصالك" : "سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
+          setTimeout(tick, 250);
+        };
+        setTimeout(tick, 250);
+        return;
+      }
       if (!state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
       const bridge = window.IZZBAH && window.IZZBAH.redeemCode;
       if (!bridge) { showToast("التفعيل غير متاح الآن — تحقّق من اتصالك"); return; }
@@ -14282,8 +14355,28 @@
           showToast("تعذّر إرسال الطلب — تأكّد من نشر قواعد Firestore المحدّثة أو راسلنا: izzbahgame@gmail.com");
         });
     }
+    // The count line at the top of the packs box — a big current-balance number
+    // so the player sees exactly what they have before (and right after) they
+    // buy a pack or activate a code.
+    function renderPlansBalance() {
+      const el = $("#plansBalance");
+      if (!el) return;
+      if (state.isAdmin || premiumActive()) {
+        el.innerHTML = `<span class="pb-num">∞</span><span class="pb-lbl">${state.isAdmin ? "لعب غير محدود (مشرف)" : "اشتراك مفتوح — لعب غير محدود"}</span>`;
+        return;
+      }
+      const free = state.freeGamePlayed ? 0 : 1;
+      const rem = gamesRemaining();
+      const total = free + rem;
+      const bits = [];
+      if (free) bits.push("لعبة مجانية");
+      if (rem > 0) bits.push(`${toArabicDigits(rem)} من الأكواد`);
+      el.innerHTML = `<span class="pb-num">${toArabicDigits(total)}</span>`
+        + `<span class="pb-lbl">${total === 1 ? "لعبة متبقية" : "ألعاب متبقية"}${bits.length ? "<br>" + bits.join(" + ") : ""}</span>`;
+    }
     function openPlans() {
       renderPlans();
+      renderPlansBalance();
       const inp = $("#redeemInputPlans");
       if (inp) inp.value = "";
       const m = $("#plansModal");
@@ -14335,6 +14428,9 @@
       // keep the settings sheet's balance line in sync if it's open
       const sb = $("#settingsBalance");
       if (sb && $("#settingsModal") && $("#settingsModal").classList.contains("open")) renderSettingsSheet();
+      // …and the big count at the top of the packs box, if that's open
+      const pm = $("#plansModal");
+      if (pm && pm.classList.contains("open") && typeof renderPlansBalance === "function") renderPlansBalance();
     }
 
     // ---- User settings / account sheet (top-right button) ------------------
@@ -17292,13 +17388,13 @@
       });
     });
     $("#gameCountBadge").addEventListener("click", () => {
+      if (!state.signedIn) { openSettings(); return; } // signed-out: route to sign-in / buy
+      // Open the "my games" box (current count + the packs + a redeem field)
+      // instead of just toasting «تم تحديث الرصيد». The cloud re-check runs in
+      // the background and the big number updates in place when it lands.
+      openPlans();
       const bridge = window.IZZBAH && window.IZZBAH.refreshMyCodes;
-      if (!bridge || !state.signedIn) { openSettings(); return; } // signed-out: route to sign-in / buy
-      showToast("جارٍ تحديث الرصيد…");
-      bridge().then(ok => {
-        renderPlayBalance();
-        showToast(ok ? "تم تحديث الرصيد" : "تعذّر تحديث الرصيد — تحقّق من نشر قواعد Firestore المحدّثة");
-      });
+      if (bridge) bridge().then(() => { renderPlayBalance(); renderPlansBalance(); });
     });
     $("#plansClose").addEventListener("click", closePlans);
     $("#plansModal").addEventListener("click", event => { if (event.target.id === "plansModal") closePlans(); });
@@ -17544,6 +17640,7 @@
       });
     };
     window.IZZBAH.applyAuth = function (signedIn, uid) {
+      state.authReady = true; // first fire = the session restore has resolved
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
       if (typeof loadAnnouncements === "function") {

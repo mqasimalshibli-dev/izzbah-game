@@ -47,10 +47,24 @@ check("feedback send shows an optimistic bubble and rolls it back on failure",
   /pending = feedbackBubble\(\{ from: isAdminView \? "admin" : "user"/.test(html)
   && /if \(pending\) \{ pending\.remove\(\); inp\.value = text; \}/.test(html));
 
-// ---- static: tooltip delegation ----
-check("icon-only tooltip sweep mirrors aria-label into title (wordless only)",
+// ---- static: custom tooltip bubble ----
+check("icon-only tooltips use the custom styled bubble (izz-tip), not a native title",
   /const wordless = el => !\/\[\\p\{L\}\\p\{N\}\]\/u\.test/.test(html)
-  && /document\.addEventListener\("pointerover", e => addHint\(e\.target\), true\)/.test(html));
+  && /\.izz-tip \{ position: fixed;/.test(html)
+  && /tipEl\.className = "izz-tip"/.test(html)
+  && /el\.removeAttribute\("title"\)/.test(html));
+
+// ---- static: early-redeem fix (code entered before auth restore is queued, not refused) ----
+check("redeeming right after app open waits for the auth restore instead of refusing",
+  /state\.authReady = true; \/\/ first fire = the session restore has resolved/.test(html)
+  && /if \(!ready\(\) && !state\.authReady\) \{/.test(html)
+  && /جارٍ استئناف تسجيل الدخول/.test(html));
+
+// ---- static: game-count badge opens the my-games box ----
+check("the game-count badge opens the packs box with a live balance header",
+  /openPlans\(\);\s*\n\s*const bridge = window\.IZZBAH && window\.IZZBAH\.refreshMyCodes;\s*\n\s*if \(bridge\) bridge\(\)\.then\(\(\) => \{ renderPlayBalance\(\); renderPlansBalance\(\); \}\);/.test(html)
+  && /function renderPlansBalance\(\)/.test(html)
+  && /id="plansBalance"/.test(html));
 
 // ---- live: the flag actually wires things up offline ----
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
@@ -70,27 +84,65 @@ try {
   check("the <html> element carries the ui-polish class",
     await page.evaluate(() => document.documentElement.classList.contains("ui-polish")));
 
-  // Tooltip sweep: an icon-only button (aria-label + only an <svg>) gets a title
-  // on hover; a button WITH a real word does not.
+  // Tooltips: hovering an icon-only button shows the STYLED floating bubble
+  // (.izz-tip) with the label, strips the native title (no double tooltip),
+  // and leaves worded buttons alone.
   const tips = await page.evaluate(() => {
-    const mk = (label, inner) => {
+    const probe = (label, inner, useTitle) => {
       const b = document.createElement("button");
-      b.setAttribute("aria-label", label); b.innerHTML = inner;
+      if (useTitle) b.setAttribute("title", label); else b.setAttribute("aria-label", label);
+      b.innerHTML = inner;
       document.body.appendChild(b);
       b.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
-      const t = b.getAttribute("title");
+      const tip = document.querySelector(".izz-tip");
+      const out = {
+        shown: !!tip && tip.classList.contains("show"),
+        text: tip ? tip.textContent : "",
+        titleGone: !b.hasAttribute("title"),
+        ariaKept: b.getAttribute("aria-label") === label
+      };
+      b.dispatchEvent(new PointerEvent("pointerout", { bubbles: true }));
       b.remove();
-      return t;
+      return out;
     };
     return {
-      icon: mk("تبديل الدور", '<svg viewBox="0 0 1 1"></svg>'),
-      symbol: mk("إغلاق", "✕"),
-      worded: mk("حفظ الفئة", "حفظ")
+      icon: probe("تبديل الدور", '<svg viewBox="0 0 1 1"></svg>', false),
+      titled: probe("إغلاق", "✕", true),
+      worded: probe("حفظ الفئة", "حفظ", false)
     };
   });
-  check("a wordless icon button gets its aria-label as a hover title", tips.icon === "تبديل الدور");
-  check("a symbol-only button gets a hover title too", tips.symbol === "إغلاق");
-  check("a button with real words is left alone (no auto title)", tips.worded === null);
+  check("hovering a wordless icon button shows the styled bubble with its label",
+    tips.icon.shown && tips.icon.text === "تبديل الدور");
+  check("a title-only icon button works too: bubble shown, native title stripped, aria-label kept",
+    tips.titled.shown && tips.titled.text === "إغلاق" && tips.titled.titleGone && tips.titled.ariaKept);
+  check("a button with real words is left alone (no bubble)", !tips.worded.shown);
+
+  // Early redeem: BEFORE auth restore (authReady false) a code isn't refused —
+  // it waits, then proceeds once the session lands.
+  const earlyRedeem = await page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const toasts = [];
+    const orig = window.showToast; window.showToast = m => toasts.push(m);
+    const calls = [];
+    state.authReady = false; state.signedIn = false;
+    delete window.IZZBAH.redeemCode; // bridge not attached yet either
+    const inp = document.getElementById("redeemInputSettings");
+    inp.value = "AB2D-EF4H";
+    document.getElementById("redeemBtnSettings").click();
+    const waitingMsg = toasts[toasts.length - 1] || "";
+    await sleep(400); // still waiting…
+    const refusedTooEarly = toasts.some(m => /سجّل الدخول/.test(m));
+    // …now the session restores and the bridge attaches
+    window.IZZBAH.redeemCode = raw => { calls.push(raw); return Promise.resolve({ gamesAllowed: 2, premium: false }); };
+    window.IZZBAH.applyAuth(true, "late-u");
+    await sleep(700);
+    window.showToast = orig;
+    return { waitingMsg, refusedTooEarly, calls };
+  });
+  check("a code entered before the session restores is queued (waiting toast, no refusal)",
+    /جارٍ استئناف/.test(earlyRedeem.waitingMsg) && !earlyRedeem.refusedTooEarly);
+  check("once the session lands, the queued code is redeemed automatically",
+    earlyRedeem.calls.length === 1 && earlyRedeem.calls[0] === "AB2D-EF4H");
 
   // A skeleton actually renders: open the admin feedback thread (no sign-in
   // needed for the admin view) and confirm the shimmer placeholder is injected
