@@ -9890,7 +9890,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.149";
+    const IZZBAH_BUILD = "2026-07-10.150";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13594,10 +13594,12 @@
     // Unread = the newest DEV reply is newer than the last time the player
     // opened their feedback thread.
     function feedbackUnreadCount() { return (state.feedbackLatestAdminTs || 0) > feedbackReadAt() ? 1 : 0; }
-    // The gear's unread dot reflects BOTH announcements/inbox and dev replies.
+    // The gear's unread dot reflects announcements/inbox, the player's own dev
+    // replies, AND (for admins) unread incoming player messages.
     function refreshGearUnread() {
       const gear = $("#userSettingsBtn");
-      if (gear) gear.classList.toggle("has-unread", annUnreadCount() > 0 || feedbackUnreadCount() > 0);
+      const adminUnread = (typeof feedbackAdminUnreadCount === "function") ? feedbackAdminUnreadCount() : 0;
+      if (gear) gear.classList.toggle("has-unread", annUnreadCount() > 0 || feedbackUnreadCount() > 0 || adminUnread > 0);
     }
     function updateFeedbackBadge() {
       const n = feedbackUnreadCount();
@@ -13743,6 +13745,22 @@
     function fbAdminRead() { try { return JSON.parse(localStorage.getItem(FB_ADMIN_READ_KEY)) || {}; } catch (e) { return {}; } }
     function markAdminThreadRead(uid) {
       try { const m = fbAdminRead(); m[uid] = Date.now(); localStorage.setItem(FB_ADMIN_READ_KEY, JSON.stringify(m)); } catch (e) {}
+      refreshGearUnread(); // a read thread no longer counts toward the gear dot
+    }
+    // How many player threads have a new player message the admin hasn't opened.
+    // Feeds the gear dot so a new «رسالة لاعب» lights it, and reading clears it.
+    function feedbackAdminUnreadCount() {
+      if (!state.isAdmin) return 0;
+      const read = fbAdminRead();
+      return (state.adminThreads || []).filter(t =>
+        t && t.lastFrom === "user" && (Number(t.updatedAt) || 0) > (Number(read[t.uid]) || 0)).length;
+    }
+    // Admins preload the thread list once (on sign-in) so the gear dot can flag
+    // unread player messages WITHOUT the admin first opening the messages panel.
+    function preloadAdminFeedbackUnread() {
+      const bridge = window.IZZBAH && window.IZZBAH.adminListFeedback;
+      if (!bridge) return;
+      bridge().then(threads => { state.adminThreads = Array.isArray(threads) ? threads : []; refreshGearUnread(); }).catch(() => {});
     }
     function openFeedbackAdmin() {
       const box = $("#feedbackAdminList");
@@ -13750,7 +13768,11 @@
       const m = $("#feedbackAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       const bridge = window.IZZBAH && window.IZZBAH.adminListFeedback;
       if (!bridge) { box.innerHTML = `<div class="fb-empty">غير متاح.</div>`; return; }
-      bridge().then(threads => renderFeedbackAdminList(threads || [])).catch(() => { box.innerHTML = `<div class="fb-empty">تعذّر التحميل.</div>`; });
+      bridge().then(threads => {
+        state.adminThreads = Array.isArray(threads) ? threads : [];
+        renderFeedbackAdminList(state.adminThreads);
+        refreshGearUnread();
+      }).catch(() => { box.innerHTML = `<div class="fb-empty">تعذّر التحميل.</div>`; });
     }
     function renderFeedbackAdminList(threads) {
       const box = $("#feedbackAdminList");
@@ -18321,6 +18343,9 @@
       maybeFixGeoDistractors();
       maybeFixSeerahDistractors();
       maybeInstallOmanSites();
+      // Admins: light the gear for unread player messages; non-admins: drop it.
+      if (state.isAdmin) { if (typeof preloadAdminFeedbackUnread === "function") preloadAdminFeedbackUnread(); }
+      else { state.adminThreads = []; if (typeof refreshGearUnread === "function") refreshGearUnread(); }
     };
     // Driven by watchEntitlement from the cloud entitlement doc. `active` = an
     // unlimited subscription; `info.gamesAllowed` = a finite granted allowance.
