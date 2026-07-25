@@ -170,11 +170,33 @@ try {
     const ta = document.querySelector(".text-edit-pop textarea");
     ta.value = "الفِرْقان";
     document.querySelector(".text-edit-pop .tep-save").click();
-    return { live: document.querySelector("#setup .screen-title").textContent.trim(), saved: window.__savedText };
+    return {
+      live: document.querySelector("#setup .screen-title").textContent.trim(),
+      saved: window.__savedText,
+      popGone: !document.querySelector(".text-edit-pop"),
+      bdGone: !document.querySelector(".text-edit-pop-backdrop")
+    };
   });
   check("saving rewrites the on-screen text immediately", saved.live === "الفِرْقان");
   check("saving publishes the override to config/text (original → new)",
     saved.saved && saved.saved["الفِرَق"] === "الفِرْقان");
+  check("saving closes the editor popover (no stuck popover)", saved.popGone && saved.bdGone);
+
+  // reopen → «إلغاء» must also close it, and tapping the backdrop must dismiss
+  const dismiss = await page.evaluate(() => {
+    document.querySelector("#setup .screen-title").click();
+    const openedA = !!document.querySelector(".text-edit-pop");
+    document.querySelector(".text-edit-pop .tep-cancel").click();
+    const afterCancel = !!document.querySelector(".text-edit-pop");
+    document.querySelector("#setup .screen-title").click();
+    const openedB = !!document.querySelector(".text-edit-pop");
+    const bd = document.querySelector(".text-edit-pop-backdrop"); if (bd) bd.click();
+    const afterBackdrop = !!document.querySelector(".text-edit-pop");
+    return { openedA, afterCancel, openedB, afterBackdrop };
+  });
+  check("«إلغاء» closes the editor popover", dismiss.openedA && dismiss.afterCancel === false);
+  check("tapping the backdrop dismisses the editor (never stacks a new one)",
+    dismiss.openedB && dismiss.afterBackdrop === false);
 
   // navigate sub-mode lets the admin move around without editing
   const nav = await page.evaluate(() => {

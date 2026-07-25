@@ -5920,8 +5920,10 @@
       outline-color: #c11f38 !important;
     }
     body.text-edit-armed [data-izz-overridden] { outline-color: rgba(34,139,80,.7) !important; }
+    /* Pinned to the TOP so the mobile keyboard (which slides up from the bottom
+       while editing) can never hide the exit button. */
     .text-edit-bar {
-      position: fixed; z-index: 2147483000; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom,0px));
+      position: fixed; z-index: 2147483000; left: 50%; top: calc(10px + env(safe-area-inset-top,0px));
       transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
       background: #2a0a0c; color: #ffe9c4; border: 1px solid #c9a85f;
       border-radius: 999px; padding: 9px 14px 9px 16px; box-shadow: 0 8px 26px rgba(0,0,0,.45);
@@ -5932,10 +5934,13 @@
     .text-edit-bar .teb-msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .text-edit-bar button { border: 0; border-radius: 999px; cursor: pointer; font: 800 12.5px 'Cairo', sans-serif;
       padding: 7px 14px; flex: none; }
-    .text-edit-bar .teb-exit { background: #ffe1a8; color: #5a1114; }
+    .text-edit-bar .teb-exit { background: #c11f38; color: #fff; box-shadow: 0 0 0 2px rgba(255,225,168,.5); }
     .text-edit-bar .teb-reset { background: transparent; color: #ffb3b3; text-decoration: underline; padding: 7px 4px; }
+    .text-edit-pop-backdrop {
+      position: fixed; z-index: 2147483001; inset: 0; background: rgba(20,6,7,.28);
+    }
     .text-edit-pop {
-      position: fixed; z-index: 2147483001; background: #fffaf0; border: 1.5px solid #c9a85f;
+      position: fixed; z-index: 2147483002; background: #fffaf0; border: 1.5px solid #c9a85f;
       border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.4); padding: 12px; width: min(360px, calc(100vw - 24px));
     }
     .text-edit-pop .tep-orig { font: 600 11px 'Cairo', sans-serif; color: #9a6a2e; margin: 0 0 6px; direction: rtl;
@@ -9885,7 +9890,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.148";
+    const IZZBAH_BUILD = "2026-07-10.149";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11164,8 +11169,11 @@
       return node;
     }
     function setTextEditMsg(msg) { const m = document.querySelector(".text-edit-bar .teb-msg"); if (m) m.textContent = msg; }
-    let textPop = null;
-    function closeTextPop() { if (textPop) { textPop.remove(); textPop = null; } }
+    let textPop = null, textBackdrop = null;
+    function closeTextPop() {
+      if (textPop) { textPop.remove(); textPop = null; }
+      if (textBackdrop) { textBackdrop.remove(); textBackdrop = null; }
+    }
     function openTextPop(node, el) {
       closeTextPop();
       const orig = izzOrigOf(node);
@@ -11183,7 +11191,14 @@
         '</div>';
       pop.querySelector(".tep-orig b").textContent = orig;
       const ta = pop.querySelector("textarea"); ta.value = cur;
+      // a dismiss backdrop: tapping outside the card closes the editor (never
+      // opens another one) — the fix for "every tap edits, can't get out"
+      textBackdrop = document.createElement("div");
+      textBackdrop.className = "text-edit-pop-backdrop"; textBackdrop.setAttribute("data-izz-no-edit", "1");
+      textBackdrop.addEventListener("click", closeTextPop);
+      document.body.appendChild(textBackdrop);
       document.body.appendChild(pop);
+      textPop = pop; // track it so closeTextPop() actually removes it
       const r = el.getBoundingClientRect();
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       let left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
@@ -11216,11 +11231,18 @@
       if (!textEditMode || !textEditArmed) return;
       const t = e.target;
       if (t.closest && t.closest(".text-edit-bar, .text-edit-pop")) return;
+      // While an editor is open, ANY outside tap just closes it — never stacks
+      // a second editor. (Keeps the mode escapable: one tap edits, next dismisses.)
+      if (textPop || textBackdrop) { e.preventDefault(); e.stopPropagation(); closeTextPop(); return; }
       const el = t.closest && t.closest("[data-izz-editable]");
-      if (!el) { closeTextPop(); return; }
+      if (!el) return;
       e.preventDefault(); e.stopPropagation();
       const node = pickTextNode(el, e.clientX, e.clientY);
       if (node) openTextPop(node, el);
+    }
+    function textEditKey(e) {
+      if (!textEditMode) return;
+      if (e.key === "Escape") { e.preventDefault(); textPop ? closeTextPop() : exitTextEdit(); }
     }
     function updateTextBar() {
       const bar = document.querySelector(".text-edit-bar"); if (!bar) return;
@@ -11244,16 +11266,18 @@
       bar.innerHTML =
         '<span class="teb-dot"></span><span class="teb-msg"></span>' +
         '<button class="teb-toggle" type="button"></button>' +
-        '<button class="teb-exit" type="button">إنهاء</button>';
+        '<button class="teb-exit" type="button">✕ إنهاء التحرير</button>';
       document.body.appendChild(bar);
       bar.querySelector(".teb-toggle").addEventListener("click", () => { textEditArmed = !textEditArmed; if (!textEditArmed) closeTextPop(); updateTextBar(); });
       bar.querySelector(".teb-exit").addEventListener("click", exitTextEdit);
       updateTextBar();
       document.addEventListener("click", textEditClick, true);
+      document.addEventListener("keydown", textEditKey, true);
     }
     function exitTextEdit() {
       textEditMode = false;
       document.body.classList.remove("text-edit-on", "text-edit-armed");
+      document.removeEventListener("keydown", textEditKey, true);
       untagEditable(); closeTextPop();
       document.removeEventListener("click", textEditClick, true);
       const bar = document.querySelector(".text-edit-bar"); if (bar) bar.remove();
