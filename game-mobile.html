@@ -5209,13 +5209,27 @@
     #gameLibrary .saved-game-actions .ghost:hover { background: #fadede !important; }
     #gameLibrary .saved-game-actions svg { width: 16px; height: 16px; flex: 0 0 auto; }
     /* empty state */
-    #gameLibrary .gl-empty { grid-column: 1 / -1; text-align: center; margin-top: 24px; padding-bottom: 20px; background: none !important; border: 0 !important; }
+    #gameLibrary .gl-empty { grid-column: 1 / -1; text-align: center; margin-top: 10px; padding-bottom: 16px; background: none !important; border: 0 !important; }
     #gameLibrary .gl-empty svg { width: 46px; height: 46px; margin: 0 auto; display: block; }
     #gameLibrary .gl-empty-title { font-family: 'Lalezar', cursive; font-size: 27px; color: #f7e3b0; margin: 18px 0 6px; }
     #gameLibrary .gl-empty-sub { font: 500 15px 'Cairo', sans-serif; color: #d8c39a; margin: 0; }
     .brand-word { font-family: 'Aref Ruqaa', serif; font-weight: 700; }
-    /* back button (bottom of library) */
-    #gameLibrary .actions { margin-top: 30px; }
+    /* back button (bottom of library): a calm SECONDARY on the dark screen —
+       clearly subordinate to the red «إنشاء لعبة جديدة» primary, not a loud
+       red block floating on its own. */
+    #gameLibrary .actions { margin-top: 20px; }
+    #gameLibrary .actions .ghost {
+      background: rgba(255, 255, 255, .06) !important;
+      color: #e6d2a8 !important;
+      border: 1px solid rgba(220, 182, 122, .42) !important;
+      border-radius: 12px !important;
+      box-shadow: none !important;
+      font: 700 15px 'Cairo', sans-serif !important;
+      padding: 11px 30px !important;
+      min-height: 0 !important;
+      transition: transform .14s, background .14s, color .14s;
+    }
+    #gameLibrary .actions .ghost:hover { background: rgba(255, 255, 255, .12) !important; color: #f7e6c3 !important; transform: translateY(-1px); }
 
     /* ============ SHARED TOP APP BAR (Question + Answer) ============ */
     #questionPage .topbar, #answerPage .topbar {
@@ -6183,7 +6197,7 @@
           <div class="wlc-logo"><img class="wlc-mark" src="assets/brand/izzbah-logo.png" alt="" aria-hidden="true"><div class="wlc-logo-text">عزبة</div><div class="wlc-logo-sweep"></div></div>
           <div class="wlc-subtitle">لعبة أسئلة جماعية</div>
           <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ لعبة جديدة</span></button>
-          <div class="wlc-or"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
+          <div class="wlc-or" style="display:none"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
           <button type="button" class="wlc-webview-note" id="webviewNote" style="display:none">⚠️ لتسجيل الدخول، افتح اللعبة في Safari أو Chrome — المتصفح المصغّر لا يدعم تسجيل دخول Google. اضغط هنا للتعليمات.</button>
@@ -9890,7 +9904,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.150";
+    const IZZBAH_BUILD = "2026-07-10.151";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18539,8 +18553,16 @@
       const cfg = window.IZZBAH_FIREBASE_CONFIG;
       const authBtn = $("#authBtn");
       const authStatus = $("#authStatus");
+      // Keep the «أو» divider in lockstep with the auth button — when the button
+      // is hidden (auth unavailable / in-app webview), the divider must hide too
+      // so it never dangles over empty space above «كيف تلعب؟».
+      const wlcOr = document.querySelector(".wlc-or");
+      const setAuthVisible = (show) => {
+        if (authBtn) authBtn.style.display = show ? "" : "none";
+        if (wlcOr) wlcOr.style.display = show ? "" : "none";
+      };
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
-      if (!configured) { if (authBtn) authBtn.style.display = "none"; return; }
+      if (!configured) { setAuthVisible(false); return; }
       const SDK = "10.12.2";
       const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
@@ -20031,7 +20053,7 @@
           provider.setCustomParameters({ prompt: "select_account" });
           auth.getRedirectResult().catch(function () {});
           if (authBtn) {
-            authBtn.style.display = "";
+            setAuthVisible(true);
             authBtn.addEventListener("click", () => {
               const onErr = (err) => {
                 console.warn("sign-in error", err);
@@ -20099,7 +20121,7 @@
             loadFeedback(user); // dev-reply badge on the feedback row
           });
         })
-        .catch((e) => { console.warn("Firebase SDK failed to load", e); if (authBtn) authBtn.style.display = "none"; });
+        .catch((e) => { console.warn("Firebase SDK failed to load", e); setAuthVisible(false); });
     })();
   </script>
 </body>
