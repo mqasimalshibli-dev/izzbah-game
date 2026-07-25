@@ -2155,6 +2155,15 @@
       transform: translateY(-2px) scale(1.02);
     }
 
+    @keyframes awardGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201, 151, 74, 0); border-color: transparent; }
+      50% { box-shadow: 0 0 0 7px rgba(201, 151, 74, .55), 0 6px 18px rgba(201, 151, 74, .4); border-color: var(--gold); }
+    }
+
+    .team-award.award-glow {
+      animation: awardGlow 1.25s ease-in-out 3;
+    }
+
     .team-award .default-avatar,
     .team-award img {
       width: 34px;
@@ -4721,13 +4730,25 @@
     #settingsModal.open .settings-sheet { transform: none; }
     .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
     .settings-head .preview-title { margin: 0; }
+    /* group headers in the settings sheet — a warm brown label + hairline, AA
+       contrast on the cream sheet (not the low-contrast gold) */
+    .settings-section {
+      font: 800 12.5px 'Cairo', sans-serif; color: #9a5a1e; letter-spacing: .02em;
+      margin: 14px 2px 7px; padding-bottom: 5px; border-bottom: 1px solid rgba(201,151,74,.4);
+    }
+    .settings-section:first-of-type { margin-top: 4px; }
+    /* category-selection counter */
+    .cat-count-frac { font-weight: 800; color: var(--red); }
+    .cat-count-pill { display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,.24); border-radius: 999px;
+      padding: 1px 10px; margin-inline-start: 8px; font-weight: 800; font-size: .86em; font-variant-numeric: tabular-nums; }
+    .cat-count-pill .ccp-sep { opacity: .7; margin: 0 1px; }
     .settings-close { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(201,151,74,.5); background: #f3ead3; color: #7a1414; font-size: 16px; cursor: pointer; flex: none; }
     .settings-account {
       background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 12px;
       padding: 11px 13px; margin-bottom: 8px; font: 700 13.5px 'Cairo', sans-serif; color: var(--dark);
     }
     .settings-account .sa-line { display: block; }
-    .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #7a6738; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #66491a; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .settings-account .sa-btn { margin-top: 9px; width: 100%; }
     .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
     .settings-row {
@@ -4745,8 +4766,8 @@
     .settings-row-danger:hover { background: #f6d6d6; }
     .settings-ico { font-size: 20px; line-height: 1; flex: none; width: 24px; text-align: center; }
     .settings-label { flex: 1; min-width: 0; font-weight: 800; font-size: 14.5px; display: flex; flex-direction: column; gap: 2px; }
-    .settings-label small { font-weight: 600; font-size: 11.5px; color: #7a6738; }
-    .settings-chev { color: #b9925a; font-size: 22px; font-weight: 800; flex: none; }
+    .settings-label small { font-weight: 600; font-size: 11.5px; color: #6a4e1a; }
+    .settings-chev { color: #9a6a2e; font-size: 22px; font-weight: 800; flex: none; }
     .settings-state { color: #7a6738; font: 800 13px 'Cairo', sans-serif; flex: none; }
     .settings-redeem { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 2px 0 10px; }
     .settings-redeem .redeem-label { color: #6a5a2f; }
@@ -4964,12 +4985,20 @@
         radial-gradient(135% 95% at 50% -22%, #fcefd4 0%, rgba(252, 239, 212, 0) 56%),
         linear-gradient(180deg, #f5e7cb, #ecd6b2) !important;
     }
-    #setup.center { justify-content: flex-start !important; align-items: stretch !important; gap: 0 !important; overflow-y: auto !important; text-align: right !important; }
-    #setup .setup-shell { width: 100%; max-width: 1080px; margin: 0 auto; padding: 30px 22px 64px; direction: rtl; font-family: 'Cairo', sans-serif; }
+    /* Non-scrolling flex column: the shell scrolls, the start bar is pinned to
+       the bottom as a flex sibling — so it never overlaps or clips content. */
+    #setup.center.active { display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: stretch !important; gap: 0 !important; overflow: hidden !important; text-align: right !important; }
+    #setup .setup-shell { flex: 1 1 auto; min-height: 0; overflow-y: auto; width: 100%; max-width: 1080px; margin: 0 auto; padding: 22px 22px 24px; direction: rtl; font-family: 'Cairo', sans-serif; }
+    /* sticky bottom start bar */
+    #setup .setup-sticky {
+      flex: 0 0 auto; direction: rtl; display: flex; justify-content: center; padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(180deg, rgba(236,214,178,0), #efd9b4 42%); border-top: 1px solid rgba(201,168,95,.5);
+    }
+    #setup .setup-sticky .primary { width: min(560px, 100%); justify-content: center; }
     /* nav */
     #setup .setup-nav {
       position: static !important; inset: auto !important; direction: rtl !important; width: auto !important; z-index: auto !important;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0;
+      display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin: 0;
     }
     #setup .setup-nav button { min-width: 0 !important; }
     #setup .setup-nav .ghost {
@@ -4988,7 +5017,7 @@
     }
     #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .6) !important; }
     /* head */
-    #setup .setup-head { text-align: center; margin-top: 34px; }
+    #setup .setup-head { text-align: center; margin-top: 14px; }
     #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Cairo', sans-serif; letter-spacing: .14em; }
     #setup .setup-eyebrow span { width: 34px; height: 1px; display: inline-block; }
     #setup .setup-eyebrow span:first-child { background: linear-gradient(90deg, transparent, #c89a4e); }
@@ -4999,10 +5028,10 @@
     }
     #setup .setup-underline { margin: 14px auto 0; width: 74px; height: 5px; border-radius: 99px; background: linear-gradient(90deg, #e3c785, #c89a4e, #e3c785); }
     #setup .setup-head .hint {
-      margin: 20px auto 0 !important; max-width: 560px; font: 500 18px/1.7 'Cairo', sans-serif !important; color: #3d6a55 !important;
+      margin: 12px auto 0 !important; max-width: 560px; font: 500 16px/1.6 'Cairo', sans-serif !important; color: #3d6a55 !important;
     }
     /* count stepper card */
-    #setup .team-count { display: flex; justify-content: center; margin: 32px 0 30px; }
+    #setup .team-count { display: flex; justify-content: center; margin: 20px 0 22px; }
     #setup .team-stepper {
       width: auto !important; display: flex !important; flex-direction: column !important; align-items: center; gap: 14px;
       grid-template-rows: none !important; overflow: visible !important;
@@ -5879,6 +5908,48 @@
     .plans-balance .pb-num { font: 900 30px 'Cairo', sans-serif; color: #c11f38; line-height: 1; flex: none;
       font-variant-numeric: tabular-nums; }
     .plans-balance .pb-lbl { font: 700 13.5px 'Cairo', sans-serif; color: #6a5326; text-align: right; }
+
+    /* ── Admin text-edit mode («تحرير النصوص») ── */
+    body.text-edit-armed [data-izz-editable] {
+      outline: 2px dashed rgba(193, 31, 56, .55) !important;
+      outline-offset: 2px; cursor: text !important; border-radius: 3px;
+      transition: background .12s ease;
+    }
+    body.text-edit-armed [data-izz-editable]:hover {
+      background: rgba(255, 214, 120, .5) !important;
+      outline-color: #c11f38 !important;
+    }
+    body.text-edit-armed [data-izz-overridden] { outline-color: rgba(34,139,80,.7) !important; }
+    .text-edit-bar {
+      position: fixed; z-index: 2147483000; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom,0px));
+      transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+      background: #2a0a0c; color: #ffe9c4; border: 1px solid #c9a85f;
+      border-radius: 999px; padding: 9px 14px 9px 16px; box-shadow: 0 8px 26px rgba(0,0,0,.45);
+      font: 700 13px 'Cairo', sans-serif; max-width: calc(100vw - 24px);
+    }
+    .text-edit-bar .teb-dot { width: 9px; height: 9px; border-radius: 50%; background: #e2c373; flex: none;
+      box-shadow: 0 0 0 4px rgba(226,195,115,.25); }
+    .text-edit-bar .teb-msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .text-edit-bar button { border: 0; border-radius: 999px; cursor: pointer; font: 800 12.5px 'Cairo', sans-serif;
+      padding: 7px 14px; flex: none; }
+    .text-edit-bar .teb-exit { background: #ffe1a8; color: #5a1114; }
+    .text-edit-bar .teb-reset { background: transparent; color: #ffb3b3; text-decoration: underline; padding: 7px 4px; }
+    .text-edit-pop {
+      position: fixed; z-index: 2147483001; background: #fffaf0; border: 1.5px solid #c9a85f;
+      border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.4); padding: 12px; width: min(360px, calc(100vw - 24px));
+    }
+    .text-edit-pop .tep-orig { font: 600 11px 'Cairo', sans-serif; color: #9a6a2e; margin: 0 0 6px; direction: rtl;
+      max-height: 3.2em; overflow: hidden; }
+    .text-edit-pop textarea {
+      width: 100%; box-sizing: border-box; border: 1px solid #d9c9a5; border-radius: 9px; background: #fff;
+      font: 600 14px 'Cairo', sans-serif; color: #3a2a15; padding: 9px 11px; line-height: 1.7; resize: vertical;
+      min-height: 60px; direction: rtl; }
+    .text-edit-pop .tep-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+    .text-edit-pop .tep-actions .tep-spacer { margin-inline-end: auto; }
+    .text-edit-pop button { border: 0; border-radius: 9px; cursor: pointer; font: 800 12.5px 'Cairo', sans-serif; padding: 8px 14px; }
+    .text-edit-pop .tep-save { background: #c11f38; color: #fff; }
+    .text-edit-pop .tep-cancel { background: #eadcc0; color: #5a4420; }
+    .text-edit-pop .tep-revert { background: transparent; color: #a32633; text-decoration: underline; padding: 8px 4px; }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -5899,6 +5970,7 @@
         <h3 class="preview-title" id="settingsTitle">الإعدادات والحساب</h3>
         <button class="settings-close" id="settingsClose" type="button" aria-label="إغلاق">✕</button>
       </div>
+      <div class="settings-section">الحساب والاشتراك</div>
       <div class="settings-account" id="settingsAccount"></div>
       <div class="settings-balance" id="settingsBalance"></div>
       <button class="settings-row settings-row-primary" id="settingsBuy" type="button">
@@ -5911,9 +5983,11 @@
         <input type="text" id="redeemInputSettings" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
         <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
       </div>
+      <div class="settings-section">إعدادات اللعبة</div>
       <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
       <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <div class="settings-section">الأخبار والدعم</div>
       <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico" aria-hidden="true">💬</span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
@@ -6152,16 +6226,18 @@
       <div class="setup-shell">
         <div class="setup-nav">
           <button class="ghost" id="setupBack">رجوع</button>
-          <button class="primary" id="startGame">ابدأ اللعبة</button>
         </div>
         <div class="setup-head">
           <div class="setup-eyebrow"><span></span>إعداد الجولة<span></span></div>
           <h2 class="screen-title">الفِرَق</h2>
           <div class="setup-underline"></div>
-          <p class="hint">اختر عدد الفرق واكتب أسماءهم، ويمكنك إضافة صورة لكل فريق قبل بدء المنافسة.</p>
+          <p class="hint">اختر عدد الفرق واكتب أسماءهم، وبإمكانك تغيير صورة كل فريق.</p>
         </div>
         <div class="team-count" id="teamCount"></div>
         <div class="team-fields" id="teamFields"></div>
+      </div>
+      <div class="setup-sticky">
+        <button class="primary" id="startGame">ابدأ اللعبة</button>
       </div>
     </section>
 
@@ -6404,6 +6480,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🧭</span>
             <span class="admin-choice-name">التعليمات الإرشادية</span>
             <span class="admin-choice-sub">عدّل نصوص تعليمات أول لعبة وأماكن ظهورها</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceText" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">✏️</span>
+            <span class="admin-choice-name">تحرير النصوص</span>
+            <span class="admin-choice-sub">تجوّل في اللعبة وعدّل أي نص تشوفه — يوصل للجميع</span>
           </button>
         </div>
         <div class="actions">
@@ -9804,7 +9885,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.147";
+    const IZZBAH_BUILD = "2026-07-10.148";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10930,7 +11011,7 @@
       gameLibrary: { icon: "📚", title: "مكتبة ألعابك", body: "هنا تنحفظ إعدادات ألعابك. أنشئ لعبة جديدة، وكل ما أعدت تشغيل لعبة محفوظة تنسحب لك أسئلة جديدة بنفس فئاتها." },
       categories: { icon: "🗂️", title: "اختر فئات لعبتك", body: "اضغط على الفئة لاختيارها — حتى ٦ فئات. جرّب 🎲 للاختيار العشوائي، واستخدم البحث للوصول السريع، وزر ⓘ على البطاقة يعرض وصف الفئة." },
       setup: { icon: "👥", title: "جهّز فرقانك", body: "تقدر تسمّي لعبتك من فوق، وتغيّر اسم كل فريق، وتضغط على صورة الفريق لتبديلها. زر ⇄ يحدد أي فريق يبدأ أول." },
-      game: { icon: "🎯", title: "هذي لوحة اللعب", body: "كل عمود فئة، وكل رقم سؤال — الأعلى أصعب وأكثر نقاطاً. الفريق المُضاء هو من يختار السؤال الحين. زر العلم فوق ينهي اللعبة ويعرض النتائج." },
+      game: { icon: "🎯", title: "هذي لوحة اللعب", body: "كل عمود فئة، وكل رقم سؤال — الأعلى أصعب وأكثر نقاطاً. الفريق المُضاء هو من يختار السؤال الحين. النقاط تُحتسب تلقائيًا بعد كل سؤال — وأزرار ＋/－ فوق كل فريق للتعديل اليدوي فقط لو صار خطأ. وزر العلم فوق ينهي اللعبة ويعرض النتائج." },
       questionPage: { icon: "❓", title: "شلون تلعبون السؤال", body: "اقرأوا السؤال وتناقشوا. تحت السؤال وسائل مساعدة لكل فريق — «٤ خيارات»، «أول حرف»، و«×٢» يضاعف النقاط — كل وحدة مرة وحدة بالمباراة. المؤقّت فوق: اضغطه للإيقاف أو الاستئناف. إذا جاهزين اضغطوا «الإجابة»." },
       answerPage: { icon: "🏆", title: "من جاوب صح؟", body: "اضغط على الفريق اللي جاوب صح ليأخذ النقاط — أو «محد جاوب» إذا ما أحد عرفها. بعدها «متابعة»، والدور ينتقل للفريق الثاني تلقائياً." },
       results: { icon: "🎉", title: "النتائج", body: "مبروك للفائز! تقدر تشارك بطاقة النتيجة مع الربع من زر المشاركة، ولعبتك محفوظة بالمكتبة تعيدها متى ما حبيتوا بأسئلة جديدة." }
@@ -10959,6 +11040,226 @@
       if (!bridge) return Promise.resolve();
       return bridge().then(cfg => window.IZZBAH.applyCoachConfig((cfg && cfg.map) || {})).catch(() => {});
     }
+
+    // ── Admin-tweakable UI text overrides («تحرير النصوص») ──────────────────
+    // Any static bit of text in the game can be reworded by the owner without
+    // touching code. Overrides live in config/text = { map: { original: new } },
+    // public read so every player sees the owner's wording, admin-only write —
+    // fits the existing /config rules ({map, updatedAt}); no rules change.
+    // We match a text node by its authored (pre-override) content, so
+    // re-rendered nodes come back with the original text and get re-applied,
+    // keeping the map working across every dynamic screen.
+    let textOverrides = {};              // { originalTrimmed: overrideText }
+    const izzTextOrig = new WeakMap();   // text node -> its authored text (once touched)
+    let textEditMode = false, textEditArmed = true, textObserver = null;
+    const TEXT_SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION", "CODE", "NOSCRIPT", "SVG", "PATH"]);
+
+    function izzOrigOf(node) {
+      return izzTextOrig.has(node) ? izzTextOrig.get(node) : (node.nodeValue || "").trim();
+    }
+    function izzSkip(node) {
+      let el = node.parentElement;
+      while (el) {
+        if (TEXT_SKIP.has(el.tagName)) return true;
+        if (el.hasAttribute && (el.hasAttribute("data-izz-no-edit") || el.isContentEditable)) return true;
+        el = el.parentElement;
+      }
+      return false;
+    }
+    function applyOverrideToTextNode(node) {
+      const cur = node.nodeValue; if (cur == null) return;
+      // Already-touched node: keep it in sync both ways (apply OR restore).
+      if (izzTextOrig.has(node)) {
+        const orig = izzTextOrig.get(node);
+        const has = Object.prototype.hasOwnProperty.call(textOverrides, orig);
+        const lead = cur.match(/^\s*/)[0], trail = cur.match(/\s*$/)[0];
+        const want = lead + (has ? textOverrides[orig] : orig) + trail;
+        if (node.nodeValue !== want) node.nodeValue = want;
+        const pe = node.parentElement;
+        if (pe) { has ? pe.setAttribute("data-izz-overridden", "1") : pe.removeAttribute("data-izz-overridden"); }
+        return;
+      }
+      const key = cur.trim(); if (!key) return;
+      if (izzSkip(node)) return;
+      if (Object.prototype.hasOwnProperty.call(textOverrides, key)) {
+        izzTextOrig.set(node, key);
+        const lead = cur.match(/^\s*/)[0], trail = cur.match(/\s*$/)[0];
+        node.nodeValue = lead + textOverrides[key] + trail;
+        const pe = node.parentElement; if (pe) pe.setAttribute("data-izz-overridden", "1");
+      }
+    }
+    function walkText(root, fn) {
+      if (!root) return;
+      if (root.nodeType === 3) { fn(root); return; }
+      if (root.nodeType !== 1 || TEXT_SKIP.has(root.tagName)) return;
+      const it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      const batch = []; let n;
+      while ((n = it.nextNode())) batch.push(n);
+      batch.forEach(fn);
+    }
+    function applyTextOverrides(root) { walkText(root || document.body, applyOverrideToTextNode); }
+    function startTextObserver() {
+      if (textObserver || !window.MutationObserver || !document.body) return;
+      textObserver = new MutationObserver(muts => {
+        if (!textEditMode && !Object.keys(textOverrides).length) return;
+        for (const m of muts) {
+          if (m.type === "characterData") applyOverrideToTextNode(m.target);
+          else m.addedNodes.forEach(nd => {
+            applyTextOverrides(nd);
+            if (textEditMode) tagEditable(nd);
+          });
+        }
+      });
+      textObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.applyTextConfig = function (map) {
+      const clean = {};
+      Object.keys(map || {}).forEach(k => {
+        const key = String(k || "").trim(), val = String((map || {})[k] || "");
+        if (key && val && key !== val) clean[key] = val;
+      });
+      textOverrides = clean;
+      applyTextOverrides(document.body);
+      if (Object.keys(clean).length) startTextObserver();
+    };
+    function loadTextConfig() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadTextConfig;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => window.IZZBAH.applyTextConfig((cfg && cfg.map) || {})).catch(() => {});
+    }
+
+    // --- Edit-mode UI: roam the game, tap any text, reword it live ----------
+    function elementHasOwnText(el) {
+      for (const n of el.childNodes) if (n.nodeType === 3 && n.nodeValue.trim()) return true;
+      return false;
+    }
+    function tagEditable(root) {
+      const scope = (root && root.nodeType === 1) ? root : document.body;
+      const list = [scope].concat([].slice.call(scope.querySelectorAll ? scope.querySelectorAll("*") : []));
+      list.forEach(el => {
+        if (!el || el.nodeType !== 1 || TEXT_SKIP.has(el.tagName)) return;
+        if (el.closest("[data-izz-no-edit], .text-edit-bar, .text-edit-pop")) return;
+        if (elementHasOwnText(el)) el.setAttribute("data-izz-editable", "1");
+      });
+    }
+    function untagEditable() {
+      document.querySelectorAll("[data-izz-editable]").forEach(el => el.removeAttribute("data-izz-editable"));
+    }
+    function pickTextNode(el, x, y) {
+      let node = null;
+      try {
+        if (document.caretRangeFromPoint) {
+          const r = document.caretRangeFromPoint(x, y);
+          if (r && r.startContainer && r.startContainer.nodeType === 3) node = r.startContainer;
+        } else if (document.caretPositionFromPoint) {
+          const p = document.caretPositionFromPoint(x, y);
+          if (p && p.offsetNode && p.offsetNode.nodeType === 3) node = p.offsetNode;
+        }
+      } catch (e) {}
+      if (!node || node.parentElement !== el || !(node.nodeValue || "").trim()) {
+        node = null;
+        for (const n of el.childNodes) if (n.nodeType === 3 && n.nodeValue.trim()) { node = n; break; }
+      }
+      return node;
+    }
+    function setTextEditMsg(msg) { const m = document.querySelector(".text-edit-bar .teb-msg"); if (m) m.textContent = msg; }
+    let textPop = null;
+    function closeTextPop() { if (textPop) { textPop.remove(); textPop = null; } }
+    function openTextPop(node, el) {
+      closeTextPop();
+      const orig = izzOrigOf(node);
+      const cur = Object.prototype.hasOwnProperty.call(textOverrides, orig) ? textOverrides[orig] : (node.nodeValue || "").trim();
+      const pop = document.createElement("div");
+      pop.className = "text-edit-pop"; pop.setAttribute("data-izz-no-edit", "1");
+      pop.innerHTML =
+        '<div class="tep-orig">النص الأصلي: <b></b></div>' +
+        '<textarea rows="2"></textarea>' +
+        '<div class="tep-actions">' +
+        '<button class="tep-save" type="button">حفظ للجميع</button>' +
+        '<button class="tep-cancel" type="button">إلغاء</button>' +
+        '<span class="tep-spacer"></span>' +
+        '<button class="tep-revert" type="button">إرجاع الأصل</button>' +
+        '</div>';
+      pop.querySelector(".tep-orig b").textContent = orig;
+      const ta = pop.querySelector("textarea"); ta.value = cur;
+      document.body.appendChild(pop);
+      const r = el.getBoundingClientRect();
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
+      let top = r.bottom + 8; if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 8);
+      pop.style.left = left + "px"; pop.style.top = top + "px";
+      ta.focus(); try { ta.select(); } catch (e) {}
+      const save = value => { saveTextOverride(orig, String(value == null ? ta.value : value).trim()); closeTextPop(); };
+      pop.querySelector(".tep-save").addEventListener("click", () => save());
+      pop.querySelector(".tep-cancel").addEventListener("click", closeTextPop);
+      pop.querySelector(".tep-revert").addEventListener("click", () => save(orig)); // == original ⇒ removes override
+      ta.addEventListener("keydown", e => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+        else if (e.key === "Escape") { e.preventDefault(); closeTextPop(); }
+      });
+    }
+    function saveTextOverride(orig, val) {
+      if (!orig) return;
+      if (!val || val === orig) delete textOverrides[orig];   // revert to original
+      else textOverrides[orig] = val;
+      applyTextOverrides(document.body);                       // live everywhere (applies OR restores)
+      if (textEditMode) { untagEditable(); tagEditable(document.body); }
+      const bridge = window.IZZBAH && window.IZZBAH.saveTextConfig;
+      if (!bridge) { setTextEditMsg("تعذّر الاتصال بالسحابة"); return; }
+      setTextEditMsg("يُحفظ…");
+      bridge(textOverrides)
+        .then(() => setTextEditMsg("✓ محفوظ للجميع"))
+        .catch(() => setTextEditMsg("تعذّر الحفظ — تحقق من الاتصال"));
+    }
+    function textEditClick(e) {
+      if (!textEditMode || !textEditArmed) return;
+      const t = e.target;
+      if (t.closest && t.closest(".text-edit-bar, .text-edit-pop")) return;
+      const el = t.closest && t.closest("[data-izz-editable]");
+      if (!el) { closeTextPop(); return; }
+      e.preventDefault(); e.stopPropagation();
+      const node = pickTextNode(el, e.clientX, e.clientY);
+      if (node) openTextPop(node, el);
+    }
+    function updateTextBar() {
+      const bar = document.querySelector(".text-edit-bar"); if (!bar) return;
+      document.body.classList.toggle("text-edit-armed", textEditArmed);
+      const tg = bar.querySelector(".teb-toggle");
+      setTextEditMsg(textEditArmed ? "اضغط أي نص لتعديله" : "وضع التنقّل — تصفّح الشاشات بحرّية");
+      if (tg) tg.textContent = textEditArmed ? "🧭 تنقّل" : "🖊 تحرير";
+    }
+    function enterTextEdit() {
+      if (textEditMode) return;
+      if (!(window.IZZBAH && window.IZZBAH.saveTextConfig)) {
+        alert("تحرير النصوص يحتاج اتصالاً بالإنترنت وحساب مشرف مُسجّل الدخول.");
+        return;
+      }
+      textEditMode = true; textEditArmed = true;
+      document.body.classList.add("text-edit-on");
+      tagEditable(document.body);
+      startTextObserver();
+      const bar = document.createElement("div");
+      bar.className = "text-edit-bar"; bar.setAttribute("data-izz-no-edit", "1");
+      bar.innerHTML =
+        '<span class="teb-dot"></span><span class="teb-msg"></span>' +
+        '<button class="teb-toggle" type="button"></button>' +
+        '<button class="teb-exit" type="button">إنهاء</button>';
+      document.body.appendChild(bar);
+      bar.querySelector(".teb-toggle").addEventListener("click", () => { textEditArmed = !textEditArmed; if (!textEditArmed) closeTextPop(); updateTextBar(); });
+      bar.querySelector(".teb-exit").addEventListener("click", exitTextEdit);
+      updateTextBar();
+      document.addEventListener("click", textEditClick, true);
+    }
+    function exitTextEdit() {
+      textEditMode = false;
+      document.body.classList.remove("text-edit-on", "text-edit-armed");
+      untagEditable(); closeTextPop();
+      document.removeEventListener("click", textEditClick, true);
+      const bar = document.querySelector(".text-edit-bar"); if (bar) bar.remove();
+    }
+    window.IZZBAH.enterTextEdit = enterTextEdit; // exposed for tests / admin entry
+
     let coachEl = null, coachArmTs = 0;
     function closeCoach() {
       if (coachEl) { coachEl.remove(); coachEl = null; }
@@ -11796,9 +12097,14 @@
         grid.innerHTML = `<div class="panel category-empty">لا توجد فئة باسم «${escapeHtml(state.catSearch.trim())}». جرّب اسماً آخر.</div>`;
       }
       const count = state.selected.size;
-      $("#categoryStatus").innerHTML = count ? `تم اختيار <span class="clean-number">${toArabicDigits(count)}</span> ${count === 1 ? "فئة" : "فئات"} من <span class="clean-number">6</span>.` : "اختر فئة واحدة على الأقل.";
+      // Persistent «N / 6» counter — always visible, plus a live pill on the
+      // primary button so the host always knows how many are picked.
+      $("#categoryStatus").innerHTML = `<span class="cat-count-frac"><span class="clean-number">${toArabicDigits(count)}</span> / <span class="clean-number">6</span> مختارة</span>`
+        + (count === 0 ? " — اختر فئة واحدة على الأقل" : "");
       $("#categoryStatus").style.color = count > 6 ? "var(--red)" : "var(--dark)";
-      $("#goTeams").disabled = count === 0;
+      const goBtn = $("#goTeams");
+      goBtn.innerHTML = "اختيار الفرق" + (count ? ` <span class="cat-count-pill">${toArabicDigits(count)}<span class="ccp-sep">/</span>6</span>` : "");
+      goBtn.disabled = count === 0;
     }
 
     // ---- Shareable custom-game links ---------------------------------------
@@ -16851,6 +17157,15 @@
       });
       award.appendChild(skip);
       award.classList.add("visible");
+      // First game ever: briefly glow the team buttons so the host learns that
+      // awarding points = tap the team that answered right (fires once).
+      try {
+        if (localStorage.getItem("izzbah-award-glow-v1") !== "1") {
+          award.querySelectorAll(".team-award").forEach(b => b.classList.add("award-glow"));
+          localStorage.setItem("izzbah-award-glow-v1", "1");
+          setTimeout(() => award.querySelectorAll(".award-glow").forEach(b => b.classList.remove("award-glow")), 4200);
+        }
+      } catch (e) {}
       renderTurnBoxes();
       showScreen("answerPage", { keepQuestion: true });
     }
@@ -17639,6 +17954,7 @@
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
+    $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
     $("#coachAdminClose").addEventListener("click", closeCoachAdmin);
     $("#coachAdminModal").addEventListener("click", e => { if (e.target.id === "coachAdminModal") closeCoachAdmin(); });
     $("#coachAdminSave").addEventListener("click", saveCoachAdmin);
@@ -18044,6 +18360,7 @@
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
       if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
       if (typeof loadHiddenConfig === "function") loadHiddenConfig();   // globally hidden categories
+      if (typeof loadTextConfig === "function") loadTextConfig();       // admin-reworded UI text
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -19009,6 +19326,27 @@
             const clean = {};
             Object.keys(map || {}).slice(0, 500).forEach(k => { if ((map || {})[k]) clean[String(k).slice(0, 128)] = true; });
             return db.collection("config").doc("hidden")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // UI text overrides (config/text): public read so every player sees
+          // the owner's reworded text; admin-only write, shape-clamped. Keyed
+          // by the original text → the new text. Fits the existing /config
+          // rules ({map, updatedAt}) — no rules change needed.
+          window.IZZBAH.loadTextConfig = function () {
+            return db.collection("config").doc("text").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveTextConfig = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 800).forEach(k => {
+              const key = String(k).slice(0, 400).trim();
+              const val = String((map || {})[k] || "").slice(0, 800);
+              if (!key || !val || key === val) return;
+              if (/^__.*__$/.test(key)) return; // Firestore reserves __x__ keys
+              clean[key] = val;
+            });
+            return db.collection("config").doc("text")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,

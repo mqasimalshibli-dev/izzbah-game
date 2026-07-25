@@ -354,3 +354,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node hidecat.mjs
+
+      - name: Run UX-batch (setup sticky + counter + award glow + text-edit) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node uxbatch.mjs
