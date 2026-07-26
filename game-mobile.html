@@ -3755,7 +3755,10 @@
       position: relative;
       flex: 0 1 auto;
       width: clamp(150px, 24%, 320px);
-      align-self: stretch;
+      /* Size every team box to its CONTENT and sit it on the shared bottom line.
+         (Stretching to the full stage height made a lone loser box tower over
+         the shorter, content-height champion column — see the 2-team results.) */
+      align-self: flex-end;
       max-height: 100%;
       display: flex;
       flex-direction: column;
@@ -10085,7 +10088,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.160";
+    const IZZBAH_BUILD = "2026-07-10.161";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10724,16 +10727,23 @@
       return allCategories().filter(cat => state.selected.has(cat.id) && categoryHasQuestions(cat));
     }
 
-    // The distinct point tiers a category shows on the board — ONE cell per tier.
-    // Junk point values (missing/NaN/≤0 — e.g. a malformed question) are filtered
-    // out so they can't spawn a phantom extra tile (which is what made a 6×5=30
-    // board read as «31»). Board rendering AND the progress total both call this,
-    // so the two can never disagree.
+    // The point tiers a category shows on the board — ONE cell per tier. The
+    // game is designed around the FIVE canonical point values (pointValues =
+    // 100..500), and every editor/import path coerces questions onto them, so
+    // the board renders exactly the canonical tiers that have a question. This
+    // keeps a category at ≤5 tiles even when a stray/imported question carries a
+    // non-canonical or junk points value (e.g. 250, 600, 0, undefined) — which
+    // is what made a 6-category board read as «31». Only a category with NO
+    // canonical points at all (a fully custom scale) falls back to its own
+    // distinct values. Board rendering AND the progress total both call this, so
+    // the two can never disagree.
     function categoryTiers(cat) {
-      return [...new Set((cat && cat.questions || [])
+      const have = new Set((cat && cat.questions || [])
         .map(q => q && q.points)
-        .filter(p => typeof p === "number" && isFinite(p) && p > 0))]
-        .sort((a, b) => a - b);
+        .filter(p => typeof p === "number" && isFinite(p) && p > 0));
+      const canonical = pointValues.filter(p => have.has(p));
+      if (canonical.length) return canonical;
+      return [...have].sort((a, b) => a - b);
     }
     // Total board cells across the active (or given) categories.
     function boardTileCount(cats) {

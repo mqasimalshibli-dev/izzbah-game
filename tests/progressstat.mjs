@@ -71,20 +71,25 @@ try {
   check("progress total exactly matches the tiles rendered on the board", start.valuemax === start.domCells);
   check("progress starts at zero", start.valuenow === 0 && /^0/.test(start.label) && (start.fillW === "0%" || start.fillW === "0px" || start.fillW === ""));
 
-  // a malformed question (missing/invalid points) must NOT spawn a phantom
-  // tile — the board count and the progress total stay in lockstep.
+  // A stray point value — junk (missing/0/null) OR a NON-canonical number like
+  // 250/600 (e.g. from an import) — must NOT spawn a phantom 6th tile. The board
+  // count and the progress total stay in lockstep, capped at the 5 canonical
+  // tiers. This is the real cause behind a «31» reading on a 6×5=30 board.
   const phantom = await page.evaluate(() => {
     const cat = activeCategories()[0];
     const before = { cells: document.querySelectorAll("#board .cell").length, total: boardTileCount() };
     cat.questions.push({ q: "؟", a: "x" });               // no points
     cat.questions.push({ q: "؟", a: "y", points: 0 });    // zero points
     cat.questions.push({ q: "؟", a: "z", points: null }); // null points
+    cat.questions.push({ q: "؟", a: "w", points: 250 });  // non-canonical
+    cat.questions.push({ q: "؟", a: "v", points: 600 });  // non-canonical
     renderGame();
     const after = { cells: document.querySelectorAll("#board .cell").length, total: boardTileCount() };
-    return { before, after };
+    return { before, after, tiers: categoryTiers(cat).length };
   });
-  check("junk-points questions add no phantom tile to the board", phantom.after.cells === phantom.before.cells);
-  check("the progress total ignores junk points too (no off-by-one)", phantom.after.total === phantom.before.total);
+  check("stray/non-canonical points add no phantom tile to the board", phantom.after.cells === phantom.before.cells);
+  check("the progress total ignores stray points too (no off-by-one)", phantom.after.total === phantom.before.total);
+  check("a category never exceeds the 5 canonical tiers", phantom.tiers <= 5);
 
   // open one cell → progress advances by one
   const after = await page.evaluate(() => {
