@@ -782,9 +782,10 @@
       border-color: #e6c869;
     }
 
-    /* Selected state: SHADE the whole card (dark overlay + gold ✓) instead of
-       only a gold ring — the ring alone blended into the warm background and
-       made picked cards hard to tell apart. */
+    /* Selected state: a gold border + a LIGHT shade + a small ✓ badge in the
+       top corner. (The old treatment shaded the card heavily and stamped a big
+       ✓ over the CENTER, hiding the cover art. The lighter shade still marks the
+       card as picked while keeping the artwork readable.) */
     .cat-ring {
       display: none;
       position: absolute;
@@ -792,25 +793,24 @@
       z-index: 1;
       border: 3px solid #e6c869;
       border-radius: 14px;
-      background: linear-gradient(180deg, rgba(12, 3, 5, .52), rgba(12, 3, 5, .68));
+      background: linear-gradient(180deg, rgba(12, 3, 5, .26), rgba(12, 3, 5, .40));
       pointer-events: none;
     }
     .cat-ring::after {
       content: "✓";
       position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 52px;
-      height: 52px;
+      top: 9px;
+      inset-inline-start: 9px; /* opposite corner from the (!) eye button */
+      width: 34px;
+      height: 34px;
       display: grid;
       place-items: center;
       border-radius: 50%;
       background: linear-gradient(180deg, #e7c46a, #c9973f);
       border: 2px solid #fff3c4;
       color: #5a0f0f;
-      font: 900 30px/1 'Cairo', sans-serif;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+      font: 900 20px/1 'Cairo', sans-serif;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
     }
 
     .category.selected .cat-ring { display: block; }
@@ -4188,6 +4188,10 @@
     /* Icon-only dice button on the category screen — just the die, no label. */
     .rand-btn--icon { width: 54px; min-width: 54px; padding: 0; aspect-ratio: 1 / 1; font-size: 24px; border-radius: 14px; flex: 0 0 auto; gap: 0; }
     .rand-btn--icon .rand-die { font-size: 1em; }
+    /* Labeled dice pill — a die alone read as an orphaned icon floating on the
+       category screen; a labeled action reads as "shuffle my categories". */
+    .rand-btn--pill { padding: 9px 18px; font-size: 15px; font-weight: 800; border-radius: 999px; flex: 0 0 auto; gap: 8px; }
+    .rand-btn--pill .rand-die { font-size: 1.15em; }
 
     /* ===== Community/custom category editor — admin-style question table ===== */
     .ce-vis-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
@@ -4381,7 +4385,13 @@
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
     /* ---- Admin entry chooser (content vs subscriptions) ---- */
-    .admin-choice-modal { max-width: 460px; width: 92%; text-align: center; }
+    /* Calmer frame than the shared 5px-red question-modal border — a control
+       panel shouldn't read like an alert box. A thin gold edge on the cream
+       matches the admin cards inside. */
+    .admin-choice-modal { max-width: 460px; width: 92%; text-align: center;
+      border: 1.5px solid rgba(201, 151, 74, .7) !important;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .35) !important; }
+    .admin-choice-modal .preview-title { color: #8a3520; } /* warm brown title, not the loud alert red */
     .admin-choice-grid { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
     .admin-choice-btn {
       display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto;
@@ -4737,8 +4747,9 @@
       margin: 14px 2px 7px; padding-bottom: 5px; border-bottom: 1px solid rgba(201,151,74,.4);
     }
     .settings-section:first-of-type { margin-top: 4px; }
-    /* category-selection counter */
-    .cat-count-frac { font-weight: 800; color: var(--red); }
+    /* category-selection counter — a positive "progress" green, not red (red on
+       «6 / 6» read like an error when a full pick is actually the good state). */
+    .cat-count-frac { font-weight: 800; color: #1f9d57; }
     .cat-count-pill { display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,.24); border-radius: 999px;
       padding: 1px 10px; margin-inline-start: 8px; font-weight: 800; font-size: .86em; font-variant-numeric: tabular-nums; }
     .cat-count-pill .ccp-sep { opacity: .7; margin: 0 1px; }
@@ -6280,7 +6291,7 @@
         </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
-          <button class="secondary rand-btn rand-btn--icon" id="randomCategories" type="button" aria-label="اختيار عشوائي" title="اختيار عشوائي"><span class="rand-die" aria-hidden="true">🎲</span></button>
+          <button class="secondary rand-btn rand-btn--pill" id="randomCategories" type="button" aria-label="اختيار عشوائي" title="اختيار عشوائي"><span class="rand-die" aria-hidden="true">🎲</span><span>اختيار عشوائي</span></button>
         </div>
         <div class="cat-filter-row" id="catFilterRow" role="tablist" aria-label="تصفية الفئات" hidden></div>
         <div class="category-grid" id="categoryGrid"></div>
@@ -9904,7 +9915,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.152";
+    const IZZBAH_BUILD = "2026-07-10.153";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
