@@ -31,18 +31,18 @@ try {
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); openNewGameCategories(); });
   await page.waitForTimeout(300);
 
-  // ---- 1) the random button is an icon-only dice ----
+  // ---- 1) the random button is a labeled dice pill (🎲 + «اختيار عشوائي») ----
   const dice = await page.evaluate(() => {
     const b = document.getElementById("randomCategories");
     return {
       exists: !!b,
-      text: b ? b.textContent.replace(/\s/g, "") : "",
       hasDie: b ? /🎲/.test(b.textContent) : false,
+      hasLabel: b ? /عشوائي/.test(b.textContent) : false,
       aria: b ? (b.getAttribute("aria-label") || "") : "",
-      iconClass: b ? b.classList.contains("rand-btn--icon") : false,
+      pill: b ? b.classList.contains("rand-btn--pill") : false,
     };
   });
-  check("the random button is an icon-only dice (just 🎲, no visible label)", dice.exists && dice.hasDie && dice.text === "🎲" && dice.iconClass);
+  check("the random button is a labeled dice pill (🎲 + «اختيار عشوائي»)", dice.exists && dice.hasDie && dice.hasLabel && dice.pill);
   check("the dice button keeps an accessible «اختيار عشوائي» label", /عشوائي/.test(dice.aria));
 
   // ---- 2) the community editor is an admin-style TABLE with a public/private toggle ----
