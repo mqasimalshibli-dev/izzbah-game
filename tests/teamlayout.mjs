@@ -54,7 +54,7 @@ try {
   check("every team's score box is on the same side (box first in every unit)", board.boxFirst);
   check("every team's helper strip is on the same side (bar last in every unit)", board.barLast);
 
-  // ---- 2) results: trophy centred, one row, winner beside it ----
+  // ---- 2) results: champion column (trophy atop the winner box), centred ----
   const res = await page.evaluate(() => {
     const sc = [900, 500, 400, 200, 100];
     state.teams.slice(0, 5).forEach((t, i) => { t.score = sc[i]; });
@@ -62,23 +62,29 @@ try {
     const intro = document.getElementById("resultsIntro"); if (intro) intro.classList.remove("active", "sliding");
     const stage = document.getElementById("resultsStage");
     const kids = [...stage.children];
-    const trophyIdx = kids.findIndex(c => c.classList.contains("rs-trophy-stage"));
-    // vertical CENTRES (align-items:center aligns centres, not tops — the taller
-    // trophy has a different top by design, so compare centres to detect a wrap)
-    const centres = kids.map(c => { const r = c.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
-    const winnerIdx = kids.findIndex(c => c.classList.contains("winner"));
+    const champIdx = kids.findIndex(c => c.classList.contains("rs-champion"));
+    const champ = kids[champIdx];
+    // bottom-aligned row (align-items:flex-end) → compare bottoms to detect wrap
+    const bottoms = kids.map(c => Math.round(c.getBoundingClientRect().bottom));
+    const trophy = champ && champ.querySelector(".rs-trophy-stage");
+    const winner = champ && champ.querySelector(".rs-card.winner");
+    const trophyR = trophy && trophy.getBoundingClientRect();
+    const winnerR = winner && winner.getBoundingClientRect();
     return {
       total: kids.length,
-      trophyIdx,
-      centred: Math.abs(trophyIdx - (kids.length - 1) / 2) <= 1,
-      oneRow: (Math.max(...centres) - Math.min(...centres)) < 40, // no wrap
-      winnerNextToTrophy: winnerIdx === trophyIdx + 1 || winnerIdx === trophyIdx - 1
+      champIdx,
+      centred: Math.abs(champIdx - (kids.length - 1) / 2) <= 1,
+      oneRow: (Math.max(...bottoms) - Math.min(...bottoms)) < 40,
+      hasTrophy: !!trophy,
+      hasWinner: !!winner,
+      trophyOnTop: !!(trophyR && winnerR && trophyR.top < winnerR.top) // trophy above the box
     };
   });
-  check("results place the trophy among the teams (not first/last)", res.trophyIdx > 0 && res.trophyIdx < res.total - 1);
-  check("the trophy is centred for 5 teams", res.centred);
-  check("all teams + trophy sit in ONE row (no wrap)", res.oneRow);
-  check("the winner card is the centrepiece next to the trophy", res.winnerNextToTrophy);
+  check("the winner + trophy form a centred champion column (not first/last)", res.champIdx > 0 && res.champIdx < res.total - 1);
+  check("the champion column is centred for 5 teams", res.centred);
+  check("all teams share one bottom-aligned row (no wrap)", res.oneRow);
+  check("the champion column holds both the trophy and the winner box", res.hasTrophy && res.hasWinner);
+  check("the trophy sits ATOP the winning box", res.trophyOnTop);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

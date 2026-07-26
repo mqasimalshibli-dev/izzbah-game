@@ -3695,7 +3695,10 @@
       min-height: 0;
       width: 100%;
       display: flex;
-      align-items: center;
+      /* bottom-aligned: every team box shares a baseline, and the tall champion
+         column's trophy pokes UP into the empty space above (rather than pushing
+         the winner box down over the action buttons). */
+      align-items: flex-end;
       justify-content: center;
       gap: clamp(8px, 1.8vw, 26px);
       flex-wrap: nowrap;   /* one row; cards shrink to fit so the trophy stays centered */
@@ -3704,6 +3707,21 @@
        the trophy off-centre); the trophy keeps its natural size. */
     .rs-stage > .rs-card { flex: 1 1 0; min-width: 0; width: auto; max-width: clamp(150px, 24%, 320px); }
     .rs-stage > .rs-trophy-stage { flex: 0 0 auto; }
+    /* Champion column: the trophy crowns the winning box, which is centred,
+       slightly larger, and glows gold. */
+    .rs-champion { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: clamp(2px, 1vh, 10px); }
+    .rs-champion .rs-trophy-stage { flex: 0 0 auto; }
+    .rs-champion > .rs-card.winner { width: clamp(158px, 21vw, 260px); flex: 0 0 auto; position: relative; }
+    /* Gold glow via a pseudo-element so it never clobbers the card's entry
+       animation (which is what fades the card in). */
+    .rs-champion > .rs-card.winner::after {
+      content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; z-index: -1;
+      animation: rsWinGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes rsWinGlow {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(201,151,74,.55), 0 0 22px rgba(232,190,96,.45); }
+      50% { box-shadow: 0 0 0 3px rgba(201,151,74,.9), 0 0 44px rgba(244,205,110,.9); }
+    }
     .rs-card {
       position: relative;
       flex: 0 1 auto;
@@ -4988,6 +5006,18 @@
       }
       /* one row, cards shrink to fit so the trophy stays centred */
       #results .rs-stage > .rs-card { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; max-width: clamp(110px, 20vw, 190px) !important; }
+      #results .rs-champion { gap: clamp(0px, .4vh, 4px) !important; }
+      #results .rs-champion > .rs-card.winner { width: clamp(128px, 18vw, 194px) !important; padding: clamp(6px, 1.4vh, 12px) clamp(8px, 1.4vw, 14px) !important; gap: clamp(2px, .8vh, 6px) !important; }
+      /* the crowning trophy + winner avatar are compact so the champion column
+         fits the short landscape height without overlapping the buttons */
+      #results .rs-champion .rs-avatar { width: clamp(40px, 10vh, 62px) !important; height: clamp(40px, 10vh, 62px) !important; }
+      #results .rs-champion .rs-crown { font-size: clamp(18px, 5vh, 30px) !important; top: clamp(-14px, -4vh, -10px) !important; }
+      #results .rs-champion .rs-score { font-size: clamp(22px, 7.5vh, 42px) !important; }
+      #results .rs-champion .rs-trophy-img { max-width: clamp(38px, 9.5vh, 66px) !important; max-height: clamp(50px, 13vh, 82px) !important; }
+      #results .rs-champion .rs-trophy-glow { width: clamp(70px, 14vh, 116px) !important; height: clamp(70px, 14vh, 116px) !important; }
+      #results .rs-champion .rs-pointdiff { font-size: clamp(8px, 2vh, 11px) !important; padding: clamp(1px, .5vh, 4px) clamp(8px, 1.6vw, 16px) !important; margin: 0 !important; }
+      #results .rs-champion .rs-pointdiff .clean-number { font-size: clamp(11px, 2.8vh, 18px) !important; }
+      #results .rs-champion .rs-winner-banner { font-size: clamp(10px, 2.6vh, 14px) !important; padding: clamp(1px, .6vh, 4px) clamp(10px, 2vw, 20px) !important; }
       #results .rs-avatar { width: clamp(46px, 12vh, 78px) !important; height: clamp(46px, 12vh, 78px) !important; border-width: 3px !important; }
       #results .rs-crown { font-size: clamp(22px, 6vh, 36px) !important; top: clamp(-18px, -5vh, -12px) !important; }
       #results .rs-medal { width: clamp(22px, 5.4vh, 34px) !important; height: clamp(22px, 5.4vh, 34px) !important; font-size: clamp(12px, 3vh, 16px) !important; }
@@ -10003,7 +10033,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.157";
+    const IZZBAH_BUILD = "2026-07-10.158";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17705,10 +17735,11 @@
         <div class="rs-pointdiff">فارق النقاط<span class="clean-number">+${toArabicDigits(gap)}</span></div>
       `;
 
-      // Keep the trophy in the MIDDLE for any team count: build the cards in
-      // rank order (cardEls[i] ↔ ranked[i], so the reveal stays correct), then
-      // place the trophy centrally with the teams split into two flanks around
-      // it. Non-draw: the winner sits just after the trophy as the centrepiece.
+      // Build the cards in rank order (cardEls[i] ↔ ranked[i], so the staged
+      // reveal stays correct). Non-draw: the WINNER's card is the centred
+      // centrepiece with the trophy crowning it (a champion column), and the
+      // other teams flank it evenly on both sides. Draw: the trophy sits
+      // centred among the tied leaders.
       const cardEls = ranked.map((team, i) => buildCard(team, i));
       if (isDraw) {
         const leftN = Math.ceil(cardEls.length / 2);
@@ -17718,10 +17749,12 @@
       } else {
         const winnerCard = cardEls[0];
         const losers = cardEls.slice(1);
+        const champ = document.createElement("div");
+        champ.className = "rs-champion";
+        champ.append(trophy, winnerCard); // trophy ON TOP of the winning box
         const leftN = Math.ceil(losers.length / 2); // balance the two flanks
         losers.slice(0, leftN).forEach(c => stage.appendChild(c));
-        stage.appendChild(trophy);
-        if (winnerCard) stage.appendChild(winnerCard);
+        stage.appendChild(champ);
         losers.slice(leftN).forEach(c => stage.appendChild(c));
       }
       renderResultsStats();
