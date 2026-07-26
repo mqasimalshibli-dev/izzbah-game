@@ -541,6 +541,35 @@
       margin-bottom: 18px;
     }
 
+    /* «الأكثر لعباً» — a per-device play-history stat pill above the tabs.
+       Tapping it selects that category. Off the cards, so covers stay untouched. */
+    .cat-plays-stat {
+      min-height: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: -2px auto 12px;
+      padding: 7px 14px;
+      border: 1.5px solid #e7b24a;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff7e6, #fdeccb);
+      color: #8a5a12;
+      box-shadow: 0 2px 6px rgba(120, 70, 10, .12);
+      font-family: 'Cairo', sans-serif;
+      font-weight: 800;
+      font-size: clamp(12.5px, 2vw, 14px);
+      line-height: 1.2;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cat-plays-stat[hidden] { display: none; }
+    .cat-plays-stat .cps-fire { font-size: 1.05em; filter: saturate(1.1); flex: none; }
+    .cat-plays-stat .cps-name { color: #6a3d06; }
+    .cat-plays-stat .cps-count { color: #b07a1c; font-variant-numeric: tabular-nums; }
+    .cat-plays-stat:active { transform: translateY(1px); }
+
     .category-tabs {
       width: min(440px, 100%);
       max-width: 100%;
@@ -4894,6 +4923,16 @@
       content: "عزبة"; font-family: 'Aref Ruqaa', serif; font-weight: 700;
       font-size: clamp(19px, 4vw, 27px); color: #f7e3b0; text-shadow: 0 2px 4px rgba(0, 0, 0, .4);
     }
+    /* game progress — «N / total سؤال» under the logo, so players sense the
+       finish line. Sits in the top-bar centre column with the logo. */
+    #game .topbar-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; direction: rtl; }
+    #game .game-progress { display: flex; align-items: center; gap: 8px; direction: rtl; }
+    #game .game-progress .gp-track { width: clamp(90px, 15vw, 180px); height: 7px; border-radius: 999px;
+      background: rgba(255, 255, 255, .22); overflow: hidden; flex: none; box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
+    #game .game-progress .gp-fill { height: 100%; width: 0; border-radius: 999px;
+      background: linear-gradient(90deg, #f0d488, #e6c163); transition: width .4s ease; }
+    #game .game-progress .gp-label { font: 800 12px 'Cairo', sans-serif; color: #ffe9c4; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    #game .game-progress .gp-label b { color: #fff; }
     #game .turn-box {
       background: rgba(255, 255, 255, .13) !important;
       border: 1px solid rgba(255, 255, 255, .36) !important;
@@ -6375,6 +6414,7 @@
         <div class="cat-eyebrow"><i></i>لعبة جديدة<i></i></div>
         <h2 class="screen-title">اختر فئاتك</h2>
         <p class="hint" id="categoryStatus">اختر فئة واحدة على الأقل للبدء.</p>
+        <button class="cat-plays-stat" id="catPlaysStat" type="button" hidden></button>
         <div class="category-tabs" role="tablist" aria-label="Category type">
           <button class="category-tab active" id="gameCategoriesTab" type="button">فئات اللعبة</button>
           <button class="category-tab" id="communityCategoriesTab" type="button">فئات المجتمع</button>
@@ -6870,8 +6910,14 @@
           <button class="ghost" id="soundToggle" aria-label="كتم الأصوات" title="كتم الأصوات"><svg class="snd-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><svg class="snd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
           <button class="gold-btn" id="endGameEarly" aria-label="إنهاء وعرض النتائج" title="إنهاء وعرض النتائج"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 4.2h11.5l-2.6 3.4 2.6 3.4H6z" fill="currentColor"/></svg></button>
         </div>
-        <div class="mini-brand">
-          <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
+        <div class="topbar-center">
+          <div class="mini-brand">
+            <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
+          </div>
+          <div class="game-progress" id="gameProgress" role="progressbar" aria-label="تقدّم اللعبة" style="display:none">
+            <span class="gp-label"></span>
+            <span class="gp-track"><span class="gp-fill"></span></span>
+          </div>
         </div>
         <div class="turn-box" data-turn-box></div>
       </div>
@@ -10033,7 +10079,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.158";
+    const IZZBAH_BUILD = "2026-07-10.159";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12273,8 +12319,59 @@
       for (let i = 0; i < words.length; i++) if (words[i].lastIndexOf(term, 0) === 0) return 1;
       return 0;
     }
+    // ---- «الأكثر لعباً»: per-device category play history ------------------
+    // A tiny localStorage tally, +1 per selected category each time a game is
+    // FINISHED. It powers the play-history pill on the category picker and is
+    // purely local (no cloud, no rules change) — a personal "you play this a
+    // lot" nudge, never a leaderboard.
+    const CAT_PLAYS_KEY = "izzbah-cat-plays-v1";
+    function catPlayCounts() {
+      try {
+        const raw = localStorage.getItem(CAT_PLAYS_KEY);
+        const obj = raw ? JSON.parse(raw) : null;
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch (e) { return {}; }
+    }
+    function bumpCategoryPlays(ids) {
+      try {
+        const counts = catPlayCounts();
+        [...(ids || [])].filter(Boolean).forEach(id => {
+          counts[id] = (counts[id] || 0) + 1;
+        });
+        localStorage.setItem(CAT_PLAYS_KEY, JSON.stringify(counts));
+      } catch (e) {}
+    }
+    // The single most-played category that still exists AND has questions.
+    function mostPlayedCategory() {
+      const counts = catPlayCounts();
+      let best = null;
+      Object.keys(counts).forEach(id => {
+        const n = counts[id];
+        if (!n || n <= 0) return;
+        const cat = categoryById(id);
+        if (!cat || !categoryHasQuestions(cat)) return;
+        if (!best || n > best.count) best = { id, count: n, cat };
+      });
+      return best;
+    }
+    function renderCatPlaysStat() {
+      const el = $("#catPlaysStat");
+      if (!el) return;
+      // Only meaningful on the game tab (community cards come and go), and only
+      // once the player actually has a most-played category on this device.
+      const best = state.categoryMode === "community" ? null : mostPlayedCategory();
+      if (!best) { el.hidden = true; el.innerHTML = ""; return; }
+      const name = best.cat.name || "فئة";
+      el.hidden = false;
+      el.innerHTML = `<span class="cps-fire" aria-hidden="true">🔥</span>`
+        + `<span>الأكثر لعباً: <b class="cps-name">«${name}»</b></span>`
+        + `<span class="cps-count clean-number">${toArabicDigits(best.count)}</span>`
+        + `<span>مرّة</span>`;
+      el.setAttribute("aria-label", `الأكثر لعباً: ${name}، ${best.count} مرّة. اضغط لاختيارها.`);
+    }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
+      renderCatPlaysStat(); // the per-device «الأكثر لعباً» pill
       const grid = $("#categoryGrid");
       const gameNameInput = $("#gameNameInput");
       if (gameNameInput) gameNameInput.value = state.currentGameName;
@@ -12322,6 +12419,7 @@
       const INFO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.6v5.4" stroke-linecap="round"/><circle cx="12" cy="16.7" r="1.05" fill="#fff" stroke="none"/></svg>`;
       visibleCategories.forEach(cat => {
         const card = document.createElement("div");
+        card.dataset.catId = cat.id;
         // Lock ANY category with no playable questions (not just ones flagged
         // `empty`) — an empty published/community category, or one whose
         // questions were all cleared — and show it as "قريباً" (coming soon).
@@ -16313,8 +16411,29 @@
           }
         });
       }
+      updateGameProgress(total);
       centerBoardScroll();
       saveLiveGameSoon();
+    }
+
+    // «N / total سؤال» progress under the top-bar logo. `total` is the board's
+    // cell count; `state.used` grows by one each time a question is opened.
+    function updateGameProgress(total) {
+      const el = document.getElementById("gameProgress");
+      if (!el) return;
+      if (typeof total !== "number") {
+        const cats = (typeof activeCategories === "function") ? activeCategories() : [];
+        total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
+      }
+      if (!total || !state.gameActive) { el.style.display = "none"; return; }
+      const done = Math.min(state.used.size, total);
+      el.style.display = "";
+      el.setAttribute("aria-valuenow", done);
+      el.setAttribute("aria-valuemax", total);
+      const fill = el.querySelector(".gp-fill");
+      const label = el.querySelector(".gp-label");
+      if (fill) fill.style.width = Math.round(done / total * 100) + "%";
+      if (label) label.innerHTML = `<b>${toArabicDigits(done)}</b> / ${toArabicDigits(total)} سؤال`;
     }
 
     // ---- Help tool #1: four choices (multiple choice) ----
@@ -17516,6 +17635,7 @@
     function openQuestion(cat, q, key) {
       if (state.used.has(key)) return;
       state.used.add(key);
+      updateGameProgress(); // advance the «N / total سؤال» bar right away
       state.activeQuestion = { cat, q, key, team: state.activeTeam };
       renderChoiceOptions(null);
       renderHint(null);
@@ -17781,6 +17901,7 @@
         const credit = (rec && rec.charged) ? "replay" : spendGameCredit();
         if (rec && !rec.charged) { rec.charged = true; saveSavedGames(); }
         recordGameStats(credit); // tally this finished game + its categories (global insights)
+        bumpCategoryPlays(state.selected); // per-device «الأكثر لعباً» play history
         saveLiveGame(); // persist the "counted" flag so a resume can't recharge
       }
 
@@ -18371,6 +18492,17 @@
     });
     $("#gameCategoriesTab").addEventListener("click", () => setCategoryMode("game"));
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
+    // Tapping the «الأكثر لعباً» pill jumps straight to selecting that category.
+    $("#catPlaysStat").addEventListener("click", () => {
+      const best = mostPlayedCategory();
+      if (!best) return;
+      if (state.categoryMode !== "game") { setCategoryMode("game"); }
+      if (!state.selected.has(best.id) && state.selected.size < 6) state.selected.add(best.id);
+      renderCategories();
+      const card = [...document.querySelectorAll("#categoryGrid .category")]
+        .find(c => c.dataset && c.dataset.catId === best.id);
+      if (card) card.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
     $("#manageCustomFromCategories").addEventListener("click", () => openCommunityCategories());
     $("#randomCategories").addEventListener("click", randomizeCategories);
     (() => {
