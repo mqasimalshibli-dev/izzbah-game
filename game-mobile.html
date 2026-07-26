@@ -3697,9 +3697,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: clamp(10px, 2.4vw, 30px);
-      flex-wrap: wrap;
+      gap: clamp(8px, 1.8vw, 26px);
+      flex-wrap: nowrap;   /* one row; cards shrink to fit so the trophy stays centered */
     }
+    /* Cards share the row and shrink to fit (so 5 teams + the trophy never wrap
+       the trophy off-centre); the trophy keeps its natural size. */
+    .rs-stage > .rs-card { flex: 1 1 0; min-width: 0; width: auto; max-width: clamp(150px, 24%, 320px); }
+    .rs-stage > .rs-trophy-stage { flex: 0 0 auto; }
     .rs-card {
       position: relative;
       flex: 0 1 auto;
@@ -4975,13 +4979,15 @@
         font-size: clamp(11px, 3.2vh, 16px) !important;
         padding: clamp(3px, 1vh, 7px) clamp(12px, 2.4vw, 22px) !important;
       }
-      #results .rs-stage { flex: 0 0 auto !important; gap: clamp(8px, 2.4vw, 22px) !important; }
+      #results .rs-stage { flex: 0 0 auto !important; gap: clamp(6px, 1.6vw, 18px) !important; }
       #results .rs-card {
         align-self: auto !important; max-height: none !important;
         width: clamp(120px, 22vw, 200px) !important;
         gap: clamp(3px, 1vh, 8px) !important;
         padding: clamp(8px, 2vh, 16px) clamp(8px, 1.4vw, 16px) !important;
       }
+      /* one row, cards shrink to fit so the trophy stays centred */
+      #results .rs-stage > .rs-card { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; max-width: clamp(110px, 20vw, 190px) !important; }
       #results .rs-avatar { width: clamp(46px, 12vh, 78px) !important; height: clamp(46px, 12vh, 78px) !important; border-width: 3px !important; }
       #results .rs-crown { font-size: clamp(22px, 6vh, 36px) !important; top: clamp(-18px, -5vh, -12px) !important; }
       #results .rs-medal { width: clamp(22px, 5.4vh, 34px) !important; height: clamp(22px, 5.4vh, 34px) !important; font-size: clamp(12px, 3vh, 16px) !important; }
@@ -9991,7 +9997,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.155";
+    const IZZBAH_BUILD = "2026-07-10.156";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16181,9 +16187,11 @@
         bar.className = "qhelp-bar qhelp-bar--team";
         bar.dataset.team = i;
         renderTeamHelpBar(bar, i, "board");
-        // bars hug the outer edges: right-side teams' bars on the right, etc.
-        if (i < state.teamCount / 2) cell.append(bar, box);
-        else cell.append(box, bar);
+        // Every team's helper strip sits on the SAME side of its score box, so
+        // each team + its helpers read as one consistent unit (the old
+        // left-half/right-half split put some teams' helpers on the right and
+        // others' on the left — confusing with 5+ teams).
+        cell.append(box, bar);
         row.appendChild(cell);
       });
       saveLiveGameSoon();
@@ -17680,8 +17688,6 @@
         return card;
       }
 
-      const cardEls = []; // cardEls[i] ↔ ranked[i]
-      if (ranked[0]) { const c = buildCard(ranked[0], 0); cardEls.push(c); stage.appendChild(c); }
       const trophy = document.createElement("div");
       trophy.className = "rs-trophy-stage";
       trophy.innerHTML = `
@@ -17689,8 +17695,26 @@
         <img class="rs-trophy-img" alt="" src="${TROPHY_IMG}">
         <div class="rs-pointdiff">فارق النقاط<span class="clean-number">+${toArabicDigits(gap)}</span></div>
       `;
-      stage.appendChild(trophy);
-      ranked.slice(1).forEach((team, i) => { const c = buildCard(team, i + 1); cardEls.push(c); stage.appendChild(c); });
+
+      // Keep the trophy in the MIDDLE for any team count: build the cards in
+      // rank order (cardEls[i] ↔ ranked[i], so the reveal stays correct), then
+      // place the trophy centrally with the teams split into two flanks around
+      // it. Non-draw: the winner sits just after the trophy as the centrepiece.
+      const cardEls = ranked.map((team, i) => buildCard(team, i));
+      if (isDraw) {
+        const leftN = Math.ceil(cardEls.length / 2);
+        cardEls.slice(0, leftN).forEach(c => stage.appendChild(c));
+        stage.appendChild(trophy);
+        cardEls.slice(leftN).forEach(c => stage.appendChild(c));
+      } else {
+        const winnerCard = cardEls[0];
+        const losers = cardEls.slice(1);
+        const leftN = Math.ceil(losers.length / 2); // balance the two flanks
+        losers.slice(0, leftN).forEach(c => stage.appendChild(c));
+        stage.appendChild(trophy);
+        if (winnerCard) stage.appendChild(winnerCard);
+        losers.slice(leftN).forEach(c => stage.appendChild(c));
+      }
       renderResultsStats();
 
       // Suspense staging: the leader(s) start as a masked «؟» card, and the
