@@ -9904,7 +9904,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.151";
+    const IZZBAH_BUILD = "2026-07-10.152";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18443,6 +18443,15 @@
           uidEl.style.display = "none"; uidEl.textContent = ""; uidEl.onclick = null;
         }
       }
+      // Welcome sign-in affordance: the «أو» divider + Google button show ONLY
+      // when signed OUT (the alternative to «ابدأ لعبة جديدة» is «سجّل الدخول»).
+      // Signed in → hide both; a prominent «سجّل الخروج» here reads as nonsense
+      // and sign-out already lives in Settings. applyAuth only ever runs once
+      // auth is available, so revealing on sign-out is safe.
+      const authBtnEl = $("#authBtn"), wlcOrEl = document.querySelector(".wlc-or");
+      const showAuth = !state.signedIn;
+      if (authBtnEl) authBtnEl.style.display = showAuth ? "" : "none";
+      if (wlcOrEl) wlcOrEl.style.display = showAuth ? "" : "none";
     };
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
@@ -18604,14 +18613,15 @@
         if (!authBtn) return;
         const label = authBtn.querySelector(".auth-label");
         if (user) {
-          if (label) label.textContent = "تسجيل الخروج";
+          if (label) label.textContent = "تسجيل الخروج"; // kept for the settings mirror
           authBtn.classList.add("signed-in");
-          if (authStatus) authStatus.textContent = "مسجّل الدخول: " + (user.email || "");
         } else {
           if (label) label.textContent = "تسجيل الدخول بحساب Google";
           authBtn.classList.remove("signed-in");
-          if (authStatus) authStatus.textContent = "";
         }
+        if (authStatus) authStatus.textContent = ""; // no email on the welcome screen
+        // The «أو» + sign-in affordance shows ONLY when signed out; applyAuth
+        // (called right after this) owns that so the state is testable.
       }
       loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
@@ -20053,7 +20063,9 @@
           provider.setCustomParameters({ prompt: "select_account" });
           auth.getRedirectResult().catch(function () {});
           if (authBtn) {
-            setAuthVisible(true);
+            // Visibility is governed by setAuthUI (runs on the first auth-state
+            // callback), so we don't force-show here — that would flash the
+            // sign-out button for already-signed-in players before it hides.
             authBtn.addEventListener("click", () => {
               const onErr = (err) => {
                 console.warn("sign-in error", err);
