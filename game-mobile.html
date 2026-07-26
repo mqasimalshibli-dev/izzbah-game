@@ -4925,14 +4925,19 @@
     }
     /* game progress — «N / total سؤال» under the logo, so players sense the
        finish line. Sits in the top-bar centre column with the logo. */
+    /* In-game progress — the artifact «تقدّم اللعبة» look: a caption, a cream
+       rounded track (like the score boxes) and a gold gradient fill, with the
+       answered/total fraction pinned at the end. */
     #game .topbar-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; direction: rtl; }
-    #game .game-progress { display: flex; align-items: center; gap: 8px; direction: rtl; }
-    #game .game-progress .gp-track { width: clamp(90px, 15vw, 180px); height: 7px; border-radius: 999px;
-      background: rgba(255, 255, 255, .22); overflow: hidden; flex: none; box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
+    #game .game-progress { display: flex; align-items: center; gap: 9px; direction: rtl; }
+    #game .game-progress .gp-cap { font: 800 11.5px 'Cairo', sans-serif; color: #ffe9c4; white-space: nowrap; opacity: .92; }
+    #game .game-progress .gp-track { width: clamp(96px, 16vw, 190px); height: 11px; border-radius: 999px;
+      background: #e8d7b0; border: 1px solid #e0c97f; overflow: hidden; flex: none;
+      box-shadow: inset 0 1px 2px rgba(90, 55, 10, .28); }
     #game .game-progress .gp-fill { height: 100%; width: 0; border-radius: 999px;
-      background: linear-gradient(90deg, #f0d488, #e6c163); transition: width .4s ease; }
-    #game .game-progress .gp-label { font: 800 12px 'Cairo', sans-serif; color: #ffe9c4; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    #game .game-progress .gp-label b { color: #fff; }
+      background: linear-gradient(90deg, #e6c163, #c9974a); transition: width .4s ease; }
+    #game .game-progress .gp-frac { font: 800 12.5px 'Cairo', sans-serif; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    #game .game-progress .gp-frac b { color: #ffe9c4; }
     #game .turn-box {
       background: rgba(255, 255, 255, .13) !important;
       border: 1px solid rgba(255, 255, 255, .36) !important;
@@ -6915,8 +6920,9 @@
             <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
           </div>
           <div class="game-progress" id="gameProgress" role="progressbar" aria-label="تقدّم اللعبة" style="display:none">
-            <span class="gp-label"></span>
+            <span class="gp-cap">الأسئلة المُجابة</span>
             <span class="gp-track"><span class="gp-fill"></span></span>
+            <span class="gp-frac"></span>
           </div>
         </div>
         <div class="turn-box" data-turn-box></div>
@@ -10079,7 +10085,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.159";
+    const IZZBAH_BUILD = "2026-07-10.160";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -10716,6 +10722,23 @@
 
     function activeCategories() {
       return allCategories().filter(cat => state.selected.has(cat.id) && categoryHasQuestions(cat));
+    }
+
+    // The distinct point tiers a category shows on the board — ONE cell per tier.
+    // Junk point values (missing/NaN/≤0 — e.g. a malformed question) are filtered
+    // out so they can't spawn a phantom extra tile (which is what made a 6×5=30
+    // board read as «31»). Board rendering AND the progress total both call this,
+    // so the two can never disagree.
+    function categoryTiers(cat) {
+      return [...new Set((cat && cat.questions || [])
+        .map(q => q && q.points)
+        .filter(p => typeof p === "number" && isFinite(p) && p > 0))]
+        .sort((a, b) => a - b);
+    }
+    // Total board cells across the active (or given) categories.
+    function boardTileCount(cats) {
+      const list = cats || activeCategories();
+      return list.reduce((n, c) => n + categoryTiers(c).length, 0);
     }
 
     // A "private" category is a personal one a player made and kept to themselves
@@ -16370,7 +16393,7 @@
         // One cell per distinct point value; clicking draws a random question
         // from that tier's pool (so categories can have many questions per tier).
         const qs = cat.questions || [];
-        const tiers = [...new Set(qs.map(q => q.points))].sort((a, b) => a - b);
+        const tiers = categoryTiers(cat);
         pointsRow.style.setProperty("grid-template-columns", `repeat(${Math.max(1, tiers.length)}, minmax(0, 1fr))`, "important");
         tiers.forEach(points => {
           const pool = qs.filter(q => q.points === points);
@@ -16398,7 +16421,7 @@
         board.appendChild(card);
       });
       if (frozenDirty) saveSavedGames();
-      const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
+      const total = boardTileCount(cats);
       // Every cell played → go STRAIGHT to the results (no «انتهت الأسئلة» box or
       // manual «عرض النتائج» button). Deferred one frame so the board finishes
       // rendering first; guarded to fire once, only during live play, and never
@@ -16421,19 +16444,16 @@
     function updateGameProgress(total) {
       const el = document.getElementById("gameProgress");
       if (!el) return;
-      if (typeof total !== "number") {
-        const cats = (typeof activeCategories === "function") ? activeCategories() : [];
-        total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
-      }
+      if (typeof total !== "number") total = boardTileCount();
       if (!total || !state.gameActive) { el.style.display = "none"; return; }
       const done = Math.min(state.used.size, total);
       el.style.display = "";
       el.setAttribute("aria-valuenow", done);
       el.setAttribute("aria-valuemax", total);
       const fill = el.querySelector(".gp-fill");
-      const label = el.querySelector(".gp-label");
+      const frac = el.querySelector(".gp-frac");
       if (fill) fill.style.width = Math.round(done / total * 100) + "%";
-      if (label) label.innerHTML = `<b>${toArabicDigits(done)}</b> / ${toArabicDigits(total)} سؤال`;
+      if (frac) frac.innerHTML = `<b>${toArabicDigits(done)}</b> / ${toArabicDigits(total)}`;
     }
 
     // ---- Help tool #1: four choices (multiple choice) ----

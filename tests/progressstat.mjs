@@ -59,15 +59,32 @@ try {
     return {
       visible: !!el && el.style.display !== "none",
       total,
+      domCells: document.querySelectorAll("#board .cell").length,
       valuemax: el && +el.getAttribute("aria-valuemax"),
       valuenow: el && +el.getAttribute("aria-valuenow"),
-      label: el && el.querySelector(".gp-label").textContent.trim(),
+      label: el && el.querySelector(".gp-frac").textContent.trim(),
       fillW: el && el.querySelector(".gp-fill").style.width
     };
   });
   check("progress bar is visible during play", start.visible);
   check("progress max equals the board's cell count", start.total > 0 && start.valuemax === start.total);
+  check("progress total exactly matches the tiles rendered on the board", start.valuemax === start.domCells);
   check("progress starts at zero", start.valuenow === 0 && /^0/.test(start.label) && (start.fillW === "0%" || start.fillW === "0px" || start.fillW === ""));
+
+  // a malformed question (missing/invalid points) must NOT spawn a phantom
+  // tile — the board count and the progress total stay in lockstep.
+  const phantom = await page.evaluate(() => {
+    const cat = activeCategories()[0];
+    const before = { cells: document.querySelectorAll("#board .cell").length, total: boardTileCount() };
+    cat.questions.push({ q: "؟", a: "x" });               // no points
+    cat.questions.push({ q: "؟", a: "y", points: 0 });    // zero points
+    cat.questions.push({ q: "؟", a: "z", points: null }); // null points
+    renderGame();
+    const after = { cells: document.querySelectorAll("#board .cell").length, total: boardTileCount() };
+    return { before, after };
+  });
+  check("junk-points questions add no phantom tile to the board", phantom.after.cells === phantom.before.cells);
+  check("the progress total ignores junk points too (no off-by-one)", phantom.after.total === phantom.before.total);
 
   // open one cell → progress advances by one
   const after = await page.evaluate(() => {
