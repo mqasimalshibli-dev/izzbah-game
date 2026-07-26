@@ -38,18 +38,21 @@ try {
   await page.waitForTimeout(200);
   await clickText("ابدأ اللعبة"); await page.waitForTimeout(900);
 
-  // ---- 1) board: every team's helper strip on the same side ----
+  // ---- 1) board: score box + helper strip joined in ONE unit, same side ----
   const board = await page.evaluate(() => {
     const cells = [...document.querySelectorAll("#scoreRow .score-cell")];
+    const units = cells.map(c => c.querySelector(".score-unit"));
     return {
       count: cells.length,
-      boxFirst: cells.every(c => c.firstElementChild && c.firstElementChild.classList.contains("score-box")),
-      barLast: cells.every(c => c.lastElementChild && c.lastElementChild.classList.contains("qhelp-bar"))
+      allUnits: units.every(Boolean),
+      boxFirst: units.every(u => u && u.firstElementChild && u.firstElementChild.classList.contains("score-box")),
+      barLast: units.every(u => u && u.lastElementChild && u.lastElementChild.classList.contains("qhelp-bar"))
     };
   });
   check("all five teams render on the board", board.count === 5);
-  check("every team's score box is on the same side (box first in every cell)", board.boxFirst);
-  check("every team's helper strip is on the same side (bar last in every cell)", board.barLast);
+  check("each team's score box + helpers are joined in one connected unit", board.allUnits);
+  check("every team's score box is on the same side (box first in every unit)", board.boxFirst);
+  check("every team's helper strip is on the same side (bar last in every unit)", board.barLast);
 
   // ---- 2) results: trophy centred, one row, winner beside it ----
   const res = await page.evaluate(() => {
