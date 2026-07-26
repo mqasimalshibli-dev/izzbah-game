@@ -5988,6 +5988,48 @@
     .fb-msg.fb-pending { opacity: .58; }
     @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
 
+    /* Category-grid skeletons — same shimmer, shaped like the real 186px cards,
+       shown while the community pool loads from the cloud. */
+    .category.cat-skeleton {
+      background: #e9dcc6 !important; box-shadow: none; border: 1px solid #e0d3b4;
+      cursor: default; pointer-events: none;
+    }
+    .category.cat-skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+      animation: skShimmer 1.25s ease-in-out infinite; }
+    .category.cat-skeleton .cat-sk-pill {
+      position: absolute; inset-inline: 14px; bottom: 14px; height: 26px; border-radius: 999px;
+      background: #ddcda6;
+    }
+    @media (prefers-reduced-motion: reduce) { .category.cat-skeleton::after { animation: none; } }
+
+    /* Warmer empty states (community pool / no search match): an icon, a title,
+       a gentle line, and a clear next step — instead of one flat sentence. */
+    .cat-empty-rich {
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      gap: 4px; padding: 30px 22px !important;
+    }
+    .cat-empty-ico {
+      width: 56px; height: 56px; display: grid; place-items: center; margin-bottom: 6px;
+      border-radius: 50%; background: #f0e6cd; color: #b58a2e;
+    }
+    .cat-empty-ico svg { width: 28px; height: 28px; }
+    .cat-empty-title { margin: 0; font-weight: 800; font-size: 17px; color: #6a4d12; }
+    .cat-empty-sub { margin: 0; font-size: 13.5px; color: #8a7550; max-width: 34ch; line-height: 1.7; }
+    .cat-empty-cta { margin-top: 12px; }
+
+    /* Media shimmer — a remote question/answer image paints blank until it
+       loads; hold a shimmer on the <img> itself until onload clears it. */
+    .question-image.media-loading, .answer-image.media-loading {
+      background-color: #e9dcc6;
+      background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+      background-size: 220% 100%; background-repeat: no-repeat;
+      border-radius: 12px; animation: mediaShimmer 1.25s ease-in-out infinite;
+      min-height: 120px;
+    }
+    @keyframes mediaShimmer { 0% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+    @media (prefers-reduced-motion: reduce) { .question-image.media-loading, .answer-image.media-loading { animation: none; } }
+
     /* ── Custom tooltip for icon-only buttons (UI polish pack) ─────────────
        One floating bubble driven by JS on hover/focus — a dark rounded chip
        with an arrow that fades in, matching the demo. Replaces the browser's
@@ -10064,6 +10106,7 @@
       editingCategory: null,
       editorTarget: "custom",
       publishedCategories: [],
+      communityLoaded: false, // false until the cloud answers → grid shows skeletons meanwhile
       isAdmin: false,
       isPremium: false,
       gamesAllowed: 0,     // allowance from the entitlement doc (future billing)
@@ -10088,7 +10131,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.161";
+    const IZZBAH_BUILD = "2026-07-10.162";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12032,7 +12075,21 @@
       const old = parent && parent.querySelector('[data-media-alt="' + imgEl.id + '"]');
       if (old) { try { old.pause && old.pause(); } catch (e) {} old.remove(); }
       const kind = mediaKind(src);
-      if (kind === "image") { imgEl.src = src; imgEl.classList.add("visible"); return; }
+      if (kind === "image") {
+        imgEl.classList.add("visible");
+        // A remote image paints blank until it arrives — hold a shimmer behind
+        // it meanwhile (data: URLs are instant, so they never flash it).
+        const remote = UI_POLISH && !/^data:/i.test(src);
+        if (remote) {
+          imgEl.classList.add("media-loading");
+          const clear = () => { imgEl.classList.remove("media-loading"); imgEl.onload = imgEl.onerror = null; };
+          imgEl.onload = clear; imgEl.onerror = clear;
+        } else {
+          imgEl.classList.remove("media-loading");
+        }
+        imgEl.src = src;
+        return;
+      }
       imgEl.removeAttribute("src"); imgEl.classList.remove("visible");
       if (kind === "none" || !parent) return;
       const el = document.createElement(kind === "video" ? "video" : "audio");
@@ -12402,6 +12459,16 @@
         + `<span>مرّة</span>`;
       el.setAttribute("aria-label", `الأكثر لعباً: ${name}، ${best.count} مرّة. اضغط لاختيارها.`);
     }
+    // Shimmer placeholders shaped like category cards, shown while the cloud
+    // pool is still loading so the grid never flashes an empty/blank state.
+    function catSkeletonCards(n) {
+      // Direct children of #categoryGrid so they flow in its existing grid,
+      // exactly like the real category cards they stand in for.
+      const card = '<div class="category cat-skeleton" aria-hidden="true">'
+        + '<span class="sk cat-sk-pill"></span></div>';
+      return card.repeat(Math.max(1, n || 4))
+        + '<span class="sr-only" role="status">جارٍ تحميل الفئات…</span>';
+    }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
       renderCatPlaysStat(); // the per-device «الأكثر لعباً» pill
@@ -12447,7 +12514,23 @@
       $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
       $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
       if (state.categoryMode === "community" && visibleCategories.length === 0) {
-        grid.innerHTML = `<div class="panel category-empty">لا توجد فئات مجتمع بعد. اضغط «إنشاء / تعديل فئات المجتمع» لإضافة فئة يراها ويصوّت عليها كل الأعضاء.</div>`;
+        if (UI_POLISH && !state.communityLoaded && !state.catSearch) {
+          // Still waiting on the cloud → shimmer placeholders shaped like cards,
+          // not a premature «no categories yet» that flips to content a moment later.
+          grid.innerHTML = catSkeletonCards(4);
+        } else {
+          grid.innerHTML = `
+            <div class="panel category-empty cat-empty-rich">
+              <span class="cat-empty-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.9 7.2 18.7l.9-5.4L4.2 8.7l5.4-.8z"/></svg>
+              </span>
+              <p class="cat-empty-title">لا توجد فئات مجتمع بعد</p>
+              <p class="cat-empty-sub">كن أول من يضيف فئة يراها ويصوّت عليها كل اللاعبين.</p>
+              <button class="secondary cat-empty-cta" type="button" id="catEmptyCreate">إنشاء فئة مجتمع</button>
+            </div>`;
+          const cta = document.getElementById("catEmptyCreate");
+          if (cta) cta.addEventListener("click", () => openCommunityCategories());
+        }
       }
       const INFO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.6v5.4" stroke-linecap="round"/><circle cx="12" cy="16.7" r="1.05" fill="#fff" stroke="none"/></svg>`;
       visibleCategories.forEach(cat => {
@@ -12548,7 +12631,14 @@
         grid.appendChild(card);
       });
       if (!visibleCategories.length && term) {
-        grid.innerHTML = `<div class="panel category-empty">لا توجد فئة باسم «${escapeHtml(state.catSearch.trim())}». جرّب اسماً آخر.</div>`;
+        grid.innerHTML = `
+          <div class="panel category-empty cat-empty-rich">
+            <span class="cat-empty-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+            </span>
+            <p class="cat-empty-title">لا توجد فئة باسم «${escapeHtml(state.catSearch.trim())}»</p>
+            <p class="cat-empty-sub">جرّب اسماً آخر أو امسح البحث لعرض كل الفئات.</p>
+          </div>`;
       }
       const count = state.selected.size;
       // Persistent «N / 6» counter — always visible, plus a live pill on the
@@ -19011,6 +19101,7 @@
       maybeInstallOmanSites();
     };
     window.IZZBAH.applyCommunity = function (cats) {
+      state.communityLoaded = true; // the cloud answered — clear the skeletons
       // Public pool = APPROVED categories only, most-voted first.
       state.communityCategories = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
         .filter(c => c.approved)
@@ -19080,6 +19171,15 @@
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
+    // Perceived-speed: the community grid shows shimmer skeletons until the
+    // cloud answers (applyCommunity flips communityLoaded). This fail-safe makes
+    // sure we never sit on skeletons forever if the cloud is slow/offline/absent.
+    setTimeout(() => {
+      if (!state.communityLoaded) {
+        state.communityLoaded = true;
+        if (document.body.dataset.screen === "categories") renderCategories();
+      }
+    }, 6000);
     // If the app was opened via a shared game link, jump straight to the
     // pre-selected categories (cloud categories fill in as they load).
     applySharedGameFromUrl();
