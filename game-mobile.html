@@ -5259,6 +5259,23 @@
     }
     #gameLibrary .actions .ghost:hover { background: rgba(255, 255, 255, .12) !important; color: #f7e6c3 !important; transform: translateY(-1px); }
 
+    /* Recommended-set cards in «ألعابنا» — same card as saved games, but the
+       whole card is a start button, with an icon, blurb and a CTA footer. */
+    #gameLibrary .featured-set-card { cursor: pointer; }
+    #gameLibrary .featured-set-card .fs-title { display: flex; align-items: center; gap: 9px; }
+    #gameLibrary .featured-set-card .fs-ico { font-size: 26px; line-height: 1; flex: 0 0 auto; }
+    #gameLibrary .featured-set-card .fs-blurb { margin: 0 0 14px !important; font: 500 14.5px/1.6 'Cairo', sans-serif; color: #8a5a2a; text-align: right; }
+    #gameLibrary .featured-set-card .fs-cta {
+      margin-top: 16px; display: flex; justify-content: center;
+      font: 800 15px 'Cairo', sans-serif; color: #fff;
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      border-radius: 12px; padding: 11px 18px;
+      box-shadow: 0 6px 14px rgba(150, 20, 30, .22);
+      transition: filter .12s ease, transform .12s ease;
+    }
+    #gameLibrary .featured-set-card:hover .fs-cta,
+    #gameLibrary .featured-set-card:focus-visible .fs-cta { filter: brightness(1.06); transform: translateY(-1px); }
+
     /* ============ SHARED TOP APP BAR (Question + Answer) ============ */
     #questionPage .topbar, #answerPage .topbar {
       background: linear-gradient(180deg, #a31527, #7c0c1c) !important;
@@ -5943,6 +5960,29 @@
       font: 700 13px 'Cairo', sans-serif; color: #3a2a15; padding: 8px 10px; }
     .coach-admin-actions { flex-wrap: wrap; }
 
+    /* ── Admin editor for recommended sets («الألعاب المقترحة») ── */
+    .featured-admin-modal { max-width: 680px; }
+    .featured-admin-list { display: flex; flex-direction: column; gap: 12px; max-height: 52vh; overflow-y: auto; padding: 2px; margin-bottom: 12px; }
+    .fs-row { background: #fdf6e5; border: 1.5px solid #e4d4b3; border-radius: 12px; padding: 12px; text-align: right; }
+    .fs-row.off { opacity: .55; }
+    .fs-row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .fs-row-head .fs-name-in { flex: 1 1 160px; }
+    .fs-row input[type="text"] { border: 1px solid #d9c9a5; border-radius: 8px; background: #fff;
+      font: 700 14px 'Cairo', sans-serif; color: #3a2a15; padding: 8px 10px; box-sizing: border-box; }
+    .fs-row .fs-icon-in { width: 58px; text-align: center; flex: 0 0 auto; }
+    .fs-row .fs-blurb-in { width: 100%; margin-top: 6px; font-weight: 600; }
+    .fs-row-toggle { display: inline-flex; align-items: center; gap: 5px; font: 700 12px 'Cairo', sans-serif; color: #6a5326; cursor: pointer; flex: 0 0 auto; }
+    .fs-row-del { font: 700 12px 'Cairo', sans-serif; color: #a32633; background: none; border: 0; cursor: pointer; text-decoration: underline; flex: 0 0 auto; }
+    .fs-cats-label { font: 800 12.5px 'Cairo', sans-serif; color: #8a5a1f; margin: 10px 2px 6px; }
+    .fs-cats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto;
+      border: 1px solid #e4d4b3; border-radius: 10px; padding: 8px; background: #fffdf6; }
+    .fs-cat-opt { display: flex; align-items: center; gap: 7px; font: 700 13px 'Cairo', sans-serif; color: #4a3a1c; cursor: pointer; padding: 3px 4px; border-radius: 7px; }
+    .fs-cat-opt.on { background: #f3e7c8; }
+    .fs-cat-opt.disabled { opacity: .4; cursor: not-allowed; }
+    .fs-cat-opt input { flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border-width: 1px; accent-color: #9e1322; }
+    .fs-cat-opt span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fs-cat-count { font: 700 12px 'Cairo', sans-serif; color: #8a5a1f; margin-inline-start: auto; }
+
     /* ── "My games" balance header inside the packs box ── */
     .plans-balance { display: flex; align-items: center; gap: 12px; justify-content: center; text-align: center;
       background: linear-gradient(150deg, #fff4dd, #f6e7c4); border: 1px solid #e4d4b3; border-radius: 15px;
@@ -6533,6 +6573,11 @@
             <span class="admin-choice-name">تحرير النصوص</span>
             <span class="admin-choice-sub">تجوّل في اللعبة وعدّل أي نص تشوفه — يوصل للجميع</span>
           </button>
+          <button class="admin-choice-btn" id="adminChoiceFeatured" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🎯</span>
+            <span class="admin-choice-name">الألعاب المقترحة</span>
+            <span class="admin-choice-sub">جهّز مجموعات فئات جاهزة تظهر في «ألعابنا»</span>
+          </button>
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
@@ -6554,6 +6599,20 @@
           <button class="ghost" id="coachResetLocal" type="button" title="يمسح سجلّ «شوهدت» في هذا الجهاز فقط — لتجربة الجولة من جديد">↺ أعد عرضها على جهازي</button>
           <button class="ghost" id="coachAdminClose" type="button">إغلاق</button>
           <button class="primary" id="coachAdminSave" type="button">💾 حفظ للجميع</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="featuredAdminModal" aria-hidden="true">
+      <div class="question-modal featured-admin-modal" role="dialog" aria-modal="true" aria-labelledby="featuredAdminTitle">
+        <h3 class="preview-title" id="featuredAdminTitle">🎯 الألعاب المقترحة</h3>
+        <p class="import-help">مجموعات فئات جاهزة تظهر للاعبين في «ألعابنا». اضغط اللاعب أي مجموعة ليبدأ بها فوراً. كل مجموعة اسم + وصف قصير + حتى <b>٦ فئات</b> — والتغيير يوصل لكل اللاعبين فور الحفظ.</p>
+        <div class="featured-admin-list" id="featuredAdminList"></div>
+        <button class="secondary" id="featuredAddBtn" type="button">+ إضافة مجموعة</button>
+        <div class="prem-status" id="featuredAdminStatus" aria-live="polite"></div>
+        <div class="actions">
+          <button class="ghost" id="featuredAdminClose" type="button">إغلاق</button>
+          <button class="primary" id="featuredAdminSave" type="button">💾 حفظ للجميع</button>
         </div>
       </div>
     </div>
@@ -9932,7 +9991,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.154";
+    const IZZBAH_BUILD = "2026-07-10.155";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11176,6 +11235,162 @@
       return bridge().then(cfg => window.IZZBAH.applyTextConfig((cfg && cfg.map) || {})).catch(() => {});
     }
 
+    // ── Recommended game sets («ألعابنا») ───────────────────────────────────
+    // Admin-curated bundles of up to 6 official categories, shown in the
+    // «ألعابنا» library tab. Tapping one pre-selects its categories and drops
+    // the player on the category screen to tweak or continue. Stored in
+    // config/featuredSets (public read, admin write); a set is a shortcut, NOT
+    // frozen content — every run still draws fresh questions and costs a credit.
+    let featuredSets = []; // sorted array of {id,name,blurb,icon,cats,order,active}
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.applyFeaturedSets = function (map) {
+      const arr = [];
+      Object.keys(map || {}).forEach(id => {
+        const s = map[id] || {};
+        const cats = (Array.isArray(s.cats) ? s.cats : []).map(String).filter(Boolean).slice(0, 6);
+        const name = String(s.name || "").trim();
+        if (!name || !cats.length) return;
+        arr.push({
+          id: String(id), name: name.slice(0, 40),
+          blurb: String(s.blurb || "").slice(0, 120), icon: String(s.icon || "🎯").slice(0, 8),
+          cats: cats, order: Number(s.order) || 0, active: s.active !== false
+        });
+      });
+      arr.sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name, "ar"));
+      featuredSets = arr;
+      if (state.gameLibraryMode === "our" && typeof renderGameLibrary === "function") renderGameLibrary();
+    };
+    function loadFeaturedSets() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadFeaturedSets;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => window.IZZBAH.applyFeaturedSets((cfg && cfg.map) || {})).catch(() => {});
+    }
+    // The official pool a featured set may reference (built-ins + published) —
+    // shared across every device, unlike community/custom categories.
+    function officialCategoryPool() {
+      const { builtins, extras } = mergedOfficialCategories();
+      return [...extras, ...builtins];
+    }
+    // A set's categories that are actually available right now (skip hidden/deleted).
+    function featuredSetCategories(set) {
+      return (set.cats || [])
+        .map(id => categoryById(id))
+        .filter(cat => cat && !isCategoryHidden(cat.id))
+        .slice(0, 6);
+    }
+    function startFeaturedSet(id) {
+      const set = featuredSets.find(s => s.id === id);
+      if (!set) return;
+      const cats = featuredSetCategories(set);
+      if (!cats.length) { if (typeof showToast === "function") showToast("فئات هذه المجموعة غير متاحة حالياً"); return; }
+      state.selected = new Set(cats.map(c => c.id));
+      state.editingSavedGameId = null;     // a fresh game, not a saved record
+      state.currentGameName = set.name;
+      if (state.randomizedCats) state.randomizedCats.clear();
+      if (typeof saveGameSettings === "function") saveGameSettings();
+      state.categoryMode = "game";
+      showScreen("categories");
+      if (typeof renderCategories === "function") renderCategories();
+      if (typeof showToast === "function") showToast(`فئات «${set.name}» جاهزة — عدّلها أو تابع`);
+    }
+
+    // --- Admin: recommended-set editor («الألعاب المقترحة») ---
+    let featuredDraft = []; // working copy: [{id,name,blurb,icon,cats:Set,active}]
+    function openFeaturedAdmin() {
+      featuredDraft = (featuredSets || []).map(s => ({
+        id: s.id, name: s.name, blurb: s.blurb, icon: s.icon || "🎯",
+        cats: new Set(s.cats), active: s.active !== false
+      }));
+      renderFeaturedAdmin();
+      setFeaturedAdminStatus("");
+      const m = $("#featuredAdminModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeFeaturedAdmin() { const m = $("#featuredAdminModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    function setFeaturedAdminStatus(msg) { const el = $("#featuredAdminStatus"); if (el) el.textContent = msg; }
+    function addFeaturedSet() {
+      featuredDraft.push({ id: "set_" + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+        name: "", blurb: "", icon: "🎯", cats: new Set(), active: true });
+      renderFeaturedAdmin();
+      const box = $("#featuredAdminList"); if (box) box.scrollTop = box.scrollHeight;
+    }
+    function renderFeaturedAdmin() {
+      const box = $("#featuredAdminList"); if (!box) return;
+      box.innerHTML = "";
+      if (!featuredDraft.length) {
+        box.innerHTML = `<div style="text-align:center;color:#8a6a3a;padding:16px;font-weight:700">لا توجد مجموعات بعد — أضف واحدة بالأسفل.</div>`;
+        return;
+      }
+      const pool = officialCategoryPool();
+      featuredDraft.forEach((set, idx) => {
+        const row = document.createElement("div");
+        row.className = "fs-row" + (set.active ? "" : " off");
+        const head = document.createElement("div");
+        head.className = "fs-row-head";
+        head.innerHTML =
+          `<input class="fs-icon-in" type="text" maxlength="4" aria-label="أيقونة">` +
+          `<input class="fs-name-in" type="text" maxlength="40" placeholder="اسم المجموعة">` +
+          `<label class="fs-row-toggle"><input type="checkbox"> مفعّلة</label>` +
+          `<button class="fs-row-del" type="button">حذف</button>`;
+        head.querySelector(".fs-icon-in").value = set.icon || "🎯";
+        head.querySelector(".fs-name-in").value = set.name || "";
+        head.querySelector(".fs-row-toggle input").checked = set.active !== false;
+        row.appendChild(head);
+        const blurb = document.createElement("input");
+        blurb.className = "fs-blurb-in"; blurb.type = "text"; blurb.maxLength = 120;
+        blurb.placeholder = "وصف قصير (اختياري)"; blurb.value = set.blurb || "";
+        row.appendChild(blurb);
+        const lbl = document.createElement("div");
+        lbl.className = "fs-cats-label";
+        lbl.innerHTML = `الفئات <span class="fs-cat-count">${toArabicDigits(set.cats.size)} / 6</span>`;
+        row.appendChild(lbl);
+        const grid = document.createElement("div");
+        grid.className = "fs-cats-grid";
+        const full = set.cats.size >= 6;
+        pool.forEach(cat => {
+          const on = set.cats.has(cat.id);
+          const opt = document.createElement("label");
+          opt.className = "fs-cat-opt" + (on ? " on" : "") + ((!on && full) ? " disabled" : "");
+          const cb = document.createElement("input");
+          cb.type = "checkbox"; cb.checked = on; cb.disabled = !on && full;
+          cb.addEventListener("change", () => {
+            if (cb.checked) { if (set.cats.size >= 6) { cb.checked = false; return; } set.cats.add(cat.id); }
+            else set.cats.delete(cat.id);
+            renderFeaturedAdmin();
+          });
+          const span = document.createElement("span"); span.textContent = cat.name || cat.id;
+          opt.append(cb, span);
+          grid.appendChild(opt);
+        });
+        row.appendChild(grid);
+        head.querySelector(".fs-icon-in").addEventListener("input", e => { set.icon = e.target.value; });
+        head.querySelector(".fs-name-in").addEventListener("input", e => { set.name = e.target.value; });
+        blurb.addEventListener("input", e => { set.blurb = e.target.value; });
+        head.querySelector(".fs-row-toggle input").addEventListener("change", e => { set.active = e.target.checked; row.classList.toggle("off", !set.active); });
+        head.querySelector(".fs-row-del").addEventListener("click", () => { featuredDraft.splice(idx, 1); renderFeaturedAdmin(); });
+        box.appendChild(row);
+      });
+    }
+    function saveFeaturedAdmin() {
+      const map = {};
+      let order = 0, skipped = 0;
+      featuredDraft.forEach(set => {
+        const name = (set.name || "").trim();
+        const cats = [...set.cats].slice(0, 6);
+        if (!name || !cats.length) { skipped++; return; } // needs a name + ≥1 category
+        map[set.id] = { name: name, blurb: (set.blurb || "").trim(), icon: set.icon || "🎯", cats: cats, order: order++, active: set.active !== false };
+      });
+      const bridge = window.IZZBAH && window.IZZBAH.saveFeaturedSets;
+      if (!bridge) { setFeaturedAdminStatus("الحفظ للسحابة غير متاح الآن"); return; }
+      setFeaturedAdminStatus("يُحفظ…");
+      bridge(map)
+        .then(() => {
+          window.IZZBAH.applyFeaturedSets(map); // apply on this device immediately
+          setFeaturedAdminStatus(skipped ? `✓ حُفظ — ${toArabicDigits(skipped)} مجموعة ناقصة اسم/فئة لم تُحفظ` : "✓ محفوظ للجميع");
+        })
+        .catch(() => setFeaturedAdminStatus("تعذّر الحفظ — تحقق من الاتصال"));
+    }
+    window.IZZBAH.openFeaturedAdmin = openFeaturedAdmin; // exposed for tests
+
     // --- Edit-mode UI: roam the game, tap any text, reword it live ----------
     function elementHasOwnText(el) {
       for (const n of el.childNodes) if (n.nodeType === 3 && n.nodeValue.trim()) return true;
@@ -12328,8 +12543,69 @@
       createButton.style.display = state.gameLibraryMode === "your" ? "" : "none";
 
       if (state.gameLibraryMode === "our") {
-        $("#gameLibraryHint").textContent = "ألعابنا ستحتوي لاحقاً على فئات جاهزة من فريق التطوير.";
-        list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب مختارة بعد</p><p class="gl-empty-sub">ستظهر الألعاب الجاهزة من <span class="brand-word">عِزْبَة</span> هنا قريباً.</p></div>`;
+        $("#gameLibraryHint").textContent = "مجموعات فئات جاهزة من عِزْبَة — اضغط أي مجموعة لتبدأ بها فوراً.";
+        // Only show sets that still have at least one available category.
+        const usable = (featuredSets || []).filter(s => s.active && featuredSetCategories(s).length);
+        if (!usable.length) {
+          $("#gameLibraryHint").textContent = "ألعابنا ستحتوي لاحقاً على فئات جاهزة من فريق التطوير.";
+          list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب مختارة بعد</p><p class="gl-empty-sub">ستظهر الألعاب الجاهزة من <span class="brand-word">عِزْبَة</span> هنا قريباً.</p></div>`;
+          return;
+        }
+        usable.forEach(set => {
+          const cats = featuredSetCategories(set);
+          const card = document.createElement("div");
+          card.className = "saved-game-card featured-set-card";
+          card.tabIndex = 0;
+          card.setAttribute("role", "button");
+          card.setAttribute("aria-label", `ابدأ مجموعة ${set.name}`);
+          card.dataset.featuredSet = set.id;
+
+          const head = document.createElement("div");
+          head.className = "saved-game-head";
+          const title = document.createElement("div");
+          title.className = "saved-game-title fs-title";
+          title.innerHTML = `<span class="fs-ico" aria-hidden="true">${escapeHtml(set.icon || "🎯")}</span>${escapeHtml(set.name)}`;
+          const countPill = document.createElement("span");
+          countPill.className = "saved-game-count";
+          countPill.textContent = categoryCountLabel(cats.length);
+          head.append(title, countPill);
+          card.appendChild(head);
+
+          if (set.blurb) {
+            const blurb = document.createElement("p");
+            blurb.className = "fs-blurb";
+            blurb.textContent = set.blurb;
+            card.appendChild(blurb);
+          }
+
+          const chips = document.createElement("div");
+          chips.className = "saved-game-cats";
+          cats.forEach(cat => {
+            const tile = document.createElement("div");
+            tile.className = "saved-game-category";
+            const catColor = categoryColor(cat);
+            tile.style.setProperty("--cat-bg", rgba(catColor, .72));
+            tile.style.setProperty("--cat-border", catColor);
+            if (cat.image) {
+              tile.classList.add("bg-category");
+              tile.style.setProperty("--cat-image", `url("${cat.image}")`);
+            } else {
+              tile.innerHTML = iconSvg(cat.custom ? "custom" : cat.id);
+            }
+            const label = document.createElement("span");
+            label.textContent = cat.name || "فئة بدون اسم";
+            tile.appendChild(label);
+            chips.appendChild(tile);
+          });
+          card.appendChild(chips);
+
+          const cta = document.createElement("div");
+          cta.className = "fs-cta";
+          cta.innerHTML = `<span>▶ ابدأ بهذه المجموعة</span>`;
+          card.appendChild(cta);
+
+          list.appendChild(card);
+        });
         return;
       }
 
@@ -17999,6 +18275,11 @@
         openDeleteGameConfirm(deleteButton.dataset.savedDelete);
         return;
       }
+      const featuredCard = event.target.closest("[data-featured-set]");
+      if (featuredCard) {
+        startFeaturedSet(featuredCard.dataset.featuredSet);
+        return;
+      }
       const gameCard = event.target.closest("[data-saved-game-card]");
       if (gameCard) {
         playSavedGame(gameCard.dataset.savedGameCard);
@@ -18007,6 +18288,8 @@
     $("#gameLibraryList").addEventListener("keydown", event => {
       if (event.key !== "Enter" && event.key !== " ") return;
       if (event.target.closest("button")) return;
+      const featuredCard = event.target.closest("[data-featured-set]");
+      if (featuredCard) { event.preventDefault(); startFeaturedSet(featuredCard.dataset.featuredSet); return; }
       const gameCard = event.target.closest("[data-saved-game-card]");
       if (!gameCard) return;
       event.preventDefault();
@@ -18043,6 +18326,11 @@
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
+    $("#adminChoiceFeatured").addEventListener("click", () => { closeAdminChoice(); openFeaturedAdmin(); });
+    $("#featuredAdminClose").addEventListener("click", closeFeaturedAdmin);
+    $("#featuredAdminModal").addEventListener("click", e => { if (e.target.id === "featuredAdminModal") closeFeaturedAdmin(); });
+    $("#featuredAddBtn").addEventListener("click", addFeaturedSet);
+    $("#featuredAdminSave").addEventListener("click", saveFeaturedAdmin);
     $("#coachAdminClose").addEventListener("click", closeCoachAdmin);
     $("#coachAdminModal").addEventListener("click", e => { if (e.target.id === "coachAdminModal") closeCoachAdmin(); });
     $("#coachAdminSave").addEventListener("click", saveCoachAdmin);
@@ -18452,6 +18740,7 @@
       if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
       if (typeof loadHiddenConfig === "function") loadHiddenConfig();   // globally hidden categories
       if (typeof loadTextConfig === "function") loadTextConfig();       // admin-reworded UI text
+      if (typeof loadFeaturedSets === "function") loadFeaturedSets();   // recommended sets in «ألعابنا»
       if (typeof renderCategories === "function") renderCategories();
       document.querySelectorAll("[data-requires-auth]").forEach(el => el.classList.toggle("needs-auth", !state.signedIn));
       // Show the player's account id on the welcome screen so they can copy it
@@ -19456,6 +19745,35 @@
               clean[key] = val;
             });
             return db.collection("config").doc("text")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // Recommended game sets shown in «ألعابنا» (config/featuredSets):
+          // public read so every player sees the admin's curated bundles;
+          // admin-only write, shape-clamped. Each set = a name + blurb + icon +
+          // up to 6 official category ids. Fits the /config {map, updatedAt}
+          // rules — no rules change.
+          window.IZZBAH.loadFeaturedSets = function () {
+            return db.collection("config").doc("featuredSets").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveFeaturedSets = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 40).forEach(k => {
+              const s = (map || {})[k] || {};
+              const cats = (Array.isArray(s.cats) ? s.cats : []).map(String).filter(Boolean).slice(0, 6);
+              const name = String(s.name || "").slice(0, 40).trim();
+              if (!name || !cats.length) return; // a set needs a name + ≥1 category
+              clean[String(k).slice(0, 40)] = {
+                name: name,
+                blurb: String(s.blurb || "").slice(0, 120),
+                icon: String(s.icon || "🎯").slice(0, 8),
+                cats: cats,
+                order: Math.max(0, Math.min(999, Math.floor(Number(s.order) || 0))),
+                active: s.active !== false
+              };
+            });
+            return db.collection("config").doc("featuredSets")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
           // Global usage insights (admin panel). One tiny doc, stats/global,
