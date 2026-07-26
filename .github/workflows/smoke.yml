@@ -396,3 +396,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node progressstat.mjs
+
+      - name: Run portrait results height (winner not dwarfed) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node resultsheight.mjs
