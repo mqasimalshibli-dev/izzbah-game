@@ -6450,6 +6450,39 @@
     :root[data-theme="dark"] .category.cat-skeleton { background: #2a1416 !important; border-color: var(--dk-line); }
     :root[data-theme="dark"] .category.cat-skeleton .cat-sk-pill { background: rgba(255, 255, 255, .09); }
     :root[data-theme="dark"] .gl-skeleton .sk { background: rgba(255, 255, 255, .09); }
+
+    /* ── Dark: catch EVERY remaining light card/row/tag across admin + modals ─
+       (duplicate checker, announcements, contact, plans, sync/warn/danger). */
+    :root[data-theme="dark"] .dup-group,
+    :root[data-theme="dark"] .stats-reveal,
+    :root[data-theme="dark"] .announce-preview-wrap,
+    :root[data-theme="dark"] .ann-card,
+    :root[data-theme="dark"] .contact-row,
+    :root[data-theme="dark"] .import-preview {
+      background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; color: var(--dk-text) !important;
+    }
+    :root[data-theme="dark"] .dup-group.conflict,
+    :root[data-theme="dark"] .ann-card.pinned { background: rgba(230, 199, 117, .1) !important; border-color: #c99a3a !important; }
+    :root[data-theme="dark"] .dup-q { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .dup-occ-row { color: #d9c39c !important; }
+    :root[data-theme="dark"] .dup-occ-cat { color: #f0a49c !important; }
+    :root[data-theme="dark"] .dup-occ-a { color: #7fd0a0 !important; }
+    :root[data-theme="dark"] .dup-tag.dup,
+    :root[data-theme="dark"] .dup-del { background: rgba(158, 19, 34, .3) !important; color: #f2a89f !important; border-color: rgba(230, 130, 122, .4) !important; }
+    :root[data-theme="dark"] .dup-tag.conf { background: rgba(230, 199, 117, .18) !important; color: #e6c775 !important; }
+    :root[data-theme="dark"] .dup-del:hover { background: rgba(158, 19, 34, .46) !important; }
+    /* danger tints (revoke / delete / error / guideline foot) */
+    :root[data-theme="dark"] .prem-revoke,
+    :root[data-theme="dark"] .dup-sync.err,
+    :root[data-theme="dark"] .imp-errs,
+    :root[data-theme="dark"] .fb-gl-foot {
+      background: rgba(158, 28, 28, .16) !important; border-color: rgba(230, 130, 122, .4) !important; color: #f0a49c !important;
+    }
+    /* warn/busy tints (amber) */
+    :root[data-theme="dark"] .fb-warn,
+    :root[data-theme="dark"] .dup-sync.busy {
+      background: rgba(230, 199, 117, .12) !important; border-color: rgba(230, 199, 117, .35) !important; color: #e6c775 !important;
+    }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -10416,7 +10449,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.167";
+    const IZZBAH_BUILD = "2026-07-10.168";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
