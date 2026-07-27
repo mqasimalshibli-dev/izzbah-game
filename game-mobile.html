@@ -6483,6 +6483,14 @@
     :root[data-theme="dark"] .dup-sync.busy {
       background: rgba(230, 199, 117, .12) !important; border-color: rgba(230, 199, 117, .35) !important; color: #e6c775 !important;
     }
+    /* Row TITLE text that was dark-on-light — recolour for the dark rows so the
+       category names (cat-filter) and announcement titles read clearly. */
+    :root[data-theme="dark"] .cf-name,
+    :root[data-theme="dark"] .ann-admin-name,
+    :root[data-theme="dark"] .ann-card-title,
+    :root[data-theme="dark"] .contact-row .contact-label { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .ann-admin-sub,
+    :root[data-theme="dark"] .ann-card-date { color: #cdb488 !important; }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -10449,7 +10457,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.168";
+    const IZZBAH_BUILD = "2026-07-10.169";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
