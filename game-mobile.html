@@ -20,6 +20,10 @@
   <link rel="apple-touch-icon" href="assets/brand/png/app-icon/maskable-180.png">
   <link rel="manifest" href="assets/brand/manifest.webmanifest">
   <meta name="theme-color" content="#9E1C1C">
+  <!-- Apply the saved light/dark choice BEFORE first paint, so a returning
+       dark-mode player never sees a flash of the light theme. loadTheme() later
+       re-syncs state.theme + the theme-color meta. -->
+  <script>try{if(localStorage.getItem("izzbah-theme-v1")==="dark"){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}</script>
   <meta name="description" content="عِزبة — لعبة أسئلة جماعية تجمع الربع في تحدٍّ واحد. +٣٠ فئة منوّعة وفئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، وأول لعبة مجانية. العبوها الليلة!">
   <link rel="canonical" href="https://izzbah.com/game-mobile.html">
   <meta property="og:type" content="website">
@@ -4920,8 +4924,18 @@
     @media (hover: hover) {
       #game .game-actions #exitGame:hover,
       #game .game-actions #pauseGame:hover,
-      #game .game-actions #soundToggle:hover,
-      #game .game-actions #endGameEarly:hover { background: rgba(255, 255, 255, .26) !important; }
+      #game .game-actions #soundToggle:hover { background: rgba(255, 255, 255, .26) !important; }
+    }
+    /* The end-game (flag) button is GOLD so the «انتهِ اللعبة» action stands
+       apart from the neutral exit/pause/mute controls. */
+    #game .game-actions #endGameEarly {
+      background: linear-gradient(180deg, #f0d488, #d9ad52 55%, #c0902f) !important;
+      border: 1px solid #e7c67a !important;
+      color: #5a4410 !important;
+      box-shadow: 0 2px 9px rgba(150, 110, 20, .45), inset 0 1px 0 rgba(255, 255, 255, .5) !important;
+    }
+    @media (hover: hover) {
+      #game .game-actions #endGameEarly:hover { background: linear-gradient(180deg, #f6dc94, #e2b95c 55%, #cc9a34) !important; }
     }
     #game .mini-brand { flex-direction: row; gap: 11px; padding: 0; margin: 0; }
     #game .mini-brand .mini-brand-logo,
@@ -10457,7 +10471,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.169";
+    const IZZBAH_BUILD = "2026-07-10.170";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
