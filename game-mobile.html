@@ -6192,6 +6192,217 @@
     .text-edit-pop .tep-save { background: #c11f38; color: #fff; }
     .text-edit-pop .tep-cancel { background: #eadcc0; color: #5a4420; }
     .text-edit-pop .tep-revert { background: transparent; color: #a32633; text-decoration: underline; padding: 8px 4px; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       DARK MODE — «المظهر: داكن» (the dim maroon look)
+       Applied when <html data-theme="dark">. Re-skins the light cream/sand
+       surfaces to a dim maroon/charcoal palette while KEEPING the red + gold
+       accents, the category cover images, and the pressable 3D buttons (which
+       already read well on dark). Kept as one late block so it wins by source
+       order without needing !important spam. ────────────────────────────────*/
+    :root[data-theme="dark"] {
+      --dark: #f2e6cf;         /* body/base text → cream */
+      --ink: #f2e6cf;
+      --cream: #311619;        /* cream SURFACES → dark maroon */
+      --cream-soft: #3a1b1e;
+      --sand: #2a1315;
+      --white: #241012;
+      --gold: #e0be6b;
+      --gold-dark: #c99a3a;
+      --dk-surface: #2c1416;
+      --dk-surface2: #371a1d;
+      --dk-line: rgba(224, 190, 107, .26);
+      --dk-text: #f2e6cf;
+      --dk-muted: #cdb488;
+    }
+    :root[data-theme="dark"] body {
+      background:
+        radial-gradient(120% 90% at 80% 4%, #4a0d12 0%, transparent 44%),
+        radial-gradient(130% 120% at 10% 100%, #360a10 0%, transparent 48%),
+        linear-gradient(160deg, #2c0709, #160709 60%, #0f0507);
+      color: var(--dk-text);
+    }
+    /* The fixed ambient layer carries a LIGHT warm glow that tints uncovered
+       areas cream (most visible on the answer page's lower half). Swap it for a
+       dim maroon ambient so the dark ground stays even everywhere. */
+    :root[data-theme="dark"] .app::after {
+      background:
+        radial-gradient(60% 44% at 50% 0%, rgba(150, 26, 32, .22), transparent 72%),
+        radial-gradient(44% 40% at 0% 100%, rgba(90, 14, 18, .4), transparent 72%),
+        radial-gradient(44% 40% at 100% 100%, rgba(90, 14, 18, .4), transparent 72%) !important;
+    }
+
+    /* Panels / cards / modal surfaces */
+    :root[data-theme="dark"] .panel {
+      background: linear-gradient(180deg, rgba(58, 26, 30, .92), rgba(40, 18, 21, .92));
+      border-color: var(--dk-line); color: var(--dk-text);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, .4);
+    }
+    :root[data-theme="dark"] .question-modal,
+    :root[data-theme="dark"] .settings-sheet,
+    :root[data-theme="dark"] .modal-card,
+    :root[data-theme="dark"] .preview-card,
+    :root[data-theme="dark"] .confirm-card {
+      background: linear-gradient(180deg, #2c1416, #1c0d0f) !important;
+      color: var(--dk-text) !important;
+      border-color: var(--dk-line) !important;
+    }
+    :root[data-theme="dark"] .settings-section { color: var(--dk-muted); }
+    :root[data-theme="dark"] .settings-row {
+      background: rgba(255, 255, 255, .05); border-color: var(--dk-line); color: var(--dk-text);
+    }
+    :root[data-theme="dark"] .settings-row:hover { background: rgba(255, 255, 255, .09); }
+    :root[data-theme="dark"] .settings-row .settings-label,
+    :root[data-theme="dark"] .settings-label small { color: var(--dk-text); }
+    :root[data-theme="dark"] .settings-row-danger {
+      background: rgba(158, 28, 28, .18); border-color: rgba(230, 130, 122, .4); color: #f0a49c;
+    }
+    :root[data-theme="dark"] .settings-row-danger .settings-label { color: #f0a49c; }
+
+    /* Inputs */
+    :root[data-theme="dark"] input,
+    :root[data-theme="dark"] textarea,
+    :root[data-theme="dark"] select {
+      background: #3a1a1d; color: #f7ecd6; border-color: var(--dk-line);
+    }
+    :root[data-theme="dark"] input::placeholder,
+    :root[data-theme="dark"] textarea::placeholder { color: #b39877; }
+
+    /* Category picker chrome */
+    :root[data-theme="dark"] .category-tabs,
+    :root[data-theme="dark"] .seg { background: #3a1a1d; border-color: var(--dk-line); }
+    :root[data-theme="dark"] .category-tab { color: #d9c39c; }
+    :root[data-theme="dark"] .game-name-box,
+    :root[data-theme="dark"] .cat-search { background: #331619; border-color: var(--dk-line); }
+    :root[data-theme="dark"] .game-name-box label { color: var(--dk-muted); }
+    :root[data-theme="dark"] .cat-plays-stat {
+      background: linear-gradient(180deg, #3a2118, #2c1712); border-color: #a97f2c; color: #f0d9a8;
+    }
+    :root[data-theme="dark"] .cat-plays-stat .cps-name { color: #ffe9c4; }
+
+    /* Screen headings / hints / eyebrows */
+    :root[data-theme="dark"] .screen-title,
+    :root[data-theme="dark"] .preview-title,
+    :root[data-theme="dark"] h2,
+    :root[data-theme="dark"] h3 { color: #f6ead2; }
+    :root[data-theme="dark"] .hint,
+    :root[data-theme="dark"] .cat-eyebrow,
+    :root[data-theme="dark"] .setup-hint,
+    :root[data-theme="dark"] .muted { color: var(--dk-muted); }
+
+    /* Saved-game / featured cards */
+    :root[data-theme="dark"] .saved-game-card {
+      background:
+        radial-gradient(circle at 50% 0, rgba(255, 246, 229, .10), transparent 34%),
+        linear-gradient(180deg, #3a1b1e, #26110f);
+      border-color: #8a6a2e; color: var(--dk-text);
+    }
+    :root[data-theme="dark"] .saved-game-title,
+    :root[data-theme="dark"] .fs-title { color: #f6e3b0; }
+    :root[data-theme="dark"] .fs-blurb,
+    :root[data-theme="dark"] .saved-game-meta { color: var(--dk-muted); }
+
+    /* Team setup: stepper + team fields */
+    :root[data-theme="dark"] .team-stepper { background: #311619; border-color: #b0202a; }
+    :root[data-theme="dark"] .team-number { color: #f6ead2; }
+
+    /* Score boxes on the board */
+    :root[data-theme="dark"] .score-box,
+    :root[data-theme="dark"] .score-unit {
+      background: linear-gradient(180deg, #3a1b1e, #26110f); border-color: #a97f2c; color: var(--dk-text);
+    }
+    :root[data-theme="dark"] .qhelp-bar--team { background: rgba(255, 255, 255, .05); }
+
+    /* Divider lines / small separators that were dark-on-light */
+    :root[data-theme="dark"] .wlc-or { color: var(--dk-muted); }
+
+    /* Cream «secondary» buttons stay readable but tuned to the dark ground */
+    :root[data-theme="dark"] .settings-redeem .redeem-label { color: var(--dk-muted); }
+
+    /* Toasts / small chips already contrast; nudge the empty-state copy */
+    :root[data-theme="dark"] .cat-empty-title { color: #f0d9a8; }
+    :root[data-theme="dark"] .cat-empty-sub,
+    :root[data-theme="dark"] .category-empty { color: var(--dk-muted); }
+    :root[data-theme="dark"] .cat-empty-ico { background: #3a2413; color: #e6c775; }
+
+    /* ── Dark: Team-setup screen ─────────────────────────────────────────── */
+    :root[data-theme="dark"] #setup {
+      background:
+        radial-gradient(135% 95% at 50% -22%, #4a0d12 0%, rgba(74, 13, 18, 0) 56%),
+        linear-gradient(180deg, #24100f, #180a0b) !important;
+    }
+    :root[data-theme="dark"] #setup .setup-head .hint,
+    :root[data-theme="dark"] #setup .hint { color: #cdb488 !important; }
+    :root[data-theme="dark"] #setup .team-stepper {
+      background: linear-gradient(180deg, #3a1b1e, #26110f) !important;
+      border-color: #a97f2c !important;
+      box-shadow: 0 2px 0 rgba(255,255,255,.06) inset, 0 26px 40px -26px rgba(0,0,0,.7) !important;
+    }
+    :root[data-theme="dark"] #setup .team-stepper .step-label { color: #d9b98a; }
+    :root[data-theme="dark"] #setup .team-stepper .team-number { color: #f6ead2 !important; }
+    :root[data-theme="dark"] #setup .team-card {
+      background: linear-gradient(180deg, #3a1b1e, #26110f) !important;
+      border-color: rgba(217, 178, 74, .4) !important;
+      box-shadow: 0 2px 0 rgba(255,255,255,.05) inset, 0 24px 36px -24px rgba(0,0,0,.7) !important;
+    }
+    :root[data-theme="dark"] #setup .team-card .field-label { color: #d9b98a !important; }
+    :root[data-theme="dark"] #setup .team-card input.team-name-input {
+      background: #2a1315 !important; color: #f7ecd6 !important; border-color: rgba(217, 178, 74, .4) !important;
+    }
+    :root[data-theme="dark"] #setup .setup-sticky {
+      background: linear-gradient(180deg, rgba(24,10,11,0), #180a0b 42%) !important;
+      border-top-color: var(--dk-line) !important;
+    }
+
+    /* ── Dark: Play screens (board / question / answer) ──────────────────── */
+    :root[data-theme="dark"] body[data-screen="game"],
+    :root[data-theme="dark"] body[data-screen="questionPage"],
+    :root[data-theme="dark"] body[data-screen="answerPage"] { background: #1b0c0d !important; }
+    :root[data-theme="dark"] #answerPage,
+    :root[data-theme="dark"] #questionPage {
+      background-color: #1b0c0d !important;
+      background-image:
+        radial-gradient(120% 90% at 50% 0%, #2c0e10 0%, #1c0b0c 55%, #150809 100%) !important;
+    }
+    :root[data-theme="dark"] #answerPage::after,
+    :root[data-theme="dark"] #questionPage::after { background: none !important; }
+    /* The big Q/A play card (keeps its red frame; only the cream fill changes).
+       Must match the #questionPage/#answerPage specificity that sets it light. */
+    :root[data-theme="dark"] #questionPage .question-card,
+    :root[data-theme="dark"] #answerPage .question-card {
+      background-color: #1c0d0e !important;
+      background-image:
+        radial-gradient(circle at 50% -10%, rgba(150, 26, 32, .4), transparent 42%),
+        linear-gradient(180deg, #2b1416, #1c0d0e) !important;
+      box-shadow: 0 22px 46px rgba(0, 0, 0, .5) !important;
+    }
+    :root[data-theme="dark"] .question-text,
+    :root[data-theme="dark"] #modalQuestion,
+    :root[data-theme="dark"] #modalAnswer,
+    :root[data-theme="dark"] .answer-text,
+    :root[data-theme="dark"] .q-prompt { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .answer-card .meta-box { background: rgba(255,255,255,.05); border-color: var(--dk-line); }
+    /* Answer «من جاوب؟» scoring panel */
+    :root[data-theme="dark"] #answerPage .award-row {
+      background: linear-gradient(180deg, #2b1416, #1c0d0e) !important;
+      border-color: var(--dk-line) !important;
+      box-shadow: 0 16px 34px rgba(0, 0, 0, .5) !important;
+    }
+    :root[data-theme="dark"] #answerPage .award-title { color: #f0b8ac !important; }
+    /* Board score plaques */
+    :root[data-theme="dark"] #game .score-unit {
+      background: linear-gradient(180deg, #3a1b1e, #26110f);
+      box-shadow: 0 2px 0 rgba(255,255,255,.05) inset, 0 20px 32px -22px rgba(0,0,0,.7);
+    }
+    :root[data-theme="dark"] #game .score-value { color: #f6ead2 !important; text-shadow: none; }
+    :root[data-theme="dark"] #game .qhelp-bar--team { background: rgba(255,255,255,.04); }
+
+    /* ── Dark: Settings account box ──────────────────────────────────────── */
+    :root[data-theme="dark"] .settings-account {
+      background: rgba(255,255,255,.05); border-color: var(--dk-line); color: var(--dk-text);
+    }
+    :root[data-theme="dark"] .settings-account .sa-sub { color: #cdb488; }
+    :root[data-theme="dark"] .settings-balance { color: #e6c775; }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -6226,6 +6437,7 @@
         <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
       </div>
       <div class="settings-section">إعدادات اللعبة</div>
+      <button class="settings-row" id="settingsTheme" type="button"><span class="settings-ico" aria-hidden="true">🌙</span><span class="settings-label">المظهر</span><span class="settings-state" id="settingsThemeState"></span></button>
       <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
       <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
@@ -10157,7 +10369,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.165";
+    const IZZBAH_BUILD = "2026-07-10.166";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11190,6 +11402,30 @@
       try { localStorage.setItem(soundKey, soundOn ? "1" : "0"); } catch (e) {}
       syncSoundToggle();
       if (soundOn) playSfx("open"); // tiny blip confirms sound is back on
+    }
+
+    // ---- Appearance: light / dark theme ----------------------------------
+    // A per-device preference (settings toggle). Dark = the dim maroon look;
+    // it's applied by stamping data-theme on <html>, which the [data-theme=
+    // "dark"] CSS block re-skins every screen from. Stored locally (theme is a
+    // device choice, not synced across devices).
+    const themeKey = "izzbah-theme-v1";
+    function applyTheme(t) {
+      state.theme = (t === "dark") ? "dark" : "light";
+      try { document.documentElement.setAttribute("data-theme", state.theme); } catch (e) {}
+      // Keep the mobile browser UI (address bar / notch) in step with the page.
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", state.theme === "dark" ? "#1a0608" : "#e9c7aa");
+    }
+    function loadTheme() {
+      let t = "light";
+      try { t = localStorage.getItem(themeKey) || "light"; } catch (e) {}
+      applyTheme(t);
+    }
+    function toggleTheme() {
+      applyTheme(state.theme === "dark" ? "light" : "dark");
+      try { localStorage.setItem(themeKey, state.theme); } catch (e) {}
+      playSfx("open");
     }
 
     // ---- Answer stopwatch: counts UP from 0:00 while a team answers ----
@@ -15799,6 +16035,8 @@
       if (bal) bal.textContent = "🎟️ " + playBalanceSummary();
       const ss = $("#settingsSoundState");
       if (ss) ss.textContent = soundOn ? "مفعّل" : "مكتوم";
+      const ts = $("#settingsThemeState");
+      if (ts) ts.textContent = (state.theme === "dark") ? "🌙 داكن" : "☀️ فاتح";
     }
     function openSettings() {
       renderSettingsSheet();
@@ -18571,6 +18809,7 @@
     $("#settingsBuy").addEventListener("click", () => { closeSettings(); openPlans(); });
     $("#redeemBtnSettings").addEventListener("click", () => redeemCodeFlow($("#redeemInputSettings")));
     $("#redeemInputSettings").addEventListener("keydown", e => { if (e.key === "Enter") redeemCodeFlow($("#redeemInputSettings")); });
+    $("#settingsTheme").addEventListener("click", () => { toggleTheme(); renderSettingsSheet(); });
     $("#settingsSound").addEventListener("click", () => { toggleSound(); renderSettingsSheet(); });
     $("#settingsShare").addEventListener("click", shareAppFlow);
     $("#settingsInstall").addEventListener("click", () => { closeSettings(); installAppFlow(); });
@@ -19223,6 +19462,7 @@
     }
 
     syncGameViewport();
+    loadTheme(); // apply the saved light/dark preference before the first paint
     loadHiddenCategories();
     loadGameSettings();
     loadSavedGames();
