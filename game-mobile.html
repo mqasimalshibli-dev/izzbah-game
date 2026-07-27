@@ -6403,6 +6403,53 @@
     }
     :root[data-theme="dark"] .settings-account .sa-sub { color: #cdb488; }
     :root[data-theme="dark"] .settings-balance { color: #e6c775; }
+
+    /* ── Dark: admin + modal INNER surfaces ──────────────────────────────────
+       Every modal shell is .question-modal (already dark above); these are the
+       light rows/tiles/cards INSIDE them (admin menu, stats, announcements,
+       cat-filter, plans, feedback, contact, dup). The CMS #adminPanel keeps its
+       own always-dark design and is intentionally not touched here. */
+    :root[data-theme="dark"] .admin-choice-btn,
+    :root[data-theme="dark"] .ann-admin-row,
+    :root[data-theme="dark"] .catfilter-row,
+    :root[data-theme="dark"] .stats-tile,
+    :root[data-theme="dark"] .stats-bar-row,
+    :root[data-theme="dark"] .stats-reveal-chip,
+    :root[data-theme="dark"] .plan-card,
+    :root[data-theme="dark"] .fb-thread-row,
+    :root[data-theme="dark"] .contact-row,
+    :root[data-theme="dark"] .dup-summary,
+    :root[data-theme="dark"] .dup-q,
+    :root[data-theme="dark"] .fs-cat-opt,
+    :root[data-theme="dark"] .settings-close {
+      background: rgba(255, 255, 255, .05) !important;
+      border-color: var(--dk-line) !important;
+      color: var(--dk-text) !important;
+    }
+    :root[data-theme="dark"] .admin-choice-btn:hover,
+    :root[data-theme="dark"] .ann-admin-row:hover,
+    :root[data-theme="dark"] .catfilter-row:hover,
+    :root[data-theme="dark"] .fb-thread-row:hover,
+    :root[data-theme="dark"] .contact-row:hover,
+    :root[data-theme="dark"] .stats-reveal-chip:hover,
+    :root[data-theme="dark"] .settings-close:hover { background: rgba(255, 255, 255, .10) !important; }
+    :root[data-theme="dark"] .plan-card.plan-featured { background: rgba(230, 199, 117, .12) !important; border-color: #c99a3a !important; }
+    /* readable text on the newly-dark rows */
+    :root[data-theme="dark"] .admin-choice-name { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .admin-choice-sub { color: #cdb488 !important; }
+    :root[data-theme="dark"] .admin-choice-modal .preview-title { color: #f0b8ac !important; }
+    /* dashed light panels: import drop-zone + coach-admin add box */
+    :root[data-theme="dark"] .import-drop,
+    :root[data-theme="dark"] .stats-empty,
+    :root[data-theme="dark"] .coach-admin-add {
+      background: rgba(255, 255, 255, .04) !important; border-color: var(--dk-line) !important; color: var(--dk-text) !important;
+    }
+    /* Skeleton loaders tuned for the dark ground */
+    :root[data-theme="dark"] .sk { background: rgba(255, 255, 255, .08); }
+    :root[data-theme="dark"] .sk::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .14), transparent); }
+    :root[data-theme="dark"] .category.cat-skeleton { background: #2a1416 !important; border-color: var(--dk-line); }
+    :root[data-theme="dark"] .category.cat-skeleton .cat-sk-pill { background: rgba(255, 255, 255, .09); }
+    :root[data-theme="dark"] .gl-skeleton .sk { background: rgba(255, 255, 255, .09); }
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
@@ -10369,7 +10416,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.166";
+    const IZZBAH_BUILD = "2026-07-10.167";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
