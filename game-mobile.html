@@ -6003,6 +6003,17 @@
     }
     @media (prefers-reduced-motion: reduce) { .category.cat-skeleton::after { animation: none; } }
 
+    /* Game-library skeletons — shaped like the saved-game / featured-set cards
+       while «ألعابنا» waits on the cloud config. Reuses the .sk shimmer. */
+    .saved-game-card.gl-skeleton { cursor: default; pointer-events: none; display: flex; flex-direction: column; gap: 12px; }
+    .gl-skeleton .gl-sk-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .gl-skeleton .sk { background: #dcc9a4; }
+    .gl-skeleton .sk::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); }
+    .gl-skeleton .gl-sk-pill { width: 64px; height: 24px; border-radius: 999px; flex: none; }
+    .gl-skeleton .gl-sk-chips { display: flex; gap: 8px; }
+    .gl-skeleton .gl-sk-chip { width: 62px; height: 62px; border-radius: 12px; flex: none; }
+    .gl-skeleton .gl-sk-cta { height: 30px; width: 100%; border-radius: 10px; }
+
     /* Warmer empty states (community pool / no search match): an icon, a title,
        a gentle line, and a clear next step — instead of one flat sentence. */
     .cat-empty-rich {
@@ -10107,6 +10118,8 @@
       editorTarget: "custom",
       publishedCategories: [],
       communityLoaded: false, // false until the cloud answers → grid shows skeletons meanwhile
+      featuredLoaded: false,  // same, for the «ألعابنا» featured-set library
+      announcementsLoaded: false, // same, for the developer announcements feed
       isAdmin: false,
       isPremium: false,
       gamesAllowed: 0,     // allowance from the entitlement doc (future billing)
@@ -10131,7 +10144,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.162";
+    const IZZBAH_BUILD = "2026-07-10.163";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11422,6 +11435,7 @@
       });
       arr.sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name, "ar"));
       featuredSets = arr;
+      state.featuredLoaded = true; // the cloud answered — clear the skeletons
       if (state.gameLibraryMode === "our" && typeof renderGameLibrary === "function") renderGameLibrary();
     };
     function loadFeaturedSets() {
@@ -12469,6 +12483,17 @@
       return card.repeat(Math.max(1, n || 4))
         + '<span class="sr-only" role="status">جارٍ تحميل الفئات…</span>';
     }
+    // Skeleton stand-ins shaped like the saved-game / featured-set cards, shown
+    // while the «ألعابنا» library waits on the cloud config.
+    function gameSkeletonCards(n) {
+      const card = '<div class="saved-game-card gl-skeleton" aria-hidden="true">'
+        + '<div class="gl-sk-head"><span class="sk sk-line w45"></span><span class="sk gl-sk-pill"></span></div>'
+        + '<span class="sk sk-line w70"></span>'
+        + '<div class="gl-sk-chips"><span class="sk gl-sk-chip"></span><span class="sk gl-sk-chip"></span><span class="sk gl-sk-chip"></span></div>'
+        + '<span class="sk gl-sk-cta"></span></div>';
+      return card.repeat(Math.max(1, n || 2))
+        + '<span class="sr-only" role="status">جارٍ تحميل المجموعات…</span>';
+    }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
       renderCatPlaysStat(); // the per-device «الأكثر لعباً» pill
@@ -12810,6 +12835,13 @@
         // Only show sets that still have at least one available category.
         const usable = (featuredSets || []).filter(s => s.active && featuredSetCategories(s).length);
         if (!usable.length) {
+          if (UI_POLISH && !state.featuredLoaded) {
+            // Still waiting on the cloud config → skeleton cards, not a premature
+            // «no sets yet» that flips to content when the sets arrive.
+            $("#gameLibraryHint").textContent = "جارٍ تحميل مجموعات عِزْبَة…";
+            list.innerHTML = gameSkeletonCards(2);
+            return;
+          }
           $("#gameLibraryHint").textContent = "ألعابنا ستحتوي لاحقاً على فئات جاهزة من فريق التطوير.";
           list.innerHTML = `<div class="gl-empty"><svg viewBox="0 0 24 24" fill="none" stroke="#c2a35a" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></svg><p class="gl-empty-title">لا توجد ألعاب مختارة بعد</p><p class="gl-empty-sub">ستظهر الألعاب الجاهزة من <span class="brand-word">عِزْبَة</span> هنا قريباً.</p></div>`;
           return;
@@ -13965,8 +13997,10 @@
     }
     function openStatsModal() {
       statsSetStatus("", "");
+      // Show shimmer rows in each panel while the cloud aggregates load, instead
+      // of blank boxes; refreshStats() overwrites each with the real content.
       ["statsTiles", "statsAudience", "statsCats", "statsCommunity", "statsHealth", "statsSales", "statsSalesList", "statsPlayers", "statsPlay"]
-        .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
+        .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = UI_POLISH ? skeleton("line", 3) : ""; });
       const m = $("#statsModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
@@ -14047,11 +14081,13 @@
     // or collection isn't there yet, we just show none, never an error.
     function loadAnnouncements() {
       const bridge = window.IZZBAH && window.IZZBAH.listAnnouncements;
-      if (!bridge) { state.announcements = state.announcements || []; updateAnnounceBadge(); return Promise.resolve(); }
+      if (!bridge) { state.announcements = state.announcements || []; state.announcementsLoaded = true; updateAnnounceBadge(); return Promise.resolve(); }
+      const done = () => { state.announcementsLoaded = true; updateAnnounceBadge();
+        if (typeof reRenderOpenAnnouncements === "function") reRenderOpenAnnouncements(); };
       return bridge(false).then(list => {
         state.announcements = Array.isArray(list) ? list : [];
-        updateAnnounceBadge();
-      }).catch(() => { state.announcements = state.announcements || []; updateAnnounceBadge(); });
+        done();
+      }).catch(() => { state.announcements = state.announcements || []; done(); });
     }
     function updateAnnounceBadge() {
       const n = annUnreadCount();
@@ -14097,7 +14133,10 @@
         container.appendChild(card);
       });
       if ((!list || !list.length) && !inbox.length) {
-        container.innerHTML = '<div class="announce-empty">لا توجد إعلانات حالياً.</div>';
+        // Still fetching the public feed → shimmer rows, not a premature «none».
+        container.innerHTML = (UI_POLISH && withInbox && !state.announcementsLoaded)
+          ? skeleton("line", 3)
+          : '<div class="announce-empty">لا توجد إعلانات حالياً.</div>';
         return;
       }
       if (!list || !list.length) return;
@@ -14128,6 +14167,14 @@
       const m = $("#announceModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
     function closeAnnouncements() { const m = $("#announceModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    // If the announcements center is open when the cloud feed arrives, swap the
+    // loading skeletons for the real cards without the player reopening it.
+    function reRenderOpenAnnouncements() {
+      const m = $("#announceModal");
+      if (m && m.classList.contains("open")) {
+        renderAnnouncementCards($("#announceList"), state.announcements || [], true);
+      }
+    }
 
     // ---- New-announcement launch popup ----------------------------------
     // Once per launch (after sign-in), a brand-NEW announcement pops up on top
@@ -19171,13 +19218,19 @@
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
-    // Perceived-speed: the community grid shows shimmer skeletons until the
-    // cloud answers (applyCommunity flips communityLoaded). This fail-safe makes
+    // Perceived-speed: the cloud-backed lists (community grid, «ألعابنا»
+    // library, announcements feed) show shimmer skeletons until their cloud
+    // load answers and flips the matching *Loaded flag. This fail-safe makes
     // sure we never sit on skeletons forever if the cloud is slow/offline/absent.
     setTimeout(() => {
-      if (!state.communityLoaded) {
-        state.communityLoaded = true;
-        if (document.body.dataset.screen === "categories") renderCategories();
+      let changed = false;
+      ["communityLoaded", "featuredLoaded", "announcementsLoaded"].forEach(k => {
+        if (!state[k]) { state[k] = true; changed = true; }
+      });
+      if (changed) {
+        const scr = document.body.dataset.screen;
+        if (scr === "categories") renderCategories();
+        if (scr === "gameLibrary") renderGameLibrary();
       }
     }, 6000);
     // If the app was opened via a shared game link, jump straight to the
