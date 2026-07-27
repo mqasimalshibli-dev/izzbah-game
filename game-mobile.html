@@ -5125,17 +5125,21 @@
       display: inline-flex; align-items: center; gap: 8px; font: 800 16px 'Cairo', sans-serif !important; color: #9e1620 !important;
       background: linear-gradient(180deg, #fff8ea, #f5e6c6) !important; border: 1px solid rgba(196, 30, 42, .28) !important; border-radius: 14px !important;
       padding: 12px 24px !important; cursor: pointer; min-height: 0 !important;
-      box-shadow: 0 1px 0 #fff inset, 0 8px 18px -10px rgba(120, 40, 20, .4) !important; transition: transform .14s, box-shadow .14s;
+      /* Pressable 3D: a tan edge under the cream face; sinks on press. */
+      box-shadow: 0 5px 0 #d6b783, 0 1px 0 #fff inset, 0 8px 16px -10px rgba(120, 40, 20, .38) !important; transition: transform .12s, box-shadow .12s;
     }
-    #setup .setup-nav .ghost:hover { transform: translateY(-2px); box-shadow: 0 1px 0 #fff inset, 0 12px 22px -10px rgba(120, 40, 20, .5) !important; }
+    #setup .setup-nav .ghost:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #d6b783, 0 1px 0 #fff inset, 0 12px 22px -10px rgba(120, 40, 20, .48) !important; }
+    #setup .setup-nav .ghost:active { transform: translateY(4px); box-shadow: 0 1px 0 #d6b783, 0 1px 0 #fff inset, 0 3px 8px -5px rgba(120, 40, 20, .4) !important; }
     #setup .setup-nav .primary {
       display: inline-flex; align-items: center; gap: 10px; font: 800 17px 'Cairo', sans-serif !important; color: #fff7e6 !important;
       background: linear-gradient(180deg, #e0444a, #bb1d27 60%, #a3151f) !important; border: 1px solid #eac877 !important; border-radius: 16px !important;
       padding: 14px 32px !important; cursor: pointer; min-height: 0 !important;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 12px 26px -8px rgba(160, 20, 28, .5) !important;
-      transition: transform .14s, box-shadow .14s;
+      /* Pressable 3D: a dark-red edge (matches the --btn-edge family). */
+      box-shadow: 0 6px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 11px 22px -8px rgba(160, 20, 28, .45) !important;
+      transition: transform .12s, box-shadow .12s;
     }
-    #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .6) !important; }
+    #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .55) !important; }
+    #setup .setup-nav .primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 4px 10px -6px rgba(160, 20, 28, .4) !important; }
     /* head */
     #setup .setup-head { text-align: center; margin-top: 6px; } /* #8: less top air */
     #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Cairo', sans-serif; letter-spacing: .14em; }
@@ -10153,7 +10157,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.164";
+    const IZZBAH_BUILD = "2026-07-10.165";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
