@@ -89,6 +89,37 @@ try {
   check("a remote image holds the shimmer until it loads", media.remoteHasShim);
   check("an instant data: image never flashes the shimmer", !media.dataHasShim);
 
+  // ---- 5) game library «ألعابنا»: skeletons while featured sets load ----
+  const glib = await page.evaluate(() => {
+    window.IZZBAH.applyFeaturedSets({});   // clears featuredSets, flips featuredLoaded true
+    state.featuredLoaded = false;          // pretend the cloud hasn't answered yet
+    state.gameLibraryMode = "our";
+    showScreen("gameLibrary"); renderGameLibrary();
+    const loading = { sk: document.querySelectorAll("#gameLibraryList .gl-skeleton").length,
+      empty: !!document.querySelector("#gameLibraryList .gl-empty") };
+    const ids = officialCategoryPool().slice(0, 3).map(c => c.id);
+    window.IZZBAH.applyFeaturedSets({ s1: { name: "مجموعة تجريبية", cats: ids, active: true, order: 1 } });
+    const cards = document.querySelectorAll("#gameLibraryList .featured-set-card").length;
+    const stillSk = document.querySelectorAll("#gameLibraryList .gl-skeleton").length;
+    return { loading, cards, stillSk };
+  });
+  check("game library shows skeleton cards while featured sets load", glib.loading.sk >= 1 && !glib.loading.empty);
+  check("the cloud answer replaces skeletons with real set cards", glib.cards >= 1 && glib.stillSk === 0);
+
+  // ---- 6) announcements: skeleton while loading → empty message after ----
+  const ann = await page.evaluate(() => {
+    const c = document.getElementById("announceList");
+    state.announcementsLoaded = false; state.announcements = []; state.inbox = [];
+    renderAnnouncementCards(c, [], true);
+    const loading = !!c.querySelector(".sk-wrap");
+    state.announcementsLoaded = true;
+    renderAnnouncementCards(c, [], true);
+    const empty = !!c.querySelector(".announce-empty");
+    return { loading, empty };
+  });
+  check("announcements show a skeleton while the feed loads", ann.loading);
+  check("announcements fall back to the empty message once loaded", ann.empty);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
