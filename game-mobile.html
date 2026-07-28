@@ -6114,6 +6114,14 @@
     .coach-ok:active { transform: scale(.96); }
     .coach-skip { font: 700 11.5px 'Cairo', sans-serif; color: #8a7550; background: none; border: 0; cursor: pointer; text-decoration: underline; padding: 4px; }
     @media (prefers-reduced-motion: reduce) { .coach-card { animation: none; } }
+    /* The welcome screen's footer lives in a fixed full-height scroller (.wlc),
+       whose stacking context paints its legal links OVER the fixed coach popup
+       no matter how high the popup's z-index climbs. While a coach tip is up,
+       hide that footer so nothing bleeds through the card; it returns the moment
+       the tip is dismissed. (Only the welcome screen has this footer, so this is
+       a no-op everywhere else.) */
+    body.coach-open .wlc-foot,
+    body.coach-open .wlc-legal-links { visibility: hidden; }
 
     /* ── Admin editor for the coaching tips (التعليمات الإرشادية) ── */
     .coach-admin-modal { max-width: 660px; }
@@ -6555,6 +6563,15 @@
     :root[data-theme="dark"] .cat-filter-chip:hover { background: rgba(255, 255, 255, .10) !important; }
     :root[data-theme="dark"] .cat-filter-chip.active { background: linear-gradient(180deg, var(--red), #9e1c1c) !important; border-color: transparent !important; color: #fff !important; }
     :root[data-theme="dark"] .fs-cat-opt.on { background: rgba(230, 199, 117, .12) !important; border-color: #c99a3a !important; }
+    /* The floating coach/help popup must be an OPAQUE, elevated card — the
+       translucent island fill let it blend into the page and let whatever sat
+       behind it (e.g. the footer links) bleed through. Give it a solid dark
+       ground, a gold edge, and a deep shadow so it reads as a real popup. */
+    :root[data-theme="dark"] .coach-card {
+      background: linear-gradient(170deg, #3c1d21, #2a1316) !important;
+      border-color: #c99a3a !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .6) !important;
+    }
     /* success tints (fulfil / ok sync) */
     :root[data-theme="dark"] .prem-fulfil,
     :root[data-theme="dark"] .dup-sync.ok {
@@ -10551,7 +10568,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.174";
+    const IZZBAH_BUILD = "2026-07-10.175";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12153,6 +12170,7 @@
     let coachEl = null, coachArmTs = 0;
     function closeCoach() {
       if (coachEl) { coachEl.remove(); coachEl = null; }
+      document.body.classList.remove("coach-open");
       document.removeEventListener("pointerdown", coachAnyTap, true);
     }
     function coachAnyTap(e) {
@@ -12180,6 +12198,7 @@
       });
       document.body.appendChild(wrap);
       coachEl = wrap;
+      document.body.classList.add("coach-open");
       coachArmTs = Date.now() + 650;
       document.addEventListener("pointerdown", coachAnyTap, true);
     }
