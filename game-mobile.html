@@ -6529,6 +6529,18 @@
       background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; color: var(--dk-text) !important;
     }
     :root[data-theme="dark"] .stats-tile-sub { color: #cdb488 !important; }
+    /* Image-picker (صورة السؤال/الإجابة, team photos) is a cream #fff7e8 box —
+       a bright island in dark mode when empty. Darken the empty ground; the
+       gold «+»/label and any picked photo still sit on top unchanged. */
+    :root[data-theme="dark"] .image-picker {
+      background: #3a1a1d !important; color: #e0be6b !important; border-color: #c99a3a !important;
+    }
+    /* .media-item wraps each picker with a cream .72 panel + gold label — the
+       real bright box behind «صورة السؤال/الإجابة». Darken it to the island fill. */
+    :root[data-theme="dark"] .media-item {
+      background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important;
+    }
+    :root[data-theme="dark"] .file-note { color: #e0be6b !important; }
 
     /* ══ Dark: comprehensive light-island sweep (long tail) ══════════════════
        Every remaining light surface across the admin editors + player modals,
@@ -10568,7 +10580,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.175";
+    const IZZBAH_BUILD = "2026-07-10.176";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
