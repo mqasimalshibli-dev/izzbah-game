@@ -4551,6 +4551,27 @@
     .dup-summary { font: 800 15px 'Cairo', sans-serif; color: var(--dark); margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #f1e2bd; border: 1px solid #e0c97f; }
     .dup-summary.clean { background: #e7f4ec; border-color: #9fd3b4; color: #1f5237; }
     .dup-list { display: flex; flex-direction: column; gap: 10px; max-height: 58vh; overflow-y: auto; }
+    /* «صحة الأسئلة» question-health panel */
+    .qh-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
+    .qh-minplays { font: 700 13px 'Cairo', sans-serif; color: var(--dark); display: inline-flex; align-items: center; gap: 6px; }
+    .qh-minplays select { font: 700 13px 'Cairo', sans-serif; border: 1px solid #d9c9a5; border-radius: 8px; background: #fff; padding: 5px 8px; color: var(--dark); }
+    .qh-body { display: flex; flex-direction: column; gap: 16px; max-height: 52vh; overflow-y: auto; padding: 2px; }
+    .qh-section { display: flex; flex-direction: column; gap: 8px; }
+    .qh-h { margin: 0 0 2px; font: 800 15px 'Cairo', sans-serif; color: #8f1622; }
+    .qh-row { border: 1px solid rgba(140, 106, 46, .22); border-radius: 12px; padding: 9px 12px; background: #fbf4e4; }
+    .qh-q { font: 700 14px 'Cairo', sans-serif; color: var(--dark); line-height: 1.6; }
+    .qh-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+    .qh-cat { font: 700 11.5px 'Cairo', sans-serif; color: #6a5a2f; background: #f3e7d0; border-radius: 999px; padding: 2px 10px; }
+    .qh-val { font: 800 12.5px 'Cairo', sans-serif; color: #9a1c1c; }
+    .qh-plays { font: 700 11.5px 'Cairo', sans-serif; color: #a08a5f; margin-inline-start: auto; }
+    .qh-empty { text-align: center; color: #6a5a2f; font: 700 14px 'Cairo', sans-serif; padding: 24px 10px; line-height: 1.8; }
+    :root[data-theme="dark"] .qh-row { background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; }
+    :root[data-theme="dark"] .qh-q { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .qh-h { color: #f0a49c !important; }
+    :root[data-theme="dark"] .qh-cat { background: rgba(230, 199, 117, .14) !important; color: #e6c775 !important; }
+    :root[data-theme="dark"] .qh-val { color: #f2a89f !important; }
+    :root[data-theme="dark"] .qh-plays, :root[data-theme="dark"] .qh-empty, :root[data-theme="dark"] .qh-minplays { color: #cdb488 !important; }
+    :root[data-theme="dark"] .qh-minplays select { background: #3a1a1d !important; color: #f7ecd6 !important; border-color: var(--dk-line) !important; }
     .dup-group { border: 1px solid rgba(140, 106, 46, .25); border-radius: 12px; padding: 11px 13px; background: #fbf4e4; }
     .dup-group.conflict { border-color: #e0b84f; background: #fff6e0; }
     .dup-q { font: 800 15px 'Cairo', sans-serif; color: var(--dark); line-height: 1.6; }
@@ -7177,6 +7198,11 @@
             <span class="admin-choice-name">الإحصائيات</span>
             <span class="admin-choice-sub">الفئات الأكثر لعباً وعدد الألعاب</span>
           </button>
+          <button class="admin-choice-btn" id="adminChoiceQHealth" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🩺</span>
+            <span class="admin-choice-name">صحة الأسئلة</span>
+            <span class="admin-choice-sub">أصعب الأسئلة والأكثر تخطّياً من واقع اللعب</span>
+          </button>
           <button class="admin-choice-btn" id="adminChoiceAnnounce" type="button">
             <span class="admin-choice-ico" aria-hidden="true">📢</span>
             <span class="admin-choice-name">الإعلانات</span>
@@ -7215,6 +7241,30 @@
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="qHealthModal" aria-hidden="true">
+      <div class="question-modal qh-modal" role="dialog" aria-modal="true" aria-labelledby="qHealthTitle">
+        <h3 class="preview-title" id="qHealthTitle">🩺 صحة الأسئلة</h3>
+        <p class="import-help">من واقع اللعب الفعلي: أصعب الأسئلة، والأكثر تخطّياً (غالباً غير واضحة أو مكسورة)، والأسهل. راجعها وعدّل ما تحتاجه — هذه القائمة للاطّلاع فقط.</p>
+        <div class="qh-controls">
+          <label class="qh-minplays">أقل عدد مرّات لعب:
+            <select id="qhMinPlays">
+              <option value="1">١</option>
+              <option value="3" selected>٣</option>
+              <option value="5">٥</option>
+              <option value="10">١٠</option>
+            </select>
+          </label>
+          <button class="ghost qh-refresh" id="qhRefresh" type="button">↻ تحديث</button>
+        </div>
+        <div class="qh-body" id="qhBody"></div>
+        <div class="prem-status" id="qhStatus" aria-live="polite"></div>
+        <div class="actions">
+          <button class="danger qh-reset" id="qhReset" type="button">تصفير العدّادات</button>
+          <button class="ghost" id="qhClose" type="button">إغلاق</button>
         </div>
       </div>
     </div>
@@ -10639,7 +10689,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.178";
+    const IZZBAH_BUILD = "2026-07-10.179";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14509,6 +14559,96 @@
       m.setAttribute("aria-hidden", "true");
     }
 
+    // ---- Admin: «صحة الأسئلة» — question health from real play -------------
+    // Reads the aggregated per-question counters, reconstructs each question's
+    // text locally (the cloud only stores hashes), and ranks the hardest /
+    // most-skipped / easiest. Report-only: the owner edits questions by hand.
+    let qHealthData = null;
+    function qhSetStatus(msg, kind) {
+      const el = $("#qhStatus"); if (!el) return;
+      el.textContent = msg || ""; el.className = "prem-status" + (kind ? " " + kind : "");
+    }
+    function openQHealth() {
+      const m = $("#qHealthModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      loadQHealth();
+    }
+    function closeQHealth() {
+      const m = $("#qHealthModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+    }
+    function loadQHealth() {
+      const body = $("#qhBody"); if (body) body.innerHTML = "";
+      qhSetStatus("جارٍ التحميل…", "busy");
+      const load = window.IZZBAH && window.IZZBAH.loadQStats;
+      if (!load) { qhSetStatus("غير متاح — سجّل الدخول كمشرف وتأكّد من اتصالك.", "err"); return; }
+      load().then(docs => {
+        qHealthData = docs || [];
+        qhSetStatus("", "");
+        renderQHealth();
+      }).catch(err => {
+        qhSetStatus("تعذّر التحميل: " + ((err && (err.code || err.message)) || "خطأ"), "err");
+      });
+    }
+    // Pure render from cached data + the question index — testable offline.
+    function renderQHealth() {
+      const body = $("#qhBody"); if (!body) return;
+      const minPlays = Math.max(1, parseInt(($("#qhMinPlays") || {}).value, 10) || 3);
+      const merged = {};
+      (qHealthData || []).forEach(doc => {
+        const q = (doc && doc.q) ? doc.q : {};
+        Object.keys(q).forEach(key => {
+          const v = q[key] || {};
+          const m = merged[key] || (merged[key] = { n: 0, c: 0, s: 0, t: 0 });
+          m.n += Number(v.n) || 0; m.c += Number(v.c) || 0; m.s += Number(v.s) || 0; m.t += Number(v.t) || 0;
+        });
+      });
+      const index = allQuestionsIndex();
+      const rows = [];
+      Object.keys(merged).forEach(key => {
+        const known = index[key];
+        if (!known) return; // hash we can't map to a real question → ignore (junk-safe)
+        const m = merged[key];
+        if (m.n < minPlays) return;
+        rows.push({
+          text: known.text, cat: known.catName, n: m.n,
+          pctCorrect: m.n ? m.c / m.n : 0,
+          pctSkip: m.n ? m.s / m.n : 0,
+          avgSecs: m.c ? m.t / m.c : 0
+        });
+      });
+      if (!rows.length) {
+        body.innerHTML = `<div class="qh-empty">لا توجد بيانات كافية بعد — العبوا بضع ألعاب أولاً، أو قلّلوا «أقل عدد مرّات لعب».</div>`;
+        return;
+      }
+      const pct = x => toArabicDigits(Math.round(x * 100)) + "٪";
+      const secs = x => toArabicDigits(Math.round(x)) + " ث";
+      const rowHtml = (r, metric) => `<div class="qh-row">`
+        + `<div class="qh-q">${escapeHtml(r.text)}</div>`
+        + `<div class="qh-meta"><span class="qh-cat">${escapeHtml(r.cat)}</span>`
+        + `<span class="qh-val">${metric(r)}</span>`
+        + `<span class="qh-plays">${toArabicDigits(r.n)} لعبة</span></div></div>`;
+      const section = (title, ico, list, metric) => list.length
+        ? `<div class="qh-section"><h4 class="qh-h">${ico} ${title}</h4>${list.map(r => rowHtml(r, metric)).join("")}</div>` : "";
+      const hardest = rows.slice().sort((a, b) => a.pctCorrect - b.pctCorrect).slice(0, 10);
+      const skipped = rows.slice().filter(r => r.pctSkip > 0).sort((a, b) => b.pctSkip - a.pctSkip).slice(0, 10);
+      const easiest = rows.slice().sort((a, b) => b.pctCorrect - a.pctCorrect).slice(0, 8);
+      body.innerHTML =
+        section("أصعب الأسئلة", "🧗", hardest, r => `${pct(r.pctCorrect)} صح`)
+        + section("الأكثر تخطّياً", "🙈", skipped, r => `${pct(r.pctSkip)} تخطّي`)
+        + section("الأسهل", "✅", easiest, r => `${pct(r.pctCorrect)} صح · ${secs(r.avgSecs)}`);
+    }
+    function resetQHealth() {
+      const reset = window.IZZBAH && window.IZZBAH.resetQStats;
+      if (!reset) return;
+      if (!window.confirm("تصفير كل عدّادات صحة الأسئلة؟ لا يمكن التراجع.")) return;
+      qhSetStatus("جارٍ التصفير…", "busy");
+      reset().then(n => { qHealthData = []; qhSetStatus(`تم تصفير ${toArabicDigits(n || 0)} فئة ✓`, "ok"); renderQHealth(); })
+        .catch(err => qhSetStatus("تعذّر التصفير: " + ((err && (err.code || err.message)) || "خطأ"), "err"));
+    }
+    window.IZZBAH_TEST = window.IZZBAH_TEST || {};
+    window.IZZBAH_TEST.renderQHealth = function (docs) { qHealthData = docs || []; renderQHealth(); };
+
     // ---- Admin: usage insights (most-played categories, games played) ------
     function statsSetStatus(msg, kind) {
       const el = $("#statsStatus");
@@ -15665,6 +15805,67 @@
     // duration, lifeline usage, answered/no-answer split, answer times and the
     // credit type spent. Called once per game from renderResults, alongside the
     // credit spend, so it all stays a single cheap Firestore write.
+    // A stable, compact key for a question — a 53-bit text hash (cyrb53) in
+    // base36. Text-based so it's identical on every device without needing IDs
+    // on the built-in banks; the cloud only ever stores this hash + counters
+    // (no question text leaves the device), and the admin panel reconstructs
+    // the text locally by hashing the known banks.
+    function qHash(str) {
+      str = String(str == null ? "" : str);
+      let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+      for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+    }
+    // hash → { text, catId, catName } across every known question (built-in
+    // banks + cloud/community/custom). Built lazily for the admin health panel.
+    function allQuestionsIndex() {
+      const idx = {};
+      const nameFor = id => { const c = categoryById(id); return c && c.name ? c.name : id; };
+      // Built-in banks store each question as an ARRAY [q, a, distractors, img]
+      // (the served text is qa[0], verbatim — matches what the capture hashes).
+      // Cloud/community/custom categories store {q, a} objects.
+      const textOf = qa => Array.isArray(qa) ? String(qa[0] || "") : (qa && qa.q ? String(qa.q) : "");
+      try {
+        Object.keys(builtinQuestionBanks).forEach(catId => {
+          const bank = builtinQuestionBanks[catId] || {};
+          Object.keys(bank).forEach(tier => {
+            const list = bank[tier];
+            if (!Array.isArray(list)) return;
+            list.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, catId, catName: nameFor(catId) }; });
+          });
+        });
+      } catch (e) {}
+      try {
+        allCategories().forEach(cat => {
+          if (!cat || !Array.isArray(cat.questions)) return;
+          cat.questions.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, catId: cat.id, catName: cat.name || cat.id }; });
+        });
+      } catch (e) {}
+      return idx;
+    }
+    // Per-question outcomes toward «صحة الأسئلة»: for each question this game,
+    // send its hash + whether it was answered / skipped + the answer time. The
+    // bridge shards by category so each cloud doc stays small. Report-only data —
+    // it tells the owner which questions are hardest / most-skipped / fastest.
+    function recordQuestionHealth() {
+      try {
+        if (!window.IZZBAH || !window.IZZBAH.recordQuestionStats) return;
+        const items = (state.history || []).map(h => ({
+          catId: h.catId || "",
+          key: qHash(h.question || ""),
+          correct: typeof h.winnerIndex === "number",
+          secs: (typeof h.seconds === "number" && h.seconds >= 0) ? Math.min(600, h.seconds) : 0
+        })).filter(it => it.catId && it.key);
+        if (items.length) window.IZZBAH.recordQuestionStats(items);
+      } catch (e) {}
+    }
+
     function recordGameStats(credit) {
       try {
         if (!window.IZZBAH || !window.IZZBAH.recordGamePlay) return;
@@ -15693,6 +15894,8 @@
         // Per-player play record (signed-in players): powers the new-vs-returning
         // audience view. One tiny doc per player, +1 per finished game.
         if (window.IZZBAH.recordPlayerPlay) window.IZZBAH.recordPlayerPlay();
+        // Per-question health (hardest / most-skipped / fastest) for the owner.
+        recordQuestionHealth();
       } catch (e) {}
     }
 
@@ -18407,6 +18610,7 @@
       if (!state.history) state.history = [];
       state.history.push({
         category: active.cat && active.cat.name ? active.cat.name : "",
+        catId: active.cat && active.cat.id ? active.cat.id : "",
         points: active.q ? questionReward(active.cat, active.q) : 0,
         question: active.q && active.q.q ? active.q.q : "",
         answer: active.q && active.q.a ? active.q.a : "",
@@ -19261,6 +19465,12 @@
     $("#adminChoiceContent").addEventListener("click", () => { closeAdminChoice(); openAdminPanel(); });
     $("#adminChoiceSubs").addEventListener("click", () => { closeAdminChoice(); openPremiumModal(); });
     $("#adminChoiceStats").addEventListener("click", () => { closeAdminChoice(); openStatsModal(); });
+    $("#adminChoiceQHealth").addEventListener("click", () => { closeAdminChoice(); openQHealth(); });
+    $("#qhClose").addEventListener("click", closeQHealth);
+    $("#qhRefresh").addEventListener("click", loadQHealth);
+    $("#qhMinPlays").addEventListener("change", renderQHealth);
+    $("#qhReset").addEventListener("click", resetQHealth);
+    $("#qHealthModal").addEventListener("click", event => { if (event.target.id === "qHealthModal") closeQHealth(); });
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
@@ -20787,6 +20997,61 @@
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             return db.collection("stats").doc("global").get()
               .then(doc => (doc.exists ? (doc.data() || {}) : {}));
+          };
+          // Per-question health (صحة الأسئلة). Sharded by category so each doc
+          // stays small; each finished game merges +1 into q.<hash>.{n, c|s, t}
+          // for every question it served. Same soft-counter trust model as
+          // stats/global (signed-in write, admin read) — the cloud stores only
+          // hashes + counts, never the question text.
+          let lastQStatsWrite = 0;
+          window.IZZBAH.recordQuestionStats = function (items) {
+            if (!currentUser || !db || !Array.isArray(items) || !items.length) return Promise.resolve(false);
+            const nowMs = Date.now();
+            if (nowMs - lastQStatsWrite < 3000) return Promise.resolve(false);
+            lastQStatsWrite = nowMs;
+            const inc = n => firebase.firestore.FieldValue.increment(n);
+            const secs = v => Math.min(600, Math.max(0, Math.floor(Number(v) || 0)));
+            const byCat = {};
+            items.slice(0, 120).forEach(it => {
+              const cat = String(it.catId || "").slice(0, 80);
+              const key = String(it.key || "").slice(0, 16);
+              if (!cat || !key) return;
+              (byCat[cat] = byCat[cat] || {})[key] = it;
+            });
+            const writes = Object.keys(byCat).slice(0, 8).map(cat => {
+              const qmap = {};
+              Object.keys(byCat[cat]).slice(0, 40).forEach(key => {
+                const it = byCat[cat][key];
+                qmap[key] = { n: inc(1), t: inc(secs(it.secs)) };
+                if (it.correct) qmap[key].c = inc(1); else qmap[key].s = inc(1);
+              });
+              return db.collection("qstats").doc(cat).set(
+                { q: qmap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            });
+            return Promise.all(writes).then(() => true)
+              .catch(e => { console.warn("record question stats failed", e && (e.code || e)); return false; });
+          };
+          // Admin-only: read every question-health doc for the «صحة الأسئلة» panel.
+          window.IZZBAH.loadQStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("qstats").get().then(snap =>
+              snap.docs.map(d => ({ catId: d.id, q: (d.data() || {}).q || {} })));
+          };
+          // Admin-only: wipe every question-health counter (fresh start), in
+          // 450-op batches. Play stats, sales and codes live elsewhere.
+          window.IZZBAH.resetQStats = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("qstats").limit(5000).get().then(snap => {
+              const docs = snap.docs;
+              if (!docs.length) return 0;
+              const chunks = [];
+              for (let i = 0; i < docs.length; i += 450) chunks.push(docs.slice(i, i + 450));
+              return chunks.reduce((pr, chunk) => pr.then(() => {
+                const batch = db.batch();
+                chunk.forEach(d => batch.delete(d.ref));
+                return batch.commit();
+              }), Promise.resolve()).then(() => docs.length);
+            });
           };
           // Admin-only: wipe the play counters and start fresh (e.g. clearing
           // test-period numbers at launch). Deleting the doc is a clean zero —
