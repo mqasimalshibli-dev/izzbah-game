@@ -6512,6 +6512,10 @@
     :root[data-theme="dark"] .contact-row .contact-label { color: #f6ead2 !important; }
     :root[data-theme="dark"] .ann-admin-sub,
     :root[data-theme="dark"] .ann-card-date { color: #cdb488 !important; }
+    /* Announcement BODY text carried its own dark ink (#3a2c18) which the
+       .ann-card colour override can't reach — recolour it for dark so the
+       message reads clearly instead of dark-on-dark. */
+    :root[data-theme="dark"] .ann-card-body { color: #ecdfc6 !important; }
     /* Image-fetcher option boxes (light card + dark label → faded in dark) */
     :root[data-theme="dark"] .fetchimg-opt {
       background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; color: var(--dk-text) !important;
@@ -10547,7 +10551,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.173";
+    const IZZBAH_BUILD = "2026-07-10.174";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
