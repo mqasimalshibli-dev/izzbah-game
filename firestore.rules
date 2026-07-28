@@ -266,6 +266,27 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---- Per-question health (صحة الأسئلة) ---------------------------------
+    // One doc per category (qstats/{catId}) holding a `q` map of per-question
+    // counters (hash -> {n, c|s, t}) merged with FieldValue.increment. Same
+    // soft-counter trust model as stats/global: any signed-in player may
+    // increment (so the tally works for everyone), reads are admin-only, and
+    // the write is field-locked to `q` + `updatedAt` so the doc can't be used
+    // as free arbitrary storage. Magnitudes stay client-bounded; App Check
+    // enforcement is the defense against a pure write-flood. The admin panel
+    // ignores any question hash it can't map to a real question, so junk keys
+    // never surface — and «تصفير» wipes the counters.
+    function validQStatsKeys(ks) {
+      return ks.hasOnly(['q', 'updatedAt']);
+    }
+    match /qstats/{catId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && validQStatsKeys(request.resource.data.keys());
+      allow update: if isSignedIn()
+        && validQStatsKeys(request.resource.data.diff(resource.data).affectedKeys());
+      allow delete: if isAdmin();
+    }
+
     // ---- Community-submission throttle (anti-spam) -------------------------
     // A per-member marker holding the timestamp of their last NEW community
     // submission. A submission batches a write here alongside the new category;
