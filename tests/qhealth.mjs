@@ -1,7 +1,10 @@
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT=8401;
-const srv=spawn("python3",["-m","http.server",String(PORT)],{cwd:"/home/user/izzbah-game",stdio:"ignore"});
+const srv=spawn("python3",["-m","http.server",String(PORT)],{cwd:ROOT,stdio:"ignore"});
 await new Promise(r=>setTimeout(r,1200));
 const b=await chromium.launch({executablePath:process.env.IZZBAH_CHROMIUM});
 const checks=[]; const ck=(n,ok)=>{checks.push(!!ok);console.log((ok?"PASS":"FAIL")+"  "+n);};
