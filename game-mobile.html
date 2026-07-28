@@ -10580,7 +10580,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.176";
+    const IZZBAH_BUILD = "2026-07-10.177";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18617,59 +18617,100 @@
       const fontsReady = (document.fonts && document.fonts.ready)
         ? Promise.resolve(document.fonts.ready).catch(() => {})
         : Promise.resolve();
+      // Small gold crown drawn above the winner's medal (no emoji, so the card
+      // looks identical on every device).
+      const drawCrown = (c, cx, baseY, s, col) => {
+        c.save(); c.fillStyle = col;
+        const w = s, h = s * 0.72, x = cx - w / 2, y = baseY - h;
+        c.beginPath();
+        c.moveTo(x, y + h); c.lineTo(x, y + h * 0.35);
+        c.lineTo(x + w * 0.25, y + h * 0.62); c.lineTo(x + w * 0.5, y + h * 0.12);
+        c.lineTo(x + w * 0.75, y + h * 0.62); c.lineTo(x + w, y + h * 0.35);
+        c.lineTo(x + w, y + h); c.closePath(); c.fill();
+        c.restore();
+      };
       const logo = new Image();
       const logoReady = new Promise(res => { logo.onload = () => res(true); logo.onerror = () => res(false); });
-      logo.src = (document.querySelector(".mini-brand-logo") || {}).src || "";
+      logo.src = "assets/brand/izzbah-mark.png"; // tent + campfire, transparent
       return Promise.all([fontsReady, logoReady]).then(results => {
         const logoOk = results[1];
-        const bg = ctx.createRadialGradient(W / 2, 480, 90, W / 2, 560, 980);
-        bg.addColorStop(0, "#B4241F"); bg.addColorStop(.55, "#9E1C1C"); bg.addColorStop(1, "#5E0F0E");
+        // ── Ground: deep maroon radial with depth (matches the promo look) ──
+        const bg = ctx.createRadialGradient(W / 2, 430, 90, W / 2, 560, 1050);
+        bg.addColorStop(0, "#6D1418"); bg.addColorStop(.42, "#4A0E12");
+        bg.addColorStop(.74, "#2A080B"); bg.addColorStop(1, "#170608");
         ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = "rgba(232,180,90,.55)"; ctx.lineWidth = 4;
+        // Floating embers
+        ctx.save();
+        [[86, 150, 6], [210, 250, 4], [300, 120, 7], [430, 300, 5], [540, 190, 4],
+         [640, 400, 8], [770, 150, 5], [900, 260, 6], [980, 360, 4], [150, 520, 5],
+         [820, 540, 6], [500, 470, 5], [300, 640, 4], [720, 660, 5]].forEach(e => {
+          ctx.beginPath(); ctx.arc(e[0], e[1], e[2], 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(240,190,90,.5)"; ctx.shadowColor = "rgba(240,190,90,.7)"; ctx.shadowBlur = 12; ctx.fill();
+        });
+        ctx.restore();
+        // Gold frame
+        ctx.strokeStyle = "rgba(232,180,90,.5)"; ctx.lineWidth = 4;
         rr(26, 26, W - 52, H - 52, 34); ctx.stroke();
-        // Tent + calligraphic عزبة lockup (transparent SVG already in the page)
-        if (logoOk) { const lw = 430, lh = lw * 300 / 380; ctx.drawImage(logo, (W - lw) / 2, 58, lw, lh); }
-        ctx.direction = "rtl";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#E8B45A";
-        ctx.font = "600 34px 'Cairo', sans-serif";
-        ctx.fillText("لعبة أسئلة جماعية", W / 2, 470);
+        // Campfire glow behind the tent
+        const glow = ctx.createRadialGradient(W / 2, 250, 10, W / 2, 250, 220);
+        glow.addColorStop(0, "rgba(255,180,70,.55)"); glow.addColorStop(.5, "rgba(255,150,50,.16)"); glow.addColorStop(1, "rgba(255,150,50,0)");
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(W / 2, 250, 220, 0, Math.PI * 2); ctx.fill();
+        // Tent + campfire lockup (transparent PNG)
+        if (logoOk) {
+          const lw = 460, lh = lw * logo.height / (logo.width || 1);
+          ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 34; ctx.shadowOffsetY = 16;
+          ctx.drawImage(logo, (W - lw) / 2, 100, lw, lh); ctx.restore();
+        }
+        ctx.direction = "rtl"; ctx.textAlign = "center";
+        // عِزبة wordmark
+        ctx.fillStyle = "#F4E8CF";
+        ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+        ctx.font = "700 150px 'Aref Ruqaa', serif";
+        ctx.fillText("عِزبة", W / 2, 452);
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        // Tagline
+        ctx.fillStyle = "#E8B45A"; ctx.font = "600 34px 'Cairo', sans-serif";
+        ctx.fillText("لعبة أسئلة جماعية", W / 2, 526);
         // Headline
         const top = snap[0], second = snap[1];
         const isDraw = top && second && top.score === second.score;
-        ctx.fillStyle = "#FBF3DD";
-        ctx.font = "700 52px 'Cairo', sans-serif";
-        ctx.fillText(isDraw ? "تعادل!" : (top ? `فاز ${top.name}!` : "النتائج النهائية"), W / 2, 560);
-        // Standings rows
+        ctx.fillStyle = "#FBF3DD"; ctx.font = "800 54px 'Cairo', sans-serif";
+        ctx.fillText(isDraw ? "تعادل!" : (top ? `فاز ${top.name}!` : "النتائج النهائية"), W / 2, 600);
+        // Standings rows — winner gets a gold row + crown, the rest stay cream.
         const medalFill = ["#E7B54B", "#C0C6CD", "#C68B4E"];
-        const rowW = 900, rowX = (W - rowW) / 2, rowH = 96, gap = 22;
-        const startY = 620;
+        const rowW = 900, rowX = (W - rowW) / 2, rowH = 96, gap = 20, startY = 656;
         snap.forEach((t, i) => {
           const y = startY + i * (rowH + gap);
-          ctx.fillStyle = "rgba(251,241,222,.97)";
-          rr(rowX, y, rowW, rowH, 20); ctx.fill();
-          if (i === 0 && !isDraw) { ctx.strokeStyle = "#F6D27A"; ctx.lineWidth = 5; rr(rowX, y, rowW, rowH, 20); ctx.stroke(); }
+          const isWin = i === 0 && !isDraw;
+          if (isWin) {
+            const g = ctx.createLinearGradient(0, y, 0, y + rowH);
+            g.addColorStop(0, "#F0D488"); g.addColorStop(.55, "#D9AD52"); g.addColorStop(1, "#C0902F");
+            ctx.fillStyle = g; rr(rowX, y, rowW, rowH, 22); ctx.fill();
+            ctx.strokeStyle = "#F6E1A6"; ctx.lineWidth = 3; rr(rowX, y, rowW, rowH, 22); ctx.stroke();
+          } else {
+            ctx.fillStyle = "rgba(251,241,222,.96)"; rr(rowX, y, rowW, rowH, 22); ctx.fill();
+          }
           // Rank medal (right side — the card reads right-to-left)
           const cx = rowX + rowW - 58, cy = y + rowH / 2;
           ctx.beginPath(); ctx.arc(cx, cy, 30, 0, Math.PI * 2);
           ctx.fillStyle = medalFill[i] || "#b9a98c"; ctx.fill();
-          ctx.strokeStyle = "rgba(0,0,0,.15)"; ctx.lineWidth = 2; ctx.stroke();
-          ctx.fillStyle = "#fff"; ctx.font = "700 34px 'Lalezar', 'Cairo', sans-serif";
-          ctx.textBaseline = "middle";
+          ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.lineWidth = 2; ctx.stroke();
+          ctx.fillStyle = "#fff"; ctx.font = "700 34px 'Lalezar', 'Cairo', sans-serif"; ctx.textBaseline = "middle";
           ctx.fillText(String(i + 1), cx, cy + 2);
+          if (isWin) drawCrown(ctx, cx, y - 3, 40, "#F4D98C");
           // Team name (right-aligned beside the medal)
           ctx.textAlign = "right";
-          ctx.fillStyle = "#2f2417"; ctx.font = "700 40px 'Cairo', sans-serif";
-          ctx.fillText(String(t.name).slice(0, 22), rowX + rowW - 108, cy + 2);
+          ctx.fillStyle = isWin ? "#3a2408" : "#2f2417"; ctx.font = "700 40px 'Cairo', sans-serif";
+          ctx.fillText(String(t.name).slice(0, 20), rowX + rowW - 108, cy + 2);
           // Score (left edge)
           ctx.textAlign = "left";
-          ctx.fillStyle = i === 0 ? "#9a1c1c" : "#6a5a2f"; ctx.font = "400 52px 'Lalezar', 'Cairo', sans-serif";
+          ctx.fillStyle = isWin ? "#5a4410" : "#6a5a2f"; ctx.font = "400 52px 'Lalezar', 'Cairo', sans-serif";
           ctx.fillText(String(t.score), rowX + 34, cy + 4);
           ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
         });
         // Footer link
-        ctx.fillStyle = "#E8B45A"; ctx.font = "600 30px 'Cairo', sans-serif";
-        ctx.fillText("العب مجاناً — izzbah.com", W / 2, H - 70);
+        ctx.fillStyle = "#E8B45A"; ctx.font = "700 32px 'Cairo', sans-serif";
+        ctx.fillText("العب مجاناً — izzbah.com", W / 2, H - 66);
         // JPEG keeps the card ~10× smaller than PNG (no transparency needed),
         // which shares faster on mobile data.
         return new Promise((resolve, reject) =>
