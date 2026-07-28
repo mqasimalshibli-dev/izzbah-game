@@ -24,6 +24,57 @@
        dark-mode player never sees a flash of the light theme. loadTheme() later
        re-syncs state.theme + the theme-color meta. -->
   <script>try{if(localStorage.getItem("izzbah-theme-v1")==="dark"){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}</script>
+  <!-- Global safety net: registered FIRST (before any app code) so it catches
+       errors during boot too. An uncaught throw used to leave a frozen, silent
+       screen with no recovery and no telemetry; this reports every uncaught
+       error/rejection and, on a genuine crash, shows a recoverable overlay
+       (reload — progress is saved) instead of a dead page. It never fires on
+       the common benign async rejections (network/Firebase) and shows at most
+       once so it can't spam. See the app's track() for where errors are logged. -->
+  <script>
+  (function () {
+    var shown = false;
+    function report(kind, msg) {
+      try { if (typeof track === "function") track("js_error", { kind: kind, msg: String(msg == null ? "" : msg).slice(0, 180) }); } catch (e) {}
+      try { console.error("[izzbah] " + kind + ":", msg); } catch (e) {}
+    }
+    function showCrash() {
+      if (shown) return; shown = true;
+      try {
+        var o = document.createElement("div");
+        o.setAttribute("dir", "rtl"); o.id = "izzbahCrash";
+        o.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;text-align:center;font-family:'Cairo',sans-serif;background:linear-gradient(160deg,#2c0709,#160709);color:#f2e6cf";
+        o.innerHTML = '<div style="font-size:46px">🫤</div>'
+          + '<div style="font-weight:800;font-size:20px">صار خطأ غير متوقّع</div>'
+          + '<div style="font-weight:600;font-size:14px;max-width:320px;line-height:1.8;color:#cdb488">اللعبة واجهت مشكلة بسيطة. أعد التحميل للمتابعة — تقدّمك محفوظ.</div>';
+        var reload = document.createElement("button");
+        reload.textContent = "إعادة تحميل اللعبة";
+        reload.style.cssText = "font-family:'Cairo',sans-serif;font-weight:800;font-size:16px;color:#5a4410;background:linear-gradient(180deg,#f0d488,#c0902f);border:1px solid #f0d79a;border-radius:14px;padding:14px 30px;cursor:pointer;box-shadow:0 6px 0 #8a6a1c";
+        reload.onclick = function () { try { location.reload(); } catch (e) {} };
+        var cont = document.createElement("button");
+        cont.textContent = "متابعة";
+        cont.style.cssText = "font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;color:#cdb488;background:none;border:0;text-decoration:underline;cursor:pointer;padding:4px";
+        cont.onclick = function () { try { o.remove(); } catch (e) {} };
+        o.appendChild(reload); o.appendChild(cont);
+        (document.body || document.documentElement).appendChild(o);
+      } catch (e) {}
+    }
+    // Uncaught synchronous errors → report + recoverable overlay. Capture phase
+    // so resource-load errors bubble here too; those carry a target element, so
+    // filter them out (a broken image must never trigger a crash screen).
+    window.addEventListener("error", function (e) {
+      if (e && e.target && e.target !== window && e.target.nodeName) return;
+      report("error", (e && (e.message || (e.error && e.error.message))) || "error");
+      showCrash();
+    }, true);
+    // Unhandled promise rejections are usually benign (network/Firebase) — log
+    // and track them for visibility, but do NOT nuke a working UI over them.
+    window.addEventListener("unhandledrejection", function (e) {
+      var r = e && e.reason;
+      report("promise", (r && (r.message || r.code)) || r);
+    });
+  })();
+  </script>
   <meta name="description" content="عِزبة — لعبة أسئلة جماعية تجمع الربع في تحدٍّ واحد. +٣٠ فئة منوّعة وفئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، وأول لعبة مجانية. العبوها الليلة!">
   <link rel="canonical" href="https://izzbah.com/game-mobile.html">
   <meta property="og:type" content="website">
@@ -4888,6 +4939,10 @@
     .plan-tag { background: #9e1322; color: #fff; border-radius: 6px; padding: 1px 8px; font: 800 11px 'Cairo', sans-serif; margin-bottom: 2px; }
     .plans-contact { font: 700 13px 'Cairo', sans-serif; color: #6a5a2f; margin: 6px 0 8px; }
     .plans-contact a { color: #9a1c1c; font-weight: 800; text-decoration: none; direction: ltr; unicode-bidi: embed; }
+    .plans-fineprint { font: 600 11.5px/1.7 'Cairo', sans-serif; color: #8a7550; text-align: center; margin: 8px 4px 2px; opacity: .9; }
+    .plans-fineprint .wlc-legal-link { font: 700 11.5px 'Cairo', sans-serif; color: #9a1c1c; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+    :root[data-theme="dark"] .plans-fineprint { color: #cdb488 !important; }
+    :root[data-theme="dark"] .plans-fineprint .wlc-legal-link { color: #f0a49c !important; }
     .plans-redeem { justify-content: center; }
     .plans-redeem .redeem-label { color: #6a5a2f; }
     .wlc-webview-note {
@@ -7203,6 +7258,7 @@
         <p class="plans-sub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
         <div class="plans-grid" id="plansGrid"></div>
         <div class="plans-contact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
+        <p class="plans-fineprint">الأسعار نهائية بالريال العُماني · أول لعبة مجانية · الأكواد الرقمية غير قابلة للاسترجاع بعد التفعيل — <button type="button" class="wlc-legal-link" data-legal="terms">الشروط والاسترجاع</button></p>
         <div class="redeem-row plans-redeem">
           <span class="redeem-label">عندك كود؟</span>
           <input type="text" id="redeemInputPlans" class="redeem-input" placeholder="XXXX-XXXX" autocomplete="off" dir="ltr" />
@@ -7565,6 +7621,7 @@
             <ul>
               <li>عند تسجيل الدخول بحساب Google: بريدك الإلكتروني ومُعرّف حسابك لدى Google.</li>
               <li>بيانات اللعب: الفِرَق، الفئات التي تنشئها، الألعاب المحفوظة، وإعداداتك.</li>
+              <li>عند طلب باقة مدفوعة: بريدك الإلكتروني وتفاصيل الطلب (الباقة)، لإتمام الطلب وإرسال كود التفعيل إليك.</li>
               <li>لا نطلب ولا نُخزّن بيانات بطاقتك البنكية إطلاقاً.</li>
             </ul>
             <h5>أين تُخزَّن ولماذا</h5>
@@ -7591,8 +7648,10 @@
             <p>أنت مسؤول عن الحفاظ على حسابك وعن كل نشاط يتم من خلاله.</p>
             <h5>المحتوى الذي تُقدّمه (فئات المجتمع)</h5>
             <p>يبقى المحتوى الذي ترفعه ملكاً لك، وتمنحنا الحق في عرضه ومراجعته وتعديله وحذفه. أنت تُقِرّ بأن لديك الحق في نشره وأنه لا ينتهك حقوق أي طرف. ونحتفظ بحق مراجعة أي محتوى وإزالته دون إشعار مسبق.</p>
-            <h5>الاشتراكات والمدفوعات</h5>
-            <p>قد تتطلّب بعض الميزات مستقبلاً اشتراكاً مدفوعاً. ستُعرَض كل التفاصيل (السعر، مدة الاشتراك، التجديد التلقائي، وكيفية الإلغاء) قبل إتمام أي عملية شراء. تتم المدفوعات عبر متاجر التطبيقات أو مزوّد دفع موثوق، ولا نطّلع على بيانات بطاقتك.</p>
+            <h5>الباقات والمدفوعات</h5>
+            <p>أول لعبة مجانية. بعدها تتوفّر باقات مدفوعة (ألعاب إضافية)، ويظهر سعر كل باقة ومحتواها بوضوح قبل الطلب. الأسعار نهائية بالريال العُماني. عند طلب باقة يصلك بريد تأكيد فيه طريقة الدفع، وبعد إتمام الدفع يصلك <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
+            <h5>الاسترجاع والإلغاء</h5>
+            <p>كود التفعيل منتَج رقمي؛ بعد إرساله أو تفعيله يكون <b>غير قابل للاسترجاع</b>. ومع ذلك، إذا دفعتَ ولم يصلك كود صالح، أو حُصّلت منك قيمة بالخطأ أو مرّتين، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر (إعادة إرسال الكود أو ردّ المبلغ). ولك أن تُلغي أي طلب لم تدفع قيمته بعد بمراسلتنا.</p>
             <h5>الملكية الفكرية</h5>
             <p>اسم «عِزبة» وشعارها وتصميمها ومحتواها الأصلي مملوكة لنا، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
             <h5>إخلاء الضمان وحدود المسؤولية</h5>
@@ -10580,7 +10639,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.177";
+    const IZZBAH_BUILD = "2026-07-10.178";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15862,18 +15921,25 @@
       const packLine = o.premium
         ? "اشتراك مفتوح — لعب غير محدود"
         : `${toArabicDigits(o.games)} ${o.games === 1 ? "لعبة" : "ألعاب"} كاملة`;
-      const subject = `تأكيد طلبك — ${o.pack} | لعبة عِزبة`;
+      // Order reference + date turn this confirmation into a lightweight receipt
+      // (something the buyer can quote if there's ever a payment issue).
+      const ref = "IZ-" + String(Date.now()).slice(-8);
+      const now = new Date();
+      const date = now.getFullYear() + "/" + String(now.getMonth() + 1).padStart(2, "0") + "/" + String(now.getDate()).padStart(2, "0");
+      const subject = `تأكيد طلبك ${ref} — ${o.pack} | لعبة عِزبة`;
       const body = [
         "مرحباً،",
         "",
         "شكراً لاختيارك لعبة عِزبة! تم استلام طلبك، وتجدون أدناه تفاصيله وخطوات إتمامه.",
         "",
         line,
-        "📋 ملخص الطلب",
+        "📋 ملخص الطلب (إيصال)",
         line,
+        `• رقم الطلب: ${ref}`,
+        `• التاريخ: ${date}`,
         `• الباقة: ${o.pack}`,
         `• المحتوى: ${packLine}`,
-        "• السعر: (أكمل السعر قبل الإرسال)",
+        "• السعر: (أكمل السعر قبل الإرسال) — بالريال العُماني، السعر نهائي",
         "",
         line,
         "💳 طريقة الدفع",
@@ -15889,6 +15955,9 @@
         "١. افتحوا اللعبة وسجّلوا الدخول بنفس حساب Google الذي أرسلتم به الطلب.",
         "٢. من شاشة «الألعاب» أو «الإعدادات»، اكتبوا الكود في خانة «عندك كود؟».",
         "٣. اضغطوا «تفعيل» — يُضاف الرصيد إلى حسابكم فوراً.",
+        "",
+        line,
+        "سياسة الاسترجاع: كود التفعيل منتَج رقمي غير قابل للاسترجاع بعد إرساله أو تفعيله. إذا واجهتم أي مشكلة في الدفع أو الكود، راسلونا خلال ٧ أيام وسنساعدكم.",
         "",
         "رابط اللعبة: https://izzbah.com/",
         "",
