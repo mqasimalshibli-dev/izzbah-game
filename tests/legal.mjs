@@ -64,9 +64,9 @@ try {
   await page.waitForTimeout(100);
   const onTerms = await page.evaluate(() => {
     const d = document.querySelector('#legalModal .legal-doc[data-legal-doc="terms"]');
-    return d.classList.contains("active") && d.textContent.includes("الاشتراكات");
+    return d.classList.contains("active") && d.textContent.includes("المدفوعات") && d.textContent.includes("الاسترجاع");
   });
-  check("tabs switch documents (terms shows subscription section)", onTerms);
+  check("tabs switch documents (terms shows payments + refund sections)", onTerms);
   await page.evaluate(() => [...document.querySelectorAll("#legalModal .legal-tab")].find(t => t.dataset.legalTab === "notices").click());
   await page.waitForTimeout(100);
   const onNotices = await page.evaluate(() => document.querySelector('#legalModal .legal-doc[data-legal-doc="notices"]').classList.contains("active"));
