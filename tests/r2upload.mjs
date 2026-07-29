@@ -181,6 +181,49 @@ try {
   });
   check("pasting a TRIMMED media URL is accepted (keeps the #t= clip range)", paste.got === paste.url);
 
+  // ---- the PUT must use the SERVER's content type, not the file's claim ----
+  // (the function signs the URL with a type derived from the extension, so a
+  // mismatched header would fail the signature — and would let an upload be
+  // served back as an arbitrary type from the public bucket)
+  const serverType = await page.evaluate(async () => {
+    let sent = null;
+    window.firebase = { functions: () => ({ httpsCallable: () => () => Promise.resolve({
+      data: { uploadUrl: "https://up/x", publicUrl: "https://pub/x.mp4", contentType: "video/mp4" } }) }) };
+    const RealXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = class {
+      constructor() { this.upload = {}; this.status = 0; }
+      open() {} setRequestHeader(k, v) { if (/content-type/i.test(k)) sent = v; }
+      send() { this.status = 200; if (this.onload) this.onload(); }
+    };
+    // a file LYING about its type — the server's answer must win
+    await window.IZZBAH_TEST.uploadMediaToCloud(new File(["x"], "c.mp4", { type: "text/html" }), () => {});
+    window.XMLHttpRequest = RealXHR;
+    return sent;
+  });
+  check("the upload PUT uses the server-declared content type, not the file's", serverType === "video/mp4");
+
+  // ---- the seen tracker stays inside its byte budget (cloud 1 MiB guard) ----
+  const budget = await page.evaluate(() => {
+    state.seen = {};
+    // 40 categories x 400 sigs — far past the budget
+    for (let c = 0; c < 40; c++) {
+      state.seen["cat" + c] = Array.from({ length: 400 }, (_, i) => "sig" + c + "_" + i);
+    }
+    const before = JSON.stringify(state.seen).length;
+    saveSeen();
+    const stored = localStorage.getItem("izzbah-seen-v1") || "";
+    const parsed = JSON.parse(stored);
+    return {
+      before, after: stored.length,
+      cats: Object.keys(parsed).length,
+      keptNewest: (parsed.cat0 || []).slice(-1)[0], // newest entries survive
+    };
+  });
+  check(`the seen tracker is trimmed to its budget (${budget.before} → ${budget.after} bytes)`,
+    budget.after <= 120000 && budget.before > 120000);
+  check("trimming keeps every category and drops only the OLDEST entries",
+    budget.cats === 40 && budget.keptNewest === "sig0_399");
+
   // ---- odd voice-note extensions get normalized to a playable one ----------
   const norm = await page.evaluate(() => {
     const f = window.IZZBAH_TEST.cloudSafeFilename;

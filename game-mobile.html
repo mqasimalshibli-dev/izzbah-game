@@ -10474,8 +10474,30 @@
       try { const s = JSON.parse(localStorage.getItem(seenKey)); state.seen = (s && typeof s === "object") ? s : {}; }
       catch (e) { state.seen = {}; }
     }
+    // The tracker rides along in the cloud blob (users/{uid}.data), which
+    // Firestore caps at 1 MiB — so keep it inside a byte budget instead of
+    // letting it grow unbounded across many categories. When it's over, the
+    // OLDEST signatures in the BIGGEST categories are dropped first: exactly
+    // the entries pickUnseen would have recycled next anyway.
+    const SEEN_BUDGET = 120000;
+    function trimSeenToBudget() {
+      const map = state.seen || {};
+      let json = JSON.stringify(map);
+      if (json.length <= SEEN_BUDGET) return json;
+      for (let guard = 0; guard < 200 && json.length > SEEN_BUDGET; guard++) {
+        let biggest = null, biggestLen = 0;
+        for (const k of Object.keys(map)) {
+          const n = (map[k] || []).length;
+          if (n > biggestLen) { biggestLen = n; biggest = k; }
+        }
+        if (!biggest || biggestLen <= 20) break; // nothing meaningful left to trim
+        map[biggest].splice(0, Math.max(1, Math.ceil(biggestLen * 0.2)));
+        json = JSON.stringify(map);
+      }
+      return json;
+    }
     function saveSeen() {
-      try { localStorage.setItem(seenKey, JSON.stringify(state.seen || {})); } catch (e) {}
+      try { localStorage.setItem(seenKey, trimSeenToBudget()); } catch (e) {}
     }
     // Append (or, with bump, move to the end of) the category's seen list.
     // Returns true when the list changed — the caller batches the save.
@@ -10486,7 +10508,7 @@
       const i = list.indexOf(sig);
       if (i === -1) {
         list.push(sig);
-        if (list.length > 800) list.splice(0, list.length - 800); // sanity cap
+        if (list.length > 400) list.splice(0, list.length - 400); // per-category cap
         return true;
       }
       if (bump && i !== list.length - 1) { list.splice(i, 1); list.push(sig); return true; }
@@ -10791,7 +10813,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.190";
+    const IZZBAH_BUILD = "2026-07-10.191";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13030,10 +13052,14 @@
       const data = (res && res.data) || {};
       const uploadUrl = data.uploadUrl, publicUrl = data.publicUrl;
       if (!uploadUrl || !publicUrl) throw new Error("no-url");
+      // The PUT must carry the SAME Content-Type the URL was signed with. The
+      // function derives that from the extension (it doesn't trust ours), so
+      // send back exactly what it returned or the signature won't match.
+      const putType = data.contentType || file.type || "application/octet-stream";
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", uploadUrl, true);
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.setRequestHeader("Content-Type", putType);
         if (xhr.upload) xhr.upload.onprogress = (e) => {
           if (e.lengthComputable && typeof onProgress === "function") onProgress(e.loaded / e.total);
         };
@@ -20497,9 +20523,21 @@
         loadGameSettings(); loadSavedGames(); loadFreeGameState(); loadProgress(); loadSeen();
         renderTeamSetup(); renderGameLibrary(); renderCategories();
       }
+      // Firestore rejects a document over 1 MiB — and a rejected write means
+      // the player's PAID games silently stop syncing. Guard the blob: if it
+      // ever approaches the cap, drop the play-history tracker first. It only
+      // affects question freshness and rebuilds itself as games are played,
+      // whereas saved games and entitlements are irreplaceable.
+      const CLOUD_BUDGET = 700000;
       function cloudBlob() {
         const o = {};
         KEYS.forEach(k => { const v = localStorage.getItem(k); if (v != null) o[k] = v; });
+        try {
+          if (JSON.stringify(o).length > CLOUD_BUDGET && o["izzbah-seen-v1"]) {
+            delete o["izzbah-seen-v1"];
+            console.warn("izzbah: play history omitted from cloud sync (doc size guard)");
+          }
+        } catch (e) { /* stringify failure — push what we have */ }
         return o;
       }
       function schedulePush() {
