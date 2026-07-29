@@ -4507,6 +4507,28 @@
     .media-preview-stage audio { width: min(90%, 460px); }
     .media-preview-cap { font: 600 13px 'Cairo', sans-serif; color: #d9bd8a; }
 
+    /* ---- Media trim (clip start/end) modal ---- */
+    .trim-box { gap: 10px; }
+    .trim-head { font: 800 15px 'Cairo', sans-serif; color: var(--gold); text-align: center; }
+    .trim-readout { font: 700 14px 'Cairo', sans-serif; color: #f7ecd6; }
+    .trim-readout span { color: var(--gold); }
+    .trim-set-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .trim-set {
+      background: rgba(27, 58, 47, .9); color: #f7ecd6; border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 999px; font: 700 13px 'Cairo', sans-serif; padding: 7px 15px; cursor: pointer;
+    }
+    .trim-set:hover { background: rgba(27, 58, 47, 1); }
+    .trim-hint { font: 600 12px 'Cairo', sans-serif; color: #c9b183; text-align: center; max-width: 460px; }
+    .trim-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .trim-btn {
+      border: none; border-radius: 999px; font: 800 14px 'Cairo', sans-serif;
+      padding: 9px 20px; cursor: pointer; white-space: nowrap;
+    }
+    .trim-btn.primary { background: #b8862b; color: #23150a; box-shadow: 0 2px 8px rgba(0, 0, 0, .22); }
+    .trim-btn.primary:hover { background: #caa04b; }
+    .trim-btn.ghost { background: rgba(255, 255, 255, .1); color: #f7ecd6; }
+    .trim-btn.ghost:hover { background: rgba(255, 255, 255, .18); }
+
     /* ---- Bulk question import modal ---- */
     .import-modal { max-width: 620px; width: 94%; text-align: right; }
     .import-help { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--dark); }
@@ -7475,6 +7497,25 @@
         <button class="media-preview-close" id="mediaPreviewClose" type="button" aria-label="إغلاق">✕</button>
         <div class="media-preview-stage" id="mediaPreviewStage"></div>
         <div class="media-preview-cap" id="mediaPreviewCap"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="mediaTrimModal" aria-hidden="true">
+      <div class="media-preview-box trim-box" role="dialog" aria-modal="true" aria-label="قص المقطع">
+        <button class="media-preview-close" id="mediaTrimClose" type="button" aria-label="إغلاق">✕</button>
+        <div class="trim-head">✂️ قص المقطع — اختر البداية والنهاية</div>
+        <div class="media-preview-stage" id="mediaTrimStage"></div>
+        <div class="trim-readout">من <span id="trimFrom">0:00</span> إلى <span id="trimTo">0:00</span></div>
+        <div class="trim-set-row">
+          <button class="trim-set" id="trimSetStart" type="button">⏱️ تعيين البداية هنا</button>
+          <button class="trim-set" id="trimSetEnd" type="button">⏱️ تعيين النهاية هنا</button>
+        </div>
+        <div class="trim-hint">شغّل المقطع وأوقفه عند اللحظة المطلوبة، ثم اضغط «تعيين البداية/النهاية». أو ارفعه كاملاً.</div>
+        <div class="trim-actions">
+          <button class="trim-btn ghost" id="trimPreview" type="button">▶︎ معاينة الاختيار</button>
+          <button class="trim-btn primary" id="trimConfirm" type="button">✂️ قص وارفع</button>
+          <button class="trim-btn ghost" id="trimFull" type="button">ارفع كاملاً</button>
+        </div>
       </div>
     </div>
 
@@ -10719,7 +10760,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.186";
+    const IZZBAH_BUILD = "2026-07-10.187";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12738,10 +12779,33 @@
       if (!src) return "none";
       const m = /^data:(image|video|audio)\//i.exec(src);
       if (m) return m[1].toLowerCase();
-      const u = String(src).split("?")[0].toLowerCase();
+      const u = String(src).split("?")[0].split("#")[0].toLowerCase();
       if (/\.(mp4|webm|ogv|mov|m4v)$/.test(u)) return "video";
       if (/\.(mp3|wav|ogg|oga|m4a|aac|flac)$/.test(u)) return "audio";
       return "image";
+    }
+
+    // A clipped clip is stored as URL + a media fragment «#t=start,end» (seconds).
+    // Parse it, and enforce the range on a <video>/<audio> element so playback
+    // stays within the admin's chosen in/out points (start seek + stop at end).
+    function mediaFragment(src) {
+      const m = /#t=([\d.]*)(?:,([\d.]+))?$/.exec(String(src || ""));
+      if (!m || (!m[1] && !m[2])) return null;
+      const start = m[1] ? parseFloat(m[1]) : 0;
+      const end = m[2] ? parseFloat(m[2]) : Infinity;
+      return { start: isFinite(start) ? start : 0, end };
+    }
+    function applyClipRange(el, src) {
+      const f = mediaFragment(src);
+      if (!el || !f) return;
+      const seekStart = () => { try { el.currentTime = f.start; } catch (e) {} };
+      el.addEventListener("loadedmetadata", seekStart);
+      el.addEventListener("play", () => {
+        if (el.currentTime < f.start - 0.1 || (isFinite(f.end) && el.currentTime >= f.end - 0.02)) seekStart();
+      });
+      el.addEventListener("timeupdate", () => {
+        if (isFinite(f.end) && el.currentTime >= f.end) { try { el.pause(); } catch (e) {} }
+      });
     }
     // Show an image on the given <img>, or swap in a <video>/<audio> sibling for
     // other media. variant = "question" | "answer" (used only for sizing).
@@ -12772,6 +12836,7 @@
       el.setAttribute("data-media-alt", imgEl.id);
       el.src = src; el.controls = true; el.preload = "metadata"; el.playsInline = true;
       el.className = (variant === "answer" ? "a-media" : "q-media") + " media-" + kind + " visible";
+      applyClipRange(el, src);
       imgEl.insertAdjacentElement("afterend", el);
     }
     function stopQuestionMedia() {
@@ -12798,6 +12863,7 @@
           ? `<audio src="${escapeHtml(src)}" controls autoplay></audio>`
           : `<img src="${escapeHtml(src)}" alt="">`;
       if (cap) cap.textContent = caption || (kind === "video" ? "فيديو" : kind === "audio" ? "صوت" : "صورة");
+      if (kind === "video" || kind === "audio") applyClipRange(stage.querySelector("video, audio"), src);
       const m = $("#mediaPreviewModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
@@ -12811,6 +12877,82 @@
       const m = $("#mediaPreviewModal");
       m.classList.remove("open");
       m.setAttribute("aria-hidden", "true");
+    }
+
+    // ── Media trim: pick start/end for a video/voice clip before it uploads ──
+    // We DON'T re-encode (unreliable across formats in-browser); instead we store
+    // the chosen range as a «#t=start,end» fragment on the URL and the players
+    // honour it (applyClipRange). Instant, lossless, works for every format.
+    let trimCtx = null;
+    function fmtClock(s) {
+      s = Math.max(0, Math.round(s || 0));
+      const m = Math.floor(s / 60), ss = s % 60;
+      return m + ":" + (ss < 10 ? "0" : "") + ss;
+    }
+    function trimReadout() {
+      if (!trimCtx) return;
+      const from = $("#trimFrom"), to = $("#trimTo");
+      if (from) from.textContent = fmtClock(trimCtx.start);
+      if (to) to.textContent = fmtClock(isFinite(trimCtx.end) ? trimCtx.end : trimCtx.dur);
+    }
+    function openMediaTrim(file, onConfirm) {
+      const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
+      if (!modal || !stage) { onConfirm(null); return; } // no UI → just upload whole
+      const isVideo = /^video\//.test(file.type || "");
+      const url = URL.createObjectURL(file);
+      const el = document.createElement(isVideo ? "video" : "audio");
+      el.src = url; el.controls = true; el.playsInline = true; el.preload = "metadata";
+      stage.innerHTML = ""; stage.appendChild(el);
+      trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null };
+      el.addEventListener("loadedmetadata", () => {
+        trimCtx.dur = el.duration || 0; trimCtx.end = trimCtx.dur; trimReadout();
+      });
+      trimReadout();
+      modal.classList.add("open"); modal.setAttribute("aria-hidden", "false");
+    }
+    function closeMediaTrim() {
+      const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
+      if (trimCtx) { try { trimCtx.el.pause(); } catch (e) {} try { URL.revokeObjectURL(trimCtx.url); } catch (e) {} trimCtx = null; }
+      if (stage) stage.innerHTML = "";
+      if (modal) { modal.classList.remove("open"); modal.setAttribute("aria-hidden", "true"); }
+    }
+    function trimSetStart() {
+      if (!trimCtx) return;
+      trimCtx.start = trimCtx.el.currentTime || 0;
+      if (isFinite(trimCtx.end) && trimCtx.end <= trimCtx.start) trimCtx.end = trimCtx.dur;
+      trimReadout();
+    }
+    function trimSetEnd() {
+      if (!trimCtx) return;
+      const t = trimCtx.el.currentTime || 0;
+      if (t <= trimCtx.start + 0.2) { showToast("النهاية يجب أن تكون بعد البداية"); return; }
+      trimCtx.end = t; trimReadout();
+    }
+    function trimPreviewSel() {
+      if (!trimCtx) return;
+      const el = trimCtx.el, end = isFinite(trimCtx.end) ? trimCtx.end : trimCtx.dur;
+      try {
+        el.currentTime = trimCtx.start;
+        if (trimCtx.stopper) el.removeEventListener("timeupdate", trimCtx.stopper);
+        const stop = () => { if (el.currentTime >= end) { try { el.pause(); } catch (e) {} el.removeEventListener("timeupdate", stop); } };
+        trimCtx.stopper = stop; el.addEventListener("timeupdate", stop);
+        el.play();
+      } catch (e) {}
+    }
+    function trimFinish(useTrim) {
+      if (!trimCtx) return;
+      const { start, end, dur, onConfirm } = trimCtx;
+      let frag = null;
+      if (useTrim) {
+        const s = Math.max(0, start), e = Math.min(dur || Infinity, isFinite(end) ? end : dur);
+        const trimmed = s > 0.1 || (isFinite(dur) && dur > 0 && e < dur - 0.1);
+        if (trimmed) {
+          if (e - s < 0.3) { showToast("المقطع قصير جداً — اختر مدة أطول"); return; }
+          frag = "#t=" + s.toFixed(1) + "," + e.toFixed(1);
+        }
+      }
+      closeMediaTrim();
+      onConfirm(frag);
     }
 
     // Admin-only direct upload: ask the Cloud Function for a one-time presigned
@@ -12901,7 +13043,9 @@
       // progress overlay while it sends, then swaps in the clip. On success
       // onChange re-renders this picker, so no manual cleanup is needed.
       let uploading = false;
-      const cloudUpload = async (file) => {
+      // Upload `file` to R2 and attach the URL; `frag` is an optional «#t=a,b»
+      // clip range chosen in the trim modal. Progress shows as an overlay on box.
+      const performUpload = async (file, frag) => {
         if (uploading) return;
         uploading = true;
         picker.style.position = "relative";
@@ -12914,7 +13058,7 @@
           const url = await uploadMediaToCloud(file, (p) => {
             prog.textContent = "⏳ " + toArabicDigits(Math.round(p * 100)) + "٪";
           });
-          onChange(url);
+          onChange(frag ? url + frag : url);
         } catch (e) {
           const m = String((e && e.message) || "");
           const msg = /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
@@ -12927,17 +13071,20 @@
           uploading = false;
         }
       };
+      // Admin audio/video: open the trim modal first, then upload with the chosen
+      // clip range (or the whole thing).
+      const cloudUpload = (file) => openMediaTrim(file, (frag) => performUpload(file, frag));
 
       // take a File/Blob → attach it. Images compress to a data URL. For audio/
-      // video: admins upload to R2 (no cap, plays back as a normal URL); everyone
-      // else (or admins with the cloud unavailable) inlines it under the 1 MB cap.
+      // video: admins trim + upload to R2 (no cap, plays back as a normal URL);
+      // everyone else (or admins with the cloud unavailable) inlines under 1 MB.
       const handleFile = async (file) => {
         if (!file) return;
         const t = file.type || "";
         if (/^image\//.test(t)) { onChange(await fileToDataUrl(file, opts)); return; }
         if (allowMedia && /^(audio|video)\//.test(t)) {
           if (state.isAdmin && window.firebase && typeof firebase.functions === "function") {
-            await cloudUpload(file);
+            cloudUpload(file);
             return;
           }
           const dataUrl = await fileToRawDataUrl(file);
@@ -12996,24 +13143,9 @@
       if (!allowMedia) return picker;
 
       // Media pickers: the box IS the uploader — tap or drop a file and it
-      // attaches (admins: straight to R2; others: inline). A small "add by link"
-      // button underneath stays as the mobile-friendly way to attach an existing
-      // URL without re-uploading.
-      const wrap = document.createElement("div");
-      wrap.className = "media-picker-wrap";
-      wrap.appendChild(picker);
-
-      const linkBtn = document.createElement("button");
-      linkBtn.type = "button";
-      linkBtn.className = "media-link-btn";
-      linkBtn.textContent = "🔗 رابط فيديو/صوت";
-      linkBtn.title = "إضافة فيديو أو صوت من رابط مباشر (مثل رابط R2)";
-      linkBtn.addEventListener("click", () => {
-        const url = window.prompt("الصق رابط الفيديو أو الصوت المباشر:\n(مثال: https://pub-xxxx.r2.dev/clip.mp4)", "");
-        if (url != null) useMediaUrl(url);
-      });
-      wrap.appendChild(linkBtn);
-      return wrap;
+      // attaches (admins upload to R2 with a trim step; others inline). Pasting a
+      // media URL into the box still works; there is no separate link button.
+      return picker;
     }
 
     const teamAccentTones = [
@@ -14852,6 +14984,8 @@
     window.IZZBAH_TEST.renderQHealth = function (docs) { qHealthData = docs || []; renderQHealth(); };
     window.IZZBAH_TEST.uploadMediaToCloud = uploadMediaToCloud;
     window.IZZBAH_TEST.cloudSafeFilename = cloudSafeFilename;
+    window.IZZBAH_TEST.mediaFragment = mediaFragment;
+    window.IZZBAH_TEST.mediaKind = mediaKind;
     window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
 
     // ---- Admin: usage insights (most-played categories, games played) ------
@@ -19844,6 +19978,13 @@
     $("#adminUndo").addEventListener("click", undoAdminStep);
     $("#mediaPreviewClose").addEventListener("click", closeMediaPreview);
     $("#mediaPreviewModal").addEventListener("click", event => { if (event.target.id === "mediaPreviewModal") closeMediaPreview(); });
+    $("#mediaTrimClose").addEventListener("click", closeMediaTrim);
+    $("#mediaTrimModal").addEventListener("click", event => { if (event.target.id === "mediaTrimModal") closeMediaTrim(); });
+    $("#trimSetStart").addEventListener("click", trimSetStart);
+    $("#trimSetEnd").addEventListener("click", trimSetEnd);
+    $("#trimPreview").addEventListener("click", trimPreviewSel);
+    $("#trimConfirm").addEventListener("click", () => trimFinish(true));
+    $("#trimFull").addEventListener("click", () => trimFinish(false));
     $("#importCancel").addEventListener("click", closeImportModal);
     $("#importRun").addEventListener("click", runImport);
     $("#importText").addEventListener("input", refreshImportPreview);

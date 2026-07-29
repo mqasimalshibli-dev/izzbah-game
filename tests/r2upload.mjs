@@ -102,25 +102,22 @@ try {
   });
   check("missing Functions SDK yields a clean 'cloud-not-ready'", /cloud-not-ready/.test(notReady || ""));
 
-  // ---- the box is now the uploader: no separate button; link button stays ---
+  // ---- the box is the only uploader now: no upload button, no link button ---
   const btns = await page.evaluate(() => {
     state.isAdmin = true;
     const asAdmin = window.IZZBAH_TEST.mediaPicker(() => {});
-    state.isAdmin = false;
-    const asUser = window.IZZBAH_TEST.mediaPicker(() => {});
     return {
       adminHasUp: !!asAdmin.querySelector(".media-up-btn"),
       adminHasLink: !!asAdmin.querySelector(".media-link-btn"),
-      userHasLink: !!asUser.querySelector(".media-link-btn"),
       accepts: (asAdmin.querySelector('input[type="file"]') || {}).accept || "",
     };
   });
   check("the redundant ⬆️ upload button is gone", !btns.adminHasUp);
+  check("the 🔗 link button is removed", !btns.adminHasLink);
   check("the box accepts audio + video files", /audio/.test(btns.accepts) && /video/.test(btns.accepts));
-  check("the paste-a-link button stays available to everyone", btns.adminHasLink && btns.userHasLink);
 
-  // ---- dropping a file in the box (admin) uploads to R2 and reports the URL --
-  // and must NOT raise the old "too large" warning (that path is gone for admins)
+  // ---- dropping a file in the box (admin) opens the trim modal, then uploads --
+  // Choosing «ارفع كاملاً» uploads the whole clip with no fragment; no bogus warning.
   const drop = await page.evaluate(async () => {
     const PUBLIC = "https://pub-xxxx.r2.dev/game-media/9-zzz-voice.m4a";
     window.firebase = { functions: () => ({ httpsCallable: () => () => Promise.resolve({ data: { uploadUrl: "https://up/x", publicUrl: PUBLIC } }) }) };
@@ -130,24 +127,45 @@ try {
       open() {} setRequestHeader() {}
       send() { if (this.upload.onprogress) this.upload.onprogress({ lengthComputable: true, loaded: 100, total: 100 }); this.status = 200; if (this.onload) this.onload(); }
     };
-    // count any warning popups raised during the drop
     let warned = 0; const realPop = window.popNote;
     window.popNote = (t) => { if (/كبير|الرفع/.test(String(t))) warned++; };
     state.isAdmin = true;
     let got = null;
     const picker = window.IZZBAH_TEST.mediaPicker((v) => { got = v; });
-    const box = picker.querySelector(".image-picker");
-    // a 3 MB "voice note" — would have tripped the 1 MB inline warning before
+    const box = picker.classList.contains("image-picker") ? picker : picker.querySelector(".image-picker");
     const file = new File([new Uint8Array(3 * 1024 * 1024)], "voice.m4a", { type: "audio/mp4" });
     const dt = new DataTransfer(); dt.items.add(file);
     box.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
-    // wait for the async upload to resolve
+    // the trim modal should open first
+    for (let i = 0; i < 30 && !document.querySelector("#mediaTrimModal.open"); i++) await new Promise(r => setTimeout(r, 20));
+    const trimOpened = !!document.querySelector("#mediaTrimModal.open");
+    // choose "upload whole clip"
+    document.querySelector("#trimFull").click();
     for (let i = 0; i < 50 && got === null; i++) await new Promise(r => setTimeout(r, 20));
+    const trimClosed = !document.querySelector("#mediaTrimModal.open");
     window.XMLHttpRequest = RealXHR; window.popNote = realPop;
-    return { got, expected: PUBLIC, warned };
+    return { got, expected: PUBLIC, warned, trimOpened, trimClosed };
   });
-  check("dropping audio in the admin box uploads to R2", drop.got === drop.expected);
+  check("dropping audio in the admin box opens the trim modal", drop.trimOpened);
+  check("«ارفع كاملاً» uploads the whole clip to R2 (no fragment)", drop.got === drop.expected);
+  check("the trim modal closes after choosing an option", drop.trimClosed);
   check("no bogus 'too large' warning on an admin cloud upload", drop.warned === 0);
+
+  // ---- clip range: fragment parsing + it survives media classification ------
+  const clip = await page.evaluate(() => {
+    const frag = window.IZZBAH_TEST.mediaFragment;
+    const kind = window.IZZBAH_TEST.mediaKind;
+    return {
+      parsed: frag("https://r2.dev/x/clip.mp4#t=3.2,9.5"),
+      none: frag("https://r2.dev/x/clip.mp4"),
+      kindVideo: kind("https://r2.dev/x/clip.mp4#t=3.2,9.5"),
+      kindAudio: kind("https://r2.dev/x/voice.m4a#t=1.0,4.0"),
+    };
+  });
+  check("a #t=start,end fragment parses to the right range", clip.parsed && clip.parsed.start === 3.2 && clip.parsed.end === 9.5);
+  check("a URL with no fragment yields no clip range", clip.none === null);
+  check("a clipped video URL still classifies as video", clip.kindVideo === "video");
+  check("a clipped audio URL still classifies as audio", clip.kindAudio === "audio");
 
   // ---- odd voice-note extensions get normalized to a playable one ----------
   const norm = await page.evaluate(() => {
