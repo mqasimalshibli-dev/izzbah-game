@@ -37,7 +37,12 @@ try {
     window.IZZBAH.applyAuth(true, "u1"); window.IZZBAH.applyAdmin(false);
     state.selected = new Set(["history", "geo", "science"]);
     refreshBuiltinQuestions();
-    state.teamCount = 2; state.teams.forEach(t => { t.score = 0; t.helpUsed = {}; });
+    state.teamCount = 2;
+    state.freeGamePlayed = false; state.gamesUsed = 0; state.isPremium = false; state.codePremium = false;
+    state.editingSavedGameId = null;
+    // The REAL flow: startGame spends the free game at start and labels the
+    // run (state.runCredit = "free"); the fixtures go on AFTER it resets state.
+    startGame();
     state.teams[0].score = 300;
     state.teams[0].helpUsed = { fourChoices: true };
     state.history = [
@@ -46,8 +51,6 @@ try {
       { winnerIndex: 1, seconds: 8 },
     ];
     state.gameStartedAt = Date.now() - 15 * 60000; // a 15-minute game
-    state.freeGamePlayed = false; state.gamesUsed = 0; state.isPremium = false; state.codePremium = false;
-    state.gameCounted = false;
     renderResults();                 // reaches the results screen -> records once
     renderResults();                 // re-opening must NOT record again
     return { count: calls.length, p: calls[0] || {} };
