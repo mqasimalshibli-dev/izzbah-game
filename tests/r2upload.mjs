@@ -167,6 +167,20 @@ try {
   check("a clipped video URL still classifies as video", clip.kindVideo === "video");
   check("a clipped audio URL still classifies as audio", clip.kindAudio === "audio");
 
+  // ---- a trimmed URL copied off one question must paste into another --------
+  const paste = await page.evaluate(async () => {
+    state.isAdmin = true;
+    let got = "NONE";
+    const picker = window.IZZBAH_TEST.mediaPicker(v => { got = v; });
+    const box = picker.classList.contains("image-picker") ? picker : picker.querySelector(".image-picker");
+    const url = "https://pub-xxxx.r2.dev/game-media/1-a-clip.mp4#t=3.0,9.5";
+    const dt = new DataTransfer(); dt.setData("text", url);
+    box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 60));
+    return { got, url };
+  });
+  check("pasting a TRIMMED media URL is accepted (keeps the #t= clip range)", paste.got === paste.url);
+
   // ---- odd voice-note extensions get normalized to a playable one ----------
   const norm = await page.evaluate(() => {
     const f = window.IZZBAH_TEST.cloudSafeFilename;

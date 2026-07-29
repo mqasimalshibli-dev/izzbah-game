@@ -571,13 +571,6 @@
     }
     .image-picker .img-preview:hover { opacity: 1; transform: scale(1.12); }
     .image-picker:hover .img-preview, .image-picker:focus-within .img-preview { opacity: 1; }
-    .media-picker-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
-    .media-link-btn {
-      background: rgba(27, 58, 47, .9); color: #f7ecd6; border: none;
-      border-radius: 999px; font: 600 12px 'Cairo', sans-serif;
-      padding: 4px 12px; cursor: pointer; white-space: nowrap;
-    }
-    .media-link-btn:hover { background: rgba(27, 58, 47, 1); }
     .image-picker.is-uploading { pointer-events: none; }
     .media-uploading {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -10798,7 +10791,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.189";
+    const IZZBAH_BUILD = "2026-07-10.190";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13154,7 +13147,9 @@
       // Accept a direct media URL (e.g. a Cloudflare R2 link) as well as a file,
       // so large videos live off-database and are just referenced by link —
       // bypassing the 1 MB-per-question inline storage cap.
-      const MEDIA_URL_RE = /^https:\/\/[^\s]+\.(mp4|webm|ogg|ogv|mov|m4v|mp3|wav|m4a|oga)(\?[^\s]*)?$/i;
+      // …(#t=start,end) is OUR OWN clip syntax (see mediaFragment), so a URL
+      // copied off a trimmed question must paste back in, not be rejected.
+      const MEDIA_URL_RE = /^https:\/\/[^\s]+\.(mp4|webm|ogg|ogv|mov|m4v|mp3|wav|m4a|oga)(\?[^\s]*)?(#[^\s]*)?$/i;
       const useMediaUrl = (raw) => {
         const url = (raw || "").trim();
         if (!url) return false;
