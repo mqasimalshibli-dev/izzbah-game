@@ -10719,7 +10719,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.185";
+    const IZZBAH_BUILD = "2026-07-10.186";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12817,12 +12817,37 @@
     // R2 PUT URL, then send the file's bytes straight to R2 (never through the
     // function). Returns the public URL to store on the question. Progress is
     // reported 0..1. Throws with a coded message the caller maps to Arabic.
+    // Voice notes and clips often arrive with an extension the uploader doesn't
+    // key on (.opus, .aac, .3gp) or none at all. The object is keyed by its
+    // extension, so normalize the name to one the uploader accepts AND the
+    // player (mediaKind) recognizes — derived from the MIME type when needed.
+    function cloudSafeFilename(rawName, mime) {
+      const name = String(rawName || "").trim();
+      const KNOWN = /\.(mp4|webm|ogv|mov|m4v|mp3|wav|ogg|oga|m4a)$/i;
+      if (KNOWN.test(name)) return name;
+      const t = String(mime || "").toLowerCase();
+      const ext =
+        /audio\/(mpeg|mp3)/.test(t) ? "mp3" :
+        /audio\/(x-wav|wav|wave)/.test(t) ? "wav" :
+        /audio\/(ogg|opus)/.test(t) ? "ogg" :
+        /audio\/webm/.test(t) ? "webm" :
+        /audio\/(mp4|m4a|x-m4a|aac|3gpp|3gpp2)/.test(t) ? "m4a" :
+        /audio\//.test(t) ? "m4a" :
+        /video\/webm/.test(t) ? "webm" :
+        /video\/quicktime/.test(t) ? "mov" :
+        /video\/ogg/.test(t) ? "ogv" :
+        /video\//.test(t) ? "mp4" : "";
+      if (!ext) return name || "clip";
+      const base = name.replace(/\.[^./\\]+$/, "") || "clip";
+      return base + "." + ext;
+    }
+
     async function uploadMediaToCloud(file, onProgress) {
       if (!file) throw new Error("no-file");
       if (!window.firebase || typeof firebase.functions !== "function") throw new Error("cloud-not-ready");
       const callable = firebase.functions().httpsCallable("mintUploadUrl");
       const res = await callable({
-        filename: (file.name || "clip"),
+        filename: cloudSafeFilename(file.name, file.type),
         contentType: (file.type || "application/octet-stream"),
       });
       const data = (res && res.data) || {};
@@ -14826,6 +14851,7 @@
     window.IZZBAH_TEST = window.IZZBAH_TEST || {};
     window.IZZBAH_TEST.renderQHealth = function (docs) { qHealthData = docs || []; renderQHealth(); };
     window.IZZBAH_TEST.uploadMediaToCloud = uploadMediaToCloud;
+    window.IZZBAH_TEST.cloudSafeFilename = cloudSafeFilename;
     window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
 
     // ---- Admin: usage insights (most-played categories, games played) ------

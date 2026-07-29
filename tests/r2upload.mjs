@@ -149,6 +149,22 @@ try {
   check("dropping audio in the admin box uploads to R2", drop.got === drop.expected);
   check("no bogus 'too large' warning on an admin cloud upload", drop.warned === 0);
 
+  // ---- odd voice-note extensions get normalized to a playable one ----------
+  const norm = await page.evaluate(() => {
+    const f = window.IZZBAH_TEST.cloudSafeFilename;
+    return {
+      opus: f("WhatsApp-AUD-2026.opus", "audio/ogg"),
+      noext: f("recording", "audio/mp4"),
+      aac: f("clip", "audio/aac"),
+      keepMp4: f("promo.mp4", "video/mp4"),
+      keepM4a: f("note.m4a", "audio/mp4"),
+    };
+  });
+  check("an .opus voice note becomes a playable .ogg", /\.ogg$/.test(norm.opus));
+  check("an extension-less audio note gets .m4a from its type", /\.m4a$/.test(norm.noext));
+  check("an .aac note maps to the playable .m4a container", /\.m4a$/.test(norm.aac));
+  check("already-valid names are left untouched", norm.keepMp4 === "promo.mp4" && norm.keepM4a === "note.m4a");
+
   // ---- the CSP must allow the function call + the R2 upload PUT ------------
   const csp = await page.evaluate(() => {
     const m = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
