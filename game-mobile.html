@@ -871,6 +871,15 @@
       transition: opacity .2s ease;
     }
     .cat-info p { margin: 0; }
+    /* Report / block controls pinned to the foot of the flipped-open card. */
+    .cat-mod { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; gap: 8px; justify-content: center; }
+    .cat-report, .cat-block {
+      font: 700 11px 'Cairo', sans-serif; padding: 5px 11px; border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08);
+      color: #f7ecd6; cursor: pointer; transition: transform .12s ease;
+    }
+    .cat-block { border-color: rgba(230, 130, 122, .5); color: #f4b3ab; }
+    .cat-report:active, .cat-block:active { transform: scale(.95); }
     /* While the description is open it must cover the WHOLE card face — name
        pill, badges, vote pill included (they otherwise paint over the text).
        Only the (!) button stays above it, to flip back. */
@@ -6734,6 +6743,7 @@
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsBlocked" type="button" hidden><span class="settings-ico" aria-hidden="true">🚫</span><span class="settings-label">المحتوى المحظور</span><span class="settings-state" id="settingsBlockedState"></span></button>
       <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
     </div>
@@ -10689,7 +10699,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.179";
+    const IZZBAH_BUILD = "2026-07-10.180";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11244,6 +11254,67 @@
         bridge(map).catch(() => showToast("تعذّر حفظ الإخفاء في السحابة — تأكّد من تسجيل الدخول كمشرف"));
       }
     }
+    // Player-side moderation of community content: a player may REPORT a
+    // community category (goes to the developers) and/or BLOCK it (hides that
+    // category — and optionally its author's other categories — on THIS device).
+    // Stored locally so a player's own choices never touch anyone else's view.
+    // This is the in-app «report + block» that a user-generated-content app is
+    // expected to provide.
+    const blockedCommKey = "izzbah-blocked-comm-v1";
+    function loadBlockedComm() {
+      try {
+        const o = JSON.parse(localStorage.getItem(blockedCommKey) || "{}") || {};
+        return { cats: new Set(o.cats || []), authors: new Set(o.authors || []) };
+      } catch (e) { return { cats: new Set(), authors: new Set() }; }
+    }
+    function saveBlockedComm(b) {
+      try { localStorage.setItem(blockedCommKey, JSON.stringify({ cats: [...b.cats], authors: [...b.authors] })); } catch (e) {}
+    }
+    function isCommBlocked(cat) {
+      if (!cat || !cat.community) return false;
+      const b = loadBlockedComm();
+      return b.cats.has(cat.id) || (!!cat.authorUid && b.authors.has(cat.authorUid));
+    }
+    function blockedCommCount() {
+      const b = loadBlockedComm();
+      return b.cats.size + b.authors.size;
+    }
+    function unblockAllComm() {
+      try { localStorage.removeItem(blockedCommKey); } catch (e) {}
+      if (typeof renderCategories === "function") renderCategories();
+    }
+    // Report a community category to the developers via the feedback channel,
+    // and hide it on this device (reporting implies "I don't want to see this").
+    function reportCommunityCategory(cat) {
+      if (!cat) return;
+      const reason = window.prompt("سبب الإبلاغ عن هذه الفئة؟ (اختياري)", "");
+      if (reason === null) return; // cancelled
+      const send = window.IZZBAH && window.IZZBAH.sendFeedback;
+      const body = "🚩 بلاغ عن فئة مجتمع\n"
+        + "الفئة: " + (cat.name || "—") + "\n"
+        + "المعرّف: " + cat.id + "\n"
+        + "الكاتب: " + (cat.authorName || "—") + " (" + (cat.authorUid || "?") + ")\n"
+        + "السبب: " + ((reason || "").trim() || "—");
+      let sent = false;
+      if (send) { try { send(body); sent = true; } catch (e) {} }
+      const b = loadBlockedComm(); b.cats.add(cat.id); saveBlockedComm(b);
+      if (typeof renderCategories === "function") renderCategories();
+      showToast(sent ? "شكراً، وصل بلاغك للمطوّرين — وأخفيناها عن جهازك ✓"
+                     : "أخفينا الفئة عن جهازك — للإبلاغ سجّل الدخول وراسلنا");
+    }
+    // Block: hide this category AND (when known) the author's other categories,
+    // on this device only.
+    function blockCommunityCategory(cat) {
+      if (!cat) return;
+      const b = loadBlockedComm();
+      b.cats.add(cat.id);
+      if (cat.authorUid) b.authors.add(cat.authorUid);
+      saveBlockedComm(b);
+      if (typeof renderCategories === "function") renderCategories();
+      showToast(cat.authorUid ? "تم الحظر — أخفينا هذه الفئة وفئات صاحبها عن جهازك"
+                              : "أخفينا هذه الفئة عن جهازك");
+    }
+
     // Boot: pull the global hidden set so every player's picker matches the
     // admin's choice (runs beside the category-filter / coach config loaders).
     function loadHiddenConfig() {
@@ -13078,6 +13149,9 @@
       grid.innerHTML = "";
       renderCatFilter(); // the admin-defined type chips (game tab only)
       let visibleCategories = visibleCategoryGroup();
+      // A player's own reported/blocked community content is hidden on their
+      // device (their choice never affects anyone else's picker).
+      visibleCategories = visibleCategories.filter(cat => !isCommBlocked(cat));
       // Official categories with no playable questions are hidden from the player
       // grid outright — a permanent «قريباً» card just clutters the picker and
       // can't be played. They stay fully visible/editable in the admin CMS, so
@@ -13160,10 +13234,17 @@
         const authorTools = isAuthor ? `
           <button class="cat-owner cat-owner-edit" type="button" title="تعديل" aria-label="تعديل">✎</button>
           <button class="cat-owner cat-owner-del" type="button" title="حذف" aria-label="حذف">🗑</button>` : "";
+        // Report + block on community content the player doesn't own — the
+        // in-app moderation controls a UGC app must offer.
+        const modHtml = (isCommunity && !isAuthor) ? `
+          <div class="cat-mod">
+            <button class="cat-report" type="button">🚩 إبلاغ</button>
+            <button class="cat-block" type="button">🚫 حظر</button>
+          </div>` : "";
         card.innerHTML = `
           ${cat.image ? "" : `<span class="cat-watermark">${escapeHtml(name)}</span>`}
           <span class="cat-scrim"></span>
-          <div class="cat-info"><p>${escapeHtml(categoryDescription(cat))}</p></div>
+          <div class="cat-info"><p>${escapeHtml(categoryDescription(cat))}</p>${modHtml}</div>
           <button class="category-eye" type="button" title="وصف الفئة" aria-label="عرض/إخفاء وصف فئة ${escapeHtml(name)}">${INFO_SVG}</button>
           ${voteHtml}
           ${authorTools}
@@ -13188,6 +13269,16 @@
         if (voteBtn) voteBtn.addEventListener("click", event => {
           event.stopPropagation();
           voteCommunityCategory(cat);
+        });
+        const reportBtn = card.querySelector(".cat-report");
+        if (reportBtn) reportBtn.addEventListener("click", event => {
+          event.stopPropagation();
+          reportCommunityCategory(cat);
+        });
+        const blockBtn = card.querySelector(".cat-block");
+        if (blockBtn) blockBtn.addEventListener("click", event => {
+          event.stopPropagation();
+          blockCommunityCategory(cat);
         });
         const editBtn = card.querySelector(".cat-owner-edit");
         if (editBtn) editBtn.addEventListener("click", event => {
@@ -16522,6 +16613,14 @@
       if (ss) ss.textContent = soundOn ? "مفعّل" : "مكتوم";
       const ts = $("#settingsThemeState");
       if (ts) ts.textContent = (state.theme === "dark") ? "🌙 داكن" : "☀️ فاتح";
+      // «المحتوى المحظور» row: only shown once the player has blocked something.
+      const brow = $("#settingsBlocked");
+      if (brow) {
+        const bc = blockedCommCount();
+        brow.hidden = bc === 0;
+        const bst = $("#settingsBlockedState");
+        if (bst) bst.textContent = bc ? toArabicDigits(bc) + " — إظهار الكل" : "";
+      }
     }
     function openSettings() {
       renderSettingsSheet();
@@ -19380,6 +19479,13 @@
     $("#contactClose").addEventListener("click", closeContact);
     $("#contactModal").addEventListener("click", event => { if (event.target.id === "contactModal") closeContact(); });
     $("#settingsLegal").addEventListener("click", () => { closeSettings(); openLegal("privacy", "review"); });
+    $("#settingsBlocked").addEventListener("click", () => {
+      if (!blockedCommCount()) return;
+      if (!window.confirm("إظهار كل الفئات المحظورة على هذا الجهاز؟")) return;
+      unblockAllComm();
+      renderSettingsSheet();
+      showToast("تم إلغاء الحظر — عادت الفئات للظهور");
+    });
     $("#settingsAbout").addEventListener("click", () => { closeSettings(); showDiagnostics(); });
     // Warn webview players up front that Google sign-in needs a real browser.
     if (typeof isInAppBrowser === "function" && isInAppBrowser()) {
