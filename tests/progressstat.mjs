@@ -1,6 +1,8 @@
-// Two additive features:
-//  1) In-game progress bar («N / total سؤال») under the top-bar logo — hidden
-//     off the board, visible during play, and it advances as cells are opened.
+// Two things:
+//  1) Board tile-count integrity — stray/non-canonical point values must NOT
+//     spawn a phantom 6th tile (the real cause of a «31 / 30» reading). The
+//     visible progress bar was later removed, but the underlying boardTileCount
+//     / categoryTiers logic it relied on is still exercised here.
 //  2) Per-device «الأكثر لعباً» pill on the category picker — a localStorage
 //     play tally that surfaces the most-played category (off the cards, so
 //     covers stay untouched) and is hidden until the device has any history.
@@ -48,28 +50,16 @@ try {
     return ids[0];
   });
 
-  // ---- board: progress bar visible and reads 0 / total ------------------
+  // ---- board renders ----------------------------------------------------
   await clickText("اختيار الفرق"); await page.waitForTimeout(300);
   await clickText("ابدأ اللعبة"); await page.waitForTimeout(900);
 
   const start = await page.evaluate(() => {
-    const el = document.getElementById("gameProgress");
     const cats = activeCategories();
     const total = cats.reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
-    return {
-      visible: !!el && el.style.display !== "none",
-      total,
-      domCells: document.querySelectorAll("#board .cell").length,
-      valuemax: el && +el.getAttribute("aria-valuemax"),
-      valuenow: el && +el.getAttribute("aria-valuenow"),
-      label: el && el.querySelector(".gp-frac").textContent.trim(),
-      fillW: el && el.querySelector(".gp-fill").style.width
-    };
+    return { total, domCells: document.querySelectorAll("#board .cell").length, tileCount: boardTileCount() };
   });
-  check("progress bar is visible during play", start.visible);
-  check("progress max equals the board's cell count", start.total > 0 && start.valuemax === start.total);
-  check("progress total exactly matches the tiles rendered on the board", start.valuemax === start.domCells);
-  check("progress starts at zero", start.valuenow === 0 && /^0/.test(start.label) && (start.fillW === "0%" || start.fillW === "0px" || start.fillW === ""));
+  check("board renders one cell per canonical tier", start.total > 0 && start.domCells === start.tileCount);
 
   // A stray point value — junk (missing/0/null) OR a NON-canonical number like
   // 250/600 (e.g. from an import) — must NOT spawn a phantom 6th tile. The board
@@ -91,16 +81,13 @@ try {
   check("the progress total ignores stray points too (no off-by-one)", phantom.after.total === phantom.before.total);
   check("a category never exceeds the 5 canonical tiers", phantom.tiers <= 5);
 
-  // open one cell → progress advances by one
+  // open one cell → it's recorded as used
   const after = await page.evaluate(() => {
     const cells = [...document.querySelectorAll("#board .cell:not(.used)")];
     if (cells.length) cells[0].click();
-    // question page opened; mark it answered-ish by returning to board render
-    const el = document.getElementById("gameProgress");
-    return { usedSize: state.used.size, valuenow: el && +el.getAttribute("aria-valuenow"), fillW: el && el.querySelector(".gp-fill").style.width };
+    return { usedSize: state.used.size };
   });
   check("opening a cell records a used question", after.usedSize >= 1);
-  check("progress bar advances as questions are opened", after.valuenow >= 1);
 
   // ---- finish a game → the play tally bumps the selected categories ------
   const tallied = await page.evaluate((cid) => {
