@@ -2,7 +2,7 @@
   "name": "izzbah-functions",
   "description": "Cloud Functions for عِزبة — R2 upload URL minting",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "private": true,
