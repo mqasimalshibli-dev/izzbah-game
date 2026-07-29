@@ -5047,16 +5047,18 @@
        rounded track (like the score boxes) and a gold gradient fill, with the
        answered/total fraction pinned at the end. */
     #game .topbar-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; direction: rtl; }
-    /* In-game report pill (sits under the logo where the progress bar was). */
-    .game-report-btn {
-      font: 800 12px 'Cairo', sans-serif; color: #ffe9c4; direction: rtl;
-      background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 233, 196, .38);
-      border-radius: 999px; padding: 5px 14px; min-height: 0; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-      transition: transform .12s ease, background .15s ease;
+    /* Right group: the turn indicator + the report icon pinned to the far right. */
+    #game .topbar-right { justify-self: end; display: flex; align-items: center; gap: 12px; }
+    #game .topbar-right .report-btn {
+      width: clamp(30px, 4.6vw, 42px); height: clamp(30px, 4.6vw, 42px);
+      min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 50%;
+      display: grid; place-items: center; box-shadow: none; cursor: pointer;
+      background: rgba(0, 0, 0, .22); color: #fff;
+      transition: transform .15s ease, filter .15s ease;
     }
-    .game-report-btn:hover { background: rgba(255, 255, 255, .18); }
-    .game-report-btn:active { transform: scale(.95); }
+    #game .topbar-right .report-btn svg { width: 56%; height: 56%; display: block; }
+    #game .topbar-right .report-btn:hover { filter: brightness(1.12); }
+    #game .topbar-right .report-btn:active { transform: scale(.94); }
     #game .turn-box {
       background: rgba(255, 255, 255, .13) !important;
       border: 1px solid rgba(255, 255, 255, .36) !important;
@@ -7541,9 +7543,11 @@
           <div class="mini-brand">
             <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
           </div>
-          <button class="game-report-btn" id="reportGame" type="button" aria-label="إبلاغ عن مشكلة">🚩 إبلاغ</button>
         </div>
-        <div class="turn-box" data-turn-box></div>
+        <div class="topbar-right">
+          <div class="turn-box" data-turn-box></div>
+          <button class="ghost report-btn" id="reportGame" type="button" aria-label="إبلاغ عن مشكلة" title="إبلاغ عن مشكلة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6.8l4.7 8.2H7.3z"/><path d="M12 10.3v2"/><path d="M12 14.6v.01"/></svg></button>
+        </div>
       </div>
       <div class="score-row" id="scoreRow"></div>
       <img class="game-watermark" src="assets/img/watermark.webp" alt="" aria-hidden="true" loading="lazy" decoding="async">
@@ -10709,7 +10713,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.181";
+    const IZZBAH_BUILD = "2026-07-10.182";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
