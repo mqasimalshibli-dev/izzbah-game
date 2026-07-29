@@ -66,8 +66,10 @@ existing questions or pictures; findings go to the owner, who acts.
 ## Standing conventions in this repo
 
 - Single self-contained game file: `game-mobile.html` (Arabic, RTL). Firebase
-  compat SDK, project `izzbahgame`, BLAZE plan (Cloud Functions available but
-  none deployed yet — the game still runs fully client-side).
+  compat SDK, project `izzbahgame`, BLAZE plan. One Cloud Function is deployed:
+  `mintUploadUrl` (in `functions/`) mints a presigned R2 upload URL so admins
+  upload video/voice straight from the game to the `izzbah-media` R2 bucket
+  (`VIDEO_UPLOAD_SETUP.md` has the runbook). The rest runs client-side.
 - Develop on the designated feature branch, merge `--no-ff` into `root`
   (the GitHub Pages branch), push, and verify the smoke workflow is green.
 - Bump `IZZBAH_BUILD` on every deploy.
