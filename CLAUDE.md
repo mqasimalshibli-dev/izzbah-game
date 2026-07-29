@@ -78,10 +78,14 @@ existing questions or pictures; findings go to the owner, who acts.
   `.github/workflows/smoke.yml`.
 - Whenever `firestore.rules` changes, paste the FULL updated rules file in the
   chat reply — the user publishes it manually in the Firebase console.
-- Saved-game policy (owner REVERSED the old rule on 2026-07-20 — do not
-  restore it): a saved game keeps only its SETUP (name/categories/teams).
-  EVERY run — including re-runs of a saved game — draws fresh questions and
-  costs a game credit (gated at start, charged on finish; abandoning a run
-  never charges). Questions are pinned (`record.frozen`) only WITHIN a run so
-  a resume serves the same board; `startGame` clears the pins and `charged`
-  per run. The old model (frozen-forever questions + free replays) is gone.
+- Saved-game policy (owner reversed AGAIN on 2026-07-29 — PERMANENT GAMES;
+  this supersedes the 2026-07-20 fresh-every-run rule): creating a NEW game
+  spends one credit AT START (`spendGameCredit` in `startGame`) and marks the
+  record `charged: true` forever. Its questions are pinned permanently in
+  `record.frozen` (never cleared) so every replay serves the same board, and
+  REPLAYS ARE FREE — finishing (`renderResults`), exiting ✕, discarding, and
+  pausing never charge anything. All games stay in «ألعابك» (cap 200).
+  Cross-game freshness: every question that APPEARS on a board is recorded in
+  the `izzbah-seen-v1` tracker (`state.seen`, catId → [sig,…], LRU-ordered,
+  cloud-synced); `pickUnseen` refuses to serve seen questions to a NEW game
+  until the category is exhausted, then falls back least-recently-seen first.

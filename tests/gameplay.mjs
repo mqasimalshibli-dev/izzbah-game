@@ -94,8 +94,8 @@ try {
     window.confirm = origConfirm;
     return { asked, stayed, ended };
   });
-  check("ending early with questions left asks for confirmation (mentions remaining + charge)",
-    early.asked.length === 2 && /تبقّى/.test(early.asked[0]) && /ستُحتسب/.test(early.asked[0]));
+  check("ending early with questions left asks for confirmation (mentions remaining + no way back)",
+    early.asked.length === 2 && /تبقّى/.test(early.asked[0]) && /لن يمكن الرجوع/.test(early.asked[0]));
   check("declining the early-end warning keeps the board", early.stayed);
   check("accepting the early-end warning shows the results", early.ended);
   // back to a fresh board state for the tests below

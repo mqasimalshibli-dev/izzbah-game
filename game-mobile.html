@@ -5426,6 +5426,7 @@
       flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; background: #f3e6c4; border: 1px solid #e0c97f; border-radius: 999px;
       padding: 5px 12px; font: 700 13px 'Cairo', sans-serif; color: #8a6a3a; white-space: nowrap;
     }
+    #gameLibrary .saved-game-free { background: #e2efe4; border-color: #9dc3a4; color: #2f6b3d; }
     #gameLibrary .saved-game-cats { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
     #gameLibrary .saved-game-category {
       min-height: 112px !important; border: 2px solid #d9b24a !important; border-radius: 14px !important; overflow: hidden;
@@ -7557,7 +7558,7 @@
     <div class="modal-backdrop" id="deleteGameConfirm" aria-hidden="true">
       <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="deleteGameTitle">
         <h3 class="preview-title" id="deleteGameTitle">هل أنت متأكد؟</h3>
-        <p class="hint" id="deleteGameMessage">سيتم حذف هذه اللعبة من ألعابك المحفوظة.</p>
+        <p class="hint" id="deleteGameMessage">سيتم حذف هذه اللعبة من ألعابك نهائياً — لن تتمكن من إعادة لعبها، ولن تُسترد اللعبة المخصومة.</p>
         <div class="actions">
           <button class="danger" id="confirmDeleteGame">حذف اللعبة</button>
           <button class="ghost" id="cancelDeleteGame">إلغاء</button>
@@ -10477,17 +10478,62 @@
     // random. Pure Math.random re-served recently-played questions constantly
     // (with a 10-question tier, back-to-back repeats are the NORM, not the
     // exception) — this makes the whole pool cycle before anything repeats.
+    // ---- Cross-game "seen" history --------------------------------------------
+    // izzbah-seen-v1: catId → [sig, …] in first-appearance order (oldest first).
+    // Records every question that has APPEARED on any board — not just answered
+    // ones — so a NEW game never repeats questions from earlier games. Only when
+    // a category is exhausted do questions come back, oldest-seen first (LRU);
+    // a re-served question is bumped to the end so consecutive new games cycle
+    // through the whole pool instead of re-serving the same oldest ones.
+    const seenKey = "izzbah-seen-v1";
+    function loadSeen() {
+      try { const s = JSON.parse(localStorage.getItem(seenKey)); state.seen = (s && typeof s === "object") ? s : {}; }
+      catch (e) { state.seen = {}; }
+    }
+    function saveSeen() {
+      try { localStorage.setItem(seenKey, JSON.stringify(state.seen || {})); } catch (e) {}
+    }
+    // Append (or, with bump, move to the end of) the category's seen list.
+    // Returns true when the list changed — the caller batches the save.
+    function markQuestionSeen(catId, sig, bump) {
+      if (!catId || !sig) return false;
+      if (!state.seen) state.seen = {};
+      const list = state.seen[catId] || (state.seen[catId] = []);
+      const i = list.indexOf(sig);
+      if (i === -1) {
+        list.push(sig);
+        if (list.length > 800) list.splice(0, list.length - 800); // sanity cap
+        return true;
+      }
+      if (bump && i !== list.length - 1) { list.splice(i, 1); list.push(sig); return true; }
+      return false;
+    }
     function pickUnseen(catId, pool, sigOf) {
       if (!pool || !pool.length) return null;
       // The first draws happen while the script is still booting (built-ins
       // build their question sets at load, before `state` is initialized) —
       // treat that as "no history yet" instead of dying in the TDZ.
-      let played = [];
-      try { played = (state.progress && state.progress[catId]) || []; } catch (e) {}
-      const seen = new Set(played);
-      const fresh = pool.filter(item => !seen.has(sigOf(item)));
-      const from = fresh.length ? fresh : pool;
-      return from[Math.floor(Math.random() * from.length)];
+      let seenArr = [], played = [];
+      try {
+        seenArr = (state.seen && state.seen[catId]) || [];
+        played = (state.progress && state.progress[catId]) || [];
+      } catch (e) {}
+      // "Appeared" = the seen list + the answered history (the latter covers
+      // players whose history predates the seen tracker).
+      const appeared = new Set(seenArr);
+      played.forEach(sig => appeared.add(sig));
+      const fresh = pool.filter(item => !appeared.has(sigOf(item)));
+      if (fresh.length) return fresh[Math.floor(Math.random() * fresh.length)];
+      // Category exhausted: fall back to the LEAST-recently-seen question.
+      // (progress-only sigs have no recency — treat them as oldest of all.)
+      const pos = new Map(seenArr.map((sig, i) => [sig, i]));
+      let best = null, bestPos = Infinity;
+      for (const item of pool) {
+        const sig = sigOf(item);
+        const p = pos.has(sig) ? pos.get(sig) : -1;
+        if (p < bestPos) { best = item; bestPos = p; }
+      }
+      return best || pool[Math.floor(Math.random() * pool.length)];
     }
 
     function randomQuestion(categoryId, points) {
@@ -10753,14 +10799,15 @@
       holdTimer: null,
       holdDelay: null,
       gameActive: false,
-      gameCounted: false, // has THIS game already spent a play credit (on finish)
+      gameCounted: false, // has THIS run already been recorded in the stats (on finish)
+      runCredit: "",      // how this run was paid: free/allowance/… for a new game, "replay" for a re-run
       randomizedCats: new Set()
     };
 
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.187";
+    const IZZBAH_BUILD = "2026-07-10.188";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11026,6 +11073,7 @@
           currentGameName: state.currentGameName,
           savedGameId: state.editingSavedGameId || null, // so a resume keeps the frozen questions
           counted: !!state.gameCounted,
+          credit: state.runCredit || "", // stats label (new game vs replay) across a pause
           startedAt: state.gameStartedAt || 0
         }));
       } catch (error) { /* quota / private mode — resume just won't be available */ }
@@ -11086,10 +11134,11 @@
       // questions survive a reload-and-resume (the record itself persists).
       state.editingSavedGameId = saved.savedGameId || null;
       state.gameActive = true;
-      // Leaving and re-entering an unfinished game must NOT re-charge — the
-      // credit is spent only when the game FINISHES (renderResults). Carry the
-      // "already counted" flag so a resumed-after-finish game isn't recharged.
+      // Resuming never charges (the game was paid for at creation). Carry the
+      // "already counted" flag so a resumed-after-finish game isn't re-recorded
+      // in the stats, plus the run's credit label for recordGameStats.
       state.gameCounted = !!saved.counted;
+      state.runCredit = saved.credit || "replay";
       state.gameStartedAt = saved.startedAt || 0;
       renderGame();
       showScreen("game");
@@ -11597,7 +11646,9 @@
       // Play (and freeze) onto THIS record, so a brand-new game's questions are
       // remembered and its later replays serve the same ones.
       state.editingSavedGameId = id;
-      state.savedGames = state.savedGames.slice(0, 30);
+      // Saved games are PERMANENT (each one was paid for) — never silently drop
+      // one. The cap only guards against runaway storage; records are tiny.
+      state.savedGames = state.savedGames.slice(0, 200);
       saveSavedGames();
     }
 
@@ -13707,19 +13758,10 @@
       card.appendChild(actions);
       actions.querySelector("[data-resume-continue]").addEventListener("click", () => { resumeLiveGame(); });
       actions.querySelector("[data-resume-discard]").addEventListener("click", () => {
-        // Tossing an unfinished game is an ABANDON, same as the in-game ✕: it
-        // warns, and (unless already counted / admin / subscriber) spends one
-        // game. Closing without a warning would be a free way to dodge the cost.
-        const willCharge = !(live && live.counted) && !state.isAdmin && !premiumActive();
-        const msg = willCharge
-          ? "إذا تجاهلت هذه اللعبة غير المكتملة ستفقد تقدّمك فيها، وتُخصم لعبة واحدة من رصيدك.\nهل تريد تجاهلها؟"
-          : "إذا تجاهلت هذه اللعبة غير المكتملة ستفقد تقدّمك فيها.\nهل تريد تجاهلها؟";
-        if (!window.confirm(msg)) return;
-        if (willCharge) {
-          spendGameCredit();
-          const rec = (live && live.savedGameId) ? state.savedGames.find(g => g.id === live.savedGameId) : null;
-          if (rec) { rec.charged = true; saveSavedGames(); }
-        }
+        // Tossing an unfinished game only drops the RUN's progress — the game
+        // was paid for at creation and stays in «ألعابك» for a free replay, so
+        // discarding never charges.
+        if (!window.confirm("إذا تجاهلت هذه اللعبة غير المكتملة ستفقد تقدّمك فيها (تبقى اللعبة محفوظة في «ألعابك» وتقدر تعيدها مجاناً).\nهل تريد تجاهلها؟")) return;
         clearLiveGame();
         renderGameLibrary();
       });
@@ -13837,6 +13879,13 @@
         countPill.className = "saved-game-count";
         countPill.textContent = categoryCountLabel(categories.length);
         head.append(title, countPill);
+        if (game.charged) {
+          // A paid (permanent) game: replays are always free — say so.
+          const freePill = document.createElement("span");
+          freePill.className = "saved-game-count saved-game-free";
+          freePill.textContent = "إعادة مجانية ↻";
+          head.appendChild(freePill);
+        }
 
         const chips = document.createElement("div");
         chips.className = "saved-game-cats";
@@ -17432,61 +17481,60 @@
         return;
       }
       // Starting a fresh run ABANDONS any earlier game you walked away from
-      // without finishing. Warn first (its progress is lost), and — for paying
-      // players — a game you ACTUALLY played (opened at least one question)
-      // counts as an abandon and spends a game. Otherwise a player could hop
-      // between near-complete boards forever on a single credit. An untouched
-      // board (nothing opened) is dropped silently and costs nothing; pausing
-      // and resuming the SAME game never routes through here.
+      // without finishing. Warn that its board progress is lost — but never
+      // charge for it: the credit was already spent when that game was CREATED
+      // (charge-at-start model), so walking away costs nothing extra and the
+      // game itself stays in «ألعابك» for a free replay.
       {
         const prev = getLiveGameInfo();
         const prevPlayed = prev && !prev.counted &&
           ((Array.isArray(prev.used) && prev.used.length > 0) ||
            (Array.isArray(prev.history) && prev.history.length > 0));
         if (prevPlayed) {
-          const willCharge = !state.isAdmin && !premiumActive();
-          const msg = willCharge
-            ? "لديك لعبة لم تكتمل بعد. إذا بدأت لعبة جديدة الآن ستفقد تقدّمك فيها وتُخصم لعبة واحدة من رصيدك.\nهل تريد بدء لعبة جديدة؟"
-            : "لديك لعبة لم تكتمل بعد. إذا بدأت لعبة جديدة الآن ستفقد تقدّمك فيها.\nهل تريد بدء لعبة جديدة؟";
-          if (!window.confirm(msg)) return; // keep playing the current game
-          if (willCharge) {
-            spendGameCredit();
-            const rec = prev.savedGameId ? state.savedGames.find(g => g.id === prev.savedGameId) : null;
-            if (rec) { rec.charged = true; saveSavedGames(); }
-          }
-          clearLiveGame(); // the abandoned game is settled — never count it twice
+          if (!window.confirm("لديك لعبة لم تكتمل بعد. إذا بدأت لعبة جديدة الآن ستفقد تقدّمك فيها (تبقى اللعبة نفسها محفوظة في «ألعابك»).\nهل تريد بدء لعبة جديدة؟")) return;
+          clearLiveGame();
         }
       }
-      // Free-play gate: EVERY run costs a game — a re-run of a saved game is a
-      // fresh paid game with fresh questions, exactly like a new one. (The
-      // credit itself is spent on FINISH, so abandoning a run never charges.)
-      // Private/custom categories are premium: the free game never unlocks
+      // Permanent-game model (owner reversal, 2026-07-29): creating a NEW game
+      // spends one credit AT START and pins its questions forever; REPLAYING a
+      // game that was already paid for (`charged`) is FREE and serves the exact
+      // same board. Gates therefore apply only to NEW games. Private/custom
+      // categories stay premium for new games: the free game never unlocks
       // them — the player needs a subscription or bought/redeemed games.
-      if (selectionHasPrivate() && !hasPaidAccess()) { openSubscribeGate({ reason: "private" }); return; }
-      if (!canStartNewGame()) { openSubscribeGate(); return; }
-      // A fresh RUN of a saved game re-rolls its questions and becomes
-      // chargeable again. Questions stay pinned only WITHIN a run (a resume
-      // keeps them); once a run finishes or is abandoned, the next start —
-      // right here — clears the pins so the board draws fresh.
-      {
-        const rec = activeSavedGameRecord();
-        if (rec) { rec.frozen = {}; rec.charged = false; saveSavedGames(); }
+      const replayRecord = activeSavedGameRecord();
+      const isReplay = !!(replayRecord && replayRecord.charged);
+      if (!isReplay) {
+        if (selectionHasPrivate() && !hasPaidAccess()) { openSubscribeGate({ reason: "private" }); return; }
+        if (!canStartNewGame()) { openSubscribeGate(); return; }
       }
       state.pendingSharedGame = false; // shared preset consumed once the game starts
       saveCurrentGameCategories();
       refreshBuiltinQuestions();
+      if (isReplay) {
+        // Free replay: same questions (frozen stays), no credit touched.
+        state.runCredit = "replay";
+      } else {
+        // A brand-new game: spend the credit NOW and mark the record permanent.
+        // From here on, this game's questions are locked and replays are free.
+        state.runCredit = spendGameCredit();
+        const rec = activeSavedGameRecord();
+        if (rec) { rec.frozen = {}; rec.charged = true; saveSavedGames(); }
+        if (!state.isAdmin && !premiumActive()) {
+          showToast("حُفظت اللعبة في «ألعابك» — إعادة لعبها مجانية دائماً 🎉");
+        }
+      }
       state.used.clear();
       resetTeamHelpers();
       state.history = [];
       state.activeTeam = 0;
       state.teams.slice(0, state.teamCount).forEach(team => { team.score = 0; });
       state.gameActive = true;
-      state.gameCounted = false; // the credit is spent on FINISH, not on start
+      state.gameCounted = false; // = "results not yet recorded" (stats-only now)
       state.gameStartedAt = Date.now(); // feeds the avg-game-duration insight
       renderGame();
       showScreen("game");
       saveLiveGame();
-      track("game_start", { teams: state.teamCount, categories: state.selected.size });
+      track("game_start", { teams: state.teamCount, categories: state.selected.size, replay: isReplay });
     }
 
     function beginHold(team, delta) {
@@ -17602,6 +17650,7 @@
       if (record && !record.frozen) record.frozen = {};
       const frozen = record ? record.frozen : {};
       let frozenDirty = false;
+      let seenDirty = false; // batched: one saveSeen() after the whole board
       cats.forEach(cat => {
         const catColor = categoryColor(cat);
         const card = document.createElement("div");
@@ -17634,15 +17683,25 @@
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(isFlat200Category(cat) ? EMOJI_REWARD : points);
           cell.disabled = used;
-          // Decide this cell's question ONCE and pin it. We reuse the frozen
-          // one (so a resume matches); a brand-new draw prefers an UNSEEN
-          // question (pickUnseen) and is then frozen for the rest of the run.
+          // Decide this cell's question ONCE and pin it — permanently: the pin
+          // lives on the saved-game record and is never cleared, so replays
+          // serve the exact same board. A brand-new draw prefers a question
+          // never seen in ANY earlier game (pickUnseen + the seen tracker) and
+          // is then recorded as seen (bumped = refreshes LRU recency);
+          // resolving an existing pin only backfills the seen list (no bump).
           let chosen = null;
           const sig = frozen[key];
-          if (sig) chosen = resolveFrozenQuestion(cat, points, sig);
+          if (sig) {
+            chosen = resolveFrozenQuestion(cat, points, sig);
+            if (chosen && markQuestionSeen(cat.id, sig, false)) seenDirty = true;
+          }
           if (!chosen) {
             chosen = pickUnseen(cat.id, pool, questionSig) || pool[0];
-            if (chosen) { frozen[key] = questionSig(chosen); frozenDirty = true; }
+            if (chosen) {
+              frozen[key] = questionSig(chosen);
+              frozenDirty = true;
+              if (markQuestionSeen(cat.id, frozen[key], true)) seenDirty = true;
+            }
           }
           cell.addEventListener("click", () => openQuestion(cat, chosen, key));
           pointsRow.appendChild(cell);
@@ -17651,6 +17710,7 @@
         board.appendChild(card);
       });
       if (frozenDirty) saveSavedGames();
+      if (seenDirty) saveSeen();
       const total = boardTileCount(cats);
       // Every cell played → go STRAIGHT to the results (no «انتهت الأسئلة» box or
       // manual «عرض النتائج» button). Deferred one frame so the board finishes
@@ -19140,20 +19200,14 @@
       $("#resultsCongrats").classList.add("rs-hold");
       $("#resultsStats").classList.add("rs-hold");
 
-      // Spend the play credit HERE — the game is finished. Entering a game and
-      // leaving (without reaching this screen) never charges; only a completed
-      // run does, and the guard makes it exactly once per RUN. Every run of a
-      // saved game counts like a new game (fresh questions each run — there are
-      // no free replays); `charged` marks the run only so a resume-after-finish
-      // can't recharge it, and startGame resets it for the next run.
+      // No credit is spent here anymore — a NEW game is charged when it STARTS
+      // (see startGame) and replays are free. This block only records the
+      // insights tally, exactly once per run (guarded by gameCounted).
       if (!state.gameCounted) {
         state.gameCounted = true;
-        const rec = activeSavedGameRecord();
-        const credit = (rec && rec.charged) ? "replay" : spendGameCredit();
-        if (rec && !rec.charged) { rec.charged = true; saveSavedGames(); }
-        recordGameStats(credit); // tally this finished game + its categories (global insights)
+        recordGameStats(state.runCredit || "replay"); // tally this finished game + its categories (global insights)
         bumpCategoryPlays(state.selected); // per-device «الأكثر لعباً» play history
-        saveLiveGame(); // persist the "counted" flag so a resume can't recharge
+        saveLiveGame(); // persist the "counted" flag so a resume can't re-record
       }
 
       showScreen("results");
@@ -19559,43 +19613,33 @@
     $("#setupBack").addEventListener("click", () => showScreen(state.setupReturn === "gameLibrary" ? "gameLibrary" : "categories"));
     $("#startGame").addEventListener("click", startGame);
     $("#exitGame").addEventListener("click", () => {
-      // Leaving via ✕ ABANDONS the run: progress is lost AND one game is spent
-      // (unlike a resume, which keeps the board and only charges on finish).
-      // Admins/subscribers play unlimited, so they lose only the progress.
-      const willCharge = !state.gameCounted && !state.isAdmin && !premiumActive();
-      const msg = willCharge
-        ? "إذا خرجت الآن ستفقد تقدّمك في هذه اللعبة، وتُخصم لعبة واحدة من رصيدك.\nهل تريد الخروج؟"
-        : "إذا خرجت الآن ستفقد تقدّمك في هذه اللعبة.\nهل تريد الخروج؟";
-      if (!window.confirm(msg)) return;
-      if (willCharge) {
-        state.gameCounted = true;
-        spendGameCredit();
-        const rec = activeSavedGameRecord();
-        if (rec) { rec.charged = true; saveSavedGames(); }
-      }
+      // Leaving via ✕ abandons the RUN's progress only. The game itself was
+      // already paid for when it was created (charge-at-start) and stays in
+      // «ألعابك» — replaying it later is free, so exiting never charges anyone.
+      if (!window.confirm("إذا خرجت الآن ستفقد تقدّمك في هذه اللعبة (تبقى اللعبة محفوظة في «ألعابك» وتقدر تعيدها مجاناً).\nهل تريد الخروج؟")) return;
       clearLiveGame();
       resetScores();
       openGameLibrary("your"); // land on «ألعابك», not the welcome screen
     });
     $("#pauseGame").addEventListener("click", () => {
       // Pause = suspend, don't abandon. The board (scores, opened cells, and the
-      // pinned questions) is kept so «متابعة اللعبة» resumes it exactly, and NO
-      // game is charged — the credit is only spent on finish or on an abandon.
-      if (!window.confirm("هل تريد إيقاف اللعبة مؤقتًا؟\nسيُحفظ تقدّمك وتقدر تكملها لاحقًا من «ألعابك»، ولن تُخصم لعبة.")) return;
+      // pinned questions) is kept so «متابعة اللعبة» resumes it exactly. Nothing
+      // charges here — the game was already paid for when it was created.
+      if (!window.confirm("هل تريد إيقاف اللعبة مؤقتًا؟\nسيُحفظ تقدّمك وتقدر تكملها لاحقًا من «ألعابك».")) return;
       saveLiveGame();
       state.gameActive = false;
       resetScores();
       openGameLibrary("your"); // land on «ألعابك» where the paused game now sits
     });
-    // Ending early with questions still on the board asks first — the results
-    // screen CHARGES the game and there is no way back to the board, so an
-    // accidental tap must not burn a credit. A fully-played board ends quietly
-    // (auto-results already covers that case anyway).
+    // Ending early with questions still on the board asks first — there is no
+    // way back to the board from the results screen, so an accidental tap must
+    // not cut a game short. (No credit is at stake — the game was paid for at
+    // creation.) A fully-played board ends quietly (auto-results covers it).
     $("#endGameEarly").addEventListener("click", () => {
       const total = activeCategories().reduce((n, c) => n + new Set((c.questions || []).map(q => q.points)).size, 0);
       const left = Math.max(0, total - state.used.size);
       if (left > 0 && !window.confirm(
-        `إنهاء اللعبة وعرض النتائج؟\nتبقّى ${toArabicDigits(left)} من الأسئلة على اللوحة — ستُحتسب اللعبة ولن يمكن الرجوع.`)) return;
+        `إنهاء اللعبة وعرض النتائج؟\nتبقّى ${toArabicDigits(left)} من الأسئلة على اللوحة — لن يمكن الرجوع إلى اللوحة بعد عرض النتائج.`)) return;
       renderResults();
     });
     $("#questionBackTop").addEventListener("click", cancelQuestion);
@@ -20398,6 +20442,7 @@
     loadSavedGames();
     loadFreeGameState();
     loadProgress();
+    loadSeen();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
@@ -20454,7 +20499,7 @@
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
       if (!configured) { setAuthVisible(false); return; }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-legal-consent-v1"];
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-seen-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
       let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
@@ -20467,7 +20512,7 @@
         });
       }
       function reloadFromStorage() {
-        loadGameSettings(); loadSavedGames(); loadFreeGameState(); loadProgress();
+        loadGameSettings(); loadSavedGames(); loadFreeGameState(); loadProgress(); loadSeen();
         renderTeamSetup(); renderGameLibrary(); renderCategories();
       }
       function cloudBlob() {

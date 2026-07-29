@@ -1,5 +1,7 @@
-// E2E: a play credit is spent only when a game FINISHES (reaches the results
-// screen) — entering a game and leaving, then re-entering, must NOT charge.
+// E2E: the permanent-game credit model (owner reversal 2026-07-29).
+// Creating a NEW game spends one credit AT START and the game becomes
+// permanent; REPLAYING it is free forever (even with zero balance), and
+// finishing/abandoning/exiting never charge anything on their own.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -30,6 +32,7 @@ const reset = (allowance) => page.evaluate((allowance) => {
   state.freeGamePlayed = false; state.gamesUsed = 0; state.gameCounted = false;
   state.editingSavedGameId = null; // a fresh NEW game (not a saved-game replay)
   state.savedGames = [];
+  state.seen = {}; state.progress = {};
   state.selected = new Set(["history"]);
   refreshBuiltinQuestions();
   state.teamCount = 2;
@@ -45,99 +48,95 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
-  // ---- start a game: NOT charged ----
+  // ---- starting a NEW game charges AT START (the free game, first) ----
   await reset(3);
   await page.evaluate(() => startGame());
   let s = await snap();
-  check("starting a game does not consume the free game", s.free === false && s.used === 0 && s.screen === "game");
+  check("starting a new game consumes the free game AT START", s.free === true && s.used === 0 && s.screen === "game");
+  const rec1 = await page.evaluate(() => {
+    const rec = activeSavedGameRecord();
+    return { charged: rec && rec.charged, id: rec && rec.id };
+  });
+  check("the new game's record is immediately marked permanent (charged)", rec1.charged === true);
 
-  // ---- leave and RE-ENTER (start again): still not charged ----
-  await page.evaluate(() => { showScreen("categories"); startGame(); });
-  s = await snap();
-  check("re-entering an unfinished game does not charge", s.free === false && s.used === 0);
-
-  // ---- FINISH the game (reach results): free game consumed, once ----
+  // ---- FINISHING the game charges NOTHING further ----
   await page.evaluate(() => { state.teams[0].score = 300; renderResults(); });
   s = await snap();
-  check("finishing the game consumes the free game", s.free === true && s.counted === true);
-  check("the finished game did not touch the paid allowance yet", s.used === 0);
+  check("finishing the game does not charge again", s.free === true && s.used === 0 && s.counted === true);
 
-  // ---- reviewing results again must NOT double-charge ----
+  // ---- reviewing results again must NOT double-record ----
   await page.evaluate(() => renderResults());
   s = await snap();
   check("re-opening the results screen never re-charges", s.free === true && s.used === 0);
 
-  // ---- a SECOND full game now spends one allowance game (free already used) ----
+  // ---- a SECOND new game spends one allowance game at start (free used up) ----
   await page.evaluate(() => {
     state.gameCounted = false;
-    state.editingSavedGameId = null; // a NEW game (openNewGameCategories clears this)
+    state.editingSavedGameId = null; // a NEW game
     state.teams.forEach(t => { t.score = 0; });
     startGame();
   });
-  const afterStart2 = await snap();
+  s = await snap();
+  check("a second NEW game spends one allowance game at start", s.used === 1 && s.screen === "game");
+  const secondId = await page.evaluate(() => state.editingSavedGameId);
   await page.evaluate(() => { state.teams[0].score = 200; renderResults(); });
-  const afterFinish2 = await snap();
-  check("starting the second game still doesn't charge until it finishes", afterStart2.used === 0);
-  check("finishing the second game spends exactly one allowance game", afterFinish2.used === 1);
+  s = await snap();
+  check("finishing the second game costs nothing more", s.used === 1);
 
-  // ---- RE-RUNNING that saved game is a fresh PAID run (charged on finish) ----
-  const paidGameId = await page.evaluate(() => state.editingSavedGameId); // the record just charged
-  const replayRun = await page.evaluate((id) => {
+  // ---- REPLAYING that game is FREE (no charge at start or finish) ----
+  const replay = await page.evaluate((id) => {
     state.editingSavedGameId = id; // reopen the saved game (as playSavedGame would)
     state.gameCounted = false;
     state.teams.forEach(t => { t.score = 0; });
     startGame();
-    const rec = state.savedGames.find(g => g.id === id);
-    const resetAtStart = !!(rec && rec.charged === false); // startGame made this run chargeable
+    const usedAfterStart = state.gamesUsed;
+    const credit = state.runCredit;
     state.teams[0].score = 150; renderResults();
-    return { resetAtStart, chargedAfter: rec && rec.charged === true };
-  }, paidGameId);
-  const afterReplay = await snap();
-  check("a re-run resets the record (chargeable again) at start", replayRun.resetAtStart);
-  check("finishing the re-run spends ANOTHER allowance game", afterReplay.used === 2);
-  check("the finished re-run is marked charged (resume can't recharge)", replayRun.chargedAfter);
+    return { usedAfterStart, usedAfterFinish: state.gamesUsed, credit,
+             stillCharged: state.savedGames.find(g => g.id === id).charged === true };
+  }, secondId);
+  check("replaying a saved game charges nothing at start", replay.usedAfterStart === 1);
+  check("finishing the replay charges nothing either", replay.usedAfterFinish === 1);
+  check("the replay run is labeled 'replay' for the stats", replay.credit === "replay");
+  check("the record stays permanent after the replay", replay.stillCharged);
 
-  // ---- with 0 credits left, a re-run is BLOCKED by the paywall ----
-  const gateReplay = await page.evaluate((id) => {
+  // ---- with ZERO balance a replay still works (free replays are a right) ----
+  const zeroReplay = await page.evaluate((id) => {
     state.codeGamesAllowed = 0; state.gamesUsed = 0; state.freeGamePlayed = true; // nothing left
-    state.editingSavedGameId = id; state.gameCounted = false;
+    state.editingSavedGameId = id; state.gameCounted = false; state.gameActive = false;
     state.teams.forEach(t => { t.score = 0; });
     startGame();
     return {
-      screen: document.body.dataset.screen, // must NOT reach the board
+      screen: document.body.dataset.screen,
       paywall: document.getElementById("plansModal").classList.contains("open"),
-      active: state.gameActive,
+      active: state.gameActive, used: state.gamesUsed,
     };
-  }, paidGameId);
-  check("with 0 credits a re-run hits the paywall (no free replays)",
-    gateReplay.screen !== "game" && gateReplay.paywall && !gateReplay.active);
+  }, secondId);
+  check("with 0 credits a REPLAY still starts (no paywall, free forever)",
+    zeroReplay.screen === "game" && !zeroReplay.paywall && zeroReplay.active && zeroReplay.used === 0);
 
-  // ---- leaving a game WITHOUT finishing and WITHOUT the ✕ (nav away) is free ----
-  await page.evaluate((id) => {
-    const m = document.getElementById("plansModal"); m.classList.remove("open");
-    state.codeGamesAllowed = 5; state.gamesUsed = 2; // restore a known balance
-    for (let i = 0; i < 2; i++) {
-      state.gameCounted = false; state.editingSavedGameId = null; // a NEW game
-      state.teams.forEach(t => { t.score = 0; }); startGame(); showScreen("categories");
-    }
-    // …and an abandoned RE-RUN of the saved game spends nothing either
-    state.gameCounted = false; state.editingSavedGameId = id;
-    state.teams.forEach(t => { t.score = 0; }); startGame(); showScreen("categories");
-  }, paidGameId);
-  const abandoned = await snap();
-  check("leaving a game without finishing (nav away, no ✕) spends nothing", abandoned.used === 2);
+  // ---- but a NEW game with zero balance is still gated ----
+  const zeroNew = await page.evaluate(() => {
+    showScreen("categories");
+    clearLiveGame();
+    state.editingSavedGameId = null; state.gameCounted = false;
+    startGame();
+    return {
+      paywall: document.getElementById("plansModal").classList.contains("open"),
+      active: state.gameActive, used: state.gamesUsed,
+    };
+  });
+  check("a NEW game with 0 credits still hits the paywall", zeroNew.paywall && !zeroNew.active && zeroNew.used === 0);
 
-  // ---- hopping to a NEW game ABANDONS a PLAYED unfinished one (warns + charges) ----
-  // Closes the "start, play most of it, leave, start another, repeat" loophole:
-  // starting a fresh game while a game you ACTUALLY played is still unfinished
-  // warns and spends one game for the abandoned board.
+  // ---- hopping away from a PLAYED unfinished game warns but NEVER charges ----
   await page.evaluate(() => {
+    const m = document.getElementById("plansModal"); m.classList.remove("open");
     state.isAdmin = false; state.isPremium = false; state.codePremium = false;
     state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 5; state.gamesUsed = 0;
     state.editingSavedGameId = null; state.gameCounted = false;
     state.selected = new Set(["history"]);
     state.teams.forEach(t => { t.score = 0; });
-    startGame();
+    startGame(); // spends 1 at start
   });
   await page.click("#board .board-category-card .cell:not(.used)"); // open a question → "played"
   const hop = await page.evaluate(() => {
@@ -146,52 +145,17 @@ try {
     const usedMid = state.gamesUsed;
     state.editingSavedGameId = null; state.gameCounted = false;
     state.teams.forEach(t => { t.score = 0; });
-    startGame();                  // starting another abandons the played one
+    startGame();                  // abandons the played one + starts (and pays for) a new one
     return { usedMid, usedAfter: state.gamesUsed, screen: document.body.dataset.screen };
   });
-  check("walking away from a PLAYED game costs nothing on its own", hop.usedMid === 0);
-  check("the new-game warning mentions losing progress AND a game charge",
-    /لم تكتمل/.test(lastDialog) && /تُخصم لعبة واحدة/.test(lastDialog));
-  check("starting another game charges exactly one for the abandoned played game",
-    hop.usedAfter === 1 && hop.screen === "game");
-
-  // ---- starting over an UNTOUCHED game charges nothing (and asks nothing) ----
-  const hop2 = await page.evaluate(() => {
-    showScreen("categories"); // the game just started (hop) had no question opened
-    const before = state.gamesUsed;
-    state.editingSavedGameId = null; state.gameCounted = false;
-    state.teams.forEach(t => { t.score = 0; });
-    startGame();
-    return { before, after: state.gamesUsed };
-  });
-  check("starting over an UNTOUCHED game spends nothing (no abandon charge)", hop2.before === hop2.after);
-
-  // ---- an admin hopping to a new game is warned but NOT charged ----
-  const hopAdmin = await page.evaluate(() => {
-    window.IZZBAH.applyAdmin(true); state.isAdmin = true; state.gamesUsed = 3;
-    state.editingSavedGameId = null; state.gameCounted = false;
-    state.selected = new Set(["history"]);
-    state.teams.forEach(t => { t.score = 0; });
-    startGame();
-    state.used.add("history-100"); saveLiveGame(); // pretend a question was played
-    showScreen("categories");
-    state.editingSavedGameId = null; state.gameCounted = false;
-    startGame();
-    return { used: state.gamesUsed };
-  });
-  check("an admin hopping to a new game is NOT charged for the abandoned one", hopAdmin.used === 3);
-  check("the admin new-game warning doesn't threaten a game charge",
-    !/تُخصم لعبة واحدة/.test(lastDialog) && /لم تكتمل/.test(lastDialog));
+  check("the first new game charged one at start", hop.usedMid === 1);
+  check("the hop warning mentions losing progress but NOT a charge",
+    /لم تكتمل/.test(lastDialog) && !/تُخصم/.test(lastDialog));
+  check("the abandoned game itself costs nothing — only the NEW game's start charge",
+    hop.usedAfter === 2 && hop.screen === "game");
 
   // ---- finishing lands on «ألعابك» (saved games), NOT the welcome screen ----
   const finishNav = await page.evaluate(() => {
-    window.IZZBAH.applyAdmin(false); state.isAdmin = false;
-    state.isPremium = false; state.codePremium = false;
-    state.freeGamePlayed = false; state.gamesUsed = 0; state.codeGamesAllowed = 3;
-    state.editingSavedGameId = null; state.gameCounted = false;
-    state.selected = new Set(["history"]);
-    state.teams.forEach(t => { t.score = 0; });
-    startGame();
     state.teams[0].score = 100; renderResults();
     const onResults = document.body.dataset.screen === "results";
     document.getElementById("resultsMenu").click(); // the results «القائمة» button
@@ -199,6 +163,14 @@ try {
   });
   check("finishing shows the results screen", finishNav.onResults);
   check("leaving results via «القائمة» lands on «ألعابك» (saved games)", finishNav.after === "gameLibrary");
+
+  // ---- every paid game stays in the library ----
+  const library = await page.evaluate(() => ({
+    count: state.savedGames.length,
+    allCharged: state.savedGames.every(g => g.charged === true),
+  }));
+  check("every created game is saved in the library and marked permanent",
+    library.count >= 3 && library.allCharged);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

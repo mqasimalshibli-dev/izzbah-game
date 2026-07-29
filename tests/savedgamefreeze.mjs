@@ -1,8 +1,8 @@
-// Saved-game question policy: questions are pinned only WITHIN a run — a
-// resumed board serves the same question — but every NEW run (a re-run of the
-// saved game) clears the pins and draws FRESH questions, and is gated like a
-// new paid game. (Policy change 2026-07-20: re-runs are no longer free and no
-// longer serve the same questions.)
+// Saved-game question policy (permanent games, 2026-07-29): a game's questions
+// are pinned PERMANENTLY when it is created — every replay serves the exact
+// same board and is free. NEW games avoid questions that appeared in earlier
+// games (the izzbah-seen-v1 tracker); only when a category is exhausted do the
+// least-recently-seen questions come back.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -30,12 +30,13 @@ try {
   await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "adm");
     window.IZZBAH.applyAdmin(true); // admin bypasses the play gate for the draw checks
-    // A category with SIX distinct questions in the 100 tier, so fresh draws
-    // are observable.
+    // A category with SIX distinct questions in the 100 tier, so draws are
+    // observable and the pool can be exhausted in six games.
     window.IZZBAH.applyPublished([{
       id: "pub-freeze-test", name: "تجميد", image: "", order: 1,
       questions: Array.from({ length: 6 }, (_, i) => ({ points: 100, q: "سؤال " + i, a: "جواب " + i, image: "", answerImage: "" })),
     }]);
+    state.seen = {}; state.progress = {};
     window.__startFresh = () => {
       state.selected = new Set(["pub-freeze-test"]);
       state.currentGameName = "";
@@ -45,54 +46,41 @@ try {
       return state.editingSavedGameId; // the record it created
     };
     window.__rerun = (id) => { playSavedGame(id); startGame(); };
-    window.__served = () => {
-      const card = [...document.querySelectorAll(".board-category-card")].find(c => c.textContent.includes("تجميد"));
-      const cell = card.querySelector(".cell:not(.used)");
-      cell.click();
-      const a = state.activeQuestion.q.a;
-      finishQuestion(null); // close it (marks it seen for the unseen-first draw)
-      return a;
+    window.__pinOf = (id) => {
+      const rec = state.savedGames.find(g => g.id === id);
+      return rec && rec.frozen && rec.frozen["pub-freeze-test-100"];
     };
   });
 
-  // ---- 1) a new game creates a record and pins this RUN's question ----
+  // ---- 1) a new game creates a PERMANENT record and pins its question ----
   const first = await page.evaluate(() => {
     const id = window.__startFresh();
     const rec = state.savedGames.find(g => g.id === id);
-    const served = window.__served();
-    return { id, frozenSig: rec && rec.frozen && rec.frozen["pub-freeze-test-100"], served };
+    return { id, frozenSig: window.__pinOf(id), charged: rec && rec.charged,
+             seen: (state.seen["pub-freeze-test"] || []).length };
   });
   check("a new game creates a saved-game record", !!first.id);
-  check("the played cell's question is pinned onto the record for this run", !!first.frozenSig);
-  check("the served question is one of the six", /^جواب [0-5]$/.test(first.served));
+  check("its question is pinned onto the record at creation", !!first.frozenSig);
+  check("the record is marked permanent (charged) at creation", first.charged === true);
+  check("the pinned question is recorded in the cross-game seen tracker", first.seen === 1);
 
-  // ---- 2) WITHIN the run (a resume re-render), the pin holds ----
-  const resumed = await page.evaluate((id) => {
-    renderGame(); // what a resume does — re-render the same run's board
-    const rec = state.savedGames.find(g => g.id === id);
-    return rec.frozen["pub-freeze-test-100"];
-  }, first.id);
+  // ---- 2) a re-render (resume) keeps the pin ----
+  const resumed = await page.evaluate((id) => { renderGame(); return window.__pinOf(id); }, first.id);
   check("re-rendering the same run keeps the pinned question (resume-safe)", resumed === first.frozenSig);
 
-  // ---- 3) every RE-RUN clears the pins and draws fresh questions ----
-  const rerunAnswers = [];
-  for (let i = 0; i < 5; i++) {
-    rerunAnswers.push(await page.evaluate((id) => { window.__rerun(id); return window.__served(); }, first.id));
+  // ---- 3) REPLAYS keep the SAME question forever (pins never cleared) ----
+  const replayPins = [];
+  for (let i = 0; i < 3; i++) {
+    replayPins.push(await page.evaluate((id) => { window.__rerun(id); return window.__pinOf(id); }, first.id));
   }
-  const distinct = new Set([first.served, ...rerunAnswers]);
-  check(`re-runs draw FRESH questions (${JSON.stringify([first.served, ...rerunAnswers])} → ${distinct.size} distinct)`,
-    distinct.size >= 2);
+  check(`replays serve the exact same pinned question every time`,
+    replayPins.every(sig => sig === first.frozenSig));
 
-  // ---- 4) a re-run resets the record's charge (paid like a new game) ----
-  const recState = await page.evaluate((id) => {
-    const rec = state.savedGames.find(g => g.id === id);
-    rec.charged = true; // as after a finished run
-    window.__rerun(id);
-    return state.savedGames.find(g => g.id === id).charged;
-  }, first.id);
-  check("starting a re-run makes the record chargeable again", recState === false);
+  // ---- 4) the record STAYS charged after replays ----
+  const stillCharged = await page.evaluate((id) => state.savedGames.find(g => g.id === id).charged, first.id);
+  check("the record stays permanent (charged) across replays", stillCharged === true);
 
-  // ---- 5) with no credits at all, a re-run is blocked by the paywall ----
+  // ---- 5) a replay with NO credits is still allowed (free forever) ----
   const gated = await page.evaluate((id) => {
     window.IZZBAH.applyAdmin(false);
     state.isPremium = false; state.codePremium = false;
@@ -102,9 +90,41 @@ try {
     return {
       paywall: document.getElementById("plansModal").classList.contains("open"),
       active: state.gameActive,
+      pin: window.__pinOf(id),
     };
   }, first.id);
-  check("a re-run with no balance hits the paywall (no free replays)", gated.paywall && !gated.active);
+  check("a replay with no balance still starts (free replays)", !gated.paywall && gated.active);
+  check("…and still serves the same pinned question", gated.pin === first.frozenSig);
+
+  // ---- 6) NEW games never repeat questions from earlier games ----
+  const freshRun = await page.evaluate(() => {
+    window.IZZBAH.applyAdmin(true); state.isAdmin = true; // unlimited for the loop
+    const pins = [window.__pinOf(state.editingSavedGameId)]; // game 1's pin (already seen)
+    for (let i = 0; i < 5; i++) pins.push(window.__pinOf(window.__startFresh()));
+    return { pins, distinct: new Set(pins).size, seenLen: (state.seen["pub-freeze-test"] || []).length };
+  });
+  check(`six games drain all six questions with NO repeats (got ${freshRun.distinct} distinct)`,
+    freshRun.distinct === 6);
+  check("the seen tracker now holds the whole pool", freshRun.seenLen === 6);
+
+  // ---- 7) with the pool exhausted, the LEAST-recently-seen question returns ----
+  const lru = await page.evaluate(() => {
+    const oldest = (state.seen["pub-freeze-test"] || [])[0]; // first-ever seen = LRU
+    const id = window.__startFresh(); // 7th game: pool exhausted → LRU fallback
+    const pin = window.__pinOf(id);
+    const list = state.seen["pub-freeze-test"] || [];
+    return { oldest, pin, bumpedToEnd: list[list.length - 1] === pin, len: list.length };
+  });
+  check("an exhausted category re-serves the least-recently-seen question", lru.pin === lru.oldest);
+  check("the re-served question is bumped to most-recent (so games keep cycling)",
+    lru.bumpedToEnd && lru.len === 6);
+
+  // ---- 8) the seen list survives a reload (persisted + re-loaded) ----
+  const persisted = await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("izzbah-seen-v1") || "{}");
+    return Array.isArray(raw["pub-freeze-test"]) && raw["pub-freeze-test"].length === 6;
+  });
+  check("the seen tracker is persisted to izzbah-seen-v1", persisted);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
