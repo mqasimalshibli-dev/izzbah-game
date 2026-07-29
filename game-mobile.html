@@ -5046,16 +5046,17 @@
     /* In-game progress — the artifact «تقدّم اللعبة» look: a caption, a cream
        rounded track (like the score boxes) and a gold gradient fill, with the
        answered/total fraction pinned at the end. */
-    #game .topbar-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; direction: rtl; }
-    #game .game-progress { display: flex; align-items: center; gap: 9px; direction: rtl; }
-    #game .game-progress .gp-cap { font: 800 11.5px 'Cairo', sans-serif; color: #ffe9c4; white-space: nowrap; opacity: .92; }
-    #game .game-progress .gp-track { width: clamp(96px, 16vw, 190px); height: 11px; border-radius: 999px;
-      background: #e8d7b0; border: 1px solid #e0c97f; overflow: hidden; flex: none;
-      box-shadow: inset 0 1px 2px rgba(90, 55, 10, .28); }
-    #game .game-progress .gp-fill { height: 100%; width: 0; border-radius: 999px;
-      background: linear-gradient(90deg, #e6c163, #c9974a); transition: width .4s ease; }
-    #game .game-progress .gp-frac { font: 800 12.5px 'Cairo', sans-serif; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    #game .game-progress .gp-frac b { color: #ffe9c4; }
+    #game .topbar-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; direction: rtl; }
+    /* In-game report pill (sits under the logo where the progress bar was). */
+    .game-report-btn {
+      font: 800 12px 'Cairo', sans-serif; color: #ffe9c4; direction: rtl;
+      background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 233, 196, .38);
+      border-radius: 999px; padding: 5px 14px; min-height: 0; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+      transition: transform .12s ease, background .15s ease;
+    }
+    .game-report-btn:hover { background: rgba(255, 255, 255, .18); }
+    .game-report-btn:active { transform: scale(.95); }
     #game .turn-box {
       background: rgba(255, 255, 255, .13) !important;
       border: 1px solid rgba(255, 255, 255, .36) !important;
@@ -7515,6 +7516,19 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="reportModal" aria-hidden="true">
+      <div class="question-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+        <h3 class="preview-title" id="reportTitle">🚩 إبلاغ</h3>
+        <p class="import-help">لاحظت مشكلة في سؤال، أو شيء غير مناسب، أو عندك ملاحظة؟ اكتبها هنا وتصل للمطوّرين مباشرة.</p>
+        <textarea id="reportText" class="import-text" placeholder="اكتب ما تريد الإبلاغ عنه..."></textarea>
+        <div class="prem-status" id="reportStatus" aria-live="polite"></div>
+        <div class="actions">
+          <button class="ghost" id="reportCancel" type="button">إلغاء</button>
+          <button class="primary" id="reportSend" type="button">إرسال</button>
+        </div>
+      </div>
+    </div>
+
     <section id="game" class="game-screen">
       <div class="topbar">
         <div class="actions game-actions" style="margin:0">
@@ -7527,11 +7541,7 @@
           <div class="mini-brand">
             <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
           </div>
-          <div class="game-progress" id="gameProgress" role="progressbar" aria-label="تقدّم اللعبة" style="display:none">
-            <span class="gp-cap">الأسئلة المُجابة</span>
-            <span class="gp-track"><span class="gp-fill"></span></span>
-            <span class="gp-frac"></span>
-          </div>
+          <button class="game-report-btn" id="reportGame" type="button" aria-label="إبلاغ عن مشكلة">🚩 إبلاغ</button>
         </div>
         <div class="turn-box" data-turn-box></div>
       </div>
@@ -10699,7 +10709,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.180";
+    const IZZBAH_BUILD = "2026-07-10.181";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19141,6 +19151,37 @@
       modal.setAttribute("aria-hidden", "true");
     }
 
+    // ---- In-game «إبلاغ»: a free-text report that reaches the developers ----
+    // Posts through the same feedback channel as «اقتراحاتك وملاحظاتك», so an
+    // admin sees it in «رسائل اللاعبين» with the usual unread notification.
+    function reportSetStatus(msg) { const st = $("#reportStatus"); if (st) st.textContent = msg || ""; }
+    function openReport() {
+      const t = $("#reportText"); if (t) t.value = "";
+      reportSetStatus("");
+      const m = $("#reportModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      if (t) setTimeout(() => { try { t.focus(); } catch (e) {} }, 60);
+    }
+    function closeReport() {
+      const m = $("#reportModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+    }
+    function sendReport() {
+      const t = $("#reportText");
+      const text = ((t && t.value) || "").trim();
+      if (!text) { reportSetStatus("اكتب رسالتك أولاً"); return; }
+      if (text.length > 2000) { reportSetStatus("الرسالة طويلة جداً"); return; }
+      const send = window.IZZBAH && window.IZZBAH.sendFeedback;
+      if (!send) { reportSetStatus("الإرسال غير متاح — تأكّد من تسجيل الدخول والاتصال"); return; }
+      // Attach a light context line so the admin can locate the report.
+      const aq = state.activeQuestion;
+      const ctx = (aq && aq.q && aq.q.q) ? "\n(أثناء سؤال: " + String(aq.q.q).slice(0, 120) + ")" : "";
+      reportSetStatus("جارٍ الإرسال…");
+      Promise.resolve(send("🚩 بلاغ من داخل اللعبة:\n" + text + ctx))
+        .then(() => { closeReport(); showToast("شكراً، وصل بلاغك للمطوّرين ✓"); })
+        .catch(() => reportSetStatus("تعذّر الإرسال — حاول مجدداً"));
+    }
+
     function showToast(message) {
       const el = $("#appToast");
       if (!el) return;
@@ -19347,6 +19388,11 @@
     $("#reviewModal").addEventListener("click", event => {
       if (event.target.id === "reviewModal") closeReview();
     });
+    $("#reportGame").addEventListener("click", openReport);
+    $("#reportCancel").addEventListener("click", closeReport);
+    $("#reportSend").addEventListener("click", sendReport);
+    $("#reportText").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReport(); } });
+    $("#reportModal").addEventListener("click", event => { if (event.target.id === "reportModal") closeReport(); });
     function openHowTo() {
       track("how_to_open", {});
       const m = $("#howToModal");
