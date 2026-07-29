@@ -29,8 +29,10 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
-  // ---- 1) the ✕ warns (progress only) and charges NOTHING beyond the start ----
-  const abandon = await page.evaluate(() => {
+  // ---- 1) the ✕ exit button is GONE — only ⏸️ pause and 🏁 end remain ----
+  // (owner, 2026-07-29: with permanent games + free replays a "leave and
+  // silently discard the scores" path was a trap; pause or finish instead)
+  const buttons = await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "u"); // a normal player (NOT admin)
     state.isAdmin = false; state.isPremium = false; state.codePremium = false;
     state.freeGamePlayed = true; state.gamesAllowed = 0; state.codeGamesAllowed = 5; state.gamesUsed = 0;
@@ -38,25 +40,17 @@ try {
     state.teamCount = 2; state.gameCounted = false;
     state.teams.forEach(t => { t.score = 0; });
     startGame(); // charge-at-start: spends 1 here
-    const usedAfterStart = state.gamesUsed;
-    const savedId = state.editingSavedGameId;
-    document.getElementById("exitGame").click(); // dialog auto-accepted
-    const rec = state.savedGames.find(g => g.id === savedId);
     return {
-      usedAfterStart,
-      usedAfterExit: state.gamesUsed,
-      active: state.gameActive,
-      onLibrary: document.body.dataset.screen === "gameLibrary",
-      recKept: !!rec, recCharged: rec && rec.charged,
+      usedAfterStart: state.gamesUsed,
+      exitGone: !document.getElementById("exitGame"),
+      pauseThere: !!document.getElementById("pauseGame"),
+      endThere: !!document.getElementById("endGameEarly"),
+      onBoard: document.body.dataset.screen === "game",
     };
   });
-  check("creating the game charged one at start", abandon.usedAfterStart === 1);
-  check("the ✕ warns about progress but does NOT threaten a charge",
-    /تفقد تقدّمك/.test(lastDialog) && !/تُخصم/.test(lastDialog));
-  check("the ✕ warning says the game stays in «ألعابك» for a free replay", /ألعابك/.test(lastDialog) && /مجان/.test(lastDialog));
-  check("confirming the ✕ spends NOTHING extra", abandon.usedAfterExit === 1);
-  check("after abandoning, the game ends on «ألعابك» and the record survives",
-    !abandon.active && abandon.onLibrary && abandon.recKept && abandon.recCharged === true);
+  check("creating the game charged one at start", buttons.usedAfterStart === 1 && buttons.onBoard);
+  check("the ✕ exit button is removed from the game screen", buttons.exitGone);
+  check("⏸️ pause and 🏁 end-game are the two remaining actions", buttons.pauseThere && buttons.endThere);
 
   // ---- 2) every started game pins its questions — a resume never re-rolls ----
   const noReroll = await page.evaluate(() => {
