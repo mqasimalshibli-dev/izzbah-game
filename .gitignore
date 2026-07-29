@@ -4,3 +4,7 @@
 node_modules/
 package.json
 package-lock.json
+
+# EXCEPTION: the Cloud Functions manifest MUST be committed so `firebase deploy`
+# can install its dependencies. Only the root-level test package.json is junk.
+!functions/package.json

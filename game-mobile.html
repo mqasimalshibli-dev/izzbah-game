@@ -578,6 +578,14 @@
       padding: 4px 12px; cursor: pointer; white-space: nowrap;
     }
     .media-link-btn:hover { background: rgba(27, 58, 47, 1); }
+    .media-up-btn {
+      background: #b8862b; color: #23150a; border: none;
+      border-radius: 999px; font: 700 12px 'Cairo', sans-serif;
+      padding: 5px 14px; cursor: pointer; white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+    }
+    .media-up-btn:hover { background: #caa04b; }
+    .media-up-btn:disabled { opacity: .75; cursor: default; }
 
     .image-picker .plus {
       font-size: 42px;
@@ -10713,7 +10721,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.182";
+    const IZZBAH_BUILD = "2026-07-10.183";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12807,6 +12815,35 @@
       m.setAttribute("aria-hidden", "true");
     }
 
+    // Admin-only direct upload: ask the Cloud Function for a one-time presigned
+    // R2 PUT URL, then send the file's bytes straight to R2 (never through the
+    // function). Returns the public URL to store on the question. Progress is
+    // reported 0..1. Throws with a coded message the caller maps to Arabic.
+    async function uploadMediaToCloud(file, onProgress) {
+      if (!file) throw new Error("no-file");
+      if (!window.firebase || typeof firebase.functions !== "function") throw new Error("cloud-not-ready");
+      const callable = firebase.functions().httpsCallable("mintUploadUrl");
+      const res = await callable({
+        filename: (file.name || "clip"),
+        contentType: (file.type || "application/octet-stream"),
+      });
+      const data = (res && res.data) || {};
+      const uploadUrl = data.uploadUrl, publicUrl = data.publicUrl;
+      if (!uploadUrl || !publicUrl) throw new Error("no-url");
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        if (xhr.upload) xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && typeof onProgress === "function") onProgress(e.loaded / e.total);
+        };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("upload-failed-" + xhr.status));
+        xhr.onerror = () => reject(new Error("network"));
+        xhr.send(file);
+      });
+      return publicUrl;
+    }
+
     function imagePicker(currentImage, onChange, label = "اختر صورة", opts) {
       const allowMedia = !!(opts && opts.media);
       const picker = document.createElement("label");
@@ -12906,6 +12943,51 @@
       const wrap = document.createElement("div");
       wrap.className = "media-picker-wrap";
       wrap.appendChild(picker);
+
+      // Admin-only: upload a video/audio file straight to R2 from here — no
+      // Cloudflare dashboard trip. The bytes go browser → R2 directly, so there
+      // is no 1 MB inline cap. Non-admins keep the inline + paste-link path.
+      if (state.isAdmin) {
+        const upInput = document.createElement("input");
+        upInput.type = "file";
+        upInput.accept = "audio/*,video/*";
+        upInput.style.display = "none";
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.className = "media-up-btn";
+        const upLabel = "⬆️ ارفع فيديو/صوت";
+        upBtn.textContent = upLabel;
+        upBtn.title = "ارفع الملف مباشرة إلى التخزين السحابي (R2) — دون رابط";
+        upBtn.addEventListener("click", () => { if (!upBtn.disabled) upInput.click(); });
+        upInput.addEventListener("change", async () => {
+          const file = upInput.files && upInput.files[0];
+          upInput.value = "";
+          if (!file) return;
+          upBtn.disabled = true;
+          try {
+            upBtn.textContent = "⏳ جارٍ الرفع… " + toArabicDigits(0) + "٪";
+            const url = await uploadMediaToCloud(file, (p) => {
+              upBtn.textContent = "⏳ جارٍ الرفع… " + toArabicDigits(Math.round(p * 100)) + "٪";
+            });
+            onChange(url);
+            upBtn.textContent = "✅ تم الرفع";
+            setTimeout(() => { upBtn.textContent = upLabel; }, 1800);
+          } catch (e) {
+            upBtn.textContent = upLabel;
+            const m = String((e && e.message) || "");
+            const msg = /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
+              : /cloud-not-ready/.test(m) ? "خدمة الرفع غير جاهزة بعد — تأكّد من نشر الدالة، أو استخدم رابطاً مباشراً."
+              : /unauthenticated/.test(m) ? "سجّل الدخول بحساب Google أولاً."
+              : "تعذّر الرفع. تحقّق من الإعداد (الدالة و CORS) أو استخدم رابطاً مباشراً.";
+            if (typeof popNote === "function") popNote("⚠️ الرفع", msg); else alert(msg);
+          } finally {
+            upBtn.disabled = false;
+          }
+        });
+        wrap.appendChild(upBtn);
+        wrap.appendChild(upInput);
+      }
+
       const linkBtn = document.createElement("button");
       linkBtn.type = "button";
       linkBtn.className = "media-link-btn";
@@ -14753,6 +14835,8 @@
     }
     window.IZZBAH_TEST = window.IZZBAH_TEST || {};
     window.IZZBAH_TEST.renderQHealth = function (docs) { qHealthData = docs || []; renderQHealth(); };
+    window.IZZBAH_TEST.uploadMediaToCloud = uploadMediaToCloud;
+    window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
 
     // ---- Admin: usage insights (most-played categories, games played) ------
     function statsSetStatus(msg, kind) {
@@ -20266,6 +20350,9 @@
       loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
         .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
+        // Functions SDK — used only by the admin R2-upload flow. Non-fatal: if
+        // it fails to load, uploads fall back to the paste-a-link path.
+        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-functions-compat.js").catch(() => {}))
         .then(() => cfg.measurementId
           ? loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-analytics-compat.js").catch(() => {})
           : null)
