@@ -119,6 +119,15 @@ try {
   check("non-admin media picker hides the upload button", !btns.userHasUp);
   check("the paste-a-link button stays available to everyone", btns.adminHasLink && btns.userHasLink);
 
+  // ---- the CSP must allow the function call + the R2 upload PUT ------------
+  const csp = await page.evaluate(() => {
+    const m = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    return (m && m.getAttribute("content")) || "";
+  });
+  const connect = (csp.match(/connect-src([^;]*)/) || [, ""])[1];
+  check("CSP connect-src allows the Cloud Function domain", /cloudfunctions\.net/.test(connect));
+  check("CSP connect-src allows the R2 upload endpoint", /r2\.cloudflarestorage\.com/.test(connect));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
