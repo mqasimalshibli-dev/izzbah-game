@@ -102,7 +102,7 @@ try {
   });
   check("missing Functions SDK yields a clean 'cloud-not-ready'", /cloud-not-ready/.test(notReady || ""));
 
-  // ---- the upload button shows for admins, hides for everyone else ----------
+  // ---- the box is now the uploader: no separate button; link button stays ---
   const btns = await page.evaluate(() => {
     state.isAdmin = true;
     const asAdmin = window.IZZBAH_TEST.mediaPicker(() => {});
@@ -111,13 +111,43 @@ try {
     return {
       adminHasUp: !!asAdmin.querySelector(".media-up-btn"),
       adminHasLink: !!asAdmin.querySelector(".media-link-btn"),
-      userHasUp: !!asUser.querySelector(".media-up-btn"),
       userHasLink: !!asUser.querySelector(".media-link-btn"),
+      accepts: (asAdmin.querySelector('input[type="file"]') || {}).accept || "",
     };
   });
-  check("admin media picker shows the ⬆️ upload button", btns.adminHasUp);
-  check("non-admin media picker hides the upload button", !btns.userHasUp);
+  check("the redundant ⬆️ upload button is gone", !btns.adminHasUp);
+  check("the box accepts audio + video files", /audio/.test(btns.accepts) && /video/.test(btns.accepts));
   check("the paste-a-link button stays available to everyone", btns.adminHasLink && btns.userHasLink);
+
+  // ---- dropping a file in the box (admin) uploads to R2 and reports the URL --
+  // and must NOT raise the old "too large" warning (that path is gone for admins)
+  const drop = await page.evaluate(async () => {
+    const PUBLIC = "https://pub-xxxx.r2.dev/game-media/9-zzz-voice.m4a";
+    window.firebase = { functions: () => ({ httpsCallable: () => () => Promise.resolve({ data: { uploadUrl: "https://up/x", publicUrl: PUBLIC } }) }) };
+    const RealXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = class {
+      constructor() { this.upload = {}; this.status = 0; }
+      open() {} setRequestHeader() {}
+      send() { if (this.upload.onprogress) this.upload.onprogress({ lengthComputable: true, loaded: 100, total: 100 }); this.status = 200; if (this.onload) this.onload(); }
+    };
+    // count any warning popups raised during the drop
+    let warned = 0; const realPop = window.popNote;
+    window.popNote = (t) => { if (/كبير|الرفع/.test(String(t))) warned++; };
+    state.isAdmin = true;
+    let got = null;
+    const picker = window.IZZBAH_TEST.mediaPicker((v) => { got = v; });
+    const box = picker.querySelector(".image-picker");
+    // a 3 MB "voice note" — would have tripped the 1 MB inline warning before
+    const file = new File([new Uint8Array(3 * 1024 * 1024)], "voice.m4a", { type: "audio/mp4" });
+    const dt = new DataTransfer(); dt.items.add(file);
+    box.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    // wait for the async upload to resolve
+    for (let i = 0; i < 50 && got === null; i++) await new Promise(r => setTimeout(r, 20));
+    window.XMLHttpRequest = RealXHR; window.popNote = realPop;
+    return { got, expected: PUBLIC, warned };
+  });
+  check("dropping audio in the admin box uploads to R2", drop.got === drop.expected);
+  check("no bogus 'too large' warning on an admin cloud upload", drop.warned === 0);
 
   // ---- the CSP must allow the function call + the R2 upload PUT ------------
   const csp = await page.evaluate(() => {

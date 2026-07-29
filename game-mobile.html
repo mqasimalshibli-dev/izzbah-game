@@ -578,14 +578,12 @@
       padding: 4px 12px; cursor: pointer; white-space: nowrap;
     }
     .media-link-btn:hover { background: rgba(27, 58, 47, 1); }
-    .media-up-btn {
-      background: #b8862b; color: #23150a; border: none;
-      border-radius: 999px; font: 700 12px 'Cairo', sans-serif;
-      padding: 5px 14px; cursor: pointer; white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+    .image-picker.is-uploading { pointer-events: none; }
+    .media-uploading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(20, 30, 25, .74); color: #f7ecd6; border-radius: inherit;
+      font: 800 14px 'Cairo', sans-serif; letter-spacing: .5px; z-index: 4;
     }
-    .media-up-btn:hover { background: #caa04b; }
-    .media-up-btn:disabled { opacity: .75; cursor: default; }
 
     .image-picker .plus {
       font-size: 42px;
@@ -10721,7 +10719,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.184";
+    const IZZBAH_BUILD = "2026-07-10.185";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12874,13 +12872,49 @@
       input.type = "file";
       input.accept = allowMedia ? "image/*,audio/*,video/*" : "image/*";
 
-      // shared: take a File/Blob → data URL (images compressed; audio/video kept
-      // as-is) and report back.
+      // Admin uploads audio/video straight to R2 (no size cap); the box shows a
+      // progress overlay while it sends, then swaps in the clip. On success
+      // onChange re-renders this picker, so no manual cleanup is needed.
+      let uploading = false;
+      const cloudUpload = async (file) => {
+        if (uploading) return;
+        uploading = true;
+        picker.style.position = "relative";
+        picker.classList.add("is-uploading");
+        const prog = document.createElement("div");
+        prog.className = "media-uploading";
+        prog.textContent = "⏳ " + toArabicDigits(0) + "٪";
+        picker.appendChild(prog);
+        try {
+          const url = await uploadMediaToCloud(file, (p) => {
+            prog.textContent = "⏳ " + toArabicDigits(Math.round(p * 100)) + "٪";
+          });
+          onChange(url);
+        } catch (e) {
+          const m = String((e && e.message) || "");
+          const msg = /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
+            : /cloud-not-ready/.test(m) ? "خدمة الرفع غير جاهزة بعد — أو استخدم رابطاً مباشراً."
+            : /unauthenticated/.test(m) ? "سجّل الدخول بحساب Google أولاً."
+            : "تعذّر الرفع. حاول مجدداً أو استخدم رابطاً مباشراً.";
+          if (typeof popNote === "function") popNote("⚠️ الرفع", msg); else alert(msg);
+          prog.remove();
+          picker.classList.remove("is-uploading");
+          uploading = false;
+        }
+      };
+
+      // take a File/Blob → attach it. Images compress to a data URL. For audio/
+      // video: admins upload to R2 (no cap, plays back as a normal URL); everyone
+      // else (or admins with the cloud unavailable) inlines it under the 1 MB cap.
       const handleFile = async (file) => {
         if (!file) return;
         const t = file.type || "";
         if (/^image\//.test(t)) { onChange(await fileToDataUrl(file, opts)); return; }
         if (allowMedia && /^(audio|video)\//.test(t)) {
+          if (state.isAdmin && window.firebase && typeof firebase.functions === "function") {
+            await cloudUpload(file);
+            return;
+          }
           const dataUrl = await fileToRawDataUrl(file);
           if (dataUrl && dataUrl.length > 950000 && typeof popNote === "function") {
             popNote("⚠️ الملف كبير", "قد يكون مقطع الصوت/الفيديو أكبر من الحد المسموح لتخزينه في السحابة (١ ميجابايت للسؤال). إن تعذّر النشر فاستخدم مقطعاً أقصر.");
@@ -12936,57 +12970,13 @@
       // tap to upload. Return it as-is.
       if (!allowMedia) return picker;
 
-      // Media pickers: keep the box a plain "tap to upload" control, and put the
-      // "add by link" action in a SEPARATE, clearly-labelled button beneath it —
-      // so tapping the box always uploads a file and the R2 link is never hit by
-      // accident. The button is the way to attach a big video without the 1 MB cap.
+      // Media pickers: the box IS the uploader — tap or drop a file and it
+      // attaches (admins: straight to R2; others: inline). A small "add by link"
+      // button underneath stays as the mobile-friendly way to attach an existing
+      // URL without re-uploading.
       const wrap = document.createElement("div");
       wrap.className = "media-picker-wrap";
       wrap.appendChild(picker);
-
-      // Admin-only: upload a video/audio file straight to R2 from here — no
-      // Cloudflare dashboard trip. The bytes go browser → R2 directly, so there
-      // is no 1 MB inline cap. Non-admins keep the inline + paste-link path.
-      if (state.isAdmin) {
-        const upInput = document.createElement("input");
-        upInput.type = "file";
-        upInput.accept = "audio/*,video/*";
-        upInput.style.display = "none";
-        const upBtn = document.createElement("button");
-        upBtn.type = "button";
-        upBtn.className = "media-up-btn";
-        const upLabel = "⬆️ ارفع فيديو/صوت";
-        upBtn.textContent = upLabel;
-        upBtn.title = "ارفع الملف مباشرة إلى التخزين السحابي (R2) — دون رابط";
-        upBtn.addEventListener("click", () => { if (!upBtn.disabled) upInput.click(); });
-        upInput.addEventListener("change", async () => {
-          const file = upInput.files && upInput.files[0];
-          upInput.value = "";
-          if (!file) return;
-          upBtn.disabled = true;
-          try {
-            upBtn.textContent = "⏳ جارٍ الرفع… " + toArabicDigits(0) + "٪";
-            const url = await uploadMediaToCloud(file, (p) => {
-              upBtn.textContent = "⏳ جارٍ الرفع… " + toArabicDigits(Math.round(p * 100)) + "٪";
-            });
-            onChange(url);
-            upBtn.textContent = "✅ تم الرفع";
-            setTimeout(() => { upBtn.textContent = upLabel; }, 1800);
-          } catch (e) {
-            upBtn.textContent = upLabel;
-            const m = String((e && e.message) || "");
-            const msg = /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
-              : /cloud-not-ready/.test(m) ? "خدمة الرفع غير جاهزة بعد — تأكّد من نشر الدالة، أو استخدم رابطاً مباشراً."
-              : /unauthenticated/.test(m) ? "سجّل الدخول بحساب Google أولاً."
-              : "تعذّر الرفع. تحقّق من الإعداد (الدالة و CORS) أو استخدم رابطاً مباشراً.";
-            if (typeof popNote === "function") popNote("⚠️ الرفع", msg); else alert(msg);
-          } finally {
-            upBtn.disabled = false;
-          }
-        });
-        wrap.appendChild(upBtn);
-        wrap.appendChild(upInput);
-      }
 
       const linkBtn = document.createElement("button");
       linkBtn.type = "button";
