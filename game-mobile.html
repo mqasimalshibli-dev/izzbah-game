@@ -11212,7 +11212,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.200";
+    const IZZBAH_BUILD = "2026-07-10.201";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14534,7 +14534,18 @@
       const out = [];
       const img = builtinCatQuestionImage[catId] || "";
       pointValues.forEach(points => (bank[points] || []).forEach(qa => {
-        out.push({ points, q: qa[0] || "", a: qa[1] || "", image: qa[3] || img, answerImage: "" });
+        // Carry the distractors through. They are the four-choices options for
+        // most categories — and in «قول غيرها» they ARE the banned words, so
+        // dropping them here silently gutted the category the moment an admin
+        // opened it for editing or published it to the cloud.
+        out.push({
+          points,
+          q: qa[0] || "",
+          a: qa[1] || "",
+          distractors: Array.isArray(qa[2]) ? qa[2].slice() : null,
+          image: qa[3] || img,
+          answerImage: ""
+        });
       }));
       return out;
     }

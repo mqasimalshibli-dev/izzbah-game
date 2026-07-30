@@ -62,6 +62,21 @@ try {
   check("no banned word also appears in its own accepted list", cat && cat.noOverlap);
   check("the rule is NOT typed into any question (rendered once by the category)", cat && cat.noInlineRule);
 
+  // ---- opening it in the ADMIN editor must expose all 150 WITH their bans --
+  // (this is the path that turns a built-in into an editable cloud category;
+  // it used to drop `distractors`, which silently gutted this category)
+  const editable = await page.evaluate(() => {
+    const qs = builtinEditableQuestions("sayAnother");
+    return {
+      count: qs.length,
+      allHaveBans: qs.every(q => Array.isArray(q.distractors) && q.distractors.length === 4),
+      sample: qs[0] && qs[0].distractors,
+    };
+  });
+  check(`the admin editor exposes the whole bank (${editable.count} questions)`, editable.count === 150);
+  check("every question keeps its 4 banned words through the editor/publish path",
+    editable.allHaveBans && Array.isArray(editable.sample));
+
   // ---- the QUESTION screen shows ONLY the domain — the bans stay hidden ----
   const opened = await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "u"); window.IZZBAH.applyAdmin(true);
