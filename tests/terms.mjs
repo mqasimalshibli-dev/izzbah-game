@@ -41,7 +41,9 @@ try {
       tiers: [...new Set(qs.map(q => q.points))].sort((a, b) => a - b),
       svgCover: /^data:image\/svg\+xml/.test(c.image || ""),
       everyHasAnswer: qs.every(q => q.q && q.a),
-      everyAsksTerm: qs.every(q => /المصطلح/.test(q.q)),
+      everyAsksTerm: qs.every(q => /المصطلح|الكلمة/.test(q.q)),
+      // the bank must span everyday Arabic — not just grammar/rhetoric
+      bankAnswers: Object.values(bank).flat().map(t => t[1]),
       distractors: qs.every(q => Array.isArray(q.distractors) && q.distractors.length === 3),
       // no question may hand-write the hint — it is derived at render time
       noHardcodedHint: qs.every(q => !/يبدأ بحرف|أول حرف/.test(q.q)),
@@ -53,7 +55,12 @@ try {
   check(`the bank holds several per tier so games vary (${cat && cat.bankTotal} total)`,
     cat && cat.bankTotal >= 15 && cat.bankPerTier.every(n => n >= 3));
   check("it ships a self-contained cover image (svg data URL, no missing asset)", cat && cat.svgCover);
-  check("every question asks for a term and has an answer", cat && cat.everyAsksTerm && cat.everyHasAnswer);
+  check("every question asks for a term/word and has an answer", cat && cat.everyAsksTerm && cat.everyHasAnswer);
+  // The category is «مصطلحات عربية» in the broad sense — vocabulary from
+  // nature, feelings, sounds and human states, not a grammar exam.
+  const broad = ["خرير", "حنين", "سراب", "شفق", "رذاذ", "كثيب", "شماتة", "سغب", "هشيم"];
+  const hits = cat ? broad.filter(w => cat.bankAnswers.includes(w)).length : 0;
+  check(`the bank spans everyday Arabic, not only grammar terms (${hits}/${broad.length} sampled)`, hits >= 7);
   check("every question has 3 same-kind distractors (four-choices stays fair)", cat && cat.distractors);
   check("no question hard-codes the hint (it is derived from the answer)", cat && cat.noHardcodedHint);
 
