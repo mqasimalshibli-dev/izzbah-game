@@ -1,8 +1,8 @@
-// «قول غيرها»: the prompt names a DOMAIN, the obvious answers are listed as
-// banned chips, and the standing rule «أي كلمة غير المذكورة… إجابتك صحيحة ✅»
-// is rendered ONCE by the category (never typed into a question). The banned
-// words live in `distractors`, so multiple choice must be off — offering them
-// as options would invert the game.
+// «قول غيرها»: the QUESTION screen names only a DOMAIN («اذكر اسم حيوان») —
+// the banned words are a hidden trap the team answers blind against. The REVEAL
+// shows them, and dodging them scores. The banned words live in `distractors`,
+// so multiple choice must be off (it would hand the team the trap), and nothing
+// on the question screen may leak them.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -60,7 +60,7 @@ try {
   check("no banned word also appears in its own accepted list", cat && cat.noOverlap);
   check("the rule is NOT typed into any question (rendered once by the category)", cat && cat.noInlineRule);
 
-  // ---- opening a question shows the bans + the rule ------------------------
+  // ---- the QUESTION screen shows ONLY the domain — the bans stay hidden ----
   const opened = await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "u"); window.IZZBAH.applyAdmin(true);
     state.selected = new Set(["sayAnother"]);
@@ -70,28 +70,54 @@ try {
     const card = [...document.querySelectorAll(".board-category-card")]
       .find(c => c.textContent.includes("قول غيرها"));
     card.querySelector(".cell:not(.used)").click();
+    const banned = state.activeQuestion.q.distractors || [];
+    const page = document.getElementById("questionPage");
+    return {
+      bannedHidden: document.getElementById("bannedWrap").hidden,
+      qText: document.getElementById("modalQuestion").textContent.trim(),
+      // no banned word may appear ANYWHERE on the question screen
+      leaks: banned.filter(w => page.textContent.includes(w)),
+    };
+  });
+  check("the question screen shows only the domain prompt", /اذكر/.test(opened.qText));
+  check("the banned words are HIDDEN while answering", opened.bannedHidden);
+  check(`no banned word leaks onto the question screen (${opened.leaks.length} leaks)`, opened.leaks.length === 0);
+
+  // ---- revealing the answer exposes the bans + the rule -------------------
+  const revealed = await page.evaluate(() => {
+    const banned = state.activeQuestion.q.distractors || [];
+    revealAnswer();
     const wrap = document.getElementById("bannedWrap");
     const chips = [...document.querySelectorAll(".banned-chip")];
-    const rule = document.getElementById("bannedRule");
-    const qText = document.getElementById("modalQuestion");
-    const banned = state.activeQuestion.q.distractors || [];
-    // the block must sit ABOVE the question text
-    const above = !!(wrap.compareDocumentPosition(qText) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const answerEl = document.getElementById("modalAnswer");
     return {
       shown: !wrap.hidden && wrap.offsetHeight > 0,
       chipCount: chips.length,
       chipsMatch: chips.map(c => c.textContent).join("|") === banned.join("|"),
       struck: chips.length ? /line-through/.test(getComputedStyle(chips[0]).textDecorationLine) : false,
-      rule: rule.textContent,
-      above,
-      qVisible: qText.textContent.trim().length > 0,
+      rule: document.getElementById("bannedRule").textContent,
+      // the bans must sit with the answer, above the accepted-examples line
+      beforeAnswer: !!(wrap.compareDocumentPosition(answerEl) & Node.DOCUMENT_POSITION_FOLLOWING),
+      acceptedShown: answerEl.textContent.includes("·"),
     };
   });
-  check("opening a question shows the banned-words block", opened.shown);
-  check(`all 4 banned words render as chips (${opened.chipCount})`, opened.chipCount === 4 && opened.chipsMatch);
-  check("banned chips are struck through", opened.struck);
-  check("the standing rule is displayed", /أي كلمة غير المذكورة/.test(opened.rule) && /إجابتك صحيحة/.test(opened.rule));
-  check("the rule sits ABOVE the question, with the question underneath", opened.above && opened.qVisible);
+  check("revealing the answer shows the banned-words block", revealed.shown);
+  check(`all 4 banned words render as chips (${revealed.chipCount})`, revealed.chipCount === 4 && revealed.chipsMatch);
+  check("banned chips are struck through", revealed.struck);
+  check("the rule explains that dodging them scores", /إجابتكم صحيحة/.test(revealed.rule));
+  check("the bans sit above the accepted-examples answer line",
+    revealed.beforeAnswer && revealed.acceptedShown);
+
+  // ---- the answer must be labelled EXAMPLES, not "the correct answer" ------
+  const label = await page.evaluate(() => {
+    const el = document.getElementById("modalAnswer");
+    return {
+      sayAnother: getComputedStyle(el, "::before").content,
+      flagged: document.getElementById("answerPage").classList.contains("say-another"),
+    };
+  });
+  check("the answer is labelled «أمثلة مقبولة», not «الإجابة الصحيحة»",
+    label.flagged && /أمثلة مقبولة/.test(label.sayAnother));
 
   // ---- multiple choice must be OFF (bans are not options) ------------------
   const helpers = await page.evaluate(() => {
@@ -117,9 +143,12 @@ try {
     const card = [...document.querySelectorAll(".board-category-card")]
       .find(c => c.textContent.includes("تاريخ"));
     card.querySelector(".cell:not(.used)").click();
-    return !document.getElementById("bannedWrap").hidden;
+    const atQuestion = !document.getElementById("bannedWrap").hidden;
+    revealAnswer();
+    return { atQuestion, atReveal: !document.getElementById("bannedWrap").hidden };
   });
-  check("a normal category shows NO banned-words block", normal === false);
+  check("a normal category shows NO banned-words block, at question OR reveal",
+    normal.atQuestion === false && normal.atReveal === false);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

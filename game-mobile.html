@@ -5828,6 +5828,10 @@
     #answerPage #modalAnswer::before {
       content: "الإجابة الصحيحة"; display: block; font: 700 15px 'Cairo', sans-serif; letter-spacing: 2px; color: #3f7a57; margin-bottom: 16px;
     }
+    /* «قول غيرها» has no single right answer — the list is only EXAMPLES, so
+       label it as such or a host may wrongly reject a valid unlisted word. */
+    #answerPage.say-another #modalAnswer::before { content: "أمثلة مقبولة — وغيرها كثير"; }
+    #answerPage.say-another #modalAnswer { font-size: clamp(26px, 3.4vw, 40px) !important; }
     #answerPage #modalAnswer::after {
       content: ""; display: block; width: 70px; height: 4px; border-radius: 3px; background: linear-gradient(90deg, #ecce72, #c79a35); margin: 18px auto 0;
     }
@@ -7637,11 +7641,6 @@
           </div>
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
-        <div class="banned-wrap" id="bannedWrap" hidden>
-          <div class="banned-head">ممنوع تقولون</div>
-          <div class="banned-list" id="bannedList"></div>
-          <div class="banned-rule" id="bannedRule"></div>
-        </div>
         <div class="near-margin term-hint" id="termHint" hidden title="أول حرف من الإجابة"><span class="near-label">أول حرف</span><b id="termHintVal"></b></div>
         <div class="near-margin" id="nearMargin" hidden title="الفريق الذي تقع إجابته ضمن هذا الهامش يفوز بالنقاط"><span class="near-label">هامش الفوز</span><b class="clean-number" id="nearMarginVal"></b></div>
         <p class="question-text" id="modalQuestion"></p>
@@ -7670,6 +7669,11 @@
             <span class="meta-box answer-points" id="answerPoints"></span>
           </div>
           <img id="modalAnswerImage" class="answer-image" alt="" />
+          <div class="banned-wrap" id="bannedWrap" hidden>
+            <div class="banned-head">الكلمات الممنوعة</div>
+            <div class="banned-list" id="bannedList"></div>
+            <div class="banned-rule" id="bannedRule"></div>
+          </div>
           <div class="answer visible" id="modalAnswer"></div>
         </div>
       </div>
@@ -10873,7 +10877,29 @@
       if (String(cat.id || "") === "sayAnother") return true;
       return /قول غيرها/.test(String(cat.name || ""));
     }
-    const SAY_ANOTHER_RULE = "أي كلمة غير المذكورة… إجابتك صحيحة ✅";
+    const SAY_ANOTHER_RULE = "إذا ما قلتوا وحدة من هذي… إجابتكم صحيحة ✅";
+    // Fill the reveal's banned-word list for «قول غيرها» (hidden for every
+    // other category). Called from revealAnswer, never at question time — the
+    // whole game is that the team answers WITHOUT seeing this.
+    function showBannedWords(cat, q) {
+      const wrap = $("#bannedWrap");
+      if (!wrap) return;
+      const banned = isSayAnotherCategory(cat) && Array.isArray(q && q.distractors) ? q.distractors : [];
+      // Relabels the answer as «أمثلة مقبولة» — see the .say-another CSS.
+      const page = document.getElementById("answerPage");
+      if (page) page.classList.toggle("say-another", banned.length > 0);
+      if (!banned.length) { wrap.hidden = true; return; }
+      const list = $("#bannedList");
+      list.innerHTML = "";
+      banned.forEach(w => {
+        const chip = document.createElement("span");
+        chip.className = "banned-chip";
+        chip.textContent = w;
+        list.appendChild(chip);
+      });
+      $("#bannedRule").textContent = SAY_ANOTHER_RULE;
+      wrap.hidden = false;
+    }
     // Riddle categories («ألغاز») — like the emoji category, every riddle is
     // worth a FLAT 200 points regardless of the board cell. Matched by NAME
     // (these are cloud/admin categories with no special id); "لغاز" covers
@@ -11069,7 +11095,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.196";
+    const IZZBAH_BUILD = "2026-07-10.197";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14214,7 +14240,7 @@
       whoAmI: "خمّن الشخصية من ثلاثة تلميحات تُكشف واحدًا تلو الآخر.",
       emojis: "خمّن الكلمة أو المثل أو الاسم أو الشخصية من الإيموجي — فكفكوا الرموز مع فريقكم.",
       arabicTerms: "نعطيك المعنى وأول حرف من الكلمة — وعليك تسميها. مفردات من المشاعر والطبيعة والأصوات وأحوال الناس.",
-      sayAnother: "نعطيكم مجالاً والكلمات المشهورة فيه ممنوعة — قولوا أي كلمة غيرها وتكسبون النقاط.",
+      sayAnother: "نعطيكم مجالاً — قولوا أي كلمة منه. الكلمات المشهورة ممنوعة وتنكشف بعد الإجابة: إذا تفاديتوها كسبتوا النقاط.",
       charades: "تمثيل صامت: امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.",
       charadesMovies: "تمثيل صامت بأسماء أفلام وشخصيات: امسح الرمز ومثّلها دون كلام.",
       charadesArabic: "تمثيل صامت بكلمات ومصطلحات عربية: امسح الرمز ومثّلها دون كلام.",
@@ -19204,24 +19230,11 @@
         if (hint) { $("#termHintVal").textContent = hint.revealed + "…"; termPill.hidden = false; }
         else { termPill.hidden = true; }
       }
-      // «قول غيرها»: list the banned words with the prompt, and state the rule
-      // ONCE here rather than repeating it inside every question's text.
+      // «قول غيرها»: the banned words are a HIDDEN trap — the team answers
+      // blind and only finds out on the reveal whether they dodged them. The
+      // list is filled in showBannedWords(), called from revealAnswer().
       const bannedWrap = $("#bannedWrap");
-      if (bannedWrap) {
-        const banned = isSayAnotherCategory(cat) && Array.isArray(q && q.distractors) ? q.distractors : [];
-        if (banned.length) {
-          const list = $("#bannedList");
-          list.innerHTML = "";
-          banned.forEach(w => {
-            const chip = document.createElement("span");
-            chip.className = "banned-chip";
-            chip.textContent = w;
-            list.appendChild(chip);
-          });
-          $("#bannedRule").textContent = SAY_ANOTHER_RULE;
-          bannedWrap.hidden = false;
-        } else { bannedWrap.hidden = true; }
-      }
+      if (bannedWrap) bannedWrap.hidden = true;
       // Word-game questions with no stored image (e.g. from a published
       // override) fall back to the built-in QR matching this exact word.
       const qImage = q.image || (isWordGuessCategory(cat) ? (wordQrFor(cat.id, q.a) || makeWordQr(q.a)) : "");
@@ -19265,6 +19278,7 @@
       if (!active) return;
       stopQuestionMedia(); // pause any question audio/video before showing the answer
       playSfx("reveal");
+      showBannedWords(active.cat, active.q); // «قول غيرها»: the trap is revealed here
       const award = $("#awardRow");
       award.innerHTML = "";
       state.pendingWinner = null;
