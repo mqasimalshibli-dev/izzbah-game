@@ -7825,6 +7825,38 @@
       return Number.isFinite(n) ? n : 0;
     }
     const builtinQuestionBanks = {
+      // «مصطلحات عربية» — the prompt DEFINES a term and the player names it.
+      // The first letter is revealed automatically from the answer (see
+      // isTermsCategory / openQuestion), so questions here must never spell the
+      // hint out by hand. Distractors are same-kind terms so «أربعة خيارات»
+      // stays a real choice rather than a giveaway.
+      arabicTerms: {
+        100: [
+          ["ما المصطلح الذي يعني الشخص الذي يكتب الشِّعر؟", "شاعر", ["كاتب", "خطيب", "راوي"]],
+          ["ما المصطلح الذي يعني قصة قصيرة على لسان الحيوانات تحمل عِبرة؟", "خرافة", ["رواية", "مقالة", "قصيدة"]],
+          ["ما المصطلح الذي يعني جملة قصيرة متوارثة تحمل حكمة؟", "مثل", ["نكتة", "خبر", "وصف"]]
+        ],
+        200: [
+          ["ما المصطلح الذي يعني الكلمة التي تدل على حدث وزمن؟", "فعل", ["اسم", "حرف", "ظرف"]],
+          ["ما المصطلح الذي يعني تشابه أواخر الأبيات في الحرف الأخير؟", "قافية", ["وزن", "بحر", "رويّ"]],
+          ["ما المصطلح الذي يعني وصف الشيء بغيره لاشتراكهما في صفة، بأداة تشبيه؟", "تشبيه", ["استعارة", "كناية", "مجاز"]]
+        ],
+        300: [
+          ["ما المصطلح الذي يعني استعمال اللفظ في غير معناه الحقيقي مع حذف أداة التشبيه؟", "استعارة", ["تشبيه", "كناية", "طباق"]],
+          ["ما المصطلح الذي يعني الجمع بين الشيء وضدّه في الكلام؟", "طباق", ["جناس", "سجع", "تورية"]],
+          ["ما المصطلح الذي يعني تشابه لفظين في النطق واختلافهما في المعنى؟", "جناس", ["طباق", "سجع", "ترادف"]]
+        ],
+        400: [
+          ["ما المصطلح الذي يعني توافق أواخر الجمل في النثر على حرف واحد؟", "سجع", ["قافية", "جناس", "روي"]],
+          ["ما المصطلح الذي يعني ذكر اللفظ وإرادة معنى بعيد غير الظاهر؟", "تورية", ["كناية", "استعارة", "مجاز"]],
+          ["ما المصطلح الذي يعني الكلمات المختلفة في اللفظ المتفقة في المعنى؟", "ترادف", ["تضاد", "اشتراك", "اشتقاق"]]
+        ],
+        500: [
+          ["ما المصطلح الذي يعني اللفظ الواحد الذي يحمل أكثر من معنى؟", "اشتراك", ["ترادف", "تضاد", "توكيد"]],
+          ["ما المصطلح الذي يعني الاسم المنصوب الذي يبيّن سبب وقوع الفعل؟", "مفعول لأجله", ["مفعول مطلق", "حال", "تمييز"]],
+          ["ما المصطلح الذي يعني علم دراسة أوزان الشِّعر العربي؟", "عروض", ["نحو", "صرف", "بلاغة"]]
+        ]
+      },
       // Guess the word / saying / person / character from the emojis. Sample of
       // five to start — one per point tier, easy → harder. Distractors are
       // same-kind so the «أربعة خيارات» lifeline stays fair.
@@ -10428,8 +10460,20 @@
       + "<text x='200' y='250' font-size='50' text-anchor='middle' opacity='0.92'>💡</text>"
       + "<text x='314' y='240' font-size='50' text-anchor='middle' opacity='0.92'>😎</text>"
       + "</svg>");
+    const TERMS_COVER = "data:image/svg+xml," + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'>"
+      + "<defs><linearGradient id='tg' x1='0' y1='0' x2='1' y2='1'>"
+      + "<stop offset='0' stop-color='#1f4d3d'/><stop offset='1' stop-color='#0c1f19'/>"
+      + "</linearGradient></defs>"
+      + "<rect width='400' height='300' fill='url(#tg)'/>"
+      + "<text x='200' y='150' font-size='128' text-anchor='middle' fill='#e7c373'"
+      + " font-family='Cairo, Tahoma, sans-serif' font-weight='700'>مـ</text>"
+      + "<text x='200' y='222' font-size='38' text-anchor='middle' fill='#f7ecd6'"
+      + " font-family='Cairo, Tahoma, sans-serif' opacity='0.85'>أول حرف</text>"
+      + "</svg>");
     const builtinCategoryMeta = [
       { id: "emojis", name: "خمّن الإيموجي", image: EMOJI_COVER, fullImage: true },
+      { id: "arabicTerms", name: "مصطلحات عربية", image: TERMS_COVER, fullImage: true },
       { id: "history", name: "تاريخ", image: "assets/img/cat-history.webp", fullImage: true },
       { id: "science", name: "علوم", image: "assets/img/cat-science.webp", fullImage: true },
       { id: "geo", name: "جغرافيا", image: "assets/img/cat-geo.webp", fullImage: true },
@@ -10620,6 +10664,18 @@
       if (!cat) return false;
       if (String(cat.id || "") === "emojis") return true;
       return /إيموجي|ايموجي|إيموجى|emoji/i.test(String(cat.name || ""));
+    }
+    // «مصطلحات عربية» — the question describes a term and the FIRST LETTER of
+    // the answer is shown automatically (derived from the answer itself, so the
+    // hint can never drift out of sync with an edit). Matched by id or name so
+    // an admin/cloud category called «مصطلحات …» behaves the same way.
+    function isTermsCategory(cat) {
+      if (!cat) return false;
+      if (String(cat.id || "") === "arabicTerms") return true;
+      // Never claim a وش الكلمة category that merely mentions «مصطلحات» in its
+      // name — revealing the first letter there would spoil the acted word.
+      if (isWordGuessCategory(cat)) return false;
+      return /مصطلح/.test(String(cat.name || ""));
     }
     // Riddle categories («ألغاز») — like the emoji category, every riddle is
     // worth a FLAT 200 points regardless of the board cell. Matched by NAME
@@ -10813,7 +10869,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.191";
+    const IZZBAH_BUILD = "2026-07-10.192";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13957,6 +14013,7 @@
       seerah: "أسئلة عن السيرة النبوية: حياة النبي ﷺ وغزواته وأصحابه.",
       whoAmI: "خمّن الشخصية من ثلاثة تلميحات تُكشف واحدًا تلو الآخر.",
       emojis: "خمّن الكلمة أو المثل أو الاسم أو الشخصية من الإيموجي — فكفكوا الرموز مع فريقكم.",
+      arabicTerms: "نعطيك تعريف المصطلح وأول حرف منه — وعليك تسميه. مصطلحات لغوية وبلاغية.",
       charades: "تمثيل صامت: امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.",
       charadesMovies: "تمثيل صامت بأسماء أفلام وشخصيات: امسح الرمز ومثّلها دون كلام.",
       charadesArabic: "تمثيل صامت بكلمات ومصطلحات عربية: امسح الرمز ومثّلها دون كلام.",
@@ -18709,7 +18766,9 @@
       // off (multiple choice would give the answer away).
       const qCat = (screenPhase === "question" && state.activeQuestion) ? state.activeQuestion.cat : null;
       const hideFour = !!qCat && hidesMultipleChoice(qCat);
-      const hideFirst = !!qCat && isWordGuessCategory(qCat);
+      // …and on a مصطلحات question the first letter is already on screen, so
+      // spending the lifeline on it would buy the team nothing.
+      const hideFirst = !!qCat && (isWordGuessCategory(qCat) || isTermsCategory(qCat));
       teamLoadout(teamIndex).forEach(id => {
         const h = HELPERS[id];
         const used = !!teamHelpUsed(teamIndex)[id];
@@ -18763,7 +18822,7 @@
       if (HELPERS[id].phase === "question" && !active) return;
       // Backstop for the render-level disable: never spoil a protected answer.
       if (id === "fourChoices" && active && hidesMultipleChoice(active.cat)) return;
-      if (id === "firstLetter" && active && isWordGuessCategory(active.cat)) return;
+      if (id === "firstLetter" && active && (isWordGuessCategory(active.cat) || isTermsCategory(active.cat))) return;
       if (id === "fourChoices") {
         const options = buildChoiceOptions(active.cat, active.q);
         if (!options) return;
@@ -18960,7 +19019,9 @@
       updateGameProgress(); // advance the «N / total سؤال» bar right away
       state.activeQuestion = { cat, q, key, team: state.activeTeam };
       renderChoiceOptions(null);
-      renderHint(null);
+      // «مصطلحات عربية» gives the first letter as PART of the question — no
+      // helper needed (and the firstLetter lifeline is hidden for it below).
+      renderHint(isTermsCategory(cat) ? firstLetterHint(q && q.a) : null);
       updateHelpBars();
       fillQuestionContent(cat, q);
       renderTurnBoxes();
