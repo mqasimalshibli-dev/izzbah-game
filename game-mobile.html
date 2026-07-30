@@ -4679,6 +4679,25 @@
       box-shadow: 0 3px 10px rgba(10, 40, 28, .28), inset 0 1px 0 rgba(255, 255, 255, .18);
     }
     .near-margin.term-hint b { direction: rtl; font-size: 22px; color: #ffd98a; }
+    /* «قول غيرها»: the banned words sit under the prompt as struck-through
+       chips, with the standing rule beneath them in green. */
+    .banned-wrap { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px auto 4px; }
+    .banned-wrap[hidden] { display: none; }
+    .banned-head { font: 800 14px 'Cairo', sans-serif; color: #b3202a; letter-spacing: .3px; }
+    .banned-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .banned-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
+      background: rgba(179, 32, 42, .1); border: 2px solid rgba(179, 32, 42, .55); color: #8f1a24;
+      font: 800 15px 'Cairo', sans-serif; text-decoration: line-through; text-decoration-thickness: 2px;
+    }
+    .banned-rule {
+      font: 800 13.5px 'Cairo', sans-serif; color: #2f6b3d;
+      background: rgba(47, 107, 61, .1); border: 1px solid rgba(47, 107, 61, .35);
+      border-radius: 999px; padding: 5px 14px;
+    }
+    :root[data-theme="dark"] .banned-chip { background: rgba(255, 120, 130, .12); border-color: rgba(255, 140, 150, .5); color: #ffb3ba; }
+    :root[data-theme="dark"] .banned-head { color: #ff9aa4; }
+    :root[data-theme="dark"] .banned-rule { color: #a8e0b6; background: rgba(120, 220, 150, .1); border-color: rgba(120, 220, 150, .35); }
     .ann-image-slot { display: flex; flex-direction: column; gap: 10px; }
     .ann-img-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .ann-img-rm { min-height: 0; padding: 5px 12px; font-size: 13px; flex: 0 0 auto; }
@@ -7618,6 +7637,11 @@
           </div>
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
+        <div class="banned-wrap" id="bannedWrap" hidden>
+          <div class="banned-head">ممنوع تقولون</div>
+          <div class="banned-list" id="bannedList"></div>
+          <div class="banned-rule" id="bannedRule"></div>
+        </div>
         <div class="near-margin term-hint" id="termHint" hidden title="أول حرف من الإجابة"><span class="near-label">أول حرف</span><b id="termHintVal"></b></div>
         <div class="near-margin" id="nearMargin" hidden title="الفريق الذي تقع إجابته ضمن هذا الهامش يفوز بالنقاط"><span class="near-label">هامش الفوز</span><b class="clean-number" id="nearMarginVal"></b></div>
         <p class="question-text" id="modalQuestion"></p>
@@ -7838,6 +7862,62 @@
       // isTermsCategory / openQuestion), so questions here must never spell the
       // hint out by hand. Distractors are same-kind terms so «أربعة خيارات»
       // stays a real choice rather than a giveaway.
+      // «قول غيرها» — q = the DOMAIN asked for, distractors = the BANNED words
+      // (shown as struck-through chips, never as multiple choice), a = accepted
+      // examples shown on the reveal so the host can judge without arguing.
+      // The standing rule line is rendered once by the category, not stored here.
+      sayAnother: {
+        100: [
+          ["اذكر كلمة عن الطقس", "ضباب · رعد · برق · ثلج · رطوبة · صقيع", ["مطر", "شمس", "رياح", "غيم"]],
+          ["اذكر اسم فاكهة", "رمان · تين · مانجو · خوخ · أناناس · كيوي", ["تفاح", "موز", "برتقال", "عنب"]],
+          ["اذكر اسم لون", "بنفسجي · رمادي · بني · وردي · تركوازي", ["أحمر", "أزرق", "أخضر", "أصفر"]],
+          ["اذكر اسم حيوان", "زرافة · ضبع · غزال · دب · ثعلب · جمل", ["أسد", "قط", "كلب", "فيل"]],
+          ["اذكر عضواً من أعضاء الجسم", "كتف · ركبة · كبد · رئة · فك · كعب", ["يد", "رجل", "عين", "أنف"]],
+          ["اذكر اسم خضار", "باذنجان · كوسة · قرنبيط · فجل · بامية", ["طماطم", "خيار", "بصل", "بطاطس"]],
+          ["اذكر وسيلة نقل", "قطار · سفينة · قارب · شاحنة · منطاد · قطار أنفاق", ["سيارة", "طائرة", "باص", "دراجة"]],
+          ["اذكر شيئاً في غرفة النوم", "خزانة · مرآة · ستارة · مصباح · سجادة", ["سرير", "وسادة", "بطانية", "مكيّف"]]
+        ],
+        200: [
+          ["اذكر اسم مهنة", "نجار · صيّاد · خياط · محاسب · طيّار · حدّاد", ["طبيب", "معلّم", "مهندس", "شرطي"]],
+          ["اذكر اسم رياضة", "جودو · جري · تجديف · رماية · مصارعة · دراجات", ["كرة قدم", "سباحة", "تنس", "كرة سلة"]],
+          ["اذكر أداة من أدوات المطبخ", "مبشرة · مصفاة · مغرفة · مقلاة · خلاط · لوح تقطيع", ["ملعقة", "سكين", "صحن", "قدر"]],
+          ["اذكر اسم دولة عربية", "تونس · اليمن · لبنان · موريتانيا · جيبوتي · السودان", ["مصر", "السعودية", "الإمارات", "العراق"]],
+          ["اذكر اسم طائر", "هدهد · بلبل · غراب · نورس · طاووس · بجع", ["حمام", "صقر", "نسر", "ببغاء"]],
+          ["اذكر شيئاً تجده في المدرسة", "مختبر · ملعب · مكتبة · جرس · طباشير · مقصف", ["كتاب", "قلم", "معلّم", "طالب"]],
+          ["اذكر اسم شهر", "صفر · رجب · شعبان · شوّال · محرّم", ["رمضان", "يناير", "ديسمبر", "ذو الحجة"]],
+          ["اذكر شيئاً في السيارة", "مرآة · فرامل · مقود · كمّاليات · ممسحة · بوق", ["عجلة", "محرك", "بنزين", "مقعد"]]
+        ],
+        300: [
+          ["اذكر نوعاً من التوابل", "قرفة · زعفران · كمون · قرنفل · زنجبيل · سماق", ["فلفل", "ملح", "هيل", "كركم"]],
+          ["اذكر اسم شجرة", "سدر · زيتون · صنوبر · أرز · غاف · لبان", ["نخلة", "تفاح", "برتقال", "موز"]],
+          ["اذكر اسم حشرة", "جرادة · خنفساء · يعسوب · فراشة · عقرب", ["نملة", "ذبابة", "بعوضة", "نحلة"]],
+          ["اذكر اسم كوكب", "زحل · عطارد · نبتون · أورانوس", ["الأرض", "المريخ", "الزهرة", "المشتري"]],
+          ["اذكر اسم مدينة خليجية", "الدوحة · المنامة · الكويت · الدمام · العين", ["مسقط", "دبي", "الرياض", "أبوظبي"]],
+          ["اذكر شيئاً تلبسه", "حزام · وشاح · قفازات · جورب · معطف · كمّة", ["قميص", "بنطلون", "حذاء", "دشداشة"]],
+          ["اذكر اسم آلة موسيقية", "ربابة · ناي · قانون · كمان · طبل · مزمار", ["عود", "بيانو", "جيتار", "دف"]],
+          ["اذكر شيئاً في الحمّام", "مرآة · منشفة · مشط · فرشاة · حوض", ["صابون", "ماء", "شامبو", "معجون"]]
+        ],
+        400: [
+          ["اذكر اسم ولاية عُمانية", "بهلا · إبراء · الرستاق · سمائل · بركاء · عبري", ["مسقط", "صلالة", "نزوى", "صحار"]],
+          ["اذكر اسم بحر أو محيط", "بحر العرب · قزوين · الكاريبي · بحر الشمال · المحيط الهندي", ["الأحمر", "المتوسط", "الهادئ", "الأطلسي"]],
+          ["اذكر اسم معدن", "نحاس · رصاص · زنك · قصدير · ألمنيوم · كروم", ["ذهب", "فضة", "حديد", "ماس"]],
+          ["اذكر نوعاً من الحلويات", "بسبوسة · كنافة · مهلبية · قطايف · عصيدة", ["حلوى عمانية", "لقيمات", "كيك", "بقلاوة"]],
+          ["اذكر اسم لغة", "أردية · سواحيلية · بلوشية · تركية · فارسية · صينية", ["العربية", "الإنجليزية", "الفرنسية", "الإسبانية"]],
+          ["اذكر شيئاً في السوق القديم", "مبخرة · فضة · سعف · تمر · بهارات · نحاس", ["خنجر", "لبان", "ذهب", "ملابس"]],
+          ["اذكر اسم صحابي", "بلال · سلمان الفارسي · خالد بن الوليد · معاذ بن جبل", ["أبو بكر", "عمر", "عثمان", "علي"]],
+          ["اذكر ظاهرة طبيعية", "زلزال · بركان · تسونامي · كسوف · خسوف · سراب", ["مطر", "ثلج", "إعصار", "فيضان"]]
+        ],
+        500: [
+          ["اذكر اسم سمكة", "شعري · صافي · زبيدي · عندق · خبّاط · جِش", ["كنعد", "هامور", "سردين", "تونة"]],
+          ["اذكر اسم نهر", "الفرات · الدانوب · الغانج · الأمازون · الميسيسيبي", ["النيل", "دجلة", "الأردن", "التايمز"]],
+          ["اذكر اسم عملة", "ين · روبية · فرنك · ليرة · درهم · روبل", ["ريال", "دولار", "يورو", "جنيه"]],
+          ["اذكر اسم قلعة أو حصن في عُمان", "بهلا · جبرين · الحزم · مطرح · بيت الرديدة", ["نزوى", "نخل", "الجلالي", "بركاء"]],
+          ["اذكر اسم جبل", "كليمنجارو · الألب · طويق · أحد · إفرست · جبل شمس", ["الجبل الأخضر", "طارق", "الأخضر", "سيناء"]],
+          ["اذكر اسم كاتب أو شاعر عربي", "المعري · البحتري · نزار قباني · طه حسين · جبران", ["المتنبي", "امرؤ القيس", "نجيب محفوظ", "أحمد شوقي"]],
+          ["اذكر اسم صحراء", "الربع الخالي · الكبرى · جوبي · كالاهاري · أتاكاما", ["الصحراء العربية", "سيناء", "النفود", "الرملة"]],
+          ["اذكر مصطلحاً في علم الفلك", "مجرّة · نيزك · ثقب أسود · مذنّب · سديم · مدار", ["نجم", "قمر", "شمس", "كوكب"]]
+        ]
+      },
       arabicTerms: {
         100: [
           ["ما الكلمة التي تصف صوت الماء الجاري بين الحصى؟", "خرير", ["حفيف", "صهيل", "هديل"]],
@@ -10564,9 +10644,22 @@
       + "<text x='200' y='222' font-size='38' text-anchor='middle' fill='#f7ecd6'"
       + " font-family='Cairo, Tahoma, sans-serif' opacity='0.85'>أول حرف</text>"
       + "</svg>");
+    const SAY_ANOTHER_COVER = "data:image/svg+xml," + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'>"
+      + "<defs><linearGradient id='sg' x1='0' y1='0' x2='1' y2='1'>"
+      + "<stop offset='0' stop-color='#7d1620'/><stop offset='1' stop-color='#2c0a0f'/>"
+      + "</linearGradient></defs>"
+      + "<rect width='400' height='300' fill='url(#sg)'/>"
+      + "<text x='200' y='128' font-size='70' text-anchor='middle' fill='#f0c4c8'"
+      + " font-family='Cairo, Tahoma, sans-serif' font-weight='700'"
+      + " text-decoration='line-through' opacity='0.7'>ممنوع</text>"
+      + "<text x='200' y='215' font-size='58' text-anchor='middle' fill='#e7c373'"
+      + " font-family='Cairo, Tahoma, sans-serif' font-weight='700'>قول غيرها</text>"
+      + "</svg>");
     const builtinCategoryMeta = [
       { id: "emojis", name: "خمّن الإيموجي", image: EMOJI_COVER, fullImage: true },
       { id: "arabicTerms", name: "مصطلحات عربية", image: TERMS_COVER, fullImage: true },
+      { id: "sayAnother", name: "قول غيرها", image: SAY_ANOTHER_COVER, fullImage: true },
       { id: "history", name: "تاريخ", image: "assets/img/cat-history.webp", fullImage: true },
       { id: "science", name: "علوم", image: "assets/img/cat-science.webp", fullImage: true },
       { id: "geo", name: "جغرافيا", image: "assets/img/cat-geo.webp", fullImage: true },
@@ -10770,6 +10863,17 @@
       if (isWordGuessCategory(cat)) return false;
       return /مصطلح/.test(String(cat.name || ""));
     }
+    // «قول غيرها» — the prompt names a DOMAIN and lists the obvious answers;
+    // the team must name something else in that domain. There is no single
+    // right answer, so the stored `a` holds ACCEPTED EXAMPLES (shown on the
+    // reveal, to settle judging) and `distractors` holds the BANNED words
+    // (shown with the question, never as multiple choice).
+    function isSayAnotherCategory(cat) {
+      if (!cat) return false;
+      if (String(cat.id || "") === "sayAnother") return true;
+      return /قول غيرها/.test(String(cat.name || ""));
+    }
+    const SAY_ANOTHER_RULE = "أي كلمة غير المذكورة… إجابتك صحيحة ✅";
     // Riddle categories («ألغاز») — like the emoji category, every riddle is
     // worth a FLAT 200 points regardless of the board cell. Matched by NAME
     // (these are cloud/admin categories with no special id); "لغاز" covers
@@ -10832,7 +10936,10 @@
     // The emoji category is included: a list of four answers would make guessing
     // the puzzle too easy, so «أربعة خيارات» is switched off there.
     function hidesMultipleChoice(cat) {
-      return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat) || isEmojiCategory(cat);
+      // …and «قول غيرها», whose distractors are BANNED words, not options —
+      // offering them as multiple choice would invert the whole game.
+      return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat)
+        || isEmojiCategory(cat) || isSayAnotherCategory(cat);
     }
     // Answer -> bundled QR path, per word category (built lazily from the banks).
     // Lets a published override of a word category — whose stored questions
@@ -10962,7 +11069,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.195";
+    const IZZBAH_BUILD = "2026-07-10.196";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14107,6 +14214,7 @@
       whoAmI: "خمّن الشخصية من ثلاثة تلميحات تُكشف واحدًا تلو الآخر.",
       emojis: "خمّن الكلمة أو المثل أو الاسم أو الشخصية من الإيموجي — فكفكوا الرموز مع فريقكم.",
       arabicTerms: "نعطيك المعنى وأول حرف من الكلمة — وعليك تسميها. مفردات من المشاعر والطبيعة والأصوات وأحوال الناس.",
+      sayAnother: "نعطيكم مجالاً والكلمات المشهورة فيه ممنوعة — قولوا أي كلمة غيرها وتكسبون النقاط.",
       charades: "تمثيل صامت: امسح رمز الـ QR لترى الكلمة، مثّلها دون أن تنطق، وعلى فريقك تخمينها.",
       charadesMovies: "تمثيل صامت بأسماء أفلام وشخصيات: امسح الرمز ومثّلها دون كلام.",
       charadesArabic: "تمثيل صامت بكلمات ومصطلحات عربية: امسح الرمز ومثّلها دون كلام.",
@@ -19095,6 +19203,24 @@
         const hint = isTermsCategory(cat) ? firstLetterHint(q && q.a) : null;
         if (hint) { $("#termHintVal").textContent = hint.revealed + "…"; termPill.hidden = false; }
         else { termPill.hidden = true; }
+      }
+      // «قول غيرها»: list the banned words with the prompt, and state the rule
+      // ONCE here rather than repeating it inside every question's text.
+      const bannedWrap = $("#bannedWrap");
+      if (bannedWrap) {
+        const banned = isSayAnotherCategory(cat) && Array.isArray(q && q.distractors) ? q.distractors : [];
+        if (banned.length) {
+          const list = $("#bannedList");
+          list.innerHTML = "";
+          banned.forEach(w => {
+            const chip = document.createElement("span");
+            chip.className = "banned-chip";
+            chip.textContent = w;
+            list.appendChild(chip);
+          });
+          $("#bannedRule").textContent = SAY_ANOTHER_RULE;
+          bannedWrap.hidden = false;
+        } else { bannedWrap.hidden = true; }
       }
       // Word-game questions with no stored image (e.g. from a published
       // override) fall back to the built-in QR matching this exact word.

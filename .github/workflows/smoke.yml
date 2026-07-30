@@ -289,6 +289,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node omanimages.mjs
 
+      - name: Run «قول غيرها» category test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node sayanother.mjs
+
       - name: Run arabic-terms category test
         working-directory: tests
         run: |
