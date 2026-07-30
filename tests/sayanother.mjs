@@ -99,11 +99,20 @@ try {
       // the bans must sit with the answer, above the accepted-examples line
       beforeAnswer: !!(wrap.compareDocumentPosition(answerEl) & Node.DOCUMENT_POSITION_FOLLOWING),
       acceptedShown: answerEl.textContent.includes("·"),
+      // the rule labels the chips, so it must come FIRST and there is no
+      // separate «الكلمات الممنوعة» heading
+      ruleAboveChips: !!(document.getElementById("bannedRule")
+        .compareDocumentPosition(document.getElementById("bannedList")) & Node.DOCUMENT_POSITION_FOLLOWING),
+      noHeading: !document.querySelector(".banned-head") && !wrap.textContent.includes("الكلمات الممنوعة"),
+      strikeThin: chips.length ? parseFloat(getComputedStyle(chips[0]).textDecorationThickness) <= 1.5 : false,
     };
   });
   check("revealing the answer shows the banned-words block", revealed.shown);
   check(`all 4 banned words render as chips (${revealed.chipCount})`, revealed.chipCount === 4 && revealed.chipsMatch);
   check("banned chips are struck through", revealed.struck);
+  check("the strike is hairline so the Arabic word stays legible", revealed.strikeThin);
+  check("the rule sits ABOVE the chips and labels them", revealed.ruleAboveChips);
+  check("there is no separate «الكلمات الممنوعة» heading", revealed.noHeading);
   check("the rule explains that dodging them scores", /إجابتكم صحيحة/.test(revealed.rule));
   check("the bans sit above the accepted-examples answer line",
     revealed.beforeAnswer && revealed.acceptedShown);

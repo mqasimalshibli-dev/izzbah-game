@@ -4681,14 +4681,22 @@
     .near-margin.term-hint b { direction: rtl; font-size: 22px; color: #ffd98a; }
     /* «قول غيرها»: the banned words sit under the prompt as struck-through
        chips, with the standing rule beneath them in green. */
-    .banned-wrap { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px auto 4px; }
+    /* The rule sits ON TOP and does the labelling («…وحدة من هذي» points at the
+       chips below it), so there is no separate «الكلمات الممنوعة» heading. */
+    .banned-wrap { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 6px auto 4px; max-width: 100%; }
     .banned-wrap[hidden] { display: none; }
-    .banned-head { font: 800 14px 'Cairo', sans-serif; color: #b3202a; letter-spacing: .3px; }
     .banned-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
     .banned-chip {
       display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
       background: rgba(179, 32, 42, .1); border: 2px solid rgba(179, 32, 42, .55); color: #8f1a24;
-      font: 800 15px 'Cairo', sans-serif; text-decoration: line-through; text-decoration-thickness: 2px;
+      font: 800 15px 'Cairo', sans-serif;
+      /* A thick strike-through is unreadable in Arabic — the line runs straight
+         through the letter bodies rather than between them as in Latin type.
+         Keep it hairline and translucent: still clearly "crossed out", but the
+         word stays legible, which is the whole point of showing it. */
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+      text-decoration-color: rgba(143, 26, 36, .5);
     }
     .banned-rule {
       font: 800 13.5px 'Cairo', sans-serif; color: #2f6b3d;
@@ -4696,7 +4704,7 @@
       border-radius: 999px; padding: 5px 14px;
     }
     :root[data-theme="dark"] .banned-chip { background: rgba(255, 120, 130, .12); border-color: rgba(255, 140, 150, .5); color: #ffb3ba; }
-    :root[data-theme="dark"] .banned-head { color: #ff9aa4; }
+    :root[data-theme="dark"] .banned-chip { text-decoration-color: rgba(255, 179, 186, .5); }
     :root[data-theme="dark"] .banned-rule { color: #a8e0b6; background: rgba(120, 220, 150, .1); border-color: rgba(120, 220, 150, .35); }
     .ann-image-slot { display: flex; flex-direction: column; gap: 10px; }
     .ann-img-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -7670,9 +7678,8 @@
           </div>
           <img id="modalAnswerImage" class="answer-image" alt="" />
           <div class="banned-wrap" id="bannedWrap" hidden>
-            <div class="banned-head">الكلمات الممنوعة</div>
-            <div class="banned-list" id="bannedList"></div>
             <div class="banned-rule" id="bannedRule"></div>
+            <div class="banned-list" id="bannedList"></div>
           </div>
           <div class="answer visible" id="modalAnswer"></div>
         </div>
@@ -11095,7 +11102,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.197";
+    const IZZBAH_BUILD = "2026-07-10.198";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
