@@ -5446,6 +5446,12 @@
       padding: 5px 12px; font: 700 13px 'Cairo', sans-serif; color: #8a6a3a; white-space: nowrap;
     }
     #gameLibrary .saved-game-free { background: #e2efe4; border-color: #9dc3a4; color: #2f6b3d; }
+    /* The re-seed button glows only when the published copy is behind the
+       bundled bank — otherwise it's a quiet, rarely-needed control. */
+    #adminReseedBuiltin.reseed-behind {
+      background: #b8862b !important; color: #23150a !important;
+      border-color: #8a6118 !important; font-weight: 800;
+    }
     #gameLibrary .saved-game-cats { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
     #gameLibrary .saved-game-category {
       min-height: 112px !important; border: 2px solid #d9b24a !important; border-radius: 14px !important; overflow: hidden;
@@ -7113,6 +7119,7 @@
           <button class="secondary admin-clear-btn" id="adminDeleteSelected" type="button" hidden>🗑 حذف المحدد</button>
           <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
           <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
+          <button class="secondary" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم">⟲ إعادة تحميل من الأصل</button>
           <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
           <button class="secondary" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية">⬇ نسخة احتياطية</button>
@@ -11212,7 +11219,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.201";
+    const IZZBAH_BUILD = "2026-07-10.202";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14762,6 +14769,21 @@
       const count = document.createElement("span");
       count.className = "ac-count";
       count.textContent = `${toArabicDigits(cat.questions.length)} سؤال`;
+      // Offer «إعادة تحميل من الأصل» only where there IS a bundled bank, and
+      // flag it when the published copy has fallen behind that bank.
+      {
+        const reseed = $("#adminReseedBuiltin");
+        const bank = builtinQuestionBanks[cat.id];
+        if (reseed) {
+          const bankCount = bank ? builtinEditableQuestions(cat.id).length : 0;
+          reseed.hidden = !bank;
+          const behind = bank && bankCount > cat.questions.length;
+          reseed.textContent = behind
+            ? `⟲ إعادة تحميل من الأصل (${toArabicDigits(bankCount)})`
+            : "⟲ إعادة تحميل من الأصل";
+          reseed.classList.toggle("reseed-behind", !!behind);
+        }
+      }
       // Per-tier breakdown: how many questions exist at each point value.
       const tierCounts = document.createElement("span");
       tierCounts.className = "ac-tiers";
@@ -18922,6 +18944,29 @@
 
     // Admin: wipe every question in the current category (double-confirmed).
     // The empty category stays; the deletion is one undo step and auto-publishes.
+    // Re-seed an official category's questions from the bundled bank. A
+    // PUBLISHED copy shadows the built-in entirely (see editOfficialCategory),
+    // so once a category is published its question list is frozen at whatever
+    // it held that day — later additions to the bank never reach it. This is
+    // the supported way to pull them in without deleting the live category.
+    function reseedFromBuiltin() {
+      const cat = state.adminCat;
+      if (!cat) { showToast("اختر فئة أولاً"); return; }
+      const bank = builtinQuestionBanks[cat.id];
+      if (!bank) { showToast("هذه الفئة ليس لها نسخة أصلية مدمجة"); return; }
+      const fresh = builtinEditableQuestions(cat.id);
+      const now = cat.questions.length;
+      if (!confirm(`استبدال أسئلة «${cat.name || ""}» بالنسخة الأصلية؟\nالحالي: ${toArabicDigits(now)} سؤال ← الأصل: ${toArabicDigits(fresh.length)} سؤال.\nأي تعديلات يدوية على الأسئلة ستُفقد (يمكنك التراجع).`)) return;
+      pushAdminUndo(`إعادة تحميل الأسئلة من الأصل (${toArabicDigits(now)} ← ${toArabicDigits(fresh.length)})`);
+      cat.questions = fresh;
+      state.adminDirty = true;
+      markAdminDirty();
+      renderAdminCatHead();
+      populateAdminFilter();
+      renderAdminTable();
+      showToast(`تم تحميل ${toArabicDigits(fresh.length)} سؤالاً — اضغط «نشر» ليراها الجميع`);
+    }
+
     function clearAllQuestions() {
       const cat = state.adminCat;
       if (!cat) { showToast("اختر فئة أولاً"); return; }
@@ -20453,6 +20498,7 @@
       runFetchImages(opt);
     });
     $("#fetchImagesModal").addEventListener("click", event => { if (event.target.id === "fetchImagesModal") closeFetchImagesDialog(); });
+    $("#adminReseedBuiltin").addEventListener("click", reseedFromBuiltin);
     $("#adminClearQuestions").addEventListener("click", clearAllQuestions);
     $("#adminSelectAll").addEventListener("click", toggleAdminSelectAll);
     $("#adminSelAll").addEventListener("change", toggleAdminSelectAll);

@@ -77,6 +77,38 @@ try {
   check("every question keeps its 4 banned words through the editor/publish path",
     editable.allHaveBans && Array.isArray(editable.sample));
 
+  // ---- a stale PUBLISHED copy shadows the bank; re-seed must recover it ----
+  // Reproduces the real incident: the category was published when the bank held
+  // 40, so the editor kept showing 40 forever while the bank grew to 150.
+  const reseed = await page.evaluate(() => {
+    window.IZZBAH.applyAuth(true, "adm"); window.IZZBAH.applyAdmin(true);
+    const stale = {
+      id: "sayAnother", name: "قول غيرها", published: true, order: -1,
+      questions: Array.from({ length: 40 }, (_, i) => ({ points: 100, q: "قديم " + i, a: "x", distractors: ["a", "b", "c", "d"] })),
+    };
+    window.IZZBAH.applyPublished([stale]);
+    selectAdminCategory("sayAnother");                // the admin CMS path
+    const shadowed = state.adminCat.questions.length; // the bug: 40, not 150
+    const btn = document.getElementById("adminReseedBuiltin");
+    // capture BEFORE re-seeding — afterwards the button correctly stops
+    // advertising a count, because the copy is no longer behind
+    const flagged = !btn.hidden && btn.classList.contains("reseed-behind");
+    const btnLabel = btn.textContent;
+    window.confirm = () => true;
+    reseedFromBuiltin();
+    const after = state.adminCat.questions.length;
+    const bansKept = state.adminCat.questions.every(q => Array.isArray(q.distractors) && q.distractors.length === 4);
+    const calmAfter = !document.getElementById("adminReseedBuiltin").classList.contains("reseed-behind");
+    window.IZZBAH.applyPublished([]); // restore
+    return { shadowed, after, flagged, bansKept, btnLabel, calmAfter };
+  });
+  check("a published copy shadows the built-in bank (the reported bug)", reseed.shadowed === 40);
+  check("the re-seed button appears and flags that the copy is behind",
+    reseed.flagged && /١٥٠|150/.test(reseed.btnLabel));
+  check("re-seeding pulls the full bank back in (40 → 150)", reseed.after === 150);
+  check("re-seeded questions keep their banned words", reseed.bansKept);
+  check("once re-seeded the button stops flagging (no longer behind)", reseed.calmAfter);
+
   // ---- the QUESTION screen shows ONLY the domain — the bans stay hidden ----
   const opened = await page.evaluate(() => {
     window.IZZBAH.applyAuth(true, "u"); window.IZZBAH.applyAdmin(true);
