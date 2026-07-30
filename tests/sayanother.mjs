@@ -51,8 +51,8 @@ try {
     };
   });
   check("the «قول غيرها» category exists and is live", !!cat && cat.name === "قول غيرها");
-  check(`the bank holds 100 questions, 20 per tier (${cat && cat.total})`,
-    cat && cat.total === 100 && cat.perTier.every(n => n === 20));
+  check(`the bank holds 150 questions, 30 per tier (${cat && cat.total})`,
+    cat && cat.total === 150 && cat.perTier.every(n => n === 30));
   check("no domain prompt is repeated", cat && new Set(cat.prompts).size === cat.prompts.length);
   check("all five tiers are on the board", cat && JSON.stringify(cat.tiers) === JSON.stringify([100, 200, 300, 400, 500]));
   check("it ships a self-contained cover image", cat && cat.svgCover);
