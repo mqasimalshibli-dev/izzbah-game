@@ -40,7 +40,8 @@ try {
       total: all.length,
       perTier: Object.keys(bank).map(p => (bank[p] || []).length),
       svgCover: /^data:image\/svg\+xml/.test(c.image || ""),
-      everyAsks: all.every(t => /اذكر/.test(t[0])),
+      everyAsks: all.every(t => /^اذكر/.test(t[0])),
+      prompts: all.map(t => t[0]),
       everyBans4: all.every(t => Array.isArray(t[2]) && t[2].length === 4),
       everyHasAccepted: all.every(t => typeof t[1] === "string" && t[1].includes("·")),
       // the rule must NOT be baked into any question or answer
@@ -50,8 +51,9 @@ try {
     };
   });
   check("the «قول غيرها» category exists and is live", !!cat && cat.name === "قول غيرها");
-  check(`the bank holds 40 questions, 8 per tier (${cat && cat.total})`,
-    cat && cat.total === 40 && cat.perTier.every(n => n === 8));
+  check(`the bank holds 100 questions, 20 per tier (${cat && cat.total})`,
+    cat && cat.total === 100 && cat.perTier.every(n => n === 20));
+  check("no domain prompt is repeated", cat && new Set(cat.prompts).size === cat.prompts.length);
   check("all five tiers are on the board", cat && JSON.stringify(cat.tiers) === JSON.stringify([100, 200, 300, 400, 500]));
   check("it ships a self-contained cover image", cat && cat.svgCover);
   check("every prompt asks for a domain («اذكر …»)", cat && cat.everyAsks);
