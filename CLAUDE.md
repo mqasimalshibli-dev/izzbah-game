@@ -13,18 +13,29 @@
   PWA installed to the home screen (16.4+). If the App Store app ships,
   revisit with native push.
 
-- **Automate the pack-order confirmation email, gated on payment.** Today the
-  flow is manual: a player taps a pack → order lands in the admin's
-  subscription panel → the admin presses «كود + بريد التأكيد», which mints the
-  code and opens a prefilled Gmail compose (from izzbahgame@gmail.com) that the
-  admin completes and sends. The user wants this upgraded so the email is sent
-  to the buyer **automatically after the payment is made** — i.e. the code
-  email goes out only once payment is confirmed, with no manual compose step.
-  This needs a payment signal + a server-side email sender (e.g. a real payment
-  provider webhook + Cloud Functions on the Blaze plan, or an email API), since
-  the game is a static page on GitHub Pages and Firebase is on the free Spark
-  plan (no Cloud Functions, no server). Design the payment-confirmation step
-  first; never send the code before payment.
+- **Automatic purchases via Thawani — backend BUILT, client flow FROZEN
+  (owner, 2026-07-30).** Decided model: the player pays and **the games are
+  granted to their account directly** — no code, no email. Activation codes
+  stay a MANUAL, ADMIN-ONLY tool for gifts and fixes and are never part of a
+  purchase.
+  - Already built and tested (`functions/lib/packs.js`, `functions/lib/grant.js`,
+    `createCheckout` + `paymentWebhook` in `functions/index.js`, 26 unit tests
+    in CI via `functions/test/fulfilment.test.mjs`). No firestore.rules change
+    was needed: entitlements are write-denied to every user and the Admin SDK
+    bypasses rules, so the webhook is the only path to paid content.
+  - Still to do when the merchant account exists — see `PAYMENT_SETUP.md`:
+    replace the deliberately-stubbed `verifyProviderCallback()` with Thawani's
+    real signature check (do NOT guess at it), return a real `checkoutUrl`, and
+    only then wire the client.
+  - ⚠️ **DO NOT change what happens when a player taps a pack** (`orderPlan`)
+    until the owner says so. It must keep the CURRENT manual behaviour: write
+    `orders/{uid}`, show «تم استلام طلبك…», and wait for the admin to press
+    «كود + بريد التأكيد». The new Cloud Functions are deployed-ready but
+    deliberately NOT connected to the UI.
+  - Known gaps in the manual flow the owner has accepted for now: the code is
+    emailed together with the payment instructions (so it goes out before the
+    money arrives), and `recordSale` books revenue at that moment rather than on
+    payment. Both disappear once Thawani is wired.
 
 - **Online / remote multiplayer — PARKED for v2 (owner-requested 2026-07-21).**
   Turn عِزبة from single-device pass-and-play into each player on their own
