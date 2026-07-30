@@ -80,21 +80,30 @@ try {
     const card = [...document.querySelectorAll(".board-category-card")]
       .find(c => c.textContent.includes("مصطلحات"));
     card.querySelector(".cell:not(.used)").click();
-    const hint = document.getElementById("modalHint");
+    const pill = document.getElementById("termHint");
+    const qText = document.getElementById("modalQuestion");
     const answer = state.activeQuestion.q.a;
+    // the pill must sit ABOVE the question, like «هامش الفوز»
+    const above = pill.compareDocumentPosition(qText) & Node.DOCUMENT_POSITION_FOLLOWING;
     return {
-      visible: hint.classList.contains("visible"),
-      text: hint.textContent,
-      frag: (hint.querySelector(".qhint-frag") || {}).textContent || "",
-      dir: (hint.querySelector(".qhint-frag") || {}).dir || "",
+      shown: !pill.hidden && pill.offsetHeight > 0,
+      text: pill.textContent,
+      val: document.getElementById("termHintVal").textContent,
+      above: !!above,
+      // the old below-the-choices hint box must stay empty (no double display)
+      oldHintEmpty: !document.getElementById("modalHint").classList.contains("visible"),
+      gold: getComputedStyle(pill).backgroundImage !== getComputedStyle(document.getElementById("nearMargin")).backgroundImage,
       answer,
       firstChar: [...answer.trim()][0],
     };
   });
-  check("opening a term question reveals the hint box with no helper spent", opened.visible);
-  check(`the hint shows the answer's FIRST letter (${opened.firstChar} of «${opened.answer}»)`,
-    opened.frag.startsWith(opened.firstChar));
-  check("the hint is labelled «أول حرف» and rendered RTL", /أول حرف/.test(opened.text) && opened.dir === "rtl");
+  check("opening a term question shows the «أول حرف» pill with no helper spent", opened.shown);
+  check(`the pill shows the answer's FIRST letter (${opened.firstChar} of «${opened.answer}»)`,
+    opened.val.startsWith(opened.firstChar));
+  check("the pill is labelled «أول حرف» and sits above the question (هامش position)",
+    /أول حرف/.test(opened.text) && opened.above);
+  check("it is visually distinct from the gold «هامش الفوز» pill", opened.gold);
+  check("the letter is not ALSO shown in the old hint box (no duplicate)", opened.oldHintEmpty);
 
   // ---- the now-redundant first-letter lifeline is hidden -------------------
   const helpers = await page.evaluate(() => {
@@ -136,9 +145,13 @@ try {
     const card = [...document.querySelectorAll(".board-category-card")]
       .find(c => c.textContent.includes("تاريخ"));
     card.querySelector(".cell:not(.used)").click();
-    return document.getElementById("modalHint").classList.contains("visible");
+    return {
+      hintBox: document.getElementById("modalHint").classList.contains("visible"),
+      pill: !document.getElementById("termHint").hidden,
+    };
   });
-  check("a normal category shows NO automatic hint (helper still required)", normal === false);
+  check("a normal category shows NO automatic hint (helper still required)",
+    normal.hintBox === false && normal.pill === false);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

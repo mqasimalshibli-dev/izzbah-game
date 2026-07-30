@@ -4672,6 +4672,13 @@
       font: 800 15px 'Cairo', sans-serif; box-shadow: 0 3px 10px rgba(122, 20, 20, .18), inset 0 1px 0 rgba(255, 255, 255, .45); }
     .near-margin b { font-size: 19px; direction: ltr; }
     .near-margin[hidden] { display: none; }
+    /* The «أول حرف» pill shares the win-margin's shape but NOT its gold, so a
+       hint is never mistaken for a scoring rule. The letter itself is RTL. */
+    .near-margin.term-hint {
+      background: linear-gradient(180deg, #2f6b4f, #1b4a35); border-color: #0f2e21; color: #f7ecd6;
+      box-shadow: 0 3px 10px rgba(10, 40, 28, .28), inset 0 1px 0 rgba(255, 255, 255, .18);
+    }
+    .near-margin.term-hint b { direction: rtl; font-size: 22px; color: #ffd98a; }
     .ann-image-slot { display: flex; flex-direction: column; gap: 10px; }
     .ann-img-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .ann-img-rm { min-height: 0; padding: 5px 12px; font-size: 13px; flex: 0 0 auto; }
@@ -7611,6 +7618,7 @@
           </div>
         </div>
         <img id="modalQuestionImage" class="question-image" alt="" />
+        <div class="near-margin term-hint" id="termHint" hidden title="أول حرف من الإجابة"><span class="near-label">أول حرف</span><b id="termHintVal"></b></div>
         <div class="near-margin" id="nearMargin" hidden title="الفريق الذي تقع إجابته ضمن هذا الهامش يفوز بالنقاط"><span class="near-label">هامش الفوز</span><b class="clean-number" id="nearMarginVal"></b></div>
         <p class="question-text" id="modalQuestion"></p>
         <div class="qchoices" id="modalChoices" aria-label="خيارات متعددة"></div>
@@ -10954,7 +10962,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.194";
+    const IZZBAH_BUILD = "2026-07-10.195";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19080,6 +19088,14 @@
         if (m != null) { $("#nearMarginVal").textContent = "±" + toArabicDigits(m) + (unit ? " " + unit : ""); nearPill.hidden = false; }
         else { nearPill.hidden = true; }
       }
+      // «مصطلحات عربية»: the first letter is PART of the question, so it sits in
+      // a pill up here beside the question — not down with the lifeline hints.
+      const termPill = $("#termHint");
+      if (termPill) {
+        const hint = isTermsCategory(cat) ? firstLetterHint(q && q.a) : null;
+        if (hint) { $("#termHintVal").textContent = hint.revealed + "…"; termPill.hidden = false; }
+        else { termPill.hidden = true; }
+      }
       // Word-game questions with no stored image (e.g. from a published
       // override) fall back to the built-in QR matching this exact word.
       const qImage = q.image || (isWordGuessCategory(cat) ? (wordQrFor(cat.id, q.a) || makeWordQr(q.a)) : "");
@@ -19104,9 +19120,9 @@
       updateGameProgress(); // advance the «N / total سؤال» bar right away
       state.activeQuestion = { cat, q, key, team: state.activeTeam };
       renderChoiceOptions(null);
-      // «مصطلحات عربية» gives the first letter as PART of the question — no
-      // helper needed (and the firstLetter lifeline is hidden for it below).
-      renderHint(isTermsCategory(cat) ? firstLetterHint(q && q.a) : null);
+      // (For مصطلحات the first letter is shown in its own pill beside the
+      // question — see fillQuestionContent — so this stays empty here.)
+      renderHint(null);
       updateHelpBars();
       fillQuestionContent(cat, q);
       renderTurnBoxes();
