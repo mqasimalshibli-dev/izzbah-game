@@ -4584,6 +4584,8 @@
     .qh-h { margin: 0 0 2px; font: 800 15px 'Cairo', sans-serif; color: #8f1622; }
     .qh-row { border: 1px solid rgba(140, 106, 46, .22); border-radius: 12px; padding: 9px 12px; background: #fbf4e4; }
     .qh-q { font: 700 14px 'Cairo', sans-serif; color: var(--dark); line-height: 1.6; }
+    .qh-a { font: 700 13px 'Cairo', sans-serif; color: #1f5237; line-height: 1.6; margin-top: 4px; }
+    .qh-a span { font: 800 10.5px 'Cairo', sans-serif; color: #7d8f80; letter-spacing: .5px; margin-inline-end: 5px; }
     .qh-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
     .qh-cat { font: 700 11.5px 'Cairo', sans-serif; color: #6a5a2f; background: #f3e7d0; border-radius: 999px; padding: 2px 10px; }
     .qh-val { font: 800 12.5px 'Cairo', sans-serif; color: #9a1c1c; }
@@ -4591,6 +4593,8 @@
     .qh-empty { text-align: center; color: #6a5a2f; font: 700 14px 'Cairo', sans-serif; padding: 24px 10px; line-height: 1.8; }
     :root[data-theme="dark"] .qh-row { background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; }
     :root[data-theme="dark"] .qh-q { color: #f6ead2 !important; }
+    :root[data-theme="dark"] .qh-a { color: #8fd9ae !important; }
+    :root[data-theme="dark"] .qh-a span { color: #9fb3a4 !important; }
     :root[data-theme="dark"] .qh-h { color: #f0a49c !important; }
     :root[data-theme="dark"] .qh-cat { background: rgba(230, 199, 117, .14) !important; color: #e6c775 !important; }
     :root[data-theme="dark"] .qh-val { color: #f2a89f !important; }
@@ -11219,7 +11223,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.202";
+    const IZZBAH_BUILD = "2026-07-10.203";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15440,7 +15444,7 @@
         const m = merged[key];
         if (m.n < minPlays) return;
         rows.push({
-          text: known.text, cat: known.catName, n: m.n,
+          text: known.text, answer: known.answer || "", cat: known.catName, n: m.n,
           pctCorrect: m.n ? m.c / m.n : 0,
           pctSkip: m.n ? m.s / m.n : 0,
           avgSecs: m.c ? m.t / m.c : 0
@@ -15454,6 +15458,7 @@
       const secs = x => toArabicDigits(Math.round(x)) + " ث";
       const rowHtml = (r, metric) => `<div class="qh-row">`
         + `<div class="qh-q">${escapeHtml(r.text)}</div>`
+        + (r.answer ? `<div class="qh-a"><span>الإجابة</span> ${escapeHtml(r.answer)}</div>` : "")
         + `<div class="qh-meta"><span class="qh-cat">${escapeHtml(r.cat)}</span>`
         + `<span class="qh-val">${metric(r)}</span>`
         + `<span class="qh-plays">${toArabicDigits(r.n)} لعبة</span></div></div>`;
@@ -16665,20 +16670,21 @@
       // (the served text is qa[0], verbatim — matches what the capture hashes).
       // Cloud/community/custom categories store {q, a} objects.
       const textOf = qa => Array.isArray(qa) ? String(qa[0] || "") : (qa && qa.q ? String(qa.q) : "");
+      const answerOf = qa => Array.isArray(qa) ? String(qa[1] || "") : (qa && qa.a ? String(qa.a) : "");
       try {
         Object.keys(builtinQuestionBanks).forEach(catId => {
           const bank = builtinQuestionBanks[catId] || {};
           Object.keys(bank).forEach(tier => {
             const list = bank[tier];
             if (!Array.isArray(list)) return;
-            list.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, catId, catName: nameFor(catId) }; });
+            list.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, answer: answerOf(qa), catId, catName: nameFor(catId) }; });
           });
         });
       } catch (e) {}
       try {
         allCategories().forEach(cat => {
           if (!cat || !Array.isArray(cat.questions)) return;
-          cat.questions.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, catId: cat.id, catName: cat.name || cat.id }; });
+          cat.questions.forEach(qa => { const t = textOf(qa); if (t) idx[qHash(t)] = { text: t, answer: answerOf(qa), catId: cat.id, catName: cat.name || cat.id }; });
         });
       } catch (e) {}
       return idx;

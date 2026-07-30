@@ -24,6 +24,11 @@ const res = await p.evaluate(()=>{
   const qs = [];
   Object.values(bank).forEach(list => (list||[]).forEach(qa => { const t=Array.isArray(qa)?qa[0]:(qa&&qa.q); if(t) qs.push(t); }));
   const hard=qs[0], skip=qs[1], easy=qs[2];
+  // the answer that belongs to `hard`, straight from the bank
+  let hardAnswer="";
+  Object.values(bank).forEach(list => (list||[]).forEach(qa => {
+    const t=Array.isArray(qa)?qa[0]:(qa&&qa.q); if(t===hard) hardAnswer=Array.isArray(qa)?qa[1]:(qa&&qa.a);
+  }));
   const q = {};
   q[qHash(hard)] = { n:10, c:1, s:1, t:80 };   // 10% correct -> hardest
   q[qHash(skip)] = { n:10, c:2, s:7, t:60 };   // 70% skip -> most skipped
@@ -31,8 +36,14 @@ const res = await p.evaluate(()=>{
   const m=document.getElementById("qHealthModal"); m.classList.add("open"); m.setAttribute("aria-hidden","false");
   window.IZZBAH_TEST.renderQHealth([{ catId:cat, q }]);
   const body=document.getElementById("qhBody");
-  const secs=[...body.querySelectorAll(".qh-section")].map(s=>({h:s.querySelector(".qh-h").textContent, rows:[...s.querySelectorAll(".qh-q")].map(r=>r.textContent)}));
-  return { hard, skip, easy, secs };
+  const secs=[...body.querySelectorAll(".qh-section")].map(s=>({h:s.querySelector(".qh-h").textContent,
+    rows:[...s.querySelectorAll(".qh-q")].map(r=>r.textContent),
+    answers:[...s.querySelectorAll(".qh-row")].map(r=>{const a=r.querySelector(".qh-a"); return a?a.textContent.trim():null;})}));
+  const firstA=body.querySelector(".qh-a");
+  return { hard, skip, easy, hardAnswer, secs,
+    answerColour: firstA ? getComputedStyle(firstA).color : "",
+    // the answer must sit between the question and the stats, not after them
+    answerBeforeMeta: !!(firstA && firstA.compareDocumentPosition(firstA.closest(".qh-row").querySelector(".qh-meta")) & Node.DOCUMENT_POSITION_FOLLOWING) };
 });
 
 const hardSec = res.secs.find(s=>/أصعب/.test(s.h));
@@ -45,6 +56,15 @@ ck("hardest question ranks #1 in أصعب", hardSec && hardSec.rows[0]===res.har
 ck("most-skipped question ranks #1 in تخطّياً", skipSec && skipSec.rows[0]===res.skip);
 ck("easiest question ranks #1 in الأسهل", easySec && easySec.rows[0]===res.easy);
 ck("junk hash is ignored (only 3 known questions shown across hardest)", hardSec && hardSec.rows.length===3);
+
+// the answer shows next to each question, so a broken one can be judged in place
+ck("every row shows an answer", hardSec && hardSec.answers.every(a=>a && a.length>1));
+ck("the answer shown is the RIGHT one for that question",
+   hardSec && res.hardAnswer && hardSec.answers[0].includes(res.hardAnswer));
+ck("the answer is labelled «الإجابة»", hardSec && /الإجابة/.test(hardSec.answers[0]));
+ck("the answer sits under the question, above the stats", res.answerBeforeMeta);
+ck("the answer is readable in dark mode (not the light-theme green)",
+   res.answerColour && res.answerColour !== "rgb(31, 82, 55)");
 
 // min-plays filter: raise to 20 -> nothing (our n=10)
 await p.evaluate(()=>{ document.getElementById("qhMinPlays").value="10"; });
