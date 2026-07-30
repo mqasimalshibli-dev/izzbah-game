@@ -10,11 +10,13 @@
 // admin (admins/{uid} in Firestore, the same gate the game + rules use), then
 // signs one upload URL scoped to a single object key. Nothing else can write.
 // ---------------------------------------------------------------------------
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { getPack, toBaisa } = require("./lib/packs");
+const { grantDecision, entitlementUpdate, GRANTED, FAILED, PENDING } = require("./lib/grant");
 
 admin.initializeApp();
 
@@ -94,5 +96,131 @@ exports.mintUploadUrl = onCall(
 
     const base = R2_PUBLIC_BASE.value().replace(/\/+$/, "");
     return { uploadUrl, publicUrl: `${base}/${key}`, key, contentType };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// PURCHASES — pay, and the games land in your account instantly.
+//
+// Flow: createCheckout (callable, signed-in) writes a PENDING purchase and
+// returns its id → the client sends the player to the provider → the provider
+// calls paymentWebhook → the webhook grants entitlements/{uid} → the game's
+// existing onSnapshot listener unlocks the packs live, on screen.
+//
+// No code is minted and no email is sent anywhere in here. Activation codes
+// stay what they are: a manual, admin-only tool for gifts and fixes.
+//
+// The security model already existed — firestore.rules lets NO user write
+// their own entitlements, and the Admin SDK used here bypasses rules — so this
+// is the only path by which paid content can be granted.
+// ---------------------------------------------------------------------------
+
+// Shared secret the provider sends back with its callback. Set once with:
+//   firebase functions:secrets:set PAYMENT_WEBHOOK_SECRET
+const PAYMENT_WEBHOOK_SECRET = defineSecret("PAYMENT_WEBHOOK_SECRET");
+
+// ⚠️ PROVIDER-SPECIFIC — THE ONE PIECE STILL TO WRITE. ⚠️
+// Returns { ok, reference, paid } for a callback, or ok:false to reject it.
+// Today it accepts only a shared-secret header, which is enough for a sandbox
+// but is NOT Thawani's real scheme. Before going live, replace the body with
+// Thawani's documented verification (checking their signature over the raw
+// body) — an endpoint that grants paid content on an unverified POST is an
+// endpoint anyone can use to give themselves unlimited games.
+function verifyProviderCallback(req, secret) {
+  const sent = req.get("x-izzbah-signature") || "";
+  if (!secret || sent !== secret) return { ok: false, reason: "bad-signature" };
+  const body = req.body || {};
+  const reference = String(body.client_reference_id || body.reference || "");
+  if (!reference) return { ok: false, reason: "no-reference" };
+  // Thawani reports success as payment_status "paid"; keep both spellings so a
+  // sandbox that says {success:true} also works while testing.
+  const paid = body.payment_status === "paid" || body.status === "paid" || body.success === true;
+  return { ok: true, reference, paid };
+}
+
+// Start a purchase. The client sends ONLY a pack id — never a price, never a
+// games count — and the server resolves the rest from its own table.
+exports.createCheckout = onCall({ cors: true }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+  const pack = getPack(request.data && request.data.packId);
+  if (!pack) throw new HttpsError("invalid-argument", "Unknown pack.");
+
+  const db = admin.firestore();
+  const ref = db.collection("purchases").doc();
+  await ref.set({
+    uid,
+    packId: pack.id,
+    packName: pack.name,
+    games: pack.games,
+    premium: pack.premium,
+    amountOMR: pack.amountOMR,
+    amountBaisa: toBaisa(pack.amountOMR),
+    status: PENDING,
+    email: (request.auth.token && request.auth.token.email) || "",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // checkoutUrl stays null until the provider is wired: the client shows
+  // "payment isn't available yet" rather than pretending a purchase started.
+  return { purchaseId: ref.id, amountBaisa: toBaisa(pack.amountOMR), checkoutUrl: null };
+});
+
+// The provider calls this when a payment settles. Everything that decides
+// whether someone gets paid content happens inside one transaction, so two
+// concurrent deliveries of the same callback cannot both grant.
+exports.paymentWebhook = onRequest(
+  { secrets: [PAYMENT_WEBHOOK_SECRET], cors: false },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("method-not-allowed"); return; }
+
+    const check = verifyProviderCallback(req, PAYMENT_WEBHOOK_SECRET.value());
+    if (!check.ok) { console.warn("payment webhook rejected:", check.reason); res.status(403).send(check.reason); return; }
+
+    const db = admin.firestore();
+    const purchaseRef = db.collection("purchases").doc(check.reference);
+
+    try {
+      const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(purchaseRef);
+        const purchase = snap.exists ? snap.data() : null;
+        const decision = grantDecision(purchase, check.paid);
+
+        if (!decision.grant) {
+          // A failed payment is recorded so the client can stop waiting; an
+          // already-granted one is left exactly as it is (the retry case).
+          if (purchase && !check.paid && purchase.status === PENDING) {
+            tx.update(purchaseRef, { status: FAILED, failedAt: admin.firestore.FieldValue.serverTimestamp() });
+          }
+          return decision.reason;
+        }
+
+        const pack = getPack(purchase.packId);
+        if (!pack) return "unknown-pack";
+
+        const entRef = db.collection("entitlements").doc(purchase.uid);
+        const entSnap = await tx.get(entRef);
+        const update = entitlementUpdate(entSnap.exists ? entSnap.data() : {}, pack);
+
+        tx.set(entRef, update, { merge: true }); // merge: never clobber admin-set fields
+        tx.update(purchaseRef, {
+          status: GRANTED,
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          granted: update,
+        });
+        return "granted";
+      });
+
+      // Always 200 on a handled callback — a non-2xx makes the provider retry,
+      // and there is nothing to retry for "already granted" or "not paid".
+      console.log("payment webhook:", check.reference, "->", outcome);
+      res.status(200).json({ ok: true, outcome });
+    } catch (err) {
+      // A real failure (Firestore down mid-transaction) SHOULD be retried, so
+      // this one deliberately returns 500.
+      console.error("payment webhook failed", err);
+      res.status(500).json({ ok: false });
+    }
   }
 );
