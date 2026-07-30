@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>عِزبة — لعبة الأسئلة اللي تجمع الربع</title>
+<meta name="description" content="عِزبة: لعبة أسئلة جماعية عربية. أكثر من ٢٦٠٠ سؤال في ٣٩ فئة — فئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، والعبوا على جهاز واحد. أول لعبة مجانية.">
+<link rel="canonical" href="https://izzbah.com/">
+<link rel="icon" href="../assets/brand/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../assets/brand/png/app-icon/maskable-180.png">
+<meta name="robots" content="noindex,nofollow">   <!-- draft: not for search engines yet -->
+<meta name="theme-color" content="#16060a">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="عِزبة">
+<meta property="og:locale" content="ar_AR">
+<meta property="og:title" content="عِزبة — لعبة الأسئلة اللي تجمع الربع">
+<meta property="og:description" content="أكثر من ٢٦٠٠ سؤال في ٣٩ فئة، وفئات عمانية ١٠٠٪. أول لعبة مجانية.">
+<meta property="og:url" content="https://izzbah.com/">
+<meta property="og:image" content="https://izzbah.com/assets/brand/png/social/og-image.png?v=3">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Lalezar&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Game","name":"عِزبة","inLanguage":"ar",
+"description":"لعبة أسئلة جماعية عربية تُلعب على جهاز واحد بين فريقين أو أكثر.",
+"url":"https://izzbah.com/","image":"https://izzbah.com/assets/brand/png/social/og-image.png"}
+</script>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   عِزبة — landing. Single file, zero JS dependencies.
+   The palette is the game's own: a majlis at night, warm light
+   pooling on gold. Deliberately one visual world (no light mode)
+   — this is a poster for the product, not a document.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --ink:#16060a; --ink-2:#1e0a0f; --maroon:#7d1620; --maroon-lo:#2c0a0f;
+  --gold:#e7c373; --gold-hi:#f6d27a; --gold-lo:#a9812f;
+  --cream:#f7ecd6; --sand:#efd6ba; --green:#1f4d3d;
+  --muted:#c6a98c;                     /* neutral biased warm, not grey */
+  --rule:rgba(231,195,115,.16);
+  --shadow:0 30px 80px -40px rgba(0,0,0,.9);
+  --display:'Lalezar', 'Tahoma', serif;
+  --body:'Cairo', 'Tahoma', system-ui, sans-serif;
+  --pad:clamp(20px,5vw,64px);
+  --maxw:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--ink); color:var(--cream);
+  font-family:var(--body); font-weight:600; line-height:1.65;
+  overflow-x:hidden;
+}
+/* warm light pooling behind everything */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(60vw 50vh at 78% -8%, rgba(125,22,32,.55), transparent 62%),
+    radial-gradient(48vw 44vh at 8% 22%, rgba(169,129,47,.20), transparent 60%),
+    radial-gradient(70vw 60vh at 50% 108%, rgba(31,77,61,.28), transparent 64%);
+}
+main,header,footer{position:relative; z-index:1}
+img{max-width:100%; display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--gold-hi); outline-offset:3px; border-radius:6px}
+
+h1,h2,h3{font-family:var(--display); font-weight:400; line-height:1.08; text-wrap:balance; margin:0}
+h1{font-size:clamp(44px,8.5vw,104px); letter-spacing:.5px}
+h2{font-size:clamp(32px,5.2vw,62px)}
+h3{font-size:clamp(21px,2.4vw,27px)}
+p{margin:0}
+.wrap{max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad)}
+.eyebrow{
+  font:800 12.5px var(--body); letter-spacing:3px; color:var(--gold);
+  display:inline-flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:30px; height:2px; background:var(--gold); opacity:.7}
+.lede{font-size:clamp(16px,1.9vw,19.5px); color:var(--muted); max-width:60ch; font-weight:600}
+
+/* ── reveal on scroll ─────────────────────────────────────── */
+.rv{opacity:0; transform:translateY(26px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1)}
+.rv.in{opacity:1; transform:none}
+.rv[data-d="1"]{transition-delay:.08s} .rv[data-d="2"]{transition-delay:.16s}
+.rv[data-d="3"]{transition-delay:.24s} .rv[data-d="4"]{transition-delay:.32s}
+.rv[data-d="5"]{transition-delay:.40s}
+
+/* ── header ───────────────────────────────────────────────── */
+header{position:fixed; inset-inline:0; top:0; z-index:50; transition:background .4s, backdrop-filter .4s, border-color .4s;
+  border-bottom:1px solid transparent}
+header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bottom-color:var(--rule)}
+.bar{display:flex; align-items:center; justify-content:space-between; gap:16px; padding-block:14px}
+.brand{display:flex; align-items:center; gap:11px; text-decoration:none; font-family:var(--display); font-size:25px; color:var(--gold)}
+.brand img{width:34px; height:34px; border-radius:9px}
+.nav{display:flex; gap:26px; font:700 14.5px var(--body)}
+.nav a{text-decoration:none; color:var(--muted); transition:color .25s}
+.nav a:hover{color:var(--cream)}
+@media(max-width:820px){.nav{display:none}}
+/* very narrow phones (folded devices ~280px): the brand + CTA can't both keep
+   their full size, and .btn is nowrap, so shrink them rather than overflow */
+@media(max-width:400px){
+  .bar{gap:10px}
+  .brand{font-size:21px; gap:8px}
+  .brand img{width:28px; height:28px}
+  .bar .btn{padding:11px 16px; font-size:14px}
+}
+@media(max-width:330px){
+  .brand{font-size:19px}
+  .bar .btn{padding:10px 13px; font-size:13px}
+}
+
+/* ── buttons ──────────────────────────────────────────────── */
+.btn{
+  --bg:var(--gold); --fg:#33200a;
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  padding:15px 30px; border-radius:999px; border:0; cursor:pointer;
+  background:var(--bg); color:var(--fg);
+  font:800 16px var(--body); text-decoration:none; white-space:nowrap;
+  transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s, filter .28s;
+  box-shadow:0 10px 26px -12px rgba(231,195,115,.75);
+}
+.btn{--mx:0px; --my:0px}
+.btn.magnetic{transform:translate3d(var(--mx),var(--my),0)}
+.btn.magnetic:hover{transform:translate3d(var(--mx),calc(var(--my) - 3px),0) scale(1.025)}
+.btn:hover{transform:translateY(-3px) scale(1.025); filter:brightness(1.06); box-shadow:0 20px 40px -16px rgba(231,195,115,.8)}
+.btn:active{transform:translateY(-1px) scale(.99)}
+.btn.ghost{--bg:transparent; --fg:var(--cream); border:1.5px solid var(--rule); box-shadow:none}
+.btn.ghost:hover{border-color:var(--gold); background:rgba(231,195,115,.08); box-shadow:none}
+.store{
+  display:inline-flex; align-items:center; gap:12px; padding:12px 22px; border-radius:16px;
+  border:1.5px solid var(--rule); background:rgba(255,255,255,.03); color:var(--cream);
+  text-decoration:none; transition:border-color .3s, background .3s, transform .3s;
+}
+.store:hover{border-color:var(--gold); background:rgba(231,195,115,.07); transform:translateY(-2px)}
+.store svg{width:26px; height:26px; flex:none; fill:currentColor; opacity:.92}
+.store b{display:block; font:800 15px var(--body); line-height:1.25}
+.store span{display:block; font:700 11px var(--body); color:var(--muted); letter-spacing:.4px}
+.store[aria-disabled="true"]{opacity:.62; cursor:default}
+.store[aria-disabled="true"]:hover{transform:none; border-color:var(--rule); background:rgba(255,255,255,.03)}
+
+/* ── hero ─────────────────────────────────────────────────── */
+.hero{min-height:100svh; display:grid; align-items:center; padding-block:130px 70px; position:relative}
+/* category chips drifting behind the board — the game's own world, floating */
+.floaters{position:absolute; inset:0; pointer-events:none; overflow:hidden}
+.floaters b{position:absolute; font:800 13px var(--body); color:var(--gold); white-space:nowrap;
+  padding:9px 16px; border-radius:999px; opacity:.72;
+  background:rgba(44,10,15,.5); border:1px solid var(--rule);
+  -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
+  box-shadow:0 16px 34px -22px #000;
+  animation:drift var(--dur,16s) var(--del,0s) ease-in-out infinite}
+@keyframes drift{
+  0%,100%{transform:translate3d(0,0,0) rotate(var(--r,0deg))}
+  50%{transform:translate3d(var(--dx,10px),var(--dy,-18px),0) rotate(calc(var(--r,0deg) * -1))}}
+@media(prefers-reduced-motion:reduce){.floaters b{animation:none}}
+@media(max-width:1100px){.floaters{display:none}}
+.hero-grid{position:relative; z-index:1; display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(30px,5vw,70px); align-items:center}
+@media(max-width:960px){.hero-grid{grid-template-columns:1fr; gap:44px}}
+.hero h1 .tint{color:var(--gold)}
+.hero .lede{margin-top:22px}
+.cta-row{display:flex; flex-wrap:wrap; gap:14px; margin-top:34px}
+.store-row{display:flex; flex-wrap:wrap; gap:12px; margin-top:20px}
+.hero-note{margin-top:22px; font:700 13px var(--body); color:var(--muted); display:flex; align-items:center; gap:9px}
+.dot{width:7px; height:7px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 4px rgba(74,222,128,.16)}
+
+/* the board — the product's own face, dealing itself in */
+.board{
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(5px,2vw,10px);
+  padding:clamp(9px,3vw,16px); border-radius:24px; border:1px solid var(--rule);
+  background:linear-gradient(160deg, rgba(125,22,32,.34), rgba(22,6,10,.72));
+  box-shadow:var(--shadow); transform:perspective(1400px) rotateY(var(--ry,-7deg)) rotateX(var(--rx,3deg));
+  transition:transform .5s cubic-bezier(.2,.8,.2,1);
+}
+.col{display:flex; flex-direction:column; gap:9px}
+.col-head{
+  border-radius:13px; padding:11px 8px; text-align:center; overflow:hidden; position:relative;
+  font:800 clamp(9.5px,2.6vw,12.5px) var(--body); color:#fff; min-height:clamp(38px,10vw,52px);
+  display:grid; place-items:center; background:var(--c,#7d1620);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+}
+.col-head span{position:relative; z-index:1; text-shadow:0 1px 6px rgba(0,0,0,.65);
+  min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.col-head img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.42}
+.tile{
+  border-radius:11px; min-height:40px; display:grid; place-items:center;
+  font:800 15px var(--body); color:var(--gold-hi);
+  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+  border:1px solid var(--rule);
+  opacity:0; transform:translateY(12px) scale(.94);
+  animation:deal .62s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes deal{to{opacity:1; transform:none}}
+.tile.open{
+  background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#33200a; border-color:transparent;
+  box-shadow:0 0 26px -6px rgba(246,210,122,.65);
+  animation:deal .62s cubic-bezier(.2,.8,.2,1) forwards, pulse 2.6s 1.4s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 22px -8px rgba(246,210,122,.5)}50%{box-shadow:0 0 34px -4px rgba(246,210,122,.9)}}
+/* The 3D tilt makes the board's painted box wider than its layout box, which
+   pushes the document (and the fixed header with it) past a narrow viewport.
+   The tilt is pointer parallax anyway — drop it where there is no pointer. */
+@media(max-width:1100px),(hover:none){
+  .board{transform:none !important}
+}
+.board-caption{margin-top:16px; text-align:center; font:700 12.5px var(--body); color:var(--muted)}
+
+/* ── section frame ────────────────────────────────────────── */
+section{padding-block:clamp(66px,7.4vw,108px)}
+.sec-head{max-width:65ch; margin-bottom:clamp(38px,5vw,64px)}
+.sec-head p{margin-top:18px}
+
+/* ── cursor: a soft ring that trails the pointer and swells on
+   anything tappable. The native cursor stays — this augments it. ── */
+.ring{position:fixed; top:0; left:0; z-index:90; pointer-events:none; opacity:0;
+  width:34px; height:34px; margin:-17px 0 0 -17px; border-radius:50%;
+  border:1.5px solid rgba(231,195,115,.55);
+  transition:width .32s cubic-bezier(.2,.8,.2,1), height .32s cubic-bezier(.2,.8,.2,1),
+             margin .32s cubic-bezier(.2,.8,.2,1), background .32s, border-color .32s, opacity .3s}
+.ring.on{opacity:1}
+.ring.hot{width:62px; height:62px; margin:-31px 0 0 -31px;
+  background:rgba(231,195,115,.12); border-color:var(--gold-hi)}
+@media(hover:none),(prefers-reduced-motion:reduce){.ring{display:none}}
+
+/* ── category showcase (scroll-driven, sticky) ────────────── */
+.showcase{position:relative}
+.sticky{position:sticky; top:0; height:100svh; display:grid; align-items:center; overflow:hidden;
+  padding-block-start:clamp(54px,8vh,70px)}
+/* the ambient light takes on the focused category's own colour */
+.sticky::before{content:""; position:absolute; inset:-25%; pointer-events:none;
+  background:radial-gradient(42% 46% at 68% 42%, var(--accent,rgba(125,22,32,.5)), transparent 68%);
+  transition:background 1.2s cubic-bezier(.2,.7,.2,1)}
+.stage{position:relative; z-index:1; width:100%; display:grid; grid-template-columns:.95fr 1.05fr; gap:clamp(26px,5vw,64px); align-items:center}
+@media(max-width:960px){
+  .stage{grid-template-columns:1fr; gap:16px; align-content:center}
+  /* height-driven, so the whole panel always fits above the fold */
+  .cat-art{height:min(44svh,58vw); aspect-ratio:4/5; width:auto; max-height:none; margin-inline:auto}
+  .cat-copy{min-height:154px}
+  .cat-panel h3{font-size:clamp(25px,6.6vw,40px); margin-bottom:10px}
+  .cat-panel p{font-size:14.5px}
+  .cat-index{margin-bottom:9px}
+  .cat-tag{margin-top:13px; padding:6px 13px; font-size:12px}
+  .pips{margin-top:16px}
+}
+/* short screens (small phones, and any phone held sideways) */
+@media(max-height:720px) and (max-width:960px){
+  .cat-art{height:min(36svh,50vw)}
+  .cat-copy{min-height:118px}
+  .cat-panel p{font-size:13.5px; -webkit-line-clamp:3}
+  .cat-tag{display:none}
+}
+/* landscape: a single column can never fit, so go back to two */
+@media(max-width:960px) and (min-aspect-ratio:1/1){
+  .stage{grid-template-columns:.95fr 1.05fr; gap:22px}
+  .cat-art{height:min(64svh,34vw); max-height:none}
+  .cat-copy{min-height:0}
+}
+.cat-copy{position:relative; min-height:280px}
+.cat-panel{position:absolute; inset:0; opacity:0; transform:translateY(22px); transition:opacity .55s, transform .55s; pointer-events:none}
+.cat-panel.on{opacity:1; transform:none; pointer-events:auto}
+.cat-index{font:800 12.5px var(--body); letter-spacing:3px; color:var(--gold); margin-bottom:14px}
+.cat-panel h3{font-size:clamp(32px,4.6vw,54px); margin-bottom:16px}
+.cat-panel p{color:var(--muted); max-width:46ch}
+.cat-tag{display:inline-block; margin-top:20px; padding:7px 16px; border-radius:999px;
+  border:1px solid var(--rule); font:800 12.5px var(--body); color:var(--cream); background:rgba(255,255,255,.04)}
+.cat-art{position:relative; aspect-ratio:4/5; max-height:66svh; margin-inline:auto; width:100%;
+  border-radius:26px; overflow:hidden; border:1px solid var(--rule); box-shadow:var(--shadow); background:var(--maroon-lo)}
+.cat-art figure{position:absolute; inset:0; margin:0; opacity:0; transform:scale(1.08); transition:opacity .7s, transform .9s}
+.cat-art figure.on{opacity:1; transform:none}
+.cat-art img{width:100%; height:100%; object-fit:cover}
+.cat-art .veil{position:absolute; inset:0; background:linear-gradient(0deg, rgba(22,6,10,.86), transparent 58%)}
+.rail{position:absolute; inset-block:0; inset-inline-start:0; width:3px; background:rgba(255,255,255,.07); border-radius:3px}
+.rail i{position:absolute; inset-inline:0; top:0; background:var(--gold); border-radius:3px; transition:height .3s, top .3s}
+/* at 39 categories a pip row would wrap; a single track reads better */
+.pips{position:relative; height:4px; border-radius:3px; margin-top:28px;
+  background:rgba(255,255,255,.14); overflow:hidden; width:100%; max-width:340px}
+.pips i{position:absolute; inset-block:0; inset-inline-start:0; border-radius:3px;
+  background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi)); width:0;
+  transition:width .45s cubic-bezier(.2,.8,.2,1)}
+
+/* ── all-categories grid ──────────────────────────────────── */
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(clamp(112px,15vw,176px),100%),1fr)); gap:clamp(9px,1.4vw,16px)}
+.gcard{
+  position:relative; aspect-ratio:3/4; border-radius:16px; overflow:hidden;
+  border:1px solid var(--rule); background:var(--maroon-lo); display:block;
+  transition:transform .38s cubic-bezier(.2,.8,.2,1), border-color .38s, box-shadow .38s;
+}
+.gcard:hover{transform:translateY(-6px) scale(1.02); border-color:rgba(231,195,115,.55); box-shadow:0 22px 44px -22px rgba(0,0,0,.9)}
+.gcard img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:transform .7s cubic-bezier(.2,.8,.2,1)}
+.gcard:hover img{transform:scale(1.07)}
+/* categories whose artwork lives in the cloud get a composed tile instead of
+   a broken image — the initial set in the display face, on the category's hue */
+.gcard .fallback{position:absolute; inset:0; display:grid; place-items:center;
+  background:linear-gradient(155deg, var(--h1), var(--h2));}
+.gcard .fallback b{font-family:var(--display); font-size:clamp(40px,5vw,58px); color:rgba(255,255,255,.9);
+  text-shadow:0 3px 18px rgba(0,0,0,.45)}
+.gcard .cap{position:absolute; inset-inline:0; bottom:0; padding:26px 10px 11px; text-align:center;
+  font:800 13px var(--body); color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.85);
+  background:linear-gradient(0deg, rgba(10,3,5,.92), transparent)}
+.gcard .flag{position:absolute; top:9px; inset-inline-end:9px; z-index:2;
+  font:800 10px var(--body); letter-spacing:.6px; padding:4px 9px; border-radius:999px;
+  background:rgba(22,6,10,.72); color:var(--gold); border:1px solid rgba(231,195,115,.4)}
+
+/* ── features ─────────────────────────────────────────────── */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(268px,100%),1fr)); gap:18px}
+.card{
+  padding:30px 26px 32px; border-radius:22px; border:1px solid var(--rule);
+  background:linear-gradient(165deg, rgba(255,255,255,.055), rgba(255,255,255,.012));
+  -webkit-backdrop-filter:blur(12px) saturate(1.15); backdrop-filter:blur(12px) saturate(1.15);
+  transition:transform .4s cubic-bezier(.2,.8,.2,1), border-color .4s, background .4s;
+}
+.card:hover{transform:translateY(-7px); border-color:rgba(231,195,115,.45); background:linear-gradient(165deg, rgba(231,195,115,.10), rgba(255,255,255,.02))}
+.card .ico{width:48px; height:48px; border-radius:14px; display:grid; place-items:center; font-size:24px;
+  background:rgba(231,195,115,.14); border:1px solid var(--rule); margin-bottom:18px}
+.card h3{margin-bottom:11px}
+.card p{color:var(--muted); font-size:15.5px}
+
+/* ── phones ───────────────────────────────────────────────── */
+.phones{display:flex; gap:clamp(14px,3vw,34px); justify-content:center; align-items:center; flex-wrap:wrap; perspective:1600px}
+.phone{
+  width:clamp(180px,23vw,258px); aspect-ratio:9/17; border-radius:34px; padding:9px;
+  background:linear-gradient(160deg,#3a1116,#150609); border:1px solid var(--rule);
+  box-shadow:var(--shadow); overflow:hidden; position:relative;
+  transform:rotateY(var(--y,0deg)) rotateX(var(--x,0deg)) translateY(var(--ty,0));
+  transition:transform .6s cubic-bezier(.2,.8,.2,1);
+}
+.phone::after{content:""; position:absolute; inset:0; border-radius:34px; pointer-events:none;
+  background:linear-gradient(115deg, rgba(255,255,255,.20), transparent 42%)}
+/* glass reflection sweeping down the screen, staggered per phone */
+.phone::before{content:""; position:absolute; z-index:2; inset:-40% -10%; pointer-events:none;
+  background:linear-gradient(200deg, transparent 38%, rgba(255,255,255,.13) 47%, rgba(255,255,255,.02) 53%, transparent 62%);
+  animation:sheen 7s var(--sheen,0s) cubic-bezier(.5,0,.5,1) infinite}
+@keyframes sheen{0%,58%{transform:translateY(-46%)} 88%,100%{transform:translateY(46%)}}
+@media(prefers-reduced-motion:reduce){.phone::before{animation:none; opacity:.35}}
+/* Each phone shows the actual screen for that step, not a placeholder card. */
+.phone-inner{width:100%; height:100%; border-radius:26px; overflow:hidden;
+  background:linear-gradient(172deg,#2b0c11,#120508);
+  display:flex; flex-direction:column; gap:9px; padding:15px 12px 13px}
+.ph-top{display:flex; align-items:center; gap:8px; font:800 11px var(--body); color:var(--muted); line-height:1.4}
+.ph-top .n{flex:none; width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-family:var(--display); font-size:13px; color:#33200a;
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+.ph-note{margin-top:auto; padding-top:9px; border-top:1px solid rgba(231,195,115,.15);
+  font:700 10.5px var(--body); color:var(--muted); line-height:1.5}
+.phone-inner i{font-style:normal}
+/* mock action bar — the button the players actually tap on that screen */
+.ph-btn{margin-top:auto; display:grid; place-items:center; padding:9px; border-radius:999px;
+  font:800 11px var(--body); color:#33200a; background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+.ph-btns{margin-top:auto; display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.ph-btns span{display:grid; place-items:center; padding:8px; border-radius:999px;
+  font:800 10.5px var(--body); color:var(--cream); background:rgba(255,255,255,.05); border:1px solid var(--rule)}
+.ph-btns span.ok{color:#0f2f22; border-color:transparent; background:linear-gradient(160deg,#7ee0b0,#2f9c6d)}
+
+.ph-lbl{font:800 9px var(--body); letter-spacing:1.4px; color:var(--gold); opacity:.9}
+.ph-chips{display:flex; flex-wrap:wrap; gap:5px}
+.ph-chips span{font:700 10px var(--body); padding:5px 9px; border-radius:999px;
+  border:1px solid var(--rule); color:var(--muted)}
+.ph-chips span.on{color:#33200a; border-color:transparent;
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+
+.ph-team{display:flex; align-items:center; gap:7px; padding:9px 11px; border-radius:12px;
+  background:rgba(255,255,255,.045); border:1px solid var(--rule); font:800 12px var(--body)}
+.ph-team b{margin-inline-start:auto; font-family:var(--display); font-size:14px; color:var(--gold)}
+
+.ph-board{flex:1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-template-rows:.55fr repeat(5,1fr); gap:4px}
+.ph-board i{display:grid; place-items:center; border-radius:6px;
+  font:800 9px var(--body); color:#fff; background:linear-gradient(160deg,#8e1a26,#4a0d14)}
+.ph-board u{text-decoration:none; display:grid; place-items:center; border-radius:7px;
+  font-family:var(--display); font-size:13px; color:var(--gold);
+  background:rgba(255,255,255,.05); border:1px solid var(--rule)}
+.ph-board u.on{color:#33200a; border-color:transparent; box-shadow:0 0 14px rgba(231,195,115,.55);
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+
+.ph-q{flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px; text-align:center;
+  border-radius:14px; padding:16px 12px; background:rgba(231,195,115,.09);
+  border:1px solid rgba(231,195,115,.22); font:800 13px var(--body); color:var(--cream); line-height:1.6}
+.ph-q em{font-style:normal; font:800 9.5px var(--body); letter-spacing:1px; color:var(--gold)}
+.ph-q .t{font-family:var(--display); font-size:22px; color:var(--gold); line-height:1}
+.ph-score{display:flex; align-items:center; gap:7px; padding:9px 11px; border-radius:12px;
+  font:800 12px var(--body); background:rgba(255,255,255,.04); border:1px solid var(--rule)}
+.ph-score.win{border-color:rgba(231,195,115,.45);
+  background:linear-gradient(160deg,rgba(231,195,115,.22),rgba(231,195,115,.05))}
+.ph-score b{margin-inline-start:auto; font-family:var(--display); font-size:14px; color:var(--gold)}
+
+/* ── stats ────────────────────────────────────────────────── */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:16px}
+.stat{padding:30px 24px; border-radius:20px; border:1px solid var(--rule); text-align:center;
+  background:linear-gradient(165deg, rgba(255,255,255,.05), rgba(255,255,255,.01));
+  -webkit-backdrop-filter:blur(12px) saturate(1.15); backdrop-filter:blur(12px) saturate(1.15)}
+.stat b{display:block; font-family:var(--display); font-size:clamp(40px,6vw,66px); color:var(--gold);
+  font-variant-numeric:tabular-nums; line-height:1}
+.stat span{display:block; margin-top:10px; font:700 14px var(--body); color:var(--muted)}
+
+/* ── plans ────────────────────────────────────────────────── */
+.plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:18px; align-items:stretch}
+.plan{position:relative; display:flex; flex-direction:column; gap:12px; padding:30px 26px 28px;
+  border-radius:22px; border:1px solid var(--rule);
+  background:linear-gradient(165deg, rgba(255,255,255,.055), rgba(255,255,255,.012));
+  -webkit-backdrop-filter:blur(12px) saturate(1.15); backdrop-filter:blur(12px) saturate(1.15);
+  transition:transform .4s cubic-bezier(.2,.8,.2,1), border-color .4s}
+.plan:hover{transform:translateY(-6px); border-color:rgba(231,195,115,.45)}
+.plan.best{border-color:rgba(231,195,115,.5);
+  background:linear-gradient(165deg, rgba(231,195,115,.13), rgba(125,22,32,.18))}
+.plan .tag{position:absolute; top:-11px; inset-inline-end:24px; padding:5px 13px; border-radius:999px;
+  font:800 11px var(--body); color:#33200a; background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+.plan .em{font-size:24px}
+.plan h3{font-size:21px}
+.plan .price{font-family:var(--display); font-size:clamp(30px,3.6vw,42px); color:var(--gold);
+  line-height:1; font-variant-numeric:tabular-nums}
+.plan .price small{font:800 13px var(--body); color:var(--muted); margin-inline-start:7px}
+.plan p{color:var(--muted); font-size:14.5px; margin-top:auto; padding-top:6px}
+.plans-note{margin-top:22px; font:700 14px var(--body); color:var(--muted); max-width:62ch}
+.plans-note b{color:var(--cream)}
+
+/* ── quotes ───────────────────────────────────────────────── */
+.quotes{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr)); gap:18px}
+.quote{padding:28px 26px; border-radius:20px; border:1px solid var(--rule);
+  background:linear-gradient(165deg, rgba(255,255,255,.05), rgba(255,255,255,.012)); font-size:15.5px;
+  -webkit-backdrop-filter:blur(12px) saturate(1.15); backdrop-filter:blur(12px) saturate(1.15)}
+.quote p{color:var(--cream)}
+.who{display:flex; align-items:center; gap:12px; margin-top:20px}
+.who i{width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-style:normal;
+  font:800 15px var(--body); color:#33200a; background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+.who b{display:block; font:800 14.5px var(--body)}
+.who span{display:block; font:700 12.5px var(--body); color:var(--muted)}
+.placeholder{border-style:dashed; border-color:rgba(231,195,115,.4)}
+.placeholder::before{content:"نص مؤقت — استبدله برأي حقيقي"; display:block; margin-bottom:12px;
+  font:800 11px var(--body); letter-spacing:1.5px; color:var(--gold)}
+
+/* ── faq ──────────────────────────────────────────────────── */
+.faq{max-width:840px; margin-inline:auto; border-top:1px solid var(--rule)}
+details{border-bottom:1px solid var(--rule)}
+summary{list-style:none; cursor:pointer; padding:24px 6px; display:flex; align-items:center; justify-content:space-between; gap:18px;
+  font:800 clamp(16px,2vw,19px) var(--body); transition:color .3s}
+summary::-webkit-details-marker{display:none}
+summary:hover{color:var(--gold)}
+summary .plus{flex:none; width:26px; height:26px; position:relative; transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+summary .plus::before,summary .plus::after{content:""; position:absolute; inset-inline:0; top:50%; height:2px; background:var(--gold); border-radius:2px; transform:translateY(-50%)}
+summary .plus::after{transform:translateY(-50%) rotate(90deg); transition:transform .35s}
+details[open] summary .plus{transform:rotate(180deg)}
+details[open] summary .plus::after{transform:translateY(-50%) rotate(0)}
+.answer{overflow:hidden; display:grid; grid-template-rows:0fr; transition:grid-template-rows .45s cubic-bezier(.2,.8,.2,1)}
+details[open] .answer{grid-template-rows:1fr}
+.answer > div{min-height:0}
+.answer p{padding:0 6px 26px; color:var(--muted); max-width:70ch}
+
+/* ── final cta ────────────────────────────────────────────── */
+.final{position:relative; overflow:hidden; text-align:center; border-radius:34px;
+  padding:clamp(56px,9vw,110px) var(--pad); border:1px solid var(--rule);
+  background:linear-gradient(165deg, rgba(125,22,32,.55), rgba(22,6,10,.85))}
+.final canvas{position:absolute; inset:0; width:100%; height:100%; opacity:.55}
+.final .inner{position:relative; z-index:1}
+.final .cta-row{justify-content:center}
+.final .store-row{justify-content:center}
+
+/* ── footer ───────────────────────────────────────────────── */
+footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:clamp(36px,4.5vw,60px)}
+.foot{display:flex; flex-wrap:wrap; gap:26px; justify-content:space-between; align-items:flex-start}
+.foot-links{display:flex; flex-wrap:wrap; gap:26px; font:700 14px var(--body)}
+.foot-links a{color:var(--muted); text-decoration:none; transition:color .25s}
+.foot-links a:hover{color:var(--gold)}
+.copy{margin-top:30px; font:600 12.5px var(--body); color:var(--muted); opacity:.75}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important}
+  .rv{opacity:1; transform:none}
+  .tile{opacity:1; transform:none}
+}
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <div class="wrap bar">
+    <a class="brand" href="#top"><img src="../assets/brand/png/app-icon/icon-192.png" alt=""> عِزبة</a>
+    <nav class="nav">
+      <a href="#cats">الفئات</a>
+      <a href="#why">ليش عِزبة</a>
+      <a href="#price">الباقات</a>
+      <a href="#faq">أسئلة شائعة</a>
+    </nav>
+    <a class="btn magnetic" href="../game-mobile.html">العب الآن</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ── HERO ─────────────────────────────────────────────── -->
+  <section class="hero wrap">
+    <div class="floaters" aria-hidden="true">
+      <b style="top:12%;left:3%;--dx:14px;--dy:-22px;--r:-6deg;--dur:15s">🇴🇲 خريف ظفار</b>
+      <b style="top:23%;left:1%;--dx:-15px;--dy:19px;--r:5deg;--dur:19s;--del:-4s">🤫 وش كلمة أجنبي</b>
+      <b style="top:79%;left:2%;--dx:12px;--dy:20px;--r:4deg;--dur:17s;--del:-7s">😀 معنى الإيموجي</b>
+      <b style="top:85%;left:24%;--dx:-13px;--dy:-17px;--r:-5deg;--dur:21s;--del:-2s">⚽ كرة عمانية</b>
+      <b style="top:8%;left:38%;--dx:11px;--dy:16px;--r:5deg;--dur:23s;--del:-11s">🏰 مواقع في عُمان</b>
+      <b style="top:90%;left:62%;--dx:-12px;--dy:-15px;--r:-4deg;--dur:18s;--del:-9s">🧩 وش الرابط؟</b>
+    </div>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow rv">لعبة أسئلة جماعية · عربية ١٠٠٪</div>
+        <h1 class="rv" data-d="1">اللعبة اللي<br><span class="tint">تجمع الربع</span></h1>
+        <p class="lede rv" data-d="2">
+          فريقين أو أكثر، جهاز واحد، و٢٦٠٠ سؤال ينتظرونكم.
+          فئات عمانية أصيلة، تمثيل صامت، إيموجي، وألغاز —
+          وتقدرون تسوّون فئاتكم بأسئلتكم أنتم.
+        </p>
+        <div class="cta-row rv" data-d="3">
+          <a class="btn magnetic" href="../game-mobile.html">العب الآن — مجاناً</a>
+          <a class="btn ghost magnetic" href="#cats">شوف الفئات</a>
+        </div>
+        <div class="store-row rv" data-d="4">
+          <span class="store" aria-disabled="true" title="قريباً">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8s-1.6-.8-2.7-.8c-1.4 0-2.7.8-3.4 2.700-1.5 2.5-.4 6.2 1 8.2.7 1 1.5 2.1 2.6 2.1 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7 1.8-1 2.5-2c.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.2-.8-2.2-3.2zM15.5 6.3c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
+            <span class="t"><b>App Store</b><span>قريباً</span></span>
+          </span>
+          <span class="store" aria-disabled="true" title="قريباً">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.3c-.3.3-.5.8-.5 1.4v16.6c0 .6.2 1.1.5 1.4l.1.1 9.3-9.3v-.2L3.6 2.3zM16.2 15.6l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1 .6 1 1.6 0 2.2l-3.8 2zM15.3 16.5l-3.2-3.2-9 9c.4.3 1 .4 1.6 0l10.6-5.8zM15.3 7.5L4.7 1.7c-.6-.4-1.2-.3-1.6 0l9 9 3.2-3.2z"/></svg>
+            <span class="t"><b>Google Play</b><span>قريباً</span></span>
+          </span>
+        </div>
+        <div class="hero-note rv" data-d="5"><span class="dot"></span> تشتغل الحين من المتصفح — بدون تنزيل</div>
+      </div>
+
+      <div class="rv" data-d="2">
+        <div class="board" id="board" aria-hidden="true"></div>
+        <p class="board-caption">اختاروا الفئة والنقاط… واللي يجاوب أول له النقطة</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CATEGORY SHOWCASE ────────────────────────────────── -->
+  <section id="cats" class="showcase" aria-label="الفئات">
+    <div class="sticky">
+      <div class="wrap stage">
+        <div class="cat-copy" id="catCopy"></div>
+        <div>
+          <div class="cat-art" id="catArt"><div class="rail"><i id="rail"></i></div></div>
+          <div class="pips" id="pips"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ALL CATEGORIES ───────────────────────────────────── -->
+  <section id="all" class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">المكتبة كاملة</div>
+      <h2 class="rv" data-d="1">كل الفئات</h2>
+      <p class="lede rv" data-d="2">
+        <b id="allCount">٣٠</b> فئة جاهزة — من العام إلى العُماني الخالص، ومنها فئات
+        تمثيل وألغاز وإيموجي. وتقدر تضيف فئاتك فوقها.
+      </p>
+    </div>
+    <div class="grid" id="allGrid"></div>
+  </section>
+
+  <!-- ── WHY ──────────────────────────────────────────────── -->
+  <section id="why" class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">ليش عِزبة</div>
+      <h2 class="rv" data-d="1">مصمّمة للجلسة، مو للشاشة</h2>
+      <p class="lede rv" data-d="2">كل شي فيها مبني على فكرة وحدة: تلعبونها مع بعض، بجهاز واحد، وتضحكون.</p>
+    </div>
+    <div class="cards">
+      <div class="card rv"><div class="ico">✍️</div><h3>سوّوا فئاتكم</h3><p>اكتبوا أسئلتكم بأنفسكم — عن العائلة، الشلّة، الشغل — وشاركوها مع الربع.</p></div>
+      <div class="card rv" data-d="1"><div class="ico">♾️</div><h3>ما تتكرر</h3><p>اللعبة تتذكّر كل سؤال ظهر لك، وما تعيده في لعبة جديدة إلا بعد ما تخلص الفئة.</p></div>
+      <div class="card rv" data-d="2"><div class="ico">👨‍👩‍👧‍👦</div><h3>من فريقين لخمسة</h3><p>جهاز واحد يكفي. مرّروه بينكم، والنقاط تُحتسب تلقائياً.</p></div>
+      <div class="card rv" data-d="3"><div class="ico">🇴🇲</div><h3>فئات عمانية</h3><p>خريف ظفار، أرض اللبان، الكرة العمانية، ولا كلمة عماني — محتوى ما تلقاه بمكان ثاني.</p></div>
+      <div class="card rv" data-d="4"><div class="ico">⚡</div><h3>ابدأ بثانية</h3><p>افتح الرابط والعب. بدون تنزيل، بدون حساب، وأول لعبة مجانية.</p></div>
+      <div class="card rv" data-d="5"><div class="ico">🔄</div><h3>تتحدّث دائماً</h3><p>نضيف فئات وأسئلة جديدة باستمرار — وتوصلك مباشرة بدون ما تسوي شي.</p></div>
+    </div>
+  </section>
+
+  <!-- ── PREVIEW ──────────────────────────────────────────── -->
+  <section class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">كيف تلعبونها</div>
+      <h2 class="rv" data-d="1">ثلاث خطوات وبس</h2>
+    </div>
+    <div class="phones" id="phones">
+      <div class="phone rv"><div class="phone-inner">
+        <div class="ph-top"><span class="n">١</span>اختاروا الفئات وسمّوا الفرق</div>
+        <div class="ph-lbl">اخترتم أربع فئات</div>
+        <div class="ph-chips">
+          <span class="on">تاريخ</span><span class="on">رياضة</span><span class="on">جغرافيا</span>
+          <span class="on">إيموجي</span><span>علوم</span><span>سيارات</span><span>ولا كلمة</span>
+          <span>خريف ظفار</span><span>مصطلحات عربية</span><span>قول غيرها</span>
+        </div>
+        <div class="ph-lbl">الفرق</div>
+        <div class="ph-team"><i>🏴</i>الصقور<b>٠</b></div>
+        <div class="ph-team"><i>🏁</i>النواخذة<b>٠</b></div>
+        <div class="ph-btn">ابدأ اللعب</div>
+        <div class="ph-note">أربع فئات وفريقين — وأنتم جاهزين.</div>
+      </div></div>
+      <div class="phone rv" data-d="1"><div class="phone-inner">
+        <div class="ph-top"><span class="n">٢</span>اختاروا خانة من اللوحة</div>
+        <div class="ph-board">
+          <i>تاريخ</i><i>رياضة</i><i>جغرافيا</i><i>إيموجي</i>
+          <u>١٠٠</u><u>١٠٠</u><u>١٠٠</u><u>١٠٠</u>
+          <u>٢٠٠</u><u>٢٠٠</u><u>٢٠٠</u><u>٢٠٠</u>
+          <u>٣٠٠</u><u>٣٠٠</u><u class="on">٣٠٠</u><u>٣٠٠</u>
+          <u>٤٠٠</u><u>٤٠٠</u><u>٤٠٠</u><u>٤٠٠</u>
+          <u>٥٠٠</u><u>٥٠٠</u><u>٥٠٠</u><u>٥٠٠</u>
+        </div>
+        <div class="ph-note">كل خانة سؤال — وكل ما غلت، صعبت.</div>
+      </div></div>
+      <div class="phone rv" data-d="2"><div class="phone-inner">
+        <div class="ph-top"><span class="n">٣</span>جاوبوا — واللي يسبق ياخذ النقاط</div>
+        <div class="ph-q"><em>جغرافيا</em><span class="t">٣٠٠</span>وش أطول نهر في العالم؟</div>
+        <div class="ph-score win"><i>🏴</i>الصقور<b>٣٠٠</b></div>
+        <div class="ph-score"><i>🏁</i>النواخذة<b>١٠٠</b></div>
+        <div class="ph-btns"><span class="ok">✅ صح</span><span>👁 الإجابة</span></div>
+        <div class="ph-note">النقاط تُحتسب تلقائياً — أنتم بس العبوا.</div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ── STATS ────────────────────────────────────────────── -->
+  <section class="wrap">
+    <div class="stats">
+      <div class="stat rv"><b data-count="2620">0</b><span>سؤال جاهز</span></div>
+      <div class="stat rv" data-d="1"><b data-count="21">0</b><span>فئة أساسية</span></div>
+      <div class="stat rv" data-d="2"><b data-count="5">0</b><span>فرق في اللعبة الوحدة</span></div>
+      <div class="stat rv" data-d="3"><b data-count="1">0</b><span>لعبة مجانية للتجربة</span></div>
+    </div>
+  </section>
+
+  <!-- ── PLANS ────────────────────────────────────────────── -->
+  <section id="price" class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">الباقات</div>
+      <h2 class="rv" data-d="1">أول لعبة علينا</h2>
+      <p class="lede rv" data-d="2">بعدها تشتري باقة ألعاب — واللعبة اللي تشتريها تبقى محفوظة عندك، وإعادتها مجانية دائماً.</p>
+    </div>
+    <div class="plans">
+      <div class="plan rv"><span class="em">🎲</span>
+        <h3>باقة لعبتين</h3>
+        <div class="price">٠٫٩٠٠<small>ر.ع</small></div>
+        <p>جولتان — جرّب اللعبة مع أصحابك.</p></div>
+      <div class="plan rv" data-d="1"><span class="em">🎮</span>
+        <h3>باقة ٥ ألعاب</h3>
+        <div class="price">١٫٥٠٠<small>ر.ع</small></div>
+        <p>خمس جولات كاملة بفئاتك المفضلة.</p></div>
+      <div class="plan best rv" data-d="2"><span class="tag">الأكثر طلباً</span><span class="em">🏆</span>
+        <h3>باقة ١٥ لعبة</h3>
+        <div class="price">٣٫٥٠٠<small>ر.ع</small></div>
+        <p>خمس عشرة جولة — الأنسب للعزبات المتكررة.</p></div>
+    </div>
+    <p class="plans-note rv" data-d="3"><b>اللعبة الوحدة = لوحة كاملة.</b> تختار فئاتك، وتنخصم لعبة وحدة عند البداية — وبعدها تقدر تعيدها مع ربع ثانين بدون ما تدفع مرة ثانية.</p>
+  </section>
+
+  <!-- ── QUOTES ───────────────────────────────────────────── -->
+  <section class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">من اللاعبين</div>
+      <h2 class="rv" data-d="1">الجلسة ما تخلص</h2>
+    </div>
+    <div class="quotes">
+      <div class="quote placeholder rv"><p>ضع هنا رأياً حقيقياً من لاعب — من رسائل «اقتراحاتكم» أو من إنستقرام.</p>
+        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
+      <div class="quote placeholder rv" data-d="1"><p>ضع هنا رأياً حقيقياً ثانياً. لا تستخدم آراء مُختلقة — الأفضل اقتباس فعلي بإذن صاحبه.</p>
+        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
+      <div class="quote placeholder rv" data-d="2"><p>ضع هنا رأياً حقيقياً ثالثاً، ويفضّل يذكر موقفاً محدداً من الجلسة.</p>
+        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ──────────────────────────────────────────────── -->
+  <section id="faq" class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">أسئلة شائعة</div>
+      <h2 class="rv" data-d="1">قبل ما تبدأ</h2>
+    </div>
+    <div class="faq">
+      <details open><summary>هل أحتاج أنزّل تطبيق؟ <span class="plus"></span></summary>
+        <div class="answer"><div><p>لا. عِزبة تشتغل من المتصفح مباشرة على الجوال أو التابلت. وتقدر تضيفها لشاشتك الرئيسية فتفتح مثل أي تطبيق.</p></div></div></details>
+      <details><summary>كم لاعب نحتاج؟ <span class="plus"></span></summary>
+        <div class="answer"><div><p>من فريقين إلى خمسة فرق، وكل فريق فيه أي عدد. جهاز واحد يكفي الجميع — تمرّرونه بينكم.</p></div></div></details>
+      <details><summary>هل هي مجانية؟ <span class="plus"></span></summary>
+        <div class="answer"><div><p>أول لعبة مجانية بالكامل. بعدها تقدر تشتري باقة ألعاب. واللعبة اللي تشتريها تبقى محفوظة عندك وإعادتها مجانية دائماً.</p></div></div></details>
+      <details><summary>أقدر أسوّي فئة بأسئلتي؟ <span class="plus"></span></summary>
+        <div class="answer"><div><p>نعم — تكتب أسئلتك وإجاباتك وتضيف صور، وتخليها خاصة لك أو تنشرها للجميع.</p></div></div></details>
+      <details><summary>هل الأسئلة تتكرر؟ <span class="plus"></span></summary>
+        <div class="answer"><div><p>اللعبة تتذكّر كل سؤال ظهر لك سابقاً وتتجنّبه في الألعاب الجديدة، إلى أن تنتهي أسئلة الفئة.</p></div></div></details>
+    </div>
+  </section>
+
+  <!-- ── FINAL CTA ────────────────────────────────────────── -->
+  <section class="wrap">
+    <div class="final rv">
+      <canvas id="sparks" aria-hidden="true"></canvas>
+      <div class="inner">
+        <h2>جمّع الربع… وابدأ</h2>
+        <p class="lede" style="margin:20px auto 0; text-align:center">أول لعبة مجانية، وما تحتاج تنزيل ولا حساب.</p>
+        <div class="cta-row"><a class="btn magnetic" href="../game-mobile.html">افتح اللعبة الحين</a></div>
+        <div class="store-row">
+          <span class="store" aria-disabled="true"><span class="t"><b>App Store</b><span>قريباً</span></span></span>
+          <span class="store" aria-disabled="true"><span class="t"><b>Google Play</b><span>قريباً</span></span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <a class="brand" href="#top"><img src="../assets/brand/png/app-icon/icon-192.png" alt=""> عِزبة</a>
+    <nav class="foot-links" aria-label="روابط">
+      <a href="../game-mobile.html">اللعبة</a>
+      <a href="#cats">الفئات</a>
+      <a href="#price">الباقات</a>
+      <a href="#faq">أسئلة شائعة</a>
+      <a href="mailto:izzbahgame@gmail.com">تواصل معنا</a>
+      <a href="https://instagram.com/izzbahgame" rel="noopener" target="_blank">إنستقرام</a>
+      <a href="https://tiktok.com/@izzbahgame" rel="noopener" target="_blank">تيك توك</a>
+      <a href="../game-mobile.html" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">سياسة الخصوصية</a>
+      <a href="../game-mobile.html" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">شروط الاستخدام</a>
+    </nav>
+  </div>
+  <p class="copy">© <span id="yr">٢٠٢٦</span> عِزبة — جميع الحقوق محفوظة.</p>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ── header ─────────────────────────────────────────────── */
+  const hdr = document.getElementById("hdr");
+  addEventListener("scroll", () => hdr.classList.toggle("stuck", scrollY > 24), { passive: true });
+
+  /* ── reveal on scroll ───────────────────────────────────── */
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+  }), { threshold: .16, rootMargin: "0px 0px -8% 0px" });
+  document.querySelectorAll(".rv").forEach(el => io.observe(el));
+
+  /* ── hero board: deals itself in, one tile opens ─────────── */
+  const COLS = [
+    { n: "تاريخ",   c: "#8a2230", img: "cat/history-s.webp" },
+    { n: "علوم",    c: "#1f4d3d", img: "cat/science-s.webp" },
+    { n: "رياضة",   c: "#7d3a12", img: "cat/sports-s.webp" },
+    { n: "إيموجي",  c: "#5a2140", img: "cat/pub-1784240484235-8039-s.webp" },
+  ];
+  const board = document.getElementById("board");
+  if (board) {
+    COLS.forEach((col, ci) => {
+      const c = document.createElement("div"); c.className = "col";
+      const h = document.createElement("div"); h.className = "col-head"; h.style.setProperty("--c", col.c);
+      if (col.img) { const im = new Image(); im.src = col.img; im.alt = ""; im.loading = "lazy"; h.appendChild(im); }
+      const s = document.createElement("span"); s.textContent = col.n; h.appendChild(s);
+      c.appendChild(h);
+      [100, 200, 300, 400, 500].forEach((p, ri) => {
+        const t = document.createElement("div");
+        t.className = "tile" + (ci === 1 && ri === 2 ? " open" : "");
+        t.textContent = p;
+        t.style.animationDelay = reduce ? "0s" : (0.25 + (ci * 5 + ri) * 0.035) + "s";
+        c.appendChild(t);
+      });
+      board.appendChild(c);
+    });
+    if (!reduce) addEventListener("pointermove", e => {
+      const r = board.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+      const dy = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+      board.style.setProperty("--ry", (-7 + dx * 9).toFixed(2) + "deg");
+      board.style.setProperty("--rx", (3 - dy * 7).toFixed(2) + "deg");
+    }, { passive: true });
+  }
+
+  /* ── category showcase, driven by scroll ────────────────── */
+  const CATS = [
+    { c:"rgba(64,102,35,.60)", n:"خريف ظفار", img:"cat/khareef-l.webp", t:"عُماني ١٠٠٪", d:"الموسم اللي يقلب ظفار خضراء — جبال، شلالات، ومواسم يعرفها أهلها فقط." },
+    { c:"rgba(102,74,36,.60)", n:"مواقع في عمان", img:"cat/pub-1783170059396-601-l.webp", t:"عُماني ١٠٠٪", d:"قلاع، حصون، أفلاج وولايات. جغرافيا عُمان كما يعرفها من عاشها." },
+    { c:"rgba(102,57,37,.60)", n:"حنكة عمانية", img:"cat/pub-1783453062866-1028-l.webp", t:"عُماني ١٠٠٪", d:"أمثال وحكم وذكاء أهل البلد — أسئلة ما تنحل إلا بحنكة." },
+    { c:"rgba(102,32,29,.60)", n:"كرة عمانية", img:"cat/omaniFootball-l.webp", t:"عُماني ١٠٠٪", d:"المنتخب، الأندية، واللاعبين اللي كبرنا نشجعهم." },
+    { c:"rgba(102,74,51,.60)", n:"وش الكلمة (عماني)", img:"cat/pub-1783189569201-313-l.webp", t:"عُماني ١٠٠٪", d:"كلمات عمانية خالصة — مثّلها بدون كلام وخلّ ربعك يخمّنون." },
+    { c:"rgba(29,102,93,.60)", n:"رياكشنات عمانية", img:"cat/pub-1783425758108-102-l.webp", t:"عُماني ١٠٠٪", d:"المواقف والمقاطع اللي دارت على كل الجروبات — من عمق الترند العُماني." },
+    { c:"rgba(102,56,29,.60)", n:"قديمك نديمك", img:"cat/pub-1784798503561-5271-l.webp", t:"عُماني ١٠٠٪", d:"راديو، كاسيت، وأشياء ما عاد لها وجود — لو عشتها بتعرفها." },
+    { c:"rgba(102,73,41,.60)", n:"كافيهات ومطاعم", img:"cat/cafesRestaurants-l.webp", t:"عُماني ١٠٠٪", d:"من الكافيه اللي بجنبك إلى السلاسل العالمية — تعرف شعاراتهم وأصنافهم؟" },
+    { c:"rgba(102,66,39,.60)", n:"جلسة حريم", img:"cat/pub-1783170084646-5700-l.webp", t:"عُماني ١٠٠٪", d:"قعدة القهوة والونسة — أسئلة من عالم الجلسة." },
+    { c:"rgba(102,62,42,.60)", n:"وش كلمة أجنبي", img:"cat/charades-l.webp", t:"تمثيل صامت", d:"امسح الرمز، شوف الكلمة، ومثّلها بدون ما تنطق حرف. أعلى ضحكة في الجلسة." },
+    { c:"rgba(102,65,33,.60)", n:"وش الكلمة عربي", img:"cat/charadesArabic-l.webp", t:"تمثيل صامت", d:"كلمة عربية، وتمثيل صامت — بدون حرف واحد." },
+    { c:"rgba(102,62,29,.60)", n:"وش الكلمة أفلام", img:"cat/charadesMovies-l.webp", t:"تمثيل صامت", d:"اسم فيلم، ومثّله بدون كلام." },
+    { c:"rgba(102,57,29,.60)", n:"وش الكلمة مسلسلات", img:"cat/charadesSeries-l.webp", t:"تمثيل صامت", d:"اسم مسلسل، وأنت تمثّل — والباقي يخمّنون." },
+    { c:"rgba(102,66,29,.60)", n:"قول غيرها", img:"cat/sayAnother-l.webp", t:"جديدة", d:"نعطيكم نوع الكلمة، وأنتم قولوا وحدة — بشرط ما تكون من الممنوعات." },
+    { c:"rgba(102,71,38,.60)", n:"أحرف", img:"cat/arabicTerms-l.webp", t:"جديدة", d:"مصطلحات ومفردات عربية — نعطيك التعريف وأول حرف، وأنتم كمّلوا." },
+    { c:"rgba(102,61,29,.60)", n:"أكمل المثل", img:"cat/pub-1785323313470-2876-l.webp", t:"لغة", d:"نبدأ المثل… وأنتم كمّلوه." },
+    { c:"rgba(102,79,29,.60)", n:"معنـى الايموجي", img:"cat/pub-1784240484235-8039-l.webp", t:"ألغاز", d:"فيلم، مثل، أو شخصية — مخبّاة داخل رموز. فكفكوها مع فريقكم." },
+    { c:"rgba(102,81,29,.60)", n:"معنى الايموجي (English)", img:"cat/emojis-l.webp", t:"ألغاز", d:"نفس اللعبة… بس الإجابات بالإنجليزي." },
+    { c:"rgba(102,53,29,.60)", n:"ألغاز", img:"cat/pub-1784486305049-7855-l.webp", t:"ألغاز", d:"أسئلة تحتاج تفكير مو معلومة — فكّوا الشفرة مع فريقكم." },
+    { c:"rgba(29,45,102,.60)", n:"وش الرابط؟", img:"cat/pub-1784571861226-6942-l.webp", t:"ألغاز", d:"كم كلمة… وشي واحد يجمعهم. وش هو؟" },
+    { c:"rgba(102,29,30,.60)", n:"من أنا؟", img:"cat/whoAmI-l.webp", t:"ألغاز", d:"تلميح ورا تلميح — مين الشخصية؟" },
+    { c:"rgba(29,33,102,.60)", n:"الأقرب يفوز", img:"cat/pub-1784503983714-3987-l.webp", t:"ألغاز", d:"سؤال برقم، وأقرب إجابة تاخذ النقطة." },
+    { c:"rgba(102,67,29,.60)", n:"السيرة النبوية", img:"cat/seerah-l.webp", t:"ديني", d:"حياة النبي ﷺ وغزواته وأصحابه — أسئلة يستفيد منها الكبير والصغير." },
+    { c:"rgba(102,61,29,.60)", n:"دين", img:"cat/pub-1783170306877-1440-l.webp", t:"ديني", d:"أسئلة دينية عامة بأسلوب مبسّط." },
+    { c:"rgba(102,55,29,.60)", n:"تاريخ", img:"cat/history-l.webp", t:"معرفة عامة", d:"شخصيات ومعارك وتواريخ غيّرت العالم." },
+    { c:"rgba(102,100,40,.60)", n:"جغرافيا", img:"cat/geo-l.webp", t:"معرفة عامة", d:"دول وعواصم وبحار وجبال — وين تقع؟" },
+    { c:"rgba(49,57,102,.60)", n:"علوم", img:"cat/science-l.webp", t:"معرفة عامة", d:"فيزياء وكيمياء وأحياء — علوم بأسئلة تفتح النفس." },
+    { c:"rgba(102,64,29,.60)", n:"ثقافة عامة", img:"cat/culture-l.webp", t:"معرفة عامة", d:"أسئلة من كل اتجاه — اللي يقرأ كثير يفوز." },
+    { c:"rgba(29,47,102,.60)", n:"أعلام", img:"cat/pub-1783684233589-5608-l.webp", t:"معرفة عامة", d:"أعلام الدول — تعرفها من ألوانها ونجومها؟" },
+    { c:"rgba(102,32,29,.60)", n:"رياضة", img:"cat/sports-l.webp", t:"رياضة", d:"كرة وسلة وتنس وأولمبياد — الأرقام والأبطال." },
+    { c:"rgba(102,31,33,.60)", n:"منوعات كرة قدم", img:"cat/footballMix-l.webp", t:"رياضة", d:"كل شي عن الكرة العالمية — لاعبين، بطولات، وأرقام." },
+    { c:"rgba(29,55,102,.60)", n:"من الي سجل؟", img:"cat/pub-1784043823835-6035-l.webp", t:"رياضة", d:"هدف، مباراة، ولحظة — مين صاحبها؟" },
+    { c:"rgba(102,74,46,.60)", n:"مصارعة حره", img:"cat/pub-1783189666048-7547-l.webp", t:"رياضة", d:"أبطال الحلبة والألقاب والمواجهات اللي ما تنتسى." },
+    { c:"rgba(102,32,29,.60)", n:"أفلام أجنبية", img:"cat/foreignMoviesOnly-l.webp", t:"ترفيه", d:"من الكلاسيكيات إلى آخر ما نزل — قصص وأبطال ومخرجين." },
+    { c:"rgba(102,37,51,.60)", n:"مسلسلات أجنبية", img:"cat/foreignSeries-l.webp", t:"ترفيه", d:"من أول حلقة إلى آخر موسم — شخصيات وحبكات." },
+    { c:"rgba(102,47,43,.60)", n:"العاب", img:"cat/pub-1783510423551-6465-l.webp", t:"ترفيه", d:"من الأتاري إلى آخر إصدار — عالم الألعاب كله." },
+    { c:"rgba(102,37,29,.60)", n:"ميمز", img:"cat/pub-1783189684453-7350-l.webp", t:"ترفيه", d:"الصور اللي دارت على كل الجروبات — تعرف قصتها؟" },
+    { c:"rgba(54,29,102,.60)", n:"سيارات", img:"cat/cars-l.webp", t:"منوّعات", d:"ماركات، موديلات، وأرقام يعرفها بس اللي يحب السيارات." },
+    { c:"rgba(102,63,29,.60)", n:"براندات", img:"cat/pub-1783170356019-2501-l.webp", t:"منوّعات", d:"شعارات وماركات — تعرفها من أول نظرة؟" },
+  ];
+  const copy = document.getElementById("catCopy");
+  const art = document.getElementById("catArt");
+  const pips = document.getElementById("pips");
+  const rail = document.getElementById("rail");
+
+  if (copy && art) {
+    CATS.forEach((c, i) => {
+      const p = document.createElement("div");
+      p.className = "cat-panel" + (i === 0 ? " on" : "");
+      p.innerHTML = '<div class="cat-index">فئة ' + (i + 1) + ' / ' + CATS.length + '</div>'
+        + '<h3></h3><p></p><div class="cat-tag"></div>';
+      p.querySelector("h3").textContent = c.n;
+      p.querySelector("p").textContent = c.d;
+      p.querySelector(".cat-tag").textContent = c.t;
+      copy.appendChild(p);
+
+      const f = document.createElement("figure");
+      f.className = i === 0 ? "on" : "";
+      const im = new Image(); im.alt = c.n; im.decoding = "async";
+      if (i === 0) im.src = c.img; else im.dataset.src = c.img;   // rest attach on focus
+      f.appendChild(im);
+      const v = document.createElement("div"); v.className = "veil"; f.appendChild(v);
+      art.appendChild(f);
+
+      if (i === 0 && pips) pips.appendChild(document.createElement("i"));
+    });
+
+    // The section is tall; scrolling through it advances the focused category.
+    const sec = document.getElementById("cats");
+    sec.style.height = (CATS.length * 34) + "svh";
+    const stick = sec.querySelector(".sticky");
+    const panels = [...copy.children], figs = [...art.querySelectorAll("figure")];
+    const bar = pips && pips.querySelector("i");
+    let cur = -1;
+    const paint = i => {
+      if (i === cur) return;
+      cur = i;
+      panels.forEach((p, k) => p.classList.toggle("on", k === i));
+      figs.forEach((f, k) => f.classList.toggle("on", k === i));
+      // load the focused cover and the next one, so the transition never waits
+      [i, i + 1].forEach(k => {
+        const im = figs[k] && figs[k].querySelector("img[data-src]");
+        if (im) { im.src = im.dataset.src; delete im.dataset.src; }
+      });
+      if (bar) bar.style.width = ((i + 1) / CATS.length * 100).toFixed(1) + "%";
+      if (rail) { rail.style.height = (100 / CATS.length) + "%"; rail.style.top = (i * 100 / CATS.length) + "%"; }
+      if (stick && CATS[i].c) stick.style.setProperty("--accent", CATS[i].c);
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const r = sec.getBoundingClientRect();
+        const total = r.height - innerHeight;
+        if (total <= 0) return paint(0);
+        const p = Math.min(1, Math.max(0, -r.top / total));
+        paint(Math.min(CATS.length - 1, Math.floor(p * CATS.length)));
+      });
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
+    onScroll();
+  }
+
+  /* ── every category in the game ─────────────────────────── */
+  /* Pulled from the live Firestore `categories` collection — the same covers
+     players see in the picker, resized to WebP under preview/cat/. The four
+     whose cloud cover is blank fall back to the bundled asset, exactly as the
+     game does. `om` marks the Omani-only ones — the real differentiator. */
+  const ALL = [
+    { n:"جلسة حريم", a:"cat/pub-1783170084646-5700-t.webp", om:1 }, { n:"حنكة عمانية", a:"cat/pub-1783453062866-1028-t.webp", om:1 },
+    { n:"خريف ظفار", a:"../assets/img/cat-khareef.webp", om:1 }, { n:"رياكشنات عمانية", a:"cat/pub-1783425758108-102-t.webp", om:1 },
+    { n:"قديمك نديمك", a:"cat/pub-1784798503561-5271-t.webp", om:1 }, { n:"كافيهات ومطاعم", a:"cat/cafesRestaurants-t.webp", om:1 },
+    { n:"كرة عمانية", a:"../assets/img/cat-omaniFootball.webp", om:1 }, { n:"مواقع في عمان", a:"cat/pub-1783170059396-601-t.webp", om:1 },
+    { n:"وش الكلمة (عماني)", a:"cat/pub-1783189569201-313-t.webp", om:1 }, { n:"أحرف", a:"cat/arabicTerms-t.webp", nu:1 },
+    { n:"أعلام", a:"cat/pub-1783684233589-5608-t.webp" }, { n:"أفلام أجنبية", a:"../assets/img/cat-foreignMoviesOnly.webp" },
+    { n:"أكمل المثل", a:"cat/pub-1785323313470-2876-t.webp" }, { n:"ألغاز", a:"cat/pub-1784486305049-7855-t.webp" },
+    { n:"الأقرب يفوز", a:"cat/pub-1784503983714-3987-t.webp" }, { n:"السيرة النبوية", a:"cat/seerah-t.webp" },
+    { n:"العاب", a:"cat/pub-1783510423551-6465-t.webp" }, { n:"براندات", a:"cat/pub-1783170356019-2501-t.webp" },
+    { n:"تاريخ", a:"cat/history-t.webp" }, { n:"ثقافة عامة", a:"cat/culture-t.webp" },
+    { n:"جغرافيا", a:"cat/geo-t.webp" }, { n:"دين", a:"cat/pub-1783170306877-1440-t.webp" },
+    { n:"رياضة", a:"cat/sports-t.webp" }, { n:"سيارات", a:"cat/cars-t.webp" },
+    { n:"علوم", a:"cat/science-t.webp" }, { n:"قول غيرها", a:"cat/sayAnother-t.webp", nu:1 },
+    { n:"مسلسلات أجنبية", a:"cat/foreignSeries-t.webp" }, { n:"مصارعة حره", a:"cat/pub-1783189666048-7547-t.webp" },
+    { n:"معنـى الايموجي", a:"cat/pub-1784240484235-8039-t.webp" }, { n:"معنى الايموجي (English)", a:"cat/emojis-t.webp" },
+    { n:"من أنا؟", a:"../assets/img/cat-whoAmI.webp" }, { n:"من الي سجل؟", a:"cat/pub-1784043823835-6035-t.webp" },
+    { n:"منوعات كرة قدم", a:"cat/footballMix-t.webp" }, { n:"ميمز", a:"cat/pub-1783189684453-7350-t.webp" },
+    { n:"وش الرابط؟", a:"cat/pub-1784571861226-6942-t.webp" }, { n:"وش الكلمة أفلام", a:"cat/charadesMovies-t.webp" },
+    { n:"وش الكلمة عربي", a:"cat/charadesArabic-t.webp" }, { n:"وش الكلمة مسلسلات", a:"cat/charadesSeries-t.webp" },
+    { n:"وش كلمة أجنبي", a:"cat/charades-t.webp" },
+  ];
+  const gridEl = document.getElementById("allGrid");
+  if (gridEl) {
+    // deterministic hue per name, so a tile keeps its colour between visits
+    const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
+    ALL.forEach(c => {
+      const card = document.createElement("a");
+      card.className = "gcard"; card.href = "../game-mobile.html";
+      card.setAttribute("aria-label", c.n);
+      if (c.a) {
+        const im = new Image(); im.src = c.a; im.alt = ""; im.loading = "lazy"; im.decoding = "async";
+        card.appendChild(im);
+      } else {
+        const f = document.createElement("div"); f.className = "fallback";
+        const h = hue(c.n);
+        f.style.setProperty("--h1", "hsl(" + h + " 46% 26%)");
+        f.style.setProperty("--h2", "hsl(" + ((h + 34) % 360) + " 52% 12%)");
+        const b = document.createElement("b"); b.textContent = [...c.n.replace(/[^؀-ۿ]/g, "")][0] || "؟";
+        f.appendChild(b); card.appendChild(f);
+      }
+      if (c.om) { const t = document.createElement("span"); t.className = "flag"; t.textContent = "عُماني"; card.appendChild(t); }
+      if (c.nu) { const t = document.createElement("span"); t.className = "flag"; t.textContent = "جديد"; card.appendChild(t); }
+      const cap = document.createElement("span"); cap.className = "cap"; cap.textContent = c.n;
+      card.appendChild(cap);
+      gridEl.appendChild(card);
+    });
+    const cEl = document.getElementById("allCount");
+    if (cEl) cEl.textContent = String(ALL.length).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  }
+
+  /* ── phones: gentle tilt toward the pointer ─────────────── */
+  if (!reduce) {
+    const ph = [...document.querySelectorAll(".phone")];
+    addEventListener("pointermove", e => {
+      const x = (e.clientX / innerWidth - .5), y = (e.clientY / innerHeight - .5);
+      ph.forEach((p, i) => {
+        const k = 1 + i * .35;
+        p.style.setProperty("--y", (x * 13 * k).toFixed(2) + "deg");
+        p.style.setProperty("--x", (-y * 9).toFixed(2) + "deg");
+        p.style.setProperty("--ty", (i === 1 ? -16 : 0) + "px");
+      });
+    }, { passive: true });
+    ph.forEach((p, i) => { if (i === 1) p.style.setProperty("--ty", "-16px"); });
+    ph.forEach((p, i) => p.style.setProperty("--sheen", (i * -1.9) + "s"));
+  }
+
+  /* ── pointer: trailing ring + magnetic buttons ──────────── */
+  if (!reduce && matchMedia("(hover:hover) and (pointer:fine)").matches) {
+    const ring = document.createElement("div");
+    ring.className = "ring"; ring.setAttribute("aria-hidden", "true");
+    document.body.appendChild(ring);
+
+    let tx = -100, ty = -100, rx = -100, ry = -100, raf = 0;
+    const HOT = "a,button,summary,.gcard,.plan,.card,.store,.tile";
+    const loop = () => {
+      raf = 0;
+      rx += (tx - rx) * .18; ry += (ty - ry) * .18;
+      ring.style.transform = "translate3d(" + rx.toFixed(1) + "px," + ry.toFixed(1) + "px,0)";
+      if (Math.abs(tx - rx) > .3 || Math.abs(ty - ry) > .3) raf = requestAnimationFrame(loop);
+    };
+    addEventListener("pointermove", e => {
+      if (e.pointerType !== "mouse") return;
+      tx = e.clientX; ty = e.clientY;
+      ring.classList.add("on");
+      ring.classList.toggle("hot", !!(e.target.closest && e.target.closest(HOT)));
+      if (!raf) raf = requestAnimationFrame(loop);
+    }, { passive: true });
+    addEventListener("pointerleave", () => ring.classList.remove("on"));
+
+    // Magnetic: the button leans a few pixels toward the pointer, then lets go.
+    document.querySelectorAll(".magnetic").forEach(el => {
+      const pull = e => {
+        const r = el.getBoundingClientRect();
+        const dx = e.clientX - (r.left + r.width / 2);
+        const dy = e.clientY - (r.top + r.height / 2);
+        const max = 11;
+        el.style.setProperty("--mx", Math.max(-max, Math.min(max, dx * .28)).toFixed(1) + "px");
+        el.style.setProperty("--my", Math.max(-max, Math.min(max, dy * .34)).toFixed(1) + "px");
+      };
+      const drop = () => { el.style.setProperty("--mx", "0px"); el.style.setProperty("--my", "0px"); };
+      el.addEventListener("pointermove", pull, { passive: true });
+      el.addEventListener("pointerleave", drop);
+      el.addEventListener("blur", drop);
+    });
+  }
+
+  /* ── counters ───────────────────────────────────────────── */
+  const AR = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  const cio = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    cio.unobserve(e.target);
+    const el = e.target, to = +el.dataset.count;
+    if (reduce) { el.textContent = AR(to); return; }
+    const t0 = performance.now(), dur = 1500;
+    const step = t => {
+      const k = Math.min(1, (t - t0) / dur);
+      el.textContent = AR(Math.round(to * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }), { threshold: .6 });
+  document.querySelectorAll("[data-count]").forEach(el => cio.observe(el));
+
+  /* ── final CTA: drifting embers on canvas ───────────────── */
+  const cv = document.getElementById("sparks");
+  if (cv && !reduce) {
+    const ctx = cv.getContext("2d");
+    let w = 0, h = 0, parts = [], raf = 0, live = false;
+    const size = () => {
+      const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+      w = r.width; h = r.height; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      parts = Array.from({ length: Math.round(w / 16) }, () => ({
+        x: Math.random() * w, y: Math.random() * h,
+        r: Math.random() * 1.9 + .5, s: Math.random() * .3 + .08, a: Math.random() * .5 + .18,
+      }));
+    };
+    const tick = () => {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of parts) {
+        p.y -= p.s; if (p.y < -6) { p.y = h + 6; p.x = Math.random() * w; }
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.284);
+        ctx.fillStyle = "rgba(246,210,122," + p.a + ")"; ctx.fill();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    new IntersectionObserver(es => es.forEach(e => {
+      if (e.isIntersecting && !live) { live = true; size(); tick(); }
+      else if (!e.isIntersecting && live) { live = false; cancelAnimationFrame(raf); }
+    }), { threshold: .05 }).observe(cv);
+    addEventListener("resize", () => { if (live) size(); });
+  }
+
+  document.getElementById("yr").textContent = AR(new Date().getFullYear());
+})();
+</script>
+</body>
+</html>
