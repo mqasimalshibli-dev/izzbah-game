@@ -44,6 +44,8 @@ try {
       everyAsksTerm: qs.every(q => /المصطلح|الكلمة/.test(q.q)),
       // the bank must span everyday Arabic — not just grammar/rhetoric
       bankAnswers: Object.values(bank).flat().map(t => t[1]),
+      noSelfDistractor: Object.values(bank).flat()
+        .every(t => Array.isArray(t[2]) && t[2].length === 3 && !t[2].includes(t[1])),
       distractors: qs.every(q => Array.isArray(q.distractors) && q.distractors.length === 3),
       // no question may hand-write the hint — it is derived at render time
       noHardcodedHint: qs.every(q => !/يبدأ بحرف|أول حرف/.test(q.q)),
@@ -52,8 +54,12 @@ try {
   check("the «مصطلحات عربية» category exists and is live", !!cat && cat.name === "مصطلحات عربية");
   check(`the board materializes one question per tier (${cat && cat.count} cells)`,
     cat && cat.count === 5 && JSON.stringify(cat.tiers) === JSON.stringify([100, 200, 300, 400, 500]));
-  check(`the bank holds several per tier so games vary (${cat && cat.bankTotal} total)`,
-    cat && cat.bankTotal >= 15 && cat.bankPerTier.every(n => n >= 3));
+  check(`the bank holds 100 questions, 20 per tier (${cat && cat.bankTotal} total)`,
+    cat && cat.bankTotal === 100 && cat.bankPerTier.every(n => n === 20));
+  check("no answer is repeated anywhere in the bank",
+    cat && new Set(cat.bankAnswers).size === cat.bankAnswers.length);
+  check("no question lists its own answer among the distractors",
+    cat && cat.noSelfDistractor);
   check("it ships a self-contained cover image (svg data URL, no missing asset)", cat && cat.svgCover);
   check("every question asks for a term/word and has an answer", cat && cat.everyAsksTerm && cat.everyHasAnswer);
   // The category is «مصطلحات عربية» in the broad sense — vocabulary from
