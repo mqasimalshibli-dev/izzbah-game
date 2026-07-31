@@ -7135,6 +7135,7 @@
           <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
           <button class="secondary" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية">⬇ نسخة احتياطية</button>
+          <button class="secondary" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار.">⚡ ضغط صور الفئات</button>
         </div>
         <div class="admin-controls">
           <div class="admin-search">
@@ -11231,7 +11232,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-31.204";
+    const IZZBAH_BUILD = "2026-07-31.205";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13193,6 +13194,26 @@
     // per-question storage model each question gets its own 1 MiB budget, so a
     // category can hold many full-quality images.
     const QUESTION_BUDGET = 950000;
+    // Per-cover budget and passes. Small on purpose: see fitCategoryForPublish
+    // below — the category picker pays this once per category, in a single
+    // query, so the budget is effectively multiplied by the catalogue size.
+    //
+    // 480px is deliberate: a cover is shown at roughly 160 CSS px, which is 480
+    // device px on a 3× phone, so this is the largest size that can still be
+    // seen. Most covers land on the first pass at full 480px; only unusually
+    // busy artwork walks further down the list.
+    const COVER_BUDGET = 95000;                       // base64 bytes
+    const COVER_PASSES = [[480, 0.74], [480, 0.66], [416, 0.62], [352, 0.54], [288, 0.46]];
+    // Always re-encode from the ORIGINAL, never from the previous pass —
+    // recompressing a recompressed JPEG stacks artefacts for no size gain.
+    async function fitCoverImage(original) {
+      let out = original;
+      for (const [dim, ql] of COVER_PASSES) {
+        out = await recompressDataUrl(original, dim, ql);
+        if (JSON.stringify({ i: out }).length <= COVER_BUDGET) break;
+      }
+      return out;
+    }
     async function fitQuestionForDoc(q, budget = QUESTION_BUDGET) {
       const size = () => JSON.stringify({ p: q.points, q: q.q, a: q.a, i: q.image || "", ai: q.answerImage || "" }).length;
       if (size() <= budget) return true;
@@ -13210,9 +13231,17 @@
     // its own 1 MiB. Returns false only if a SINGLE question still can't fit.
     async function fitCategoryForPublish(cat) {
       if (cat.image) {
-        const csize = () => JSON.stringify({ i: cat.image }).length;
-        const cpasses = [[1024, 0.82], [760, 0.72], [560, 0.6], [420, 0.5], [320, 0.42]];
-        for (const [dim, ql] of cpasses) { if (csize() <= 600000) break; cat.image = await recompressDataUrl(cat.image, dim, ql); }
+        // The cover rides in the PARENT doc, and the picker fetches EVERY parent
+        // doc in one query — so this budget is multiplied by the number of
+        // categories. At the old 600 KB cap, 39 categories meant the player
+        // downloaded well over 10 MB before a single tile could paint, which is
+        // the whole reason the category list felt slow.
+        //
+        // A cover is never shown above ~200 CSS px, i.e. ~600 device px on a 3×
+        // phone, so 640 px is already generous. Note the first pass always runs:
+        // the point is to cap the DIMENSIONS, not merely to squeeze a file that
+        // happens to be over budget.
+        cat.image = await fitCoverImage(cat.image);
       }
       for (const q of (cat.questions || [])) {
         if (!(await fitQuestionForDoc(q))) return false;
@@ -18956,6 +18985,51 @@
         + (capped ? " — كرّر العملية لجلب الباقي" : ""));
     }
 
+    // Admin maintenance: shrink the covers of every PUBLISHED category.
+    //
+    // Why this exists: the cover image lives in the category's parent doc, and
+    // the picker reads every parent doc in one query — so each cover is paid
+    // for on every cold load. Covers published before build .205 were allowed
+    // up to 600 KB, which is why the category list was slow. New publishes are
+    // already capped by COVER_BUDGET; this fixes the ones already out there.
+    //
+    // Safe to re-run and safe to interrupt: each category is independent, only
+    // the cover field is written, and anything already under budget is skipped.
+    async function shrinkPublishedCovers() {
+      const btn = $("#adminShrinkCovers");
+      if (!window.IZZBAH.cloudUpdateCover) { showToast("سجّل الدخول كمشرف أولاً"); return; }
+      const cats = (state.publishedCategories || []).filter(c => typeof c.image === "string" && c.image.indexOf("data:image/") === 0);
+      const bytes = c => JSON.stringify({ i: c.image }).length;
+      const over = cats.filter(c => bytes(c) > COVER_BUDGET);
+      if (!over.length) { showToast("كل صور الفئات مضغوطة بالفعل ✓"); return; }
+
+      const beforeMB = (over.reduce((n, c) => n + bytes(c), 0) / 1048576).toFixed(1);
+      if (!confirm("سيتم ضغط " + toArabicDigits(over.length) + " صورة فئة (" + toArabicDigits(beforeMB) + " ميجابايت)"
+        + " لتصبح الفئات أسرع بكثير في التحميل.\n\nالصور ستبقى واضحة — لن تتغير الأسئلة.\n\nنكمل؟")) return;
+
+      const orig = btn ? btn.textContent : "";
+      if (btn) btn.disabled = true;
+      let done = 0, ok = 0, failed = 0, after = 0;
+      for (const cat of over) {
+        done++;
+        if (btn) btn.textContent = "⏳ ضغط الصور… " + toArabicDigits(done) + "/" + toArabicDigits(over.length);
+        try {
+          const img = await fitCoverImage(cat.image);
+          // Never make a cover bigger, and never blank one out on a bad decode.
+          if (!img || img.length >= cat.image.length) { failed++; continue; }
+          await window.IZZBAH.cloudUpdateCover(cat.id, img);
+          cat.image = img; after += JSON.stringify({ i: img }).length; ok++;
+        } catch (e) { failed++; }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      renderCategories();
+      const afterMB = (after / 1048576).toFixed(1);
+      showToast(ok ? "✓ تم ضغط " + toArabicDigits(ok) + " صورة — من " + toArabicDigits(beforeMB)
+                     + " إلى " + toArabicDigits(afterMB) + " ميجابايت"
+                     + (failed ? " (تعذّر " + toArabicDigits(failed) + ")" : "")
+                   : "تعذّر ضغط أي صورة — تحقّق من الاتصال");
+    }
+
     // Admin: wipe every question in the current category (double-confirmed).
     // The empty category stays; the deletion is one undo step and auto-publishes.
     // Re-seed an official category's questions from the bundled bank. A
@@ -20502,6 +20576,7 @@
     $("#adminExportAll").addEventListener("click", exportCatalogBackup);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
+    $("#adminShrinkCovers").addEventListener("click", shrinkPublishedCovers);
     $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesQuestions").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesCancel").addEventListener("click", closeFetchImagesDialog);
@@ -22262,6 +22337,18 @@
               })
               .catch(e => { console.warn("admin check failed", e); cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); });
           }
+          // One-time maintenance, paired with shrinkPublishedCovers() in the app
+          // scope. Writes ONLY the cover field, so it cannot disturb questions.
+          // updatedAt is bumped deliberately: it is the cache key every client
+          // uses, and without it devices that already cached the old oversized
+          // cover would keep serving it forever.
+          window.IZZBAH.cloudUpdateCover = function (id, image) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            return db.collection("categories").doc(id).update({
+              image: image,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }).then(() => bumpCatalogRev());
+          };
           window.IZZBAH.cloudPublish = function (cat) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             const catRef = db.collection("categories").doc(cat.id);
