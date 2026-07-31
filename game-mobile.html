@@ -11204,7 +11204,12 @@
       editingCategory: null,
       editorTarget: "custom",
       publishedCategories: [],
-      communityLoaded: false, // false until the cloud answers → grid shows skeletons meanwhile
+      communityLoaded: false,
+      // False until the real catalogue lands (cloud, or the device cache). Until
+      // then the picker shows skeletons rather than the bundled built-in list —
+      // that list has old names and old cover art, and flashing it up before
+      // swapping in the live one is what made the app look stale on slow phones.
+      catalogReady: false, // false until the cloud answers → grid shows skeletons meanwhile
       featuredLoaded: false,  // same, for the «ألعابنا» featured-set library
       announcementsLoaded: false, // same, for the developer announcements feed
       isAdmin: false,
@@ -11232,7 +11237,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-31.206";
+    const IZZBAH_BUILD = "2026-07-31.207";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14196,6 +14201,12 @@
       $("#gameCategoriesTab").classList.toggle("active", state.categoryMode === "game");
       $("#communityCategoriesTab").classList.toggle("active", state.categoryMode === "community");
       $("#manageCustomFromCategories").classList.toggle("active", state.categoryMode === "community");
+      // Game tab, catalogue not in yet → shimmer cards. Never the built-ins:
+      // showing them means showing last release's covers and names.
+      if (state.categoryMode === "game" && !state.catalogReady && !state.catSearch) {
+        grid.innerHTML = catSkeletonCards(8);
+        return;
+      }
       if (state.categoryMode === "community" && visibleCategories.length === 0) {
         if (UI_POLISH && !state.communityLoaded && !state.catSearch) {
           // Still waiting on the cloud → shimmer placeholders shaped like cards,
@@ -21198,8 +21209,21 @@
       if (authBtnEl) authBtnEl.style.display = showAuth ? "" : "none";
       if (wlcOrEl) wlcOrEl.style.display = showAuth ? "" : "none";
     };
+    // The catalogue is "ready" the moment we have something REAL to show —
+    // a cloud read, the device cache, or a definitive answer that no cloud is
+    // coming. Idempotent; the first caller wins.
+    window.IZZBAH.markCatalogReady = function () {
+      if (state.catalogReady) return;
+      state.catalogReady = true;
+      if (typeof renderCategories === "function") renderCategories();
+    };
+    // Backstop for the one case with no deterministic signal: the SDK loaded
+    // but Firestore never answers. A failed SDK load calls markCatalogReady()
+    // directly, so this timer is not what normally ends the shimmer.
+    setTimeout(() => window.IZZBAH.markCatalogReady(), 4000);
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
+      state.catalogReady = true;
       if (typeof renderGameLibrary === "function") renderGameLibrary();
       if (typeof renderCategories === "function") renderCategories();
       if (state.editorTarget === "published") renderCustomManager();
@@ -21334,7 +21358,13 @@
         if (wlcOr) wlcOr.style.display = show ? "" : "none";
       };
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
-      if (!configured) { setAuthVisible(false); return; }
+      if (!configured) {
+        setAuthVisible(false);
+        // No cloud in this build — the bundled categories are all there is, so
+        // release the skeletons immediately rather than shimmering forever.
+        if (window.IZZBAH.markCatalogReady) window.IZZBAH.markCatalogReady();
+        return;
+      }
       const SDK = "10.12.2";
       const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-seen-v1", "izzbah-legal-consent-v1"];
       const origSet = localStorage.setItem.bind(localStorage);
@@ -21620,6 +21650,15 @@
               // simply falls through to the full per-category read below, so
               // this optimization is purely additive and can never break the
               // catalog.
+              // PAINT FIRST. Everything below this line needs the network, and
+              // on a slow phone that is seconds during which the picker would
+              // otherwise sit on the bundled built-in list — old names, old
+              // covers. The cache is the last known GOOD catalogue, so show it
+              // straight away and let the freshness check re-apply over it.
+              // Admins are excluded: they need to see their own just-published
+              // edits, not a cached copy of them.
+              if (haveCats && !cacheSuspect && !cloudIsAdmin) applyCachedCategories(cache, true);
+
               const revP = cloudIsAdmin
                 ? Promise.resolve(null)
                 : CATALOG_META().get({ source: "server" })
@@ -21698,7 +21737,12 @@
                   .catch(e => {
                     clearTimeout(provisional);
                     console.warn("load categories failed", e && (e.code || e));
-                    applyCachedCategories(cache);
+                    // If there is no cache either, this is the end of the road:
+                    // release the skeletons so the built-ins show rather than
+                    // an empty grid that never resolves.
+                    if (!applyCachedCategories(cache) && window.IZZBAH.markCatalogReady) {
+                      window.IZZBAH.markCatalogReady();
+                    }
                   });
               });
             });
@@ -23015,7 +23059,15 @@
             loadFeedback(user); // dev-reply badge on the feedback row
           });
         })
-        .catch((e) => { console.warn("Firebase SDK failed to load", e); setAuthVisible(false); });
+        .catch((e) => {
+          console.warn("Firebase SDK failed to load", e);
+          setAuthVisible(false);
+          // No SDK means no cloud catalogue is EVER coming, and we know that the
+          // instant the script errors — so release the skeletons now rather than
+          // making the player wait out the backstop timer for a result that
+          // cannot arrive.
+          if (window.IZZBAH.markCatalogReady) window.IZZBAH.markCatalogReady();
+        });
     })();
   </script>
 </body>

@@ -448,6 +448,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node perceived.mjs
 
+      - name: Run category-boot (skeletons, no stale covers) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node catboot.mjs
+
       - name: Run «من الي سجل؟» sketch-filter test
         working-directory: tests
         run: |
