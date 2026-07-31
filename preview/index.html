@@ -18,15 +18,29 @@
 <meta property="og:url" content="https://izzbah.com/">
 <meta property="og:image" content="https://izzbah.com/assets/brand/png/social/og-image.png?v=3">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Game","name":"عِزبة","inLanguage":"ar",
 "description":"لعبة أسئلة جماعية عربية تُلعب على جهاز واحد بين فريقين أو أكثر.",
 "url":"https://izzbah.com/","image":"https://izzbah.com/assets/brand/png/social/og-image.png"}
 </script>
+<link rel="preload" as="font" type="font/woff2" href="fonts/Cairo-800-0.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="fonts/Cairo-900-0.woff2" crossorigin>
 <style>
+/* Self-hosted, subset to the glyphs this page uses. These used to come from
+   fonts.googleapis.com, which let a third party decide whether عِزبة rendered
+   in its own type or fell back to Tahoma. */
+@font-face{font-family:'Aref Ruqaa';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/ArefRuqaa-700-0.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:600;font-display:swap;src:url('fonts/Cairo-600-0.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:600;font-display:swap;src:url('fonts/Cairo-600-1.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/Cairo-700-0.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/Cairo-700-1.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:800;font-display:swap;src:url('fonts/Cairo-800-0.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:800;font-display:swap;src:url('fonts/Cairo-800-1.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:900;font-display:swap;src:url('fonts/Cairo-900-0.woff2') format('woff2')}
+@font-face{font-family:'Cairo';font-style:normal;font-weight:900;font-display:swap;src:url('fonts/Cairo-900-1.woff2') format('woff2')}
+@font-face{font-family:'Lalezar';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/Lalezar-400-0.woff2') format('woff2')}
+@font-face{font-family:'Lalezar';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/Lalezar-400-1.woff2') format('woff2')}
+
 /* ─────────────────────────────────────────────────────────────
    عِزبة — landing. Single file, zero JS dependencies.
    The palette is the game's own: a majlis at night, warm light

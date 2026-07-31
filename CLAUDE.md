@@ -126,7 +126,12 @@ Single self-contained page, same palette and type system as the game. Marked
   Question images live only in the CLOUD copy of a question, so a question
   screenshot taken offline has no photo.
 - Type system is the game's, verbatim: Cairo for all text, Lalezar for display
-  numbers only, Aref Ruqaa for the عِزبة wordmark only.
+  numbers only, Aref Ruqaa for the عِزبة wordmark only. The faces are
+  SELF-HOSTED in `preview/fonts/`, subset to the glyphs the page uses (212 KB,
+  no request leaves the site). If you add copy in a NEW script or language,
+  re-subset — a missing glyph renders as .notdef. The check is in
+  `scratchpad/glyphs.mjs`: walk every visible text node and diff against the
+  subset's character set.
 - Category tiles deep-link into the game with that category preselected, using
   the same `#g=` payload the in-game share button builds.
 - `#admin` opens an authoring mode for the copy. It is LOCAL only — no auth, no
