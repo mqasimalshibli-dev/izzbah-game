@@ -6121,6 +6121,14 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- The Firebase SDKs and Firestore are fetched by script a moment later.
+       Warming DNS + TLS here means that request does not pay the handshake —
+       it is the difference between a category list that appears and one the
+       player waits for. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   <!-- Unified type system: Cairo (all text) + Lalezar (display numbers) + Aref Ruqaa (عزبة wordmark only) -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -11223,7 +11231,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-10.203";
+    const IZZBAH_BUILD = "2026-07-31.204";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -21051,21 +21059,29 @@
         // The «أو» + sign-in affordance shows ONLY when signed out; applyAuth
         // (called right after this) owns that so the state is testable.
       }
-      loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-compat.js")
-        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-auth-compat.js"))
-        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-firestore-compat.js"))
-        // Functions SDK — used only by the admin R2-upload flow. Non-fatal: if
-        // it fails to load, uploads fall back to the paste-a-link path.
-        .then(() => loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-functions-compat.js").catch(() => {}))
-        .then(() => cfg.measurementId
-          ? loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-analytics-compat.js").catch(() => {})
-          : null)
-        .then(() => {
-          const acKey = window.IZZBAH_APPCHECK_SITE_KEY;
-          return (acKey && acKey.indexOf("PASTE_") !== 0)
-            ? loadScript("https://www.gstatic.com/firebasejs/" + SDK + "/firebase-app-check-compat.js").then(() => acKey)
-            : null;
-        })
+      // The five secondary SDKs each depend on firebase-app, but NOT on each
+      // other, so they load in one parallel wave. Chaining them (as this used
+      // to) cost six serial round trips before Firestore existed — on a phone
+      // that is most of the wait before any category can appear. Two waves now:
+      // app, then everything else at once.
+      const SDK_BASE = "https://www.gstatic.com/firebasejs/" + SDK + "/";
+      const acKeyRaw = window.IZZBAH_APPCHECK_SITE_KEY;
+      const wantAppCheck = !!(acKeyRaw && acKeyRaw.indexOf("PASTE_") !== 0);
+      loadScript(SDK_BASE + "firebase-app-compat.js")
+        .then(() => Promise.all([
+          loadScript(SDK_BASE + "firebase-auth-compat.js"),
+          loadScript(SDK_BASE + "firebase-firestore-compat.js"),
+          // Functions SDK — used only by the admin R2-upload flow. Non-fatal:
+          // if it fails to load, uploads fall back to the paste-a-link path.
+          loadScript(SDK_BASE + "firebase-functions-compat.js").catch(() => {}),
+          cfg.measurementId
+            ? loadScript(SDK_BASE + "firebase-analytics-compat.js").catch(() => {})
+            : null,
+          // App Check must be active before the first Firestore call, so it
+          // stays in the blocking wave rather than being deferred.
+          wantAppCheck ? loadScript(SDK_BASE + "firebase-app-check-compat.js") : null,
+        ]))
+        .then(() => wantAppCheck ? acKeyRaw : null)
         .then((acKey) => {
           firebase.initializeApp(cfg);
           if (acKey) {
