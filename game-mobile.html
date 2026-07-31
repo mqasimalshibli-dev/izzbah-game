@@ -11232,7 +11232,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-31.205";
+    const IZZBAH_BUILD = "2026-07-31.206";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13488,6 +13488,251 @@
       return base + "." + ext;
     }
 
+    // ── «من الي سجل؟» sketch filter ────────────────────────────────────────
+    // Clips in the goalscorer category are published as black-and-white ink
+    // drawings: you should be able to read the movement but not recognise the
+    // player's face or kit, which is the whole puzzle. Rendered here in the
+    // browser at upload time so what lands in R2 is already filtered — the
+    // original never leaves the device, and the player can't fish the clean
+    // video out of the network tab.
+    //
+    // Matched by id AND by name, the same way isChoiceFreeCategory does it, so
+    // renaming or re-publishing the category keeps the behaviour.
+    const SKETCH_VIDEO_CATEGORY_IDS = new Set(["pub-1784043823835-6035"]); // من الي سجل؟
+    function isSketchVideoCategory(cat) {
+      if (!cat) return false;
+      if (SKETCH_VIDEO_CATEGORY_IDS.has(String(cat.id || ""))) return true;
+      return /من\s*الل?ي\s*سجل/.test(String(cat.name || ""));
+    }
+
+    // Same maths as tools/sketch-filter.sh: blur the frame at two radii,
+    // subtract, and threshold what's left. Flat areas (grass, sky) cancel to
+    // paper; only real edges survive as ink.
+    //
+    // The two blurs are done with ctx.filter on 2D canvases because that is
+    // GPU-accelerated and costs no shader code; WebGL is then only needed for
+    // the per-pixel compare, which is a handful of lines. Doing the blurs in
+    // WebGL would mean writing four separable passes for no gain.
+    const SKETCH_VS = "attribute vec2 p;varying vec2 v;void main(){v=vec2((p.x+1.0)*0.5,(1.0-p.y)*0.5);gl_Position=vec4(p,0.0,1.0);}";
+    const SKETCH_FS = [
+      "precision mediump float;varying vec2 v;",
+      "uniform sampler2D a;uniform sampler2D b;uniform float e;uniform float inv;",
+      "void main(){",
+      // both textures are already greyscale, so any channel is the luminance
+      "  float d = texture2D(a,v).r - 0.985*texture2D(b,v).r;",
+      "  float paper = step(e, d);",              // 1 = paper, 0 = ink
+      "  float c = mix(paper, 1.0-paper, inv);",
+      "  gl_FragColor = vec4(c,c,c,1.0);",
+      "}"
+    ].join("\n");
+
+    function sketchSupported() {
+      try {
+        if (typeof MediaRecorder !== "function" || !document.createElement("canvas").captureStream) return false;
+        // A canvas can only ever hand out ONE context type, so 2D and WebGL
+        // have to be probed on SEPARATE canvases — asking one canvas for both
+        // always returns null for the second and reports every browser as
+        // unsupported.
+        const c2d = document.createElement("canvas").getContext("2d");
+        if (!c2d || !("filter" in c2d)) return false;
+        const cgl = document.createElement("canvas");
+        if (!(cgl.getContext("webgl") || cgl.getContext("experimental-webgl"))) return false;
+        return !!sketchMimeType();
+      } catch (e) { return false; }
+    }
+
+    function sketchMimeType() {
+      // Every candidate names its CODECS explicitly. Bare "video/mp4" is
+      // deliberately absent: Chromium reports it as supported and then writes
+      // VP9-in-MP4, a container/codec pair Safari and iOS refuse to play. Ask
+      // for h264 or for webm, never for "whatever mp4 means here".
+      const want = ["video/mp4;codecs=h264,aac", "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+                    "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+      for (const t of want) {
+        try { if (MediaRecorder.isTypeSupported(t)) return t; } catch (e) {}
+      }
+      return "";
+    }
+    // Extension for a recorded blob. Driven by the CODECS, not the container,
+    // for the same reason as above.
+    function sketchExtFor(mimeStr) {
+      const m = String(mimeStr || "").toLowerCase();
+      if (/vp8|vp9|av01/.test(m)) return "webm";
+      if (/mp4|h264|avc1/.test(m)) return "mp4";
+      return "webm";
+    }
+
+    // Returns a NEW File with the filter baked in. onProgress gets 0..1.
+    // Encoding is realtime (MediaRecorder has no faster mode), so a 12s clip
+    // takes ~12s — the caller shows a progress bar rather than a spinner.
+    function sketchifyVideo(file, onProgress, opts) {
+      const o = opts || {};
+      const thickness = o.thickness > 0 ? o.thickness : 1.0;
+      const detail = o.detail > 0 ? o.detail : 1.0;
+      const invert = o.invert ? 1.0 : 0.0;
+
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        let done = false, raf = 0, rec = null, audioCtx = null;
+        const cleanup = () => {
+          if (raf) cancelAnimationFrame(raf);
+          try { video.pause(); } catch (e) {}
+          try { if (audioCtx) audioCtx.close(); } catch (e) {}
+          URL.revokeObjectURL(url);
+        };
+        const fail = (msg) => { if (done) return; done = true; cleanup(); reject(new Error(msg)); };
+
+        video.muted = true;              // never play the clip aloud while filtering
+        video.playsInline = true;
+        video.preload = "auto";
+        video.src = url;
+
+        video.onerror = () => fail("sketch-decode");
+        video.onloadedmetadata = () => {
+          try {
+            // Cap the working size: these are phone clips, and the encode is
+            // realtime, so a 4K source would only make it slower and heavier
+            // for no visible gain once it is reduced to two-tone line art.
+            const MAXW = 1280;
+            const scale = Math.min(1, MAXW / (video.videoWidth || MAXW));
+            const W = Math.max(2, Math.round((video.videoWidth || 640) * scale / 2) * 2);
+            const H = Math.max(2, Math.round((video.videoHeight || 360) * scale / 2) * 2);
+            // Supersample only when there is headroom — it is what keeps the
+            // lines anti-aliased instead of stair-stepped.
+            const SS = W <= 800 ? 2 : 1;
+            const RW = W * SS, RH = H * SS;
+
+            // line weight scales with frame width, as in the shell script
+            const sigma = Math.max(0.6, W * 0.0075 * thickness * SS);
+            const eps = (-1.5 / 255) / detail;
+
+            const blurA = document.createElement("canvas"); blurA.width = RW; blurA.height = RH;
+            const blurB = document.createElement("canvas"); blurB.width = RW; blurB.height = RH;
+            const ca = blurA.getContext("2d"), cb = blurB.getContext("2d");
+            ca.filter = "grayscale(1) blur(" + sigma.toFixed(2) + "px)";
+            cb.filter = "grayscale(1) blur(" + (sigma * 1.6).toFixed(2) + "px)";
+
+            const glCanvas = document.createElement("canvas"); glCanvas.width = RW; glCanvas.height = RH;
+            const gl = glCanvas.getContext("webgl", { preserveDrawingBuffer: true })
+                    || glCanvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
+            if (!gl) return fail("sketch-nogl");
+
+            const sh = (type, src) => {
+              const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
+              if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x) || "shader");
+              return x;
+            };
+            const prog = gl.createProgram();
+            gl.attachShader(prog, sh(gl.VERTEX_SHADER, SKETCH_VS));
+            gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, SKETCH_FS));
+            gl.linkProgram(prog);
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return fail("sketch-link");
+            gl.useProgram(prog);
+
+            const buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+            const loc = gl.getAttribLocation(prog, "p");
+            gl.enableVertexAttribArray(loc);
+            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+            const mkTex = (unit) => {
+              const t = gl.createTexture();
+              gl.activeTexture(gl.TEXTURE0 + unit);
+              gl.bindTexture(gl.TEXTURE_2D, t);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+              return t;
+            };
+            const texA = mkTex(0), texB = mkTex(1);
+            gl.uniform1i(gl.getUniformLocation(prog, "a"), 0);
+            gl.uniform1i(gl.getUniformLocation(prog, "b"), 1);
+            gl.uniform1f(gl.getUniformLocation(prog, "e"), eps);
+            gl.uniform1f(gl.getUniformLocation(prog, "inv"), invert);
+            gl.viewport(0, 0, RW, RH);
+
+            // Output canvas — this is what MediaRecorder captures. When
+            // supersampling, the downscale to W×H is what anti-aliases.
+            const out = document.createElement("canvas"); out.width = W; out.height = H;
+            const octx = out.getContext("2d");
+            octx.imageSmoothingEnabled = true;
+            if ("imageSmoothingQuality" in octx) octx.imageSmoothingQuality = "high";
+
+            const stream = out.captureStream(30);
+            // Carry the original audio across. AudioContext is used rather than
+            // video.captureStream() because it is the more portable of the two,
+            // and leaving the destination unconnected keeps it silent here.
+            try {
+              const AC = window.AudioContext || window.webkitAudioContext;
+              if (AC) {
+                audioCtx = new AC();
+                const srcNode = audioCtx.createMediaElementSource(video);
+                const dest = audioCtx.createMediaStreamDestination();
+                srcNode.connect(dest);
+                dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+              }
+            } catch (e) { /* no audio is survivable; a silent clip is not fatal */ }
+
+            const mime = sketchMimeType();
+            try {
+              rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4500000 } : undefined);
+            } catch (e) { return fail("sketch-recorder"); }
+
+            const chunks = [];
+            rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+            rec.onerror = () => fail("sketch-recorder");
+            rec.onstop = () => {
+              if (done) return;
+              done = true;
+              cleanup();
+              // `mime` is what we ASKED for and is codec-explicit; rec.mimeType
+              // can report a container without telling the truth about codecs.
+              const full = mime || rec.mimeType || "video/webm";
+              const ext = sketchExtFor(full);
+              const type = ext === "mp4" ? "video/mp4" : "video/webm";
+              const blob = new Blob(chunks, { type });
+              if (!blob.size) { reject(new Error("sketch-empty")); return; }
+              const base = String(file.name || "clip").replace(/\.[^./\\]+$/, "") || "clip";
+              resolve(new File([blob], base + "-sketch." + ext, { type }));
+            };
+
+            const draw = () => {
+              if (done) return;
+              try {
+                ca.drawImage(video, 0, 0, RW, RH);
+                cb.drawImage(video, 0, 0, RW, RH);
+                gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurA);
+                gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurB);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                octx.drawImage(glCanvas, 0, 0, W, H);
+              } catch (e) { /* a dropped frame is better than aborting the run */ }
+              if (typeof onProgress === "function" && video.duration) {
+                onProgress(Math.min(0.99, video.currentTime / video.duration));
+              }
+              raf = requestAnimationFrame(draw);
+            };
+
+            video.onended = () => { try { if (rec && rec.state !== "inactive") rec.stop(); } catch (e) { fail("sketch-recorder"); } };
+            rec.start(250);
+            video.play().then(() => { raf = requestAnimationFrame(draw); }).catch(() => fail("sketch-play"));
+          } catch (e) { fail("sketch-setup"); }
+        };
+      });
+    }
+
+    // Exposed for tests/sketchvideo.mjs — these live deep in this scope and
+    // are the part worth testing directly.
+    window.IZZBAH.sketchifyVideo = sketchifyVideo;
+    window.IZZBAH.sketchSupported = sketchSupported;
+    window.IZZBAH.sketchMimeType = sketchMimeType;
+    window.IZZBAH.sketchExtFor = sketchExtFor;
+    window.IZZBAH.isSketchVideoCategory = isSketchVideoCategory;
+
     async function uploadMediaToCloud(file, onProgress) {
       if (!file) throw new Error("no-file");
       if (!window.firebase || typeof firebase.functions !== "function") throw new Error("cloud-not-ready");
@@ -13563,13 +13808,28 @@
         prog.textContent = "⏳ " + toArabicDigits(0) + "٪";
         picker.appendChild(prog);
         try {
-          const url = await uploadMediaToCloud(file, (p) => {
+          let toSend = file;
+          // «من الي سجل؟»: turn the clip into line art BEFORE it leaves the
+          // device, so the unfiltered original is never stored or servable.
+          // Encoding is realtime, hence a percentage rather than a spinner.
+          if (opts && opts.sketch && /^video\//.test(file.type || "")) {
+            if (!sketchSupported()) throw new Error("sketch-unsupported");
+            prog.textContent = "🎨 " + toArabicDigits(0) + "٪";
+            toSend = await sketchifyVideo(file, (p) => {
+              prog.textContent = "🎨 " + toArabicDigits(Math.round(p * 100)) + "٪";
+            });
+          }
+          const url = await uploadMediaToCloud(toSend, (p) => {
             prog.textContent = "⏳ " + toArabicDigits(Math.round(p * 100)) + "٪";
           });
           onChange(frag ? url + frag : url);
         } catch (e) {
           const m = String((e && e.message) || "");
-          const msg = /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
+          // A failed filter must NOT fall through to uploading the original —
+          // in this category the unfiltered clip IS the answer.
+          const msg = /sketch-unsupported/.test(m) ? "هذا المتصفح لا يدعم فلتر الرسم. جرّب Chrome على الحاسوب، أو حوّل المقطع قبل الرفع."
+            : /^sketch-/.test(m) ? "تعذّر تطبيق فلتر الرسم على المقطع — لم يُرفع شيء. جرّب مقطعاً أقصر أو متصفحاً آخر."
+            : /permission-denied/.test(m) ? "الرفع متاح للمشرفين فقط."
             : /cloud-not-ready/.test(m) ? "خدمة الرفع غير جاهزة بعد — أو استخدم رابطاً مباشراً."
             : /unauthenticated/.test(m) ? "سجّل الدخول بحساب Google أولاً."
             : "تعذّر الرفع. حاول مجدداً أو استخدم رابطاً مباشراً.";
@@ -15322,7 +15582,11 @@
 
     function renderAdminQImages() {
       const qi = $("#adminQImage");
-      if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "وسائط السؤال", { media: true })); }
+      // The QUESTION clip in «من الي سجل؟» is filtered to line art on upload —
+      // that is the puzzle. The ANSWER media below is deliberately NOT filtered,
+      // since that is the reveal.
+      const sketch = isSketchVideoCategory(state.adminCat);
+      if (qi) { qi.innerHTML = ""; qi.appendChild(imagePicker(state.adminQDraft.image, image => { state.adminQDraft.image = image; renderAdminQImages(); }, "وسائط السؤال", { media: true, sketch: sketch })); }
       const ai = $("#adminQAnswerImage");
       if (ai) { ai.innerHTML = ""; ai.appendChild(imagePicker(state.adminQDraft.answerImage, image => { state.adminQDraft.answerImage = image; renderAdminQImages(); }, "وسائط الإجابة", { media: true })); }
     }
