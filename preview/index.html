@@ -307,9 +307,20 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .gcard .cap b{display:block; font:800 13px var(--body); line-height:1.35}
 .gcard .cap i{display:block; font:700 10.5px var(--body); font-style:normal; color:var(--gold); opacity:.95; margin-top:2px}
 /* the tile is a real entry point, not a picture — say so on hover/focus */
+/* Hover says "you can press this" without hiding the artwork: a light scrim
+   and a small gold pill, not a full gold wash over the cover. */
 .gcard .play{position:absolute; inset:0; display:grid; place-items:center; opacity:0; z-index:3;
-  font:800 13.5px var(--body); color:#33200a; transition:opacity .28s}
-.gcard .play::before{content:""; position:absolute; inset:0; background:rgba(231,195,115,.86)}
+  transition:opacity .26s}
+.gcard .play::before{content:""; position:absolute; inset:0;
+  background:linear-gradient(0deg, rgba(10,3,5,.62), rgba(10,3,5,.20))}
+.gcard .play span{position:relative; padding:9px 18px; border-radius:999px; white-space:nowrap; max-width:88%;
+  font:800 12.5px var(--body); color:#33200a;
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo));
+  box-shadow:0 10px 22px -10px rgba(0,0,0,.85);
+  transform:translateY(7px) scale(.96); transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.gcard:hover .play span,.gcard:focus-visible .play span{transform:none}
+/* a pointerless device never hovers — the tile is a link, no overlay needed */
+@media(hover:none){.gcard .play{display:none}}
 .gcard:hover .play,.gcard:focus-visible .play{opacity:1}
 .gcard .play{z-index:3}
 .gcard .flag{position:absolute; top:9px; inset-inline-end:9px; z-index:2;
@@ -953,7 +964,9 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       cap.querySelector("b").textContent = c.n;
       cap.querySelector("i").textContent = ar(c.count) + " سؤال";
       card.appendChild(cap);
-      const play = document.createElement("span"); play.className = "play"; play.textContent = "العب ▸";
+      const play = document.createElement("span"); play.className = "play";
+      play.innerHTML = "<span></span>";
+      play.firstChild.textContent = "العب ▸";
       card.appendChild(play);
       gridEl.appendChild(card);
     });
