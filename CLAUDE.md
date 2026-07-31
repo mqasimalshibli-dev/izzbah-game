@@ -114,9 +114,13 @@ Single self-contained page, same palette and type system as the game. Marked
      `assets/img/cat-*.webp` covers and shows only the 20 built-in categories.
      Inject the published categories first.
   2. Google Fonts unreachable → the game renders in Tahoma fallback instead of
-     Cairo. Embed the faces as data URIs before the page paints and ASSERT
-     `document.fonts.size > 0`, don't trust `document.fonts.check()` (it
-     returns true for a fallback match).
+     Cairo. Serve the woff2 files SAME-ORIGIN and inject `@font-face` pointing
+     at them; a `data:` URI is refused because the game's CSP says
+     `font-src 'self' https://fonts.gstatic.com`. Neither
+     `document.fonts.check()` (true for a fallback match) nor
+     `document.fonts.size` (counts registered, not loaded) proves anything —
+     the only honest test is a WIDTH PROBE: render a string in Cairo 900 and
+     in a nonsense family, and fail the capture if the advances match.
   3. Forcing `data-theme=dark` → the game's default is LIGHT; that is what
      players see. Don't set it.
   Question images live only in the CLOUD copy of a question, so a question
