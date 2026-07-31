@@ -188,7 +188,8 @@ header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bo
 .col-head img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.42}
 .tile{
   border-radius:11px; min-height:40px; display:grid; place-items:center;
-  font:400 18px var(--num); color:var(--gold-hi);
+  /* the game computes .cell to Cairo 900, not Lalezar — match it */
+  font:900 17px var(--body); color:var(--gold-hi); font-variant-numeric:tabular-nums;
   background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
   border:1px solid var(--rule);
   opacity:0; transform:translateY(12px) scale(.94);
