@@ -107,9 +107,20 @@ Single self-contained page, same palette and type system as the game. Marked
   id); a newly published category still appears with a neutral fallback.
 - Covers live in `preview/cat/` (`-t` grid, `-l` showcase, `-s` board header),
   resized from the Firestore originals. Regenerate them when artwork changes.
-- `preview/shots/` are REAL screenshots of the game. Capture them with the
-  published covers injected — with Firebase blocked the game falls back to the
-  old bundled `assets/img/cat-*.webp` and the shots silently go stale.
+- `preview/shots/` are REAL screenshots of the game. Capturing them has THREE
+  silent failure modes, all of which produce a plausible-looking but wrong
+  screenshot:
+  1. Firebase blocked → the game falls back to the old bundled
+     `assets/img/cat-*.webp` covers and shows only the 20 built-in categories.
+     Inject the published categories first.
+  2. Google Fonts unreachable → the game renders in Tahoma fallback instead of
+     Cairo. Embed the faces as data URIs before the page paints and ASSERT
+     `document.fonts.size > 0`, don't trust `document.fonts.check()` (it
+     returns true for a fallback match).
+  3. Forcing `data-theme=dark` → the game's default is LIGHT; that is what
+     players see. Don't set it.
+  Question images live only in the CLOUD copy of a question, so a question
+  screenshot taken offline has no photo.
 - Type system is the game's, verbatim: Cairo for all text, Lalezar for display
   numbers only, Aref Ruqaa for the عِزبة wordmark only.
 - Category tiles deep-link into the game with that category preselected, using
