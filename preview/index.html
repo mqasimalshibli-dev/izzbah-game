@@ -173,7 +173,7 @@ header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bo
   50%{transform:translate3d(var(--dx,10px),var(--dy,-18px),0) rotate(calc(var(--r,0deg) * -1))}}
 @media(prefers-reduced-motion:reduce){.floaters b{animation:none}}
 @media(max-width:1100px){.floaters{display:none}}
-.hero-grid{position:relative; z-index:1; display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(30px,5vw,70px); align-items:center}
+.hero-grid{position:relative; z-index:1; display:grid; grid-template-columns:.82fr 1.18fr; gap:clamp(30px,5vw,70px); align-items:center}
 @media(max-width:960px){.hero-grid{grid-template-columns:1fr; gap:44px}}
 .hero h1 .tint{color:var(--gold)}
 .hero .lede{margin-top:22px}
@@ -183,45 +183,16 @@ header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bo
 .dot{width:7px; height:7px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 4px rgba(74,222,128,.16)}
 
 /* the board — the product's own face, dealing itself in */
-.board{
-  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(5px,2vw,10px);
-  padding:clamp(9px,3vw,16px); border-radius:24px; border:1px solid var(--rule);
-  background:linear-gradient(160deg, rgba(125,22,32,.34), rgba(22,6,10,.72));
-  box-shadow:var(--shadow); transform:perspective(1400px) rotateY(var(--ry,-7deg)) rotateX(var(--rx,3deg));
-  transition:transform .5s cubic-bezier(.2,.8,.2,1);
-}
-.col{display:flex; flex-direction:column; gap:9px}
-.col-head{
-  border-radius:13px; padding:11px 8px; text-align:center; overflow:hidden; position:relative;
-  font:800 clamp(9.5px,2.6vw,12.5px) var(--body); color:#fff; min-height:clamp(38px,10vw,52px);
-  display:grid; place-items:center; background:var(--c,#7d1620);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
-}
-.col-head span{position:relative; z-index:1; text-shadow:0 1px 6px rgba(0,0,0,.65);
-  min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.col-head img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.42}
-.tile{
-  border-radius:11px; min-height:40px; display:grid; place-items:center;
-  /* the game computes .cell to Cairo 900, not Lalezar — match it */
-  font:900 17px var(--body); color:var(--gold-hi); font-variant-numeric:tabular-nums;
-  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
-  border:1px solid var(--rule);
-  opacity:0; transform:translateY(12px) scale(.94);
-  animation:deal .62s cubic-bezier(.2,.8,.2,1) forwards;
-}
-@keyframes deal{to{opacity:1; transform:none}}
-.tile.open{
-  background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#33200a; border-color:transparent;
-  box-shadow:0 0 26px -6px rgba(246,210,122,.65);
-  animation:deal .62s cubic-bezier(.2,.8,.2,1) forwards, pulse 2.6s 1.4s ease-in-out infinite;
-}
-@keyframes pulse{0%,100%{box-shadow:0 0 22px -8px rgba(246,210,122,.5)}50%{box-shadow:0 0 34px -4px rgba(246,210,122,.9)}}
-/* The 3D tilt makes the board's painted box wider than its layout box, which
-   pushes the document (and the fixed header with it) past a narrow viewport.
-   The tilt is pointer parallax anyway — drop it where there is no pointer. */
-@media(max-width:1100px),(hover:none){
-  .board{transform:none !important}
-}
+/* the hero shows the real board, not a rebuild of it */
+.board-shot{position:relative; border-radius:20px; overflow:hidden;
+  border:1px solid var(--rule); background:var(--maroon-lo); box-shadow:var(--shadow);
+  transform:perspective(1400px) rotateY(var(--ry,-7deg)) rotateX(var(--rx,3deg));
+  transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.board-shot img{width:100%; height:auto; display:block}
+.board-shot::after{content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  background:linear-gradient(115deg, rgba(255,255,255,.14), transparent 44%)}
+@media(max-width:1100px){.board-shot{transform:none}}
+@media(prefers-reduced-motion:reduce){.board-shot{transform:none}}
 .board-caption{margin-top:16px; text-align:center; font:700 12.5px var(--body); color:var(--muted)}
 
 /* ── section frame ────────────────────────────────────────── */
@@ -493,9 +464,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important}
   .rv{opacity:1; transform:none}
-  .tile{opacity:1; transform:none}
-}
-</style>
+  </style>
 </head>
 <body>
 
@@ -552,7 +521,10 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       </div>
 
       <div class="rv" data-d="2">
-        <div class="board" id="board" aria-hidden="true"></div>
+        <div class="board-shot rv" data-d="2">
+          <img src="shots/board.webp" alt="لوحة اللعب في عِزبة — ست فئات وخمس مستويات نقاط"
+               width="1150" height="550" fetchpriority="high" decoding="async">
+        </div>
         <p class="board-caption">اختاروا الفئة والنقاط… واللي يجاوب أول له النقطة</p>
       </div>
     </div>
@@ -789,37 +761,15 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   document.querySelectorAll(".rv").forEach(el => io.observe(el));
 
   /* ── hero board: deals itself in, one tile opens ─────────── */
-  const COLS = [
-    { n: "تاريخ",   c: "#8a2230", img: "cat/history-s.webp" },
-    { n: "علوم",    c: "#1f4d3d", img: "cat/science-s.webp" },
-    { n: "رياضة",   c: "#7d3a12", img: "cat/sports-s.webp" },
-    { n: "إيموجي",  c: "#5a2140", img: "cat/pub-1784240484235-8039-s.webp" },
-  ];
-  const board = document.getElementById("board");
-  if (board) {
-    COLS.forEach((col, ci) => {
-      const c = document.createElement("div"); c.className = "col";
-      const h = document.createElement("div"); h.className = "col-head"; h.style.setProperty("--c", col.c);
-      if (col.img) { const im = new Image(); im.src = col.img; im.alt = ""; im.loading = "lazy"; h.appendChild(im); }
-      const s = document.createElement("span"); s.textContent = col.n; h.appendChild(s);
-      c.appendChild(h);
-      [100, 200, 300, 400, 500].forEach((p, ri) => {
-        const t = document.createElement("div");
-        t.className = "tile" + (ci === 1 && ri === 2 ? " open" : "");
-        t.textContent = p;
-        t.style.animationDelay = reduce ? "0s" : (0.25 + (ci * 5 + ri) * 0.035) + "s";
-        c.appendChild(t);
-      });
-      board.appendChild(c);
-    });
-    if (!reduce) addEventListener("pointermove", e => {
-      const r = board.getBoundingClientRect();
-      const dx = (e.clientX - (r.left + r.width / 2)) / innerWidth;
-      const dy = (e.clientY - (r.top + r.height / 2)) / innerHeight;
-      board.style.setProperty("--ry", (-7 + dx * 9).toFixed(2) + "deg");
-      board.style.setProperty("--rx", (3 - dy * 7).toFixed(2) + "deg");
-    }, { passive: true });
-  }
+  // pointer parallax on the real board screenshot
+  const board = document.querySelector(".board-shot");
+  if (board && !reduce) addEventListener("pointermove", e => {
+    const r = board.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+    const dy = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+    board.style.setProperty("--ry", (-7 + dx * 9).toFixed(2) + "deg");
+    board.style.setProperty("--rx", (3 - dy * 7).toFixed(2) + "deg");
+  }, { passive: true });
 
   /* ── category showcase, driven by scroll ────────────────── */
   const ar = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
