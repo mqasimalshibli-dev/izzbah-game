@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>عِزبة — لعبة الأسئلة اللي تجمع الربع</title>
-<meta name="description" content="عِزبة: لعبة أسئلة جماعية عربية. أكثر من ٢٦٠٠ سؤال في ٣٩ فئة — فئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، والعبوا على جهاز واحد. أول لعبة مجانية.">
+<meta name="description" content="عِزبة: لعبة أسئلة جماعية عربية. أكثر من ٤٤٠٠ سؤال في ٣٩ فئة — فئات عمانية ١٠٠٪، سوّوا فئاتكم الخاصة، والعبوا على جهاز واحد. أول لعبة مجانية.">
 <link rel="canonical" href="https://izzbah.com/">
 <link rel="icon" href="../assets/brand/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="../assets/brand/png/app-icon/maskable-180.png">
@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="عِزبة">
 <meta property="og:locale" content="ar_AR">
 <meta property="og:title" content="عِزبة — لعبة الأسئلة اللي تجمع الربع">
-<meta property="og:description" content="أكثر من ٢٦٠٠ سؤال في ٣٩ فئة، وفئات عمانية ١٠٠٪. أول لعبة مجانية.">
+<meta property="og:description" content="أكثر من ٤٤٠٠ سؤال في ٣٩ فئة، وفئات عمانية ١٠٠٪. أول لعبة مجانية.">
 <meta property="og:url" content="https://izzbah.com/">
 <meta property="og:image" content="https://izzbah.com/assets/brand/png/social/og-image.png?v=3">
 <meta name="twitter:card" content="summary_large_image">
@@ -259,8 +259,17 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .cat-index{font:800 12.5px var(--body); letter-spacing:3px; color:var(--gold); margin-bottom:14px}
 .cat-panel h3{font-size:clamp(32px,4.6vw,54px); margin-bottom:16px}
 .cat-panel p{color:var(--muted); max-width:46ch}
-.cat-tag{display:inline-block; margin-top:20px; padding:7px 16px; border-radius:999px;
+.cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
+.cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
   border:1px solid var(--rule); font:800 12.5px var(--body); color:var(--cream); background:rgba(255,255,255,.04)}
+.cat-n{font:800 12.5px var(--body); color:var(--gold)}
+.cat-play{--mx:0px; --my:0px; margin-inline-start:auto; text-decoration:none; white-space:nowrap;
+  padding:9px 18px; border-radius:999px; font:800 13px var(--body); color:#33200a;
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo));
+  transform:translate3d(var(--mx),var(--my),0); transition:transform .28s, filter .28s;
+  box-shadow:0 10px 24px -14px rgba(231,195,115,.9)}
+.cat-play:hover{filter:brightness(1.07)}
+@media(max-width:960px){.cat-play{margin-inline-start:0}}
 .cat-art{position:relative; aspect-ratio:4/5; max-height:66svh; margin-inline:auto; width:100%;
   border-radius:26px; overflow:hidden; border:1px solid var(--rule); box-shadow:var(--shadow); background:var(--maroon-lo)}
 .cat-art figure{position:absolute; inset:0; margin:0; opacity:0; transform:scale(1.08); transition:opacity .7s, transform .9s}
@@ -292,9 +301,17 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   background:linear-gradient(155deg, var(--h1), var(--h2));}
 .gcard .fallback b{font-family:var(--display); font-size:clamp(40px,5vw,58px); color:rgba(255,255,255,.9);
   text-shadow:0 3px 18px rgba(0,0,0,.45)}
-.gcard .cap{position:absolute; inset-inline:0; bottom:0; padding:26px 10px 11px; text-align:center;
-  font:800 13px var(--body); color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.85);
-  background:linear-gradient(0deg, rgba(10,3,5,.92), transparent)}
+.gcard .cap{position:absolute; inset-inline:0; bottom:0; padding:30px 9px 10px; text-align:center;
+  color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.85);
+  background:linear-gradient(0deg, rgba(10,3,5,.94), transparent)}
+.gcard .cap b{display:block; font:800 13px var(--body); line-height:1.35}
+.gcard .cap i{display:block; font:700 10.5px var(--body); font-style:normal; color:var(--gold); opacity:.95; margin-top:2px}
+/* the tile is a real entry point, not a picture — say so on hover/focus */
+.gcard .play{position:absolute; inset:0; display:grid; place-items:center; opacity:0; z-index:3;
+  font:800 13.5px var(--body); color:#33200a; transition:opacity .28s}
+.gcard .play::before{content:""; position:absolute; inset:0; background:rgba(231,195,115,.86)}
+.gcard:hover .play,.gcard:focus-visible .play{opacity:1}
+.gcard .play{z-index:3}
 .gcard .flag{position:absolute; top:9px; inset-inline-end:9px; z-index:2;
   font:800 10px var(--body); letter-spacing:.6px; padding:4px 9px; border-radius:999px;
   background:rgba(22,6,10,.72); color:var(--gold); border:1px solid rgba(231,195,115,.4)}
@@ -313,72 +330,24 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .card h3{margin-bottom:11px}
 .card p{color:var(--muted); font-size:15.5px}
 
-/* ── phones ───────────────────────────────────────────────── */
-.phones{display:flex; gap:clamp(14px,3vw,34px); justify-content:center; align-items:center; flex-wrap:wrap; perspective:1600px}
-.phone{
-  width:clamp(180px,23vw,258px); aspect-ratio:9/17; border-radius:34px; padding:9px;
-  background:linear-gradient(160deg,#3a1116,#150609); border:1px solid var(--rule);
-  box-shadow:var(--shadow); overflow:hidden; position:relative;
-  transform:rotateY(var(--y,0deg)) rotateX(var(--x,0deg)) translateY(var(--ty,0));
-  transition:transform .6s cubic-bezier(.2,.8,.2,1);
-}
-.phone::after{content:""; position:absolute; inset:0; border-radius:34px; pointer-events:none;
-  background:linear-gradient(115deg, rgba(255,255,255,.20), transparent 42%)}
-/* glass reflection sweeping down the screen, staggered per phone */
-.phone::before{content:""; position:absolute; z-index:2; inset:-40% -10%; pointer-events:none;
-  background:linear-gradient(200deg, transparent 38%, rgba(255,255,255,.13) 47%, rgba(255,255,255,.02) 53%, transparent 62%);
-  animation:sheen 7s var(--sheen,0s) cubic-bezier(.5,0,.5,1) infinite}
-@keyframes sheen{0%,58%{transform:translateY(-46%)} 88%,100%{transform:translateY(46%)}}
-@media(prefers-reduced-motion:reduce){.phone::before{animation:none; opacity:.35}}
-/* Each phone shows the actual screen for that step, not a placeholder card. */
-.phone-inner{width:100%; height:100%; border-radius:26px; overflow:hidden;
-  background:linear-gradient(172deg,#2b0c11,#120508);
-  display:flex; flex-direction:column; gap:9px; padding:15px 12px 13px}
-.ph-top{display:flex; align-items:center; gap:8px; font:800 11px var(--body); color:var(--muted); line-height:1.4}
-.ph-top .n{flex:none; width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
-  font-family:var(--display); font-size:13px; color:#33200a;
+/* ── how you play: the game's real screens ────────────────── */
+.steps{display:grid; grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr); gap:clamp(18px,3vw,34px); align-items:center}
+@media(max-width:900px){.steps{grid-template-columns:1fr}}
+.shot{position:relative; border-radius:22px; overflow:hidden; border:1px solid var(--rule);
+  background:var(--maroon-lo); box-shadow:var(--shadow)}
+.shot img{width:100%; height:auto; display:block}
+/* the phone the picker lives in, drawn only for the portrait shot */
+.shot.tall{border-radius:30px; padding:8px; background:linear-gradient(160deg,#3a1116,#150609)}
+.shot.tall img{border-radius:23px}
+.shot::after{content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  background:linear-gradient(118deg, rgba(255,255,255,.16), transparent 40%)}
+.wide-col{display:flex; flex-direction:column; gap:clamp(14px,2.2vw,22px)}
+.step-cap{display:flex; align-items:center; gap:10px; margin-top:12px;
+  font:800 13.5px var(--body); color:var(--muted); line-height:1.5}
+.step-cap b{flex:none; width:23px; height:23px; border-radius:50%; display:grid; place-items:center;
+  font-family:var(--display); font-size:14px; color:#33200a;
   background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
-.ph-note{margin-top:auto; padding-top:9px; border-top:1px solid rgba(231,195,115,.15);
-  font:700 10.5px var(--body); color:var(--muted); line-height:1.5}
-.phone-inner i{font-style:normal}
-/* mock action bar — the button the players actually tap on that screen */
-.ph-btn{margin-top:auto; display:grid; place-items:center; padding:9px; border-radius:999px;
-  font:800 11px var(--body); color:#33200a; background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
-.ph-btns{margin-top:auto; display:grid; grid-template-columns:1fr 1fr; gap:6px}
-.ph-btns span{display:grid; place-items:center; padding:8px; border-radius:999px;
-  font:800 10.5px var(--body); color:var(--cream); background:rgba(255,255,255,.05); border:1px solid var(--rule)}
-.ph-btns span.ok{color:#0f2f22; border-color:transparent; background:linear-gradient(160deg,#7ee0b0,#2f9c6d)}
-
-.ph-lbl{font:800 9px var(--body); letter-spacing:1.4px; color:var(--gold); opacity:.9}
-.ph-chips{display:flex; flex-wrap:wrap; gap:5px}
-.ph-chips span{font:700 10px var(--body); padding:5px 9px; border-radius:999px;
-  border:1px solid var(--rule); color:var(--muted)}
-.ph-chips span.on{color:#33200a; border-color:transparent;
-  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
-
-.ph-team{display:flex; align-items:center; gap:7px; padding:9px 11px; border-radius:12px;
-  background:rgba(255,255,255,.045); border:1px solid var(--rule); font:800 12px var(--body)}
-.ph-team b{margin-inline-start:auto; font-family:var(--display); font-size:14px; color:var(--gold)}
-
-.ph-board{flex:1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-template-rows:.55fr repeat(5,1fr); gap:4px}
-.ph-board i{display:grid; place-items:center; border-radius:6px;
-  font:800 9px var(--body); color:#fff; background:linear-gradient(160deg,#8e1a26,#4a0d14)}
-.ph-board u{text-decoration:none; display:grid; place-items:center; border-radius:7px;
-  font-family:var(--display); font-size:13px; color:var(--gold);
-  background:rgba(255,255,255,.05); border:1px solid var(--rule)}
-.ph-board u.on{color:#33200a; border-color:transparent; box-shadow:0 0 14px rgba(231,195,115,.55);
-  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
-
-.ph-q{flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px; text-align:center;
-  border-radius:14px; padding:16px 12px; background:rgba(231,195,115,.09);
-  border:1px solid rgba(231,195,115,.22); font:800 13px var(--body); color:var(--cream); line-height:1.6}
-.ph-q em{font-style:normal; font:800 9.5px var(--body); letter-spacing:1px; color:var(--gold)}
-.ph-q .t{font-family:var(--display); font-size:22px; color:var(--gold); line-height:1}
-.ph-score{display:flex; align-items:center; gap:7px; padding:9px 11px; border-radius:12px;
-  font:800 12px var(--body); background:rgba(255,255,255,.04); border:1px solid var(--rule)}
-.ph-score.win{border-color:rgba(231,195,115,.45);
-  background:linear-gradient(160deg,rgba(231,195,115,.22),rgba(231,195,115,.05))}
-.ph-score b{margin-inline-start:auto; font-family:var(--display); font-size:14px; color:var(--gold)}
+.shot-note{margin-top:18px; font:700 13px var(--body); color:var(--muted); text-align:center; opacity:.85}
 
 /* ── stats ────────────────────────────────────────────────── */
 .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:16px}
@@ -451,6 +420,36 @@ details[open] .answer{grid-template-rows:1fr}
 .final .cta-row{justify-content:center}
 .final .store-row{justify-content:center}
 
+/* ── admin authoring mode (opened with #admin) ───────────── */
+.adm-bar{position:fixed; inset-inline:0; bottom:0; z-index:80; display:none; gap:10px;
+  align-items:center; flex-wrap:wrap; padding:12px clamp(14px,4vw,28px);
+  background:rgba(22,6,10,.95); border-top:1px solid rgba(231,195,115,.4);
+  -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px)}
+body.admin-on .adm-bar{display:flex}
+body.admin-on{padding-bottom:76px}
+.adm-bar .lbl{font:800 13px var(--body); color:var(--gold); margin-inline-end:auto}
+.adm-bar .lbl i{font-style:normal; color:var(--muted); font-weight:700}
+.adm-bar button{font:800 13px var(--body); padding:10px 16px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--rule); background:rgba(255,255,255,.06); color:var(--cream)}
+.adm-bar button.go{border-color:transparent; color:#33200a;
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
+body.admin-on [data-edit]{outline:1px dashed rgba(231,195,115,.5); outline-offset:4px; border-radius:4px}
+body.admin-on [data-edit]:focus{outline:2px solid var(--gold-hi); background:rgba(231,195,115,.08)}
+body.admin-on [data-edit].dirty{outline-color:#7ee0a0}
+
+/* ── social ───────────────────────────────────────────────── */
+.social{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:clamp(26px,4vw,40px)}
+.soc{display:inline-flex; align-items:center; gap:12px; text-decoration:none;
+  padding:14px 22px; border-radius:18px; border:1px solid var(--rule); color:var(--cream);
+  background:linear-gradient(165deg, rgba(255,255,255,.055), rgba(255,255,255,.012));
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  transition:transform .34s cubic-bezier(.2,.8,.2,1), border-color .34s, background .34s}
+.soc:hover{transform:translateY(-4px); border-color:rgba(231,195,115,.5); background:rgba(231,195,115,.10)}
+.soc svg{width:24px; height:24px; flex:none; fill:currentColor}
+.soc b{display:block; font:800 15px var(--body); line-height:1.3}
+.soc span{display:block; font:700 12px var(--body); color:var(--muted)}
+.soc.ig svg{color:#e1789b} .soc.tt svg{color:#6fe3dd} .soc.wa svg{color:#7ee0a0} .soc.ml svg{color:var(--gold)}
+
 /* ── footer ───────────────────────────────────────────────── */
 footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:clamp(36px,4.5vw,60px)}
 .foot{display:flex; flex-wrap:wrap; gap:26px; justify-content:space-between; align-items:flex-start}
@@ -475,6 +474,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <a href="#cats">الفئات</a>
       <a href="#why">ليش عِزبة</a>
       <a href="#price">الباقات</a>
+      <a href="#social">تابعونا</a>
       <a href="#faq">أسئلة شائعة</a>
     </nav>
     <a class="btn magnetic" href="../game-mobile.html">العب الآن</a>
@@ -498,7 +498,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         <div class="eyebrow rv">لعبة أسئلة جماعية · عربية ١٠٠٪</div>
         <h1 class="rv" data-d="1">اللعبة اللي<br><span class="tint">تجمع الربع</span></h1>
         <p class="lede rv" data-d="2">
-          فريقين أو أكثر، جهاز واحد، و٢٦٠٠ سؤال ينتظرونكم.
+          فريقين أو أكثر، جهاز واحد، و<b id="heroQ">٤٤٠٥</b> سؤال ينتظرونكم.
           فئات عمانية أصيلة، تمثيل صامت، إيموجي، وألغاز —
           وتقدرون تسوّون فئاتكم بأسئلتكم أنتم.
         </p>
@@ -545,7 +545,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="eyebrow rv">المكتبة كاملة</div>
       <h2 class="rv" data-d="1">كل الفئات</h2>
       <p class="lede rv" data-d="2">
-        <b id="allCount">٣٠</b> فئة جاهزة — من العام إلى العُماني الخالص، ومنها فئات
+        <b id="allCount">٣٩</b> فئة جاهزة — من العام إلى العُماني الخالص، ومنها فئات
         تمثيل وألغاز وإيموجي. وتقدر تضيف فئاتك فوقها.
       </p>
     </div>
@@ -575,50 +575,37 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="eyebrow rv">كيف تلعبونها</div>
       <h2 class="rv" data-d="1">ثلاث خطوات وبس</h2>
     </div>
-    <div class="phones" id="phones">
-      <div class="phone rv"><div class="phone-inner">
-        <div class="ph-top"><span class="n">١</span>اختاروا الفئات وسمّوا الفرق</div>
-        <div class="ph-lbl">اخترتم أربع فئات</div>
-        <div class="ph-chips">
-          <span class="on">تاريخ</span><span class="on">رياضة</span><span class="on">جغرافيا</span>
-          <span class="on">إيموجي</span><span>علوم</span><span>سيارات</span><span>ولا كلمة</span>
-          <span>خريف ظفار</span><span>مصطلحات عربية</span><span>قول غيرها</span>
+    <div class="steps">
+      <div>
+        <div class="shot tall rv">
+          <img src="shots/picker.webp" alt="شاشة اختيار الفئات في اللعبة" loading="lazy" decoding="async" width="600" height="1275">
         </div>
-        <div class="ph-lbl">الفرق</div>
-        <div class="ph-team"><i>🏴</i>الصقور<b>٠</b></div>
-        <div class="ph-team"><i>🏁</i>النواخذة<b>٠</b></div>
-        <div class="ph-btn">ابدأ اللعب</div>
-        <div class="ph-note">أربع فئات وفريقين — وأنتم جاهزين.</div>
-      </div></div>
-      <div class="phone rv" data-d="1"><div class="phone-inner">
-        <div class="ph-top"><span class="n">٢</span>اختاروا خانة من اللوحة</div>
-        <div class="ph-board">
-          <i>تاريخ</i><i>رياضة</i><i>جغرافيا</i><i>إيموجي</i>
-          <u>١٠٠</u><u>١٠٠</u><u>١٠٠</u><u>١٠٠</u>
-          <u>٢٠٠</u><u>٢٠٠</u><u>٢٠٠</u><u>٢٠٠</u>
-          <u>٣٠٠</u><u>٣٠٠</u><u class="on">٣٠٠</u><u>٣٠٠</u>
-          <u>٤٠٠</u><u>٤٠٠</u><u>٤٠٠</u><u>٤٠٠</u>
-          <u>٥٠٠</u><u>٥٠٠</u><u>٥٠٠</u><u>٥٠٠</u>
+        <div class="step-cap"><b>١</b> اختاروا الفئات وسمّوا الفرق</div>
+      </div>
+      <div class="wide-col">
+        <div>
+          <div class="shot rv" data-d="1">
+            <img src="shots/board.webp" alt="لوحة اللعب — أربع فئات وخمس مستويات نقاط" loading="lazy" decoding="async" width="1100" height="526">
+          </div>
+          <div class="step-cap"><b>٢</b> اختاروا خانة من اللوحة — كل ما غلت، صعبت</div>
         </div>
-        <div class="ph-note">كل خانة سؤال — وكل ما غلت، صعبت.</div>
-      </div></div>
-      <div class="phone rv" data-d="2"><div class="phone-inner">
-        <div class="ph-top"><span class="n">٣</span>جاوبوا — واللي يسبق ياخذ النقاط</div>
-        <div class="ph-q"><em>جغرافيا</em><span class="t">٣٠٠</span>وش أطول نهر في العالم؟</div>
-        <div class="ph-score win"><i>🏴</i>الصقور<b>٣٠٠</b></div>
-        <div class="ph-score"><i>🏁</i>النواخذة<b>١٠٠</b></div>
-        <div class="ph-btns"><span class="ok">✅ صح</span><span>👁 الإجابة</span></div>
-        <div class="ph-note">النقاط تُحتسب تلقائياً — أنتم بس العبوا.</div>
-      </div></div>
+        <div>
+          <div class="shot rv" data-d="2">
+            <img src="shots/question.webp" alt="شاشة السؤال مع المؤقّت والنقاط" loading="lazy" decoding="async" width="1100" height="526">
+          </div>
+          <div class="step-cap"><b>٣</b> جاوبوا — والنقاط تُحتسب تلقائياً</div>
+        </div>
+      </div>
     </div>
+    <p class="shot-note rv" data-d="3">لقطات حقيقية من اللعبة — اللوحة والسؤال يُلعبان والجهاز بالعرض.</p>
   </section>
 
   <!-- ── STATS ────────────────────────────────────────────── -->
   <section class="wrap">
     <div class="stats">
-      <div class="stat rv"><b data-count="2620">0</b><span>سؤال جاهز</span></div>
-      <div class="stat rv" data-d="1"><b data-count="21">0</b><span>فئة أساسية</span></div>
-      <div class="stat rv" data-d="2"><b data-count="5">0</b><span>فرق في اللعبة الوحدة</span></div>
+      <div class="stat rv"><b data-count="questions">0</b><span>سؤال جاهز</span></div>
+      <div class="stat rv" data-d="1"><b data-count="categories">0</b><span>فئة</span></div>
+      <div class="stat rv" data-d="2"><b data-count="omani">0</b><span>فئة عُمانية خالصة</span></div>
       <div class="stat rv" data-d="3"><b data-count="1">0</b><span>لعبة مجانية للتجربة</span></div>
     </div>
   </section>
@@ -683,6 +670,34 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     </div>
   </section>
 
+
+  <!-- ── SOCIAL ───────────────────────────────────────────── -->
+  <section id="social" class="wrap">
+    <div class="sec-head" style="max-width:none;text-align:center">
+      <div class="eyebrow rv" style="justify-content:center">تابعونا</div>
+      <h2 class="rv" data-d="1">الجديد ينزل هناك أولاً</h2>
+      <p class="lede rv" data-d="2" style="margin-inline:auto;text-align:center">فئات جديدة، أسئلة، وكواليس اللعبة — وأسرع طريقة توصلون فيها لنا.</p>
+    </div>
+    <div class="social">
+      <a class="soc ig rv" href="https://instagram.com/izzbahgame" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c0 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2 0-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c0-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 1.8c-3.1 0-3.5 0-4.7.07-1.1.05-1.7.24-2.1.4-.5.2-.9.44-1.3.84-.4.4-.64.8-.84 1.3-.16.4-.35 1-.4 2.1C2.6 9.9 2.6 10.3 2.6 12s0 2.1.06 3.3c.05 1.1.24 1.7.4 2.1.2.5.44.9.84 1.3.4.4.8.64 1.3.84.4.16 1 .35 2.1.4 1.2.06 1.6.06 4.7.06s3.5 0 4.7-.06c1.1-.05 1.7-.24 2.1-.4.5-.2.9-.44 1.3-.84.4-.4.64-.8.84-1.3.16-.4.35-1 .4-2.1.06-1.2.06-1.6.06-3.3s0-2.1-.06-3.3c-.05-1.1-.24-1.7-.4-2.1-.2-.5-.44-.9-.84-1.3-.4-.4-.8-.64-1.3-.84-.4-.16-1-.35-2.1-.4C15.5 4 15.1 4 12 4zm0 3.1a4.9 4.9 0 1 1 0 9.8 4.9 4.9 0 0 1 0-9.8zm0 8.08a3.18 3.18 0 1 0 0-6.36 3.18 3.18 0 0 0 0 6.36zm6.24-8.28a1.14 1.14 0 1 1-2.28 0 1.14 1.14 0 0 1 2.28 0z"/></svg>
+        <span class="t"><b>إنستقرام</b><span>@izzbahgame</span></span>
+      </a>
+      <a class="soc tt rv" data-d="1" href="https://tiktok.com/@izzbahgame" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 0 1-2.59 2.5 2.59 2.59 0 1 1 .74-5.07v-3.1a5.65 5.65 0 0 0-.74-.05A5.66 5.66 0 1 0 15.54 15.4V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.29 4.29 0 0 1-3.24-1.48z"/></svg>
+        <span class="t"><b>تيك توك</b><span>@izzbahgame</span></span>
+      </a>
+      <a class="soc wa rv" data-d="2" href="https://wa.me/?text=%D8%AA%D8%B9%D8%A7%D9%84%20%D9%86%D9%84%D8%B9%D8%A8%20%D8%B9%D8%B2%D8%A8%D8%A9%20https%3A%2F%2Fizzbah.com" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2C6.6 2 2.2 6.4 2.2 11.84c0 1.74.46 3.44 1.32 4.94L2.1 22l5.36-1.4a9.84 9.84 0 0 0 4.58 1.16h.01c5.43 0 9.84-4.4 9.84-9.84 0-2.63-1.02-5.1-2.88-6.96A9.78 9.78 0 0 0 12.04 2zm0 18a8.16 8.16 0 0 1-4.16-1.14l-.3-.18-3.18.83.85-3.1-.2-.32a8.14 8.14 0 0 1-1.25-4.35c0-4.52 3.68-8.2 8.2-8.2a8.15 8.15 0 0 1 8.19 8.2c0 4.52-3.68 8.2-8.2 8.2zm4.5-6.14c-.25-.12-1.46-.72-1.69-.8-.22-.09-.39-.13-.55.12-.16.25-.63.8-.77.96-.14.17-.28.19-.53.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.23-1.46-1.37-1.7-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.55-1.34-.76-1.83-.2-.48-.4-.42-.55-.42h-.47c-.16 0-.42.06-.64.31-.22.25-.84.82-.84 2s.86 2.32.98 2.48c.12.17 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.46-.6 1.67-1.18.2-.58.2-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/></svg>
+        <span class="t"><b>واتساب</b><span>شارك اللعبة مع الربع</span></span>
+      </a>
+      <a class="soc ml rv" data-d="3" href="mailto:izzbahgame@gmail.com">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4.24-7.47 4.67a1 1 0 0 1-1.06 0L4 8.24V6.4l8 5 8-5v1.84z"/></svg>
+        <span class="t"><b>راسلنا</b><span>izzbahgame@gmail.com</span></span>
+      </a>
+    </div>
+  </section>
+
   <!-- ── FINAL CTA ────────────────────────────────────────── -->
   <section class="wrap">
     <div class="final rv">
@@ -718,6 +733,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   <p class="copy">© <span id="yr">٢٠٢٦</span> عِزبة — جميع الحقوق محفوظة.</p>
 </footer>
 
+<div class="adm-bar" id="admBar" aria-label="أدوات المشرف">
+  <span class="lbl">وضع المشرف — <i id="admCount">لا تعديلات</i></span>
+  <button type="button" id="admCopy" class="go">انسخ التعديلات</button>
+  <button type="button" id="admReset">تراجع عن الكل</button>
+  <button type="button" id="admExit">خروج</button>
+</div>
+
+<script src="data.js"></script>
 <script>
 (() => {
   "use strict";
@@ -767,47 +790,71 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   }
 
   /* ── category showcase, driven by scroll ────────────────── */
-  const CATS = [
-    { c:"rgba(64,102,35,.60)", n:"خريف ظفار", img:"cat/khareef-l.webp", t:"عُماني ١٠٠٪", d:"الموسم اللي يقلب ظفار خضراء — جبال، شلالات، ومواسم يعرفها أهلها فقط." },
-    { c:"rgba(102,74,36,.60)", n:"مواقع في عمان", img:"cat/pub-1783170059396-601-l.webp", t:"عُماني ١٠٠٪", d:"قلاع، حصون، أفلاج وولايات. جغرافيا عُمان كما يعرفها من عاشها." },
-    { c:"rgba(102,57,37,.60)", n:"حنكة عمانية", img:"cat/pub-1783453062866-1028-l.webp", t:"عُماني ١٠٠٪", d:"أمثال وحكم وذكاء أهل البلد — أسئلة ما تنحل إلا بحنكة." },
-    { c:"rgba(102,32,29,.60)", n:"كرة عمانية", img:"cat/omaniFootball-l.webp", t:"عُماني ١٠٠٪", d:"المنتخب، الأندية، واللاعبين اللي كبرنا نشجعهم." },
-    { c:"rgba(102,74,51,.60)", n:"وش الكلمة (عماني)", img:"cat/pub-1783189569201-313-l.webp", t:"عُماني ١٠٠٪", d:"كلمات عمانية خالصة — مثّلها بدون كلام وخلّ ربعك يخمّنون." },
-    { c:"rgba(29,102,93,.60)", n:"رياكشنات عمانية", img:"cat/pub-1783425758108-102-l.webp", t:"عُماني ١٠٠٪", d:"المواقف والمقاطع اللي دارت على كل الجروبات — من عمق الترند العُماني." },
-    { c:"rgba(102,56,29,.60)", n:"قديمك نديمك", img:"cat/pub-1784798503561-5271-l.webp", t:"عُماني ١٠٠٪", d:"راديو، كاسيت، وأشياء ما عاد لها وجود — لو عشتها بتعرفها." },
-    { c:"rgba(102,73,41,.60)", n:"كافيهات ومطاعم", img:"cat/cafesRestaurants-l.webp", t:"عُماني ١٠٠٪", d:"من الكافيه اللي بجنبك إلى السلاسل العالمية — تعرف شعاراتهم وأصنافهم؟" },
-    { c:"rgba(102,66,39,.60)", n:"جلسة حريم", img:"cat/pub-1783170084646-5700-l.webp", t:"عُماني ١٠٠٪", d:"قعدة القهوة والونسة — أسئلة من عالم الجلسة." },
-    { c:"rgba(102,62,42,.60)", n:"وش كلمة أجنبي", img:"cat/charades-l.webp", t:"تمثيل صامت", d:"امسح الرمز، شوف الكلمة، ومثّلها بدون ما تنطق حرف. أعلى ضحكة في الجلسة." },
-    { c:"rgba(102,65,33,.60)", n:"وش الكلمة عربي", img:"cat/charadesArabic-l.webp", t:"تمثيل صامت", d:"كلمة عربية، وتمثيل صامت — بدون حرف واحد." },
-    { c:"rgba(102,62,29,.60)", n:"وش الكلمة أفلام", img:"cat/charadesMovies-l.webp", t:"تمثيل صامت", d:"اسم فيلم، ومثّله بدون كلام." },
-    { c:"rgba(102,57,29,.60)", n:"وش الكلمة مسلسلات", img:"cat/charadesSeries-l.webp", t:"تمثيل صامت", d:"اسم مسلسل، وأنت تمثّل — والباقي يخمّنون." },
-    { c:"rgba(102,66,29,.60)", n:"قول غيرها", img:"cat/sayAnother-l.webp", t:"جديدة", d:"نعطيكم نوع الكلمة، وأنتم قولوا وحدة — بشرط ما تكون من الممنوعات." },
-    { c:"rgba(102,71,38,.60)", n:"أحرف", img:"cat/arabicTerms-l.webp", t:"جديدة", d:"مصطلحات ومفردات عربية — نعطيك التعريف وأول حرف، وأنتم كمّلوا." },
-    { c:"rgba(102,61,29,.60)", n:"أكمل المثل", img:"cat/pub-1785323313470-2876-l.webp", t:"لغة", d:"نبدأ المثل… وأنتم كمّلوه." },
-    { c:"rgba(102,79,29,.60)", n:"معنـى الايموجي", img:"cat/pub-1784240484235-8039-l.webp", t:"ألغاز", d:"فيلم، مثل، أو شخصية — مخبّاة داخل رموز. فكفكوها مع فريقكم." },
-    { c:"rgba(102,81,29,.60)", n:"معنى الايموجي (English)", img:"cat/emojis-l.webp", t:"ألغاز", d:"نفس اللعبة… بس الإجابات بالإنجليزي." },
-    { c:"rgba(102,53,29,.60)", n:"ألغاز", img:"cat/pub-1784486305049-7855-l.webp", t:"ألغاز", d:"أسئلة تحتاج تفكير مو معلومة — فكّوا الشفرة مع فريقكم." },
-    { c:"rgba(29,45,102,.60)", n:"وش الرابط؟", img:"cat/pub-1784571861226-6942-l.webp", t:"ألغاز", d:"كم كلمة… وشي واحد يجمعهم. وش هو؟" },
-    { c:"rgba(102,29,30,.60)", n:"من أنا؟", img:"cat/whoAmI-l.webp", t:"ألغاز", d:"تلميح ورا تلميح — مين الشخصية؟" },
-    { c:"rgba(29,33,102,.60)", n:"الأقرب يفوز", img:"cat/pub-1784503983714-3987-l.webp", t:"ألغاز", d:"سؤال برقم، وأقرب إجابة تاخذ النقطة." },
-    { c:"rgba(102,67,29,.60)", n:"السيرة النبوية", img:"cat/seerah-l.webp", t:"ديني", d:"حياة النبي ﷺ وغزواته وأصحابه — أسئلة يستفيد منها الكبير والصغير." },
-    { c:"rgba(102,61,29,.60)", n:"دين", img:"cat/pub-1783170306877-1440-l.webp", t:"ديني", d:"أسئلة دينية عامة بأسلوب مبسّط." },
-    { c:"rgba(102,55,29,.60)", n:"تاريخ", img:"cat/history-l.webp", t:"معرفة عامة", d:"شخصيات ومعارك وتواريخ غيّرت العالم." },
-    { c:"rgba(102,100,40,.60)", n:"جغرافيا", img:"cat/geo-l.webp", t:"معرفة عامة", d:"دول وعواصم وبحار وجبال — وين تقع؟" },
-    { c:"rgba(49,57,102,.60)", n:"علوم", img:"cat/science-l.webp", t:"معرفة عامة", d:"فيزياء وكيمياء وأحياء — علوم بأسئلة تفتح النفس." },
-    { c:"rgba(102,64,29,.60)", n:"ثقافة عامة", img:"cat/culture-l.webp", t:"معرفة عامة", d:"أسئلة من كل اتجاه — اللي يقرأ كثير يفوز." },
-    { c:"rgba(29,47,102,.60)", n:"أعلام", img:"cat/pub-1783684233589-5608-l.webp", t:"معرفة عامة", d:"أعلام الدول — تعرفها من ألوانها ونجومها؟" },
-    { c:"rgba(102,32,29,.60)", n:"رياضة", img:"cat/sports-l.webp", t:"رياضة", d:"كرة وسلة وتنس وأولمبياد — الأرقام والأبطال." },
-    { c:"rgba(102,31,33,.60)", n:"منوعات كرة قدم", img:"cat/footballMix-l.webp", t:"رياضة", d:"كل شي عن الكرة العالمية — لاعبين، بطولات، وأرقام." },
-    { c:"rgba(29,55,102,.60)", n:"من الي سجل؟", img:"cat/pub-1784043823835-6035-l.webp", t:"رياضة", d:"هدف، مباراة، ولحظة — مين صاحبها؟" },
-    { c:"rgba(102,74,46,.60)", n:"مصارعة حره", img:"cat/pub-1783189666048-7547-l.webp", t:"رياضة", d:"أبطال الحلبة والألقاب والمواجهات اللي ما تنتسى." },
-    { c:"rgba(102,32,29,.60)", n:"أفلام أجنبية", img:"cat/foreignMoviesOnly-l.webp", t:"ترفيه", d:"من الكلاسيكيات إلى آخر ما نزل — قصص وأبطال ومخرجين." },
-    { c:"rgba(102,37,51,.60)", n:"مسلسلات أجنبية", img:"cat/foreignSeries-l.webp", t:"ترفيه", d:"من أول حلقة إلى آخر موسم — شخصيات وحبكات." },
-    { c:"rgba(102,47,43,.60)", n:"العاب", img:"cat/pub-1783510423551-6465-l.webp", t:"ترفيه", d:"من الأتاري إلى آخر إصدار — عالم الألعاب كله." },
-    { c:"rgba(102,37,29,.60)", n:"ميمز", img:"cat/pub-1783189684453-7350-l.webp", t:"ترفيه", d:"الصور اللي دارت على كل الجروبات — تعرف قصتها؟" },
-    { c:"rgba(54,29,102,.60)", n:"سيارات", img:"cat/cars-l.webp", t:"منوّعات", d:"ماركات، موديلات، وأرقام يعرفها بس اللي يحب السيارات." },
-    { c:"rgba(102,63,29,.60)", n:"براندات", img:"cat/pub-1783170356019-2501-l.webp", t:"منوّعات", d:"شعارات وماركات — تعرفها من أول نظرة؟" },
-  ];
+  const ar = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  const GAME = "../game-mobile.html";
+  // Accent per category, sampled from its own artwork by preview/sync notes —
+  // so the ambient light always matches the cover on screen.
+  const ACCENT = {"arabicTerms": "rgba(102,71,38,.60)", "cafesRestaurants": "rgba(102,73,41,.60)", "cars": "rgba(54,29,102,.60)", "charades": "rgba(102,62,42,.60)", "charadesArabic": "rgba(102,65,33,.60)", "charadesMovies": "rgba(102,62,29,.60)", "charadesSeries": "rgba(102,57,29,.60)", "culture": "rgba(102,64,29,.60)", "emojis": "rgba(102,81,29,.60)", "footballMix": "rgba(102,31,33,.60)", "foreignMoviesOnly": "rgba(102,32,29,.60)", "foreignSeries": "rgba(102,37,51,.60)", "geo": "rgba(102,100,40,.60)", "history": "rgba(102,55,29,.60)", "khareef": "rgba(64,102,35,.60)", "omaniFootball": "rgba(102,32,29,.60)", "pub-1783170059396-601": "rgba(102,74,36,.60)", "pub-1783170084646-5700": "rgba(102,66,39,.60)", "pub-1783170306877-1440": "rgba(102,61,29,.60)", "pub-1783170356019-2501": "rgba(102,63,29,.60)", "pub-1783189569201-313": "rgba(102,74,51,.60)", "pub-1783189666048-7547": "rgba(102,74,46,.60)", "pub-1783189684453-7350": "rgba(102,37,29,.60)", "pub-1783425758108-102": "rgba(29,102,93,.60)", "pub-1783453062866-1028": "rgba(102,57,37,.60)", "pub-1783510423551-6465": "rgba(102,47,43,.60)", "pub-1783684233589-5608": "rgba(29,47,102,.60)", "pub-1784043823835-6035": "rgba(29,55,102,.60)", "pub-1784240484235-8039": "rgba(102,79,29,.60)", "pub-1784486305049-7855": "rgba(102,53,29,.60)", "pub-1784503983714-3987": "rgba(29,33,102,.60)", "pub-1784571861226-6942": "rgba(29,45,102,.60)", "pub-1784798503561-5271": "rgba(102,56,29,.60)", "pub-1785323313470-2876": "rgba(102,61,29,.60)", "sayAnother": "rgba(102,66,29,.60)", "science": "rgba(49,57,102,.60)", "seerah": "rgba(102,67,29,.60)", "sports": "rgba(102,32,29,.60)", "whoAmI": "rgba(102,29,30,.60)"};
+
+  const COPY = {
+    "pub-1783170084646-5700": ["عُماني ١٠٠٪","قعدة القهوة والونسة والدلة اللي ما تبرد. أسئلة من عالم الجلسة اللي كل بيت عُماني يعرفه."],
+    "pub-1783453062866-1028": ["عُماني ١٠٠٪","أمثال وحكم وذكاء أهل البلد. أسئلة ما تنحل بالحفظ — تنحل بالحنكة اللي تربّيت عليها."],
+    "khareef": ["عُماني ١٠٠٪","الموسم اللي يقلب ظفار من صحراء إلى جبال خضراء. شلالات، ضباب، ومواسم يعرف تفاصيلها أهلها بس."],
+    "pub-1783425758108-102": ["عُماني ١٠٠٪","المقاطع والمواقف اللي دارت على كل الجروبات. لو عايش الترند العُماني، هذي فئتك."],
+    "pub-1784798503561-5271": ["عُماني ١٠٠٪","راديو، كاسيت، ألعاب الحارة، وأشياء ما عاد لها وجود. فئة تفرّق بين اللي عاشها واللي سمع عنها."],
+    "cafesRestaurants": ["عُماني ١٠٠٪","من الكافيه اللي بجنب بيتك إلى السلاسل العالمية. شعارات وأصناف تمرّ عليك كل يوم."],
+    "omaniFootball": ["عُماني ١٠٠٪","المنتخب، الأندية، والمباريات اللي وقفت لها البلد. للي يتابع الكرة العُمانية من زمان."],
+    "pub-1783170059396-601": ["عُماني ١٠٠٪","قلاع، حصون، أفلاج، وولايات من مسندم إلى ظفار. جغرافيا عُمان كما يعرفها من مشى فيها."],
+    "pub-1783189569201-313": ["عُماني ١٠٠٪","كلمات عُمانية خالصة تطلع على الشاشة، وأنت تمثّلها بدون صوت. الضحك يجي قبل الإجابة."],
+    "arabicTerms": ["جديدة","نعطيك تعريف المصطلح وأول حرف منه، وأنت كمّل. تختبر ثروتك اللغوية مو محفوظاتك."],
+    "sayAnother": ["جديدة","نعطيكم نوع الكلمة، وأنتم قولوا وحدة منه — بشرط ما تكون من الممنوعات. أصعب مما تتوقع."],
+    "charades": ["تمثيل صامت","امسح الرمز، شوف الكلمة، ومثّلها بدون ما تنطق حرف. أعلى ضحكة في الجلسة."],
+    "charadesArabic": ["تمثيل صامت","كلمة عربية، وتمثيل صامت بدون حرف واحد. أصعب لعبة على اللي ما يسكت."],
+    "charadesMovies": ["تمثيل صامت","اسم فيلم يطلع لك، وأنت تمثّله بدون كلام. فريقك يخمّن والوقت يجري."],
+    "charadesSeries": ["تمثيل صامت","اسم مسلسل، وأنت تمثّله. المتفرجين يخمّنون قبل ما ينتهي الوقت."],
+    "pub-1784240484235-8039": ["ألغاز","فيلم، مثل، أو شخصية مخبّاة داخل رموز. فكفكوها مع فريقكم قبل ما ينتهي الوقت."],
+    "emojis": ["ألغاز","نفس اللعبة، بس الإجابات بالإنجليزي. أصعب شوي، وأمتع."],
+    "pub-1784486305049-7855": ["ألغاز","أسئلة ما تنحل بالمعلومة — تنحل بالتفكير. اقعدوا فكّروا مع بعض."],
+    "pub-1784571861226-6942": ["ألغاز","كم كلمة، وشي واحد يجمعهم كلهم. لقّوا الرابط."],
+    "whoAmI": ["ألغاز","تلميح ورا تلميح، وكل واحد يقرّبكم أكثر. مين الشخصية قبل التلميح الأخير؟"],
+    "pub-1784503983714-3987": ["ألغاز","سؤال جوابه رقم وما أحد يعرفه بالضبط. أقرب تخمين ياخذ النقطة."],
+    "seerah": ["ديني","حياة النبي ﷺ، غزواته، وأصحابه رضوان الله عليهم. يستفيد منها الكبير قبل الصغير."],
+    "pub-1783170306877-1440": ["ديني","أسئلة دينية عامة بأسلوب مبسّط. قرآن وسيرة وأحكام يعرفها الجميع."],
+    "history": ["معرفة عامة","شخصيات ومعارك وتواريخ غيّرت شكل العالم. من الفراعنة إلى الحرب العالمية."],
+    "geo": ["معرفة عامة","دول وعواصم وبحار وجبال وأنهار. وين تقع؟ ووش يحدّها؟"],
+    "science": ["معرفة عامة","فيزياء وكيمياء وأحياء وفضاء. علوم بأسئلة تفتح النفس مو تقفلها."],
+    "culture": ["معرفة عامة","أسئلة من كل اتجاه ما تنحصر بمجال. اللي يقرأ كثير بيرتاح هنا."],
+    "pub-1783684233589-5608": ["معرفة عامة","أعلام الدول بألوانها ونجومها. تعرف الفرق بين اللي متشابهين؟"],
+    "pub-1785323313470-2876": ["لغة","نبدأ المثل وأنتم تكمّلونه. أمثال سمعتها من جدّك وما انتبهت لآخرها."],
+    "sports": ["رياضة","كرة وسلة وتنس وأولمبياد. أرقام قياسية، أبطال، وبطولات."],
+    "footballMix": ["رياضة","كل شي عن الكرة العالمية. لاعبين، بطولات، انتقالات، وأرقام."],
+    "pub-1784043823835-6035": ["رياضة","هدف، مباراة، ولحظة وقف لها الملعب. مين صاحبها؟"],
+    "pub-1783189666048-7547": ["رياضة","أبطال الحلبة، الألقاب، والمواجهات اللي وقفنا لها. نوستالجيا لجيل كامل."],
+    "foreignMoviesOnly": ["ترفيه","من الكلاسيكيات إلى آخر ما نزل. قصص، أبطال، مخرجين، ومشاهد ما تُنسى."],
+    "foreignSeries": ["ترفيه","من أول حلقة إلى آخر موسم. شخصيات، حبكات، ونهايات اختلف عليها الناس."],
+    "pub-1783510423551-6465": ["ترفيه","من الأتاري إلى آخر إصدار. عالم الألعاب بكل أجياله."],
+    "pub-1783189684453-7350": ["ترفيه","الصور اللي دارت على كل الجروبات. تعرف قصتها الأصلية ولا بس تضحك عليها؟"],
+    "cars": ["منوّعات","ماركات، موديلات، ومحركات. أرقام ما يعرفها إلا اللي يحب السيارات فعلاً."],
+    "pub-1783170356019-2501": ["منوّعات","شعارات وماركات تشوفها كل يوم. تعرفها من أول نظرة، بدون الاسم؟"],
+  };
+
+  const DATA = window.IZZBAH_DATA || { totals:{categories:0,questions:0,omani:0}, cats:[] };
+  const FALLBACK = ["فئة", "فئة جديدة — جرّبوها مع ربعكم."];
+  // Every category, factual half from Firestore + editorial half from COPY.
+  const CATS = DATA.cats.map(c => {
+    const e = COPY[c.id] || FALLBACK;
+    return { id:c.id, n:c.name, count:c.n, img:c.big, thumb:c.cover,
+             om:c.om, nu:c.nu, t:e[0], d:e[1] };
+  });
+
+  // Pressing a category opens the game with that category already picked —
+  // the same #g= link the in-game share button builds.
+  const b64url = str => {
+    const bytes = new TextEncoder().encode(str);
+    let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+  const playLink = id => GAME + "#g=" + b64url(JSON.stringify({ c: [id] }));
   const copy = document.getElementById("catCopy");
   const art = document.getElementById("catArt");
   const pips = document.getElementById("pips");
@@ -817,11 +864,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     CATS.forEach((c, i) => {
       const p = document.createElement("div");
       p.className = "cat-panel" + (i === 0 ? " on" : "");
-      p.innerHTML = '<div class="cat-index">فئة ' + (i + 1) + ' / ' + CATS.length + '</div>'
-        + '<h3></h3><p></p><div class="cat-tag"></div>';
+      p.innerHTML = '<div class="cat-index">فئة ' + ar(i + 1) + ' / ' + ar(CATS.length) + '</div>'
+        + '<h3></h3><p></p><div class="cat-foot"><span class="cat-tag"></span>'
+        + '<span class="cat-n"></span><a class="cat-play magnetic" href="#">العب هذي الفئة ▸</a></div>';
       p.querySelector("h3").textContent = c.n;
       p.querySelector("p").textContent = c.d;
       p.querySelector(".cat-tag").textContent = c.t;
+      p.querySelector(".cat-n").textContent = ar(c.count) + " سؤال";
+      p.querySelector(".cat-play").href = playLink(c.id);
       copy.appendChild(p);
 
       const f = document.createElement("figure");
@@ -854,7 +904,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       });
       if (bar) bar.style.width = ((i + 1) / CATS.length * 100).toFixed(1) + "%";
       if (rail) { rail.style.height = (100 / CATS.length) + "%"; rail.style.top = (i * 100 / CATS.length) + "%"; }
-      if (stick && CATS[i].c) stick.style.setProperty("--accent", CATS[i].c);
+      if (stick && ACCENT[CATS[i].id]) stick.style.setProperty("--accent", ACCENT[CATS[i].id]);
     };
     let ticking = false;
     const onScroll = () => {
@@ -875,42 +925,18 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   }
 
   /* ── every category in the game ─────────────────────────── */
-  /* Pulled from the live Firestore `categories` collection — the same covers
-     players see in the picker, resized to WebP under preview/cat/. The four
-     whose cloud cover is blank fall back to the bundled asset, exactly as the
-     game does. `om` marks the Omani-only ones — the real differentiator. */
-  const ALL = [
-    { n:"جلسة حريم", a:"cat/pub-1783170084646-5700-t.webp", om:1 }, { n:"حنكة عمانية", a:"cat/pub-1783453062866-1028-t.webp", om:1 },
-    { n:"خريف ظفار", a:"../assets/img/cat-khareef.webp", om:1 }, { n:"رياكشنات عمانية", a:"cat/pub-1783425758108-102-t.webp", om:1 },
-    { n:"قديمك نديمك", a:"cat/pub-1784798503561-5271-t.webp", om:1 }, { n:"كافيهات ومطاعم", a:"cat/cafesRestaurants-t.webp", om:1 },
-    { n:"كرة عمانية", a:"../assets/img/cat-omaniFootball.webp", om:1 }, { n:"مواقع في عمان", a:"cat/pub-1783170059396-601-t.webp", om:1 },
-    { n:"وش الكلمة (عماني)", a:"cat/pub-1783189569201-313-t.webp", om:1 }, { n:"أحرف", a:"cat/arabicTerms-t.webp", nu:1 },
-    { n:"أعلام", a:"cat/pub-1783684233589-5608-t.webp" }, { n:"أفلام أجنبية", a:"../assets/img/cat-foreignMoviesOnly.webp" },
-    { n:"أكمل المثل", a:"cat/pub-1785323313470-2876-t.webp" }, { n:"ألغاز", a:"cat/pub-1784486305049-7855-t.webp" },
-    { n:"الأقرب يفوز", a:"cat/pub-1784503983714-3987-t.webp" }, { n:"السيرة النبوية", a:"cat/seerah-t.webp" },
-    { n:"العاب", a:"cat/pub-1783510423551-6465-t.webp" }, { n:"براندات", a:"cat/pub-1783170356019-2501-t.webp" },
-    { n:"تاريخ", a:"cat/history-t.webp" }, { n:"ثقافة عامة", a:"cat/culture-t.webp" },
-    { n:"جغرافيا", a:"cat/geo-t.webp" }, { n:"دين", a:"cat/pub-1783170306877-1440-t.webp" },
-    { n:"رياضة", a:"cat/sports-t.webp" }, { n:"سيارات", a:"cat/cars-t.webp" },
-    { n:"علوم", a:"cat/science-t.webp" }, { n:"قول غيرها", a:"cat/sayAnother-t.webp", nu:1 },
-    { n:"مسلسلات أجنبية", a:"cat/foreignSeries-t.webp" }, { n:"مصارعة حره", a:"cat/pub-1783189666048-7547-t.webp" },
-    { n:"معنـى الايموجي", a:"cat/pub-1784240484235-8039-t.webp" }, { n:"معنى الايموجي (English)", a:"cat/emojis-t.webp" },
-    { n:"من أنا؟", a:"../assets/img/cat-whoAmI.webp" }, { n:"من الي سجل؟", a:"cat/pub-1784043823835-6035-t.webp" },
-    { n:"منوعات كرة قدم", a:"cat/footballMix-t.webp" }, { n:"ميمز", a:"cat/pub-1783189684453-7350-t.webp" },
-    { n:"وش الرابط؟", a:"cat/pub-1784571861226-6942-t.webp" }, { n:"وش الكلمة أفلام", a:"cat/charadesMovies-t.webp" },
-    { n:"وش الكلمة عربي", a:"cat/charadesArabic-t.webp" }, { n:"وش الكلمة مسلسلات", a:"cat/charadesSeries-t.webp" },
-    { n:"وش كلمة أجنبي", a:"cat/charades-t.webp" },
-  ];
+
   const gridEl = document.getElementById("allGrid");
   if (gridEl) {
+    const ALL = CATS;
     // deterministic hue per name, so a tile keeps its colour between visits
     const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
     ALL.forEach(c => {
       const card = document.createElement("a");
-      card.className = "gcard"; card.href = "../game-mobile.html";
-      card.setAttribute("aria-label", c.n);
-      if (c.a) {
-        const im = new Image(); im.src = c.a; im.alt = ""; im.loading = "lazy"; im.decoding = "async";
+      card.className = "gcard"; card.href = playLink(c.id);
+      card.setAttribute("aria-label", "العب " + c.n + " — " + c.count + " سؤال");
+      if (c.thumb) {
+        const im = new Image(); im.src = c.thumb; im.alt = ""; im.loading = "lazy"; im.decoding = "async";
         card.appendChild(im);
       } else {
         const f = document.createElement("div"); f.className = "fallback";
@@ -922,28 +948,32 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       }
       if (c.om) { const t = document.createElement("span"); t.className = "flag"; t.textContent = "عُماني"; card.appendChild(t); }
       if (c.nu) { const t = document.createElement("span"); t.className = "flag"; t.textContent = "جديد"; card.appendChild(t); }
-      const cap = document.createElement("span"); cap.className = "cap"; cap.textContent = c.n;
+      const cap = document.createElement("span"); cap.className = "cap";
+      cap.innerHTML = '<b></b><i></i>';
+      cap.querySelector("b").textContent = c.n;
+      cap.querySelector("i").textContent = ar(c.count) + " سؤال";
       card.appendChild(cap);
+      const play = document.createElement("span"); play.className = "play"; play.textContent = "العب ▸";
+      card.appendChild(play);
       gridEl.appendChild(card);
     });
+      const hq = document.getElementById("heroQ");
+    if (hq) hq.textContent = ar(DATA.totals.questions);
     const cEl = document.getElementById("allCount");
-    if (cEl) cEl.textContent = String(ALL.length).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+    if (cEl) cEl.textContent = ar(ALL.length);
   }
 
   /* ── phones: gentle tilt toward the pointer ─────────────── */
   if (!reduce) {
-    const ph = [...document.querySelectorAll(".phone")];
+    const ph = [...document.querySelectorAll(".shot")];
     addEventListener("pointermove", e => {
       const x = (e.clientX / innerWidth - .5), y = (e.clientY / innerHeight - .5);
-      ph.forEach((p, i) => {
-        const k = 1 + i * .35;
-        p.style.setProperty("--y", (x * 13 * k).toFixed(2) + "deg");
-        p.style.setProperty("--x", (-y * 9).toFixed(2) + "deg");
-        p.style.setProperty("--ty", (i === 1 ? -16 : 0) + "px");
+      ph.forEach((el, i) => {
+        const k = 1 + i * .3;
+        el.style.transform = "perspective(1400px) rotateY(" + (x * 6 * k).toFixed(2)
+          + "deg) rotateX(" + (-y * 4).toFixed(2) + "deg)";
       });
     }, { passive: true });
-    ph.forEach((p, i) => { if (i === 1) p.style.setProperty("--ty", "-16px"); });
-    ph.forEach((p, i) => p.style.setProperty("--sheen", (i * -1.9) + "s"));
   }
 
   /* ── pointer: trailing ring + magnetic buttons ──────────── */
@@ -986,12 +1016,79 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     });
   }
 
+
+  /* ── admin authoring mode ───────────────────────────────── */
+  // Opened with #admin. This is an AUTHORING tool, not an authenticated one:
+  // it edits the copy in the page you are looking at and hands you the result
+  // to paste back into index.html. It cannot change what anyone else sees, and
+  // it does nothing at all unless you put #admin in the URL yourself.
+  (() => {
+    if (!/(^|[#&?])admin\b/.test(location.hash + location.search)) return;
+    const KEY = "izzbah-landing-edits-v1";
+    let edits = {};
+    try { edits = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+
+    const bar = document.getElementById("admBar");
+    const countEl = document.getElementById("admCount");
+    document.body.classList.add("admin-on");
+
+    const label = () => {
+      const n = Object.keys(edits).length;
+      countEl.textContent = n ? ar(n) + " تعديل غير محفوظ" : "لا تعديلات";
+    };
+    const apply = el => {
+      const k = el.dataset.edit;
+      if (edits[k] != null) { el.textContent = edits[k]; el.classList.add("dirty"); }
+    };
+    const arm = el => {
+      el.setAttribute("contenteditable", "plaintext-only");
+      el.setAttribute("spellcheck", "false");
+      apply(el);
+      el.addEventListener("input", () => {
+        const k = el.dataset.edit, v = el.textContent.trim();
+        if (v === (el.dataset.orig || "")) { delete edits[k]; el.classList.remove("dirty"); }
+        else { edits[k] = v; el.classList.add("dirty"); }
+        try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) {}
+        label();
+      });
+    };
+    // headings and lede copy, plus every category's tag and description
+    const mark = (el, key) => { if (!el) return; el.dataset.edit = key; el.dataset.orig = el.textContent.trim(); arm(el); };
+    document.querySelectorAll("h1,h2,.lede,.sec-head p,.card h3,.card p,.plan p,.answer p,summary")
+      .forEach((el, i) => mark(el, "page." + i));
+    document.querySelectorAll(".cat-panel").forEach((panel, i) => {
+      const c = CATS[i]; if (!c) return;
+      mark(panel.querySelector(".cat-tag"), "cat." + c.id + ".tag");
+      mark(panel.querySelector("p"), "cat." + c.id + ".desc");
+    });
+    label();
+
+    document.getElementById("admCopy").addEventListener("click", async () => {
+      const out = { generated: new Date().toISOString().slice(0, 10), edits };
+      const text = JSON.stringify(out, null, 2);
+      try { await navigator.clipboard.writeText(text); countEl.textContent = "نُسخ ✓ الصقه في index.html"; }
+      catch (e) { window.prompt("انسخ هذا:", text); }
+    });
+    document.getElementById("admReset").addEventListener("click", () => {
+      if (!window.confirm("تراجع عن كل التعديلات؟")) return;
+      edits = {}; try { localStorage.removeItem(KEY); } catch (e) {}
+      document.querySelectorAll("[data-edit]").forEach(el => {
+        el.textContent = el.dataset.orig || ""; el.classList.remove("dirty");
+      });
+      label();
+    });
+    document.getElementById("admExit").addEventListener("click", () => {
+      location.hash = ""; location.reload();
+    });
+  })();
+
   /* ── counters ───────────────────────────────────────────── */
   const AR = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
   const cio = new IntersectionObserver(es => es.forEach(e => {
     if (!e.isIntersecting) return;
     cio.unobserve(e.target);
-    const el = e.target, to = +el.dataset.count;
+    const el = e.target, key = el.dataset.count;
+    const to = /^\d+$/.test(key) ? +key : (DATA.totals[key] || 0);
     if (reduce) { el.textContent = AR(to); return; }
     const t0 = performance.now(), dur = 1500;
     const step = t => {
