@@ -37,6 +37,25 @@
     money arrives), and `recordSale` books revenue at that moment rather than on
     payment. Both disappear once Thawani is wired.
 
+- **Sign in with Apple — PARKED until the App Store build is real (owner,
+  2026-07-31).** Only required by App Store guideline 4.8, i.e. for a NATIVE
+  app that offers third-party login. The web app / PWA never needs it. Wiring
+  it is the easy half (Apple Developer Program → App ID + Services ID +
+  Sign-in key; Firebase → Authentication → Apple; then an OAuthProvider
+  "apple.com" beside the existing Google provider around line 22577, a second
+  button, and `https://appleid.apple.com` in the CSP `frame-src`/`connect-src`).
+  The hard half — DO NOT ship Apple sign-in without it:
+  - `entitlements/{uid}` is keyed by uid, so a player who bought packs with
+    Google and later taps Apple lands in a NEW, empty account and loses their
+    paid games. Account linking has to land in the SAME change, not after.
+  - Apple Private Relay ("Hide My Email") means `token.email` becomes
+    `…@privaterelay.appleid.com`, which breaks recognising a customer by email
+    in the manual activation-code flow.
+  - `admins/{uid}` is uid-keyed too: signing in with Apple on the owner's own
+    device drops admin until that uid is added.
+  - Apple returns the display name ONCE, on first sign-in only. Persist it then
+    or it is gone.
+
 - **Online / remote multiplayer — PARKED for v2 (owner-requested 2026-07-21).**
   Turn عِزبة from single-device pass-and-play into each player on their own
   phone, synced in real time. RECOMMENDED architecture = **host-authoritative
@@ -73,6 +92,30 @@ existing questions or pictures; findings go to the owner, who acts.
 - Agent `community-reviewer` — the safety agent; pre-screens ONE pending
   community submission (caller passes the data in) for safety/quality/dupes.
   Recommendation only — the admin approves in-game.
+
+## Landing page (`preview/`, live at izzbah.com/preview/)
+
+Single self-contained page, same palette and type system as the game. Marked
+`noindex` and nothing links to it — it is a draft the owner opens directly.
+
+- **`preview/sync.mjs` is the source of truth for anything factual.** Run
+  `node preview/sync.mjs` after ANY change in the admin panel: it pulls every
+  category, its real question count and the totals from Firestore and rewrites
+  `preview/data.js`. Names, counts and the counters all read from it, so the
+  page cannot drift from the game. Only each category's one-line description
+  and tag are hand-written (the `COPY` map in index.html, keyed by category
+  id); a newly published category still appears with a neutral fallback.
+- Covers live in `preview/cat/` (`-t` grid, `-l` showcase, `-s` board header),
+  resized from the Firestore originals. Regenerate them when artwork changes.
+- `preview/shots/` are REAL screenshots of the game. Capture them with the
+  published covers injected — with Firebase blocked the game falls back to the
+  old bundled `assets/img/cat-*.webp` and the shots silently go stale.
+- Type system is the game's, verbatim: Cairo for all text, Lalezar for display
+  numbers only, Aref Ruqaa for the عِزبة wordmark only.
+- Category tiles deep-link into the game with that category preselected, using
+  the same `#g=` payload the in-game share button builds.
+- `#admin` opens an authoring mode for the copy. It is LOCAL only — no auth, no
+  backend; it hands you JSON to paste back. Visitors are unaffected.
 
 ## Standing conventions in this repo
 
