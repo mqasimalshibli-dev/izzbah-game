@@ -20,7 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Lalezar&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Game","name":"عِزبة","inLanguage":"ar",
 "description":"لعبة أسئلة جماعية عربية تُلعب على جهاز واحد بين فريقين أو أكثر.",
@@ -40,8 +40,13 @@
   --muted:#c6a98c;                     /* neutral biased warm, not grey */
   --rule:rgba(231,195,115,.16);
   --shadow:0 30px 80px -40px rgba(0,0,0,.9);
-  --display:'Lalezar', 'Tahoma', serif;
+  /* Same type system as the game (see game-mobile.html):
+     Cairo for all text, Lalezar for display numbers, Aref Ruqaa for the
+     عِزبة wordmark and nothing else. */
   --body:'Cairo', 'Tahoma', system-ui, sans-serif;
+  --display:'Cairo', 'Tahoma', system-ui, sans-serif;
+  --num:'Lalezar', 'Tahoma', serif;
+  --brand:'Aref Ruqaa', 'Tahoma', serif;
   --pad:clamp(20px,5vw,64px);
   --maxw:1180px;
 }
@@ -65,10 +70,10 @@ img{max-width:100%; display:block}
 a{color:inherit}
 :focus-visible{outline:3px solid var(--gold-hi); outline-offset:3px; border-radius:6px}
 
-h1,h2,h3{font-family:var(--display); font-weight:400; line-height:1.08; text-wrap:balance; margin:0}
-h1{font-size:clamp(44px,8.5vw,104px); letter-spacing:.5px}
-h2{font-size:clamp(32px,5.2vw,62px)}
-h3{font-size:clamp(21px,2.4vw,27px)}
+h1,h2,h3{font-family:var(--display); font-weight:900; line-height:1.22; text-wrap:balance; margin:0}
+h1{font-size:clamp(36px,7vw,78px); letter-spacing:-.5px}
+h2{font-size:clamp(27px,4.2vw,48px); letter-spacing:-.3px}
+h3{font-size:clamp(19px,2.2vw,25px)}
 p{margin:0}
 .wrap{max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad)}
 .eyebrow{
@@ -90,7 +95,8 @@ header{position:fixed; inset-inline:0; top:0; z-index:50; transition:background 
   border-bottom:1px solid transparent}
 header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bottom-color:var(--rule)}
 .bar{display:flex; align-items:center; justify-content:space-between; gap:16px; padding-block:14px}
-.brand{display:flex; align-items:center; gap:11px; text-decoration:none; font-family:var(--display); font-size:25px; color:var(--gold)}
+.brand{display:flex; align-items:center; gap:11px; text-decoration:none;
+  font-family:var(--brand); font-weight:700; font-size:27px; color:var(--gold)}
 .brand img{width:34px; height:34px; border-radius:9px}
 .nav{display:flex; gap:26px; font:700 14.5px var(--body)}
 .nav a{text-decoration:none; color:var(--muted); transition:color .25s}
@@ -182,7 +188,7 @@ header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bo
 .col-head img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.42}
 .tile{
   border-radius:11px; min-height:40px; display:grid; place-items:center;
-  font:800 15px var(--body); color:var(--gold-hi);
+  font:400 18px var(--num); color:var(--gold-hi);
   background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
   border:1px solid var(--rule);
   opacity:0; transform:translateY(12px) scale(.94);
@@ -256,13 +262,13 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .cat-copy{position:relative; min-height:280px}
 .cat-panel{position:absolute; inset:0; opacity:0; transform:translateY(22px); transition:opacity .55s, transform .55s; pointer-events:none}
 .cat-panel.on{opacity:1; transform:none; pointer-events:auto}
-.cat-index{font:800 12.5px var(--body); letter-spacing:3px; color:var(--gold); margin-bottom:14px}
-.cat-panel h3{font-size:clamp(32px,4.6vw,54px); margin-bottom:16px}
+.cat-index{font:400 15px var(--num); letter-spacing:2px; color:var(--gold); margin-bottom:14px}
+.cat-panel h3{font-size:clamp(28px,3.9vw,46px); margin-bottom:16px}
 .cat-panel p{color:var(--muted); max-width:46ch}
 .cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
 .cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
   border:1px solid var(--rule); font:800 12.5px var(--body); color:var(--cream); background:rgba(255,255,255,.04)}
-.cat-n{font:800 12.5px var(--body); color:var(--gold)}
+.cat-n{font:400 16px var(--num); color:var(--gold)}
 .cat-play{--mx:0px; --my:0px; margin-inline-start:auto; text-decoration:none; white-space:nowrap;
   padding:9px 18px; border-radius:999px; font:800 13px var(--body); color:#33200a;
   background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo));
@@ -299,13 +305,13 @@ section{padding-block:clamp(66px,7.4vw,108px)}
    a broken image — the initial set in the display face, on the category's hue */
 .gcard .fallback{position:absolute; inset:0; display:grid; place-items:center;
   background:linear-gradient(155deg, var(--h1), var(--h2));}
-.gcard .fallback b{font-family:var(--display); font-size:clamp(40px,5vw,58px); color:rgba(255,255,255,.9);
+.gcard .fallback b{font-family:var(--num); font-size:clamp(40px,5vw,58px); color:rgba(255,255,255,.9);
   text-shadow:0 3px 18px rgba(0,0,0,.45)}
 .gcard .cap{position:absolute; inset-inline:0; bottom:0; padding:30px 9px 10px; text-align:center;
   color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.85);
   background:linear-gradient(0deg, rgba(10,3,5,.94), transparent)}
 .gcard .cap b{display:block; font:800 13px var(--body); line-height:1.35}
-.gcard .cap i{display:block; font:700 10.5px var(--body); font-style:normal; color:var(--gold); opacity:.95; margin-top:2px}
+.gcard .cap i{display:block; font:400 13px var(--num); font-style:normal; color:var(--gold); opacity:.95; margin-top:2px}
 /* the tile is a real entry point, not a picture — say so on hover/focus */
 /* Hover says "you can press this" without hiding the artwork: a light scrim
    and a small gold pill, not a full gold wash over the cover. */
@@ -356,7 +362,7 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .step-cap{display:flex; align-items:center; gap:10px; margin-top:12px;
   font:800 13.5px var(--body); color:var(--muted); line-height:1.5}
 .step-cap b{flex:none; width:23px; height:23px; border-radius:50%; display:grid; place-items:center;
-  font-family:var(--display); font-size:14px; color:#33200a;
+  font-family:var(--num); font-size:14px; color:#33200a;
   background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
 .shot-note{margin-top:18px; font:700 13px var(--body); color:var(--muted); text-align:center; opacity:.85}
 
@@ -365,7 +371,7 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .stat{padding:30px 24px; border-radius:20px; border:1px solid var(--rule); text-align:center;
   background:linear-gradient(165deg, rgba(255,255,255,.05), rgba(255,255,255,.01));
   -webkit-backdrop-filter:blur(12px) saturate(1.15); backdrop-filter:blur(12px) saturate(1.15)}
-.stat b{display:block; font-family:var(--display); font-size:clamp(40px,6vw,66px); color:var(--gold);
+.stat b{display:block; font-family:var(--num); font-size:clamp(40px,6vw,66px); color:var(--gold);
   font-variant-numeric:tabular-nums; line-height:1}
 .stat span{display:block; margin-top:10px; font:700 14px var(--body); color:var(--muted)}
 
@@ -383,7 +389,7 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   font:800 11px var(--body); color:#33200a; background:linear-gradient(160deg,var(--gold-hi),var(--gold-lo))}
 .plan .em{font-size:24px}
 .plan h3{font-size:21px}
-.plan .price{font-family:var(--display); font-size:clamp(30px,3.6vw,42px); color:var(--gold);
+.plan .price{font-family:var(--num); font-size:clamp(30px,3.6vw,42px); color:var(--gold);
   line-height:1; font-variant-numeric:tabular-nums}
 .plan .price small{font:800 13px var(--body); color:var(--muted); margin-inline-start:7px}
 .plan p{color:var(--muted); font-size:14.5px; margin-top:auto; padding-top:6px}
@@ -808,45 +814,45 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   const ACCENT = {"arabicTerms": "rgba(102,71,38,.60)", "cafesRestaurants": "rgba(102,73,41,.60)", "cars": "rgba(54,29,102,.60)", "charades": "rgba(102,62,42,.60)", "charadesArabic": "rgba(102,65,33,.60)", "charadesMovies": "rgba(102,62,29,.60)", "charadesSeries": "rgba(102,57,29,.60)", "culture": "rgba(102,64,29,.60)", "emojis": "rgba(102,81,29,.60)", "footballMix": "rgba(102,31,33,.60)", "foreignMoviesOnly": "rgba(102,32,29,.60)", "foreignSeries": "rgba(102,37,51,.60)", "geo": "rgba(102,100,40,.60)", "history": "rgba(102,55,29,.60)", "khareef": "rgba(64,102,35,.60)", "omaniFootball": "rgba(102,32,29,.60)", "pub-1783170059396-601": "rgba(102,74,36,.60)", "pub-1783170084646-5700": "rgba(102,66,39,.60)", "pub-1783170306877-1440": "rgba(102,61,29,.60)", "pub-1783170356019-2501": "rgba(102,63,29,.60)", "pub-1783189569201-313": "rgba(102,74,51,.60)", "pub-1783189666048-7547": "rgba(102,74,46,.60)", "pub-1783189684453-7350": "rgba(102,37,29,.60)", "pub-1783425758108-102": "rgba(29,102,93,.60)", "pub-1783453062866-1028": "rgba(102,57,37,.60)", "pub-1783510423551-6465": "rgba(102,47,43,.60)", "pub-1783684233589-5608": "rgba(29,47,102,.60)", "pub-1784043823835-6035": "rgba(29,55,102,.60)", "pub-1784240484235-8039": "rgba(102,79,29,.60)", "pub-1784486305049-7855": "rgba(102,53,29,.60)", "pub-1784503983714-3987": "rgba(29,33,102,.60)", "pub-1784571861226-6942": "rgba(29,45,102,.60)", "pub-1784798503561-5271": "rgba(102,56,29,.60)", "pub-1785323313470-2876": "rgba(102,61,29,.60)", "sayAnother": "rgba(102,66,29,.60)", "science": "rgba(49,57,102,.60)", "seerah": "rgba(102,67,29,.60)", "sports": "rgba(102,32,29,.60)", "whoAmI": "rgba(102,29,30,.60)"};
 
   const COPY = {
-    "pub-1783170084646-5700": ["عُماني ١٠٠٪","قعدة القهوة والونسة والدلة اللي ما تبرد. أسئلة من عالم الجلسة اللي كل بيت عُماني يعرفه."],
+    "pub-1783170084646-5700": ["عُماني ١٠٠٪","الدلة والفناجيل والونسة اللي ما تخلص. أسئلة عن تفاصيل الجلسة العُمانية — عاداتها، أكلها، والكلام اللي يدور فيها."],
     "pub-1783453062866-1028": ["عُماني ١٠٠٪","أمثال وحكم وذكاء أهل البلد. أسئلة ما تنحل بالحفظ — تنحل بالحنكة اللي تربّيت عليها."],
     "khareef": ["عُماني ١٠٠٪","الموسم اللي يقلب ظفار من صحراء إلى جبال خضراء. شلالات، ضباب، ومواسم يعرف تفاصيلها أهلها بس."],
-    "pub-1783425758108-102": ["عُماني ١٠٠٪","المقاطع والمواقف اللي دارت على كل الجروبات. لو عايش الترند العُماني، هذي فئتك."],
-    "pub-1784798503561-5271": ["عُماني ١٠٠٪","راديو، كاسيت، ألعاب الحارة، وأشياء ما عاد لها وجود. فئة تفرّق بين اللي عاشها واللي سمع عنها."],
-    "cafesRestaurants": ["عُماني ١٠٠٪","من الكافيه اللي بجنب بيتك إلى السلاسل العالمية. شعارات وأصناف تمرّ عليك كل يوم."],
-    "omaniFootball": ["عُماني ١٠٠٪","المنتخب، الأندية، والمباريات اللي وقفت لها البلد. للي يتابع الكرة العُمانية من زمان."],
-    "pub-1783170059396-601": ["عُماني ١٠٠٪","قلاع، حصون، أفلاج، وولايات من مسندم إلى ظفار. جغرافيا عُمان كما يعرفها من مشى فيها."],
-    "pub-1783189569201-313": ["عُماني ١٠٠٪","كلمات عُمانية خالصة تطلع على الشاشة، وأنت تمثّلها بدون صوت. الضحك يجي قبل الإجابة."],
-    "arabicTerms": ["جديدة","نعطيك تعريف المصطلح وأول حرف منه، وأنت كمّل. تختبر ثروتك اللغوية مو محفوظاتك."],
-    "sayAnother": ["جديدة","نعطيكم نوع الكلمة، وأنتم قولوا وحدة منه — بشرط ما تكون من الممنوعات. أصعب مما تتوقع."],
-    "charades": ["تمثيل صامت","امسح الرمز، شوف الكلمة، ومثّلها بدون ما تنطق حرف. أعلى ضحكة في الجلسة."],
-    "charadesArabic": ["تمثيل صامت","كلمة عربية، وتمثيل صامت بدون حرف واحد. أصعب لعبة على اللي ما يسكت."],
-    "charadesMovies": ["تمثيل صامت","اسم فيلم يطلع لك، وأنت تمثّله بدون كلام. فريقك يخمّن والوقت يجري."],
-    "charadesSeries": ["تمثيل صامت","اسم مسلسل، وأنت تمثّله. المتفرجين يخمّنون قبل ما ينتهي الوقت."],
-    "pub-1784240484235-8039": ["ألغاز","فيلم، مثل، أو شخصية مخبّاة داخل رموز. فكفكوها مع فريقكم قبل ما ينتهي الوقت."],
-    "emojis": ["ألغاز","نفس اللعبة، بس الإجابات بالإنجليزي. أصعب شوي، وأمتع."],
-    "pub-1784486305049-7855": ["ألغاز","أسئلة ما تنحل بالمعلومة — تنحل بالتفكير. اقعدوا فكّروا مع بعض."],
-    "pub-1784571861226-6942": ["ألغاز","كم كلمة، وشي واحد يجمعهم كلهم. لقّوا الرابط."],
-    "whoAmI": ["ألغاز","تلميح ورا تلميح، وكل واحد يقرّبكم أكثر. مين الشخصية قبل التلميح الأخير؟"],
-    "pub-1784503983714-3987": ["ألغاز","سؤال جوابه رقم وما أحد يعرفه بالضبط. أقرب تخمين ياخذ النقطة."],
-    "seerah": ["ديني","حياة النبي ﷺ، غزواته، وأصحابه رضوان الله عليهم. يستفيد منها الكبير قبل الصغير."],
-    "pub-1783170306877-1440": ["ديني","أسئلة دينية عامة بأسلوب مبسّط. قرآن وسيرة وأحكام يعرفها الجميع."],
-    "history": ["معرفة عامة","شخصيات ومعارك وتواريخ غيّرت شكل العالم. من الفراعنة إلى الحرب العالمية."],
-    "geo": ["معرفة عامة","دول وعواصم وبحار وجبال وأنهار. وين تقع؟ ووش يحدّها؟"],
-    "science": ["معرفة عامة","فيزياء وكيمياء وأحياء وفضاء. علوم بأسئلة تفتح النفس مو تقفلها."],
-    "culture": ["معرفة عامة","أسئلة من كل اتجاه ما تنحصر بمجال. اللي يقرأ كثير بيرتاح هنا."],
-    "pub-1783684233589-5608": ["معرفة عامة","أعلام الدول بألوانها ونجومها. تعرف الفرق بين اللي متشابهين؟"],
-    "pub-1785323313470-2876": ["لغة","نبدأ المثل وأنتم تكمّلونه. أمثال سمعتها من جدّك وما انتبهت لآخرها."],
-    "sports": ["رياضة","كرة وسلة وتنس وأولمبياد. أرقام قياسية، أبطال، وبطولات."],
-    "footballMix": ["رياضة","كل شي عن الكرة العالمية. لاعبين، بطولات، انتقالات، وأرقام."],
-    "pub-1784043823835-6035": ["رياضة","هدف، مباراة، ولحظة وقف لها الملعب. مين صاحبها؟"],
-    "pub-1783189666048-7547": ["رياضة","أبطال الحلبة، الألقاب، والمواجهات اللي وقفنا لها. نوستالجيا لجيل كامل."],
-    "foreignMoviesOnly": ["ترفيه","من الكلاسيكيات إلى آخر ما نزل. قصص، أبطال، مخرجين، ومشاهد ما تُنسى."],
-    "foreignSeries": ["ترفيه","من أول حلقة إلى آخر موسم. شخصيات، حبكات، ونهايات اختلف عليها الناس."],
-    "pub-1783510423551-6465": ["ترفيه","من الأتاري إلى آخر إصدار. عالم الألعاب بكل أجياله."],
-    "pub-1783189684453-7350": ["ترفيه","الصور اللي دارت على كل الجروبات. تعرف قصتها الأصلية ولا بس تضحك عليها؟"],
-    "cars": ["منوّعات","ماركات، موديلات، ومحركات. أرقام ما يعرفها إلا اللي يحب السيارات فعلاً."],
-    "pub-1783170356019-2501": ["منوّعات","شعارات وماركات تشوفها كل يوم. تعرفها من أول نظرة، بدون الاسم؟"],
+    "pub-1783425758108-102": ["عُماني ١٠٠٪","المقاطع والمواقف اللي دارت على كل الجروبات في عُمان. لو تابعت الترند، بتعرف صاحب كل جملة."],
+    "pub-1784798503561-5271": ["عُماني ١٠٠٪","راديو، كاسيت، ألعاب حارة، وأشياء ما عاد لها وجود. فئة تفرّق بين اللي عاشها واللي بس سمع عنها."],
+    "cafesRestaurants": ["عُماني ١٠٠٪","الكافيه اللي بجنب بيتك والسلسلة اللي بكل مول. شعارات وأصناف وأسماء تمرّ عليك كل يوم وما تنتبه لها."],
+    "omaniFootball": ["عُماني ١٠٠٪","المنتخب، الأندية، والمباريات اللي وقفت لها البلد. أسماء لاعبين وأرقام يعرفها اللي يتابع من زمان."],
+    "pub-1783170059396-601": ["عُماني ١٠٠٪","قلاع وحصون وأفلاج وولايات من مسندم إلى ظفار. وين تقع؟ وش اشتهرت فيه؟"],
+    "pub-1783189569201-313": ["عُماني ١٠٠٪","كلمة عُمانية خالصة تطلع على شاشتك، ولازم تمثّلها بدون صوت. أصعب جزء إنك تشرح كلمة ما لها مقابل."],
+    "arabicTerms": ["جديدة","نعطيك تعريف المصطلح وأول حرف منه، وأنت تطلّع الكلمة. تختبر ثروتك اللغوية مو محفوظاتك."],
+    "sayAnother": ["جديدة","نعطيكم نوع الكلمة — طير، مدينة، أكلة — وأنتم قولوا وحدة منه. بشرط ما تكون من الممنوعات المكتوبة."],
+    "charades": ["تمثيل صامت","امسح الرمز، اقرأ الكلمة الإنجليزية، ومثّلها بدون ما تنطق حرف. فريقك يخمّن والوقت يركض."],
+    "charadesArabic": ["تمثيل صامت","كلمة عربية تشوفها أنت وحدك، وتوصّلها بيديك وبس. أصعب اختبار لواحد ما يعرف يسكت."],
+    "charadesMovies": ["تمثيل صامت","فيلم كامل لازم توصله بإيماءات. مشهد واحد يكفي إذا اخترت المشهد الصح."],
+    "charadesSeries": ["تمثيل صامت","مسلسل تعرفه أنت، وفريقك لازم يطلّعه من حركاتك. من الدراما إلى آخر موسم نزل."],
+    "pub-1784240484235-8039": ["ألغاز","صف من الإيموجي يخبّي وراه اسم فيلم أو مثل أو شخصية. فكفكوا الرموز قبل ما ينتهي الوقت."],
+    "emojis": ["ألغاز","رموز تقرأونها وتطلّعون منها الإجابة بالإنجليزي — اسم فيلم، أغنية، أو عبارة. تفكير بلغتين في نفس اللحظة."],
+    "pub-1784486305049-7855": ["ألغاز","سؤال ما ينفع فيه حفظ ولا بحث. تقعدون تفكّرون مع بعض إلى أن تطلع الفكرة."],
+    "pub-1784571861226-6942": ["ألغاز","أربع كلمات ما بينها شي واضح — إلا رابط واحد يجمعهم. أول فريق يكتشفه ياخذ النقطة."],
+    "whoAmI": ["ألغاز","تلميح ورا تلميح عن شخصية واحدة، وكل تلميح يقرّبكم أكثر. خمّنوا بأقل عدد ممكن."],
+    "pub-1784503983714-3987": ["ألغاز","سؤال جوابه رقم، وما أحد يعرفه بالضبط. كل فريق يخمّن، وأقرب رقم ياخذ النقطة."],
+    "seerah": ["ديني","حياة النبي ﷺ من المولد إلى الوداع — الغزوات، الصحابة، والمواقف. أسئلة يستفيد منها الكبير قبل الصغير."],
+    "pub-1783170306877-1440": ["ديني","قرآن وصحابة وعبادات وأحكام، بأسلوب مبسّط يمشي مع كل الأعمار."],
+    "history": ["معرفة عامة","شخصيات ومعارك وتواريخ غيّرت شكل العالم. من الحضارات القديمة إلى القرن الماضي."],
+    "geo": ["معرفة عامة","دول وعواصم وجبال وأنهار وبحار. وين تقع؟ وش يحدّها؟ وأي قارة؟"],
+    "science": ["معرفة عامة","فيزياء وكيمياء وأحياء وفضاء. أسئلة تشرح لك شي عن الدنيا وأنت تلعب."],
+    "culture": ["معرفة عامة","سؤال من الأدب وبعده سؤال من الفضاء. ما تعرف وش الجاي — واللي يقرأ كثير بيرتاح هنا."],
+    "pub-1783684233589-5608": ["معرفة عامة","علم دولة يطلع قدامك، ولازم تعرف صاحبه. بعضها متشابه لدرجة تخلي الفريق يختلف."],
+    "pub-1785323313470-2876": ["لغة","نبدأ المثل وأنتم تكمّلونه. أمثال سمعتها من جدّك مية مرة وما انتبهت لآخرها."],
+    "sports": ["رياضة","كرة وسلة وتنس وأولمبياد. أبطال وأرقام قياسية وبطولات من كل الرياضات."],
+    "footballMix": ["رياضة","الكرة العالمية بكل تفاصيلها — لاعبين، انتقالات، بطولات، وأرقام يحفظها المتابع."],
+    "pub-1784043823835-6035": ["رياضة","هدف أو لحظة وقف لها الملعب، والسؤال واحد: مين صاحبها؟"],
+    "pub-1783189666048-7547": ["رياضة","أبطال الحلبة والأحزمة والمواجهات اللي سهرنا لها. نوستالجيا جيل كامل."],
+    "foreignMoviesOnly": ["ترفيه","أفلام من الكلاسيكيات إلى آخر ما نزل. قصص وأبطال ومخرجين ومشاهد ما تُنسى."],
+    "foreignSeries": ["ترفيه","مسلسلات من أول حلقة إلى آخر موسم. شخصيات وحبكات ونهايات اختلف عليها الناس."],
+    "pub-1783510423551-6465": ["ترفيه","ألعاب من زمن الأتاري إلى آخر إصدار. أسماء وشخصيات وأجهزة كبرنا عليها."],
+    "pub-1783189684453-7350": ["ترفيه","الصور اللي دارت على كل الجروبات وما أحد يعرف مصدرها. هنا تعرف قصتها الأصلية."],
+    "cars": ["منوّعات","ماركات وموديلات ومحركات وأرقام. أسئلة ما يجاوب عليها إلا اللي يحب السيارات فعلاً."],
+    "pub-1783170356019-2501": ["منوّعات","شعار بدون اسم، وأنت تعرف صاحبه. ماركات تشوفها كل يوم وما جرّبت تتذكر شكلها."],
   };
 
   const DATA = window.IZZBAH_DATA || { totals:{categories:0,questions:0,omani:0}, cats:[] };
