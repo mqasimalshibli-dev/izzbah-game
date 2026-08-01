@@ -16,7 +16,13 @@ const ctx = await browser.newContext({ viewport: { width: 1300, height: 900 }, p
 const page = await ctx.newPage();
   // Never hit the real Firebase from tests: abort the SDK load so the game
   // runs offline on built-in content (no production Firestore reads/quota).
-  await page.route("**/firebasejs/**", route => route.abort());
+  // CONTEXT-level, not page-level: this test opens a SECOND page (the one
+  // that receives the shared link), and a page-level route does not cover it.
+  // On CI runners with real internet, page2 was loading the real Firebase SDK
+  // and racing the real cloud against the fixed waits below — which is both
+  // against this suite's offline convention and the reason CI failed while
+  // local runs (where the SDK is unreachable and fails fast) passed.
+  await ctx.route("**/firebasejs/**", route => route.abort());
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
