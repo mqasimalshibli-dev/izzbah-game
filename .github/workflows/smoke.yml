@@ -448,6 +448,16 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node perceived.mjs
 
+      - name: Run sw.js/build lockstep check
+        working-directory: tests
+        run: node swsync.mjs
+
+      - name: Run welcome boot-gate (veil) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node welcomegate.mjs
+
       - name: Run category-boot (skeletons, no stale covers) test
         working-directory: tests
         run: |

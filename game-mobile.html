@@ -6133,6 +6133,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Boot veil: raised when the player presses «ابدأ لعبة جديدة» or sign-in
+       before boot has finished (catalogue + session restore). It blocks every
+       press underneath and completes the navigation itself the moment boot is
+       done — so nobody ever walks into a half-loaded game. Hidden at parse. -->
+  <style>
+    #bootVeil { position: fixed; inset: 0; z-index: 9600; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      background: rgba(26, 7, 9, .84); backdrop-filter: blur(3px); }
+    #bootVeil[hidden] { display: none; }
+    #bootVeil .boot-spin { width: 46px; height: 46px; border-radius: 50%;
+      border: 4px solid rgba(231, 195, 115, .22); border-top-color: #e7c373;
+      animation: bootspin .8s linear infinite; }
+    @keyframes bootspin { to { transform: rotate(360deg); } }
+    #bootVeil .veil-text { color: #f3e6c8; font-weight: 800; font-size: 15px; letter-spacing: .2px; }
+    @media (prefers-reduced-motion: reduce) { #bootVeil .boot-spin { animation-duration: 2.2s; } }
+  </style>
+  <div id="bootVeil" hidden role="status" aria-live="polite">
+    <div class="boot-spin" aria-hidden="true"></div>
+    <div class="veil-text">جارٍ تحميل اللعبة…</div>
+  </div>
   <!-- Instant splash: paints as soon as the file is parsed (before the big
        inline script runs), so there's no blank flash. Uses inline SVG + CSS
        only — no web fonts — so it shows immediately, then fades once the app
@@ -11237,7 +11257,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-07-31.207";
+    const IZZBAH_BUILD = "2026-08-01.208";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17737,7 +17757,16 @@
         // against the network, so a new deploy is detected promptly.
         navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
         let swReloaded = false;
+        // First install: the SW claims the page it was registered from, firing
+        // controllerchange with NO previous controller. Reloading there means a
+        // full re-parse onto a byte-identical build — every first-time visitor
+        // paid it, and it is what made the Playwright suite randomly flaky
+        // (tests raced the silent reload). Only a TAKEOVER — a page that was
+        // already controlled getting a NEW worker, i.e. a fresh deploy —
+        // warrants the refresh.
+        let hadController = !!navigator.serviceWorker.controller;
         navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!hadController) { hadController = true; return; }
           if (swReloaded) return;
           // A newer build's service worker just took over. Reload onto it — but
           // NEVER yank a live game; defer the refresh to a safe screen.
@@ -20442,13 +20471,70 @@
       }, 2000);
     }
 
+    // ── Boot gate ─────────────────────────────────────────────────────
+    // «ابدأ لعبة جديدة» must never drop the player into a half-loaded game.
+    // On slow phones the catalogue (and the restored sign-in session) can
+    // still be in flight when they tap — so the tap raises a blocking veil
+    // with a spinner and finishes the navigation itself when boot completes.
+    // Nothing underneath is pressable while it is up.
+    function bootReady() { return !!(state.authReady && state.catalogReady); }
+    let veilPoll = 0, veilSlow = 0, veilGiveUp = 0;
+    function clearVeilTimers() { clearInterval(veilPoll); clearTimeout(veilSlow); clearTimeout(veilGiveUp); veilPoll = veilSlow = veilGiveUp = 0; }
+    function hideBootVeil() { clearVeilTimers(); const v = $("#bootVeil"); if (v) v.hidden = true; }
+    function pollBootVeil(next) {
+      clearVeilTimers();
+      // 8s: reassure. 20s: hand control back — the load keeps running
+      // underneath, so a retry press resumes with whatever has arrived.
+      veilSlow = setTimeout(() => { const t = document.querySelector("#bootVeil .veil-text"); if (t) t.textContent = "الاتصال بطيء — نجهّز فئاتك…"; }, 8000);
+      veilGiveUp = setTimeout(() => { hideBootVeil(); showToast("تعذّر التحميل — تحقّق من الاتصال وحاول مرة أخرى"); }, 20000);
+      veilPoll = setInterval(() => { if (bootReady()) { hideBootVeil(); if (next) next(); } }, 150);
+    }
+    function showBootVeil(next) {
+      const v = $("#bootVeil");
+      if (!v) { if (next) next(); return; }
+      const t = v.querySelector(".veil-text"); if (t) t.textContent = "جارٍ تحميل اللعبة…";
+      v.hidden = false;
+      pollBootVeil(next);
+    }
+    // Sign-in variant: while the Google popup is up there is NO timeout — the
+    // player may sit on the account picker as long as they like. The popup
+    // promise settling ends this state (release → poll mode, or hide).
+    function holdBootVeil() {
+      const v = $("#bootVeil"); if (!v) return;
+      const t = v.querySelector(".veil-text"); if (t) t.textContent = "جارٍ تسجيل الدخول…";
+      clearVeilTimers(); v.hidden = false;
+    }
+    function releaseBootVeil() {
+      const v = $("#bootVeil");
+      if (!v || v.hidden) return;
+      const t = v.querySelector(".veil-text"); if (t) t.textContent = "جارٍ تحميل اللعبة…";
+      pollBootVeil(null);
+    }
+    window.IZZBAH.holdBootVeil = holdBootVeil;
+    window.IZZBAH.releaseBootVeil = releaseBootVeil;
+    window.IZZBAH.hideBootVeil = hideBootVeil;
+
     document.querySelectorAll("[data-screen]").forEach(button => {
       button.addEventListener("click", () => {
-        if (button.hasAttribute("data-requires-auth") && !state.signedIn) {
-          showToast("سجّل الدخول بحساب Google أولاً لبدء اللعب");
-          const authBtn = $("#authBtn");
-          if (authBtn && authBtn.style.display !== "none") authBtn.click();
-          return;
+        if (button.hasAttribute("data-requires-auth")) {
+          if (!bootReady()) {
+            // Deferred continuation: navigate if the restored session is
+            // signed in; otherwise just say so. Deliberately NO auto-click of
+            // the auth button here — outside the original tap's gesture a
+            // popup would be blocked and fall through to a full-page redirect
+            // the player never asked for.
+            showBootVeil(() => {
+              if (state.signedIn) showScreen(button.dataset.screen);
+              else showToast("سجّل الدخول بحساب Google أولاً لبدء اللعب");
+            });
+            return;
+          }
+          if (!state.signedIn) {
+            showToast("سجّل الدخول بحساب Google أولاً لبدء اللعب");
+            const authBtn = $("#authBtn");
+            if (authBtn && authBtn.style.display !== "none") authBtn.click();
+            return;
+          }
         }
         showScreen(button.dataset.screen);
       });
@@ -21212,15 +21298,22 @@
     // The catalogue is "ready" the moment we have something REAL to show —
     // a cloud read, the device cache, or a definitive answer that no cloud is
     // coming. Idempotent; the first caller wins.
+    // Auth counterpart to markCatalogReady: called on the no-cloud paths
+    // where onAuthStateChanged will never fire, so the boot gate is not left
+    // waiting for a session restore that cannot happen.
+    window.IZZBAH.markAuthSettled = function () { state.authReady = true; };
     window.IZZBAH.markCatalogReady = function () {
       if (state.catalogReady) return;
       state.catalogReady = true;
       if (typeof renderCategories === "function") renderCategories();
     };
-    // Backstop for the one case with no deterministic signal: the SDK loaded
-    // but Firestore never answers. A failed SDK load calls markCatalogReady()
-    // directly, so this timer is not what normally ends the shimmer.
-    setTimeout(() => window.IZZBAH.markCatalogReady(), 4000);
+    // There is deliberately NO timed backstop here. Flipping to the bundled
+    // built-ins after N seconds is exactly how slow phones ended up seeing
+    // last release's categories (.207 shipped a 4s one — slow is not failed).
+    // The welcome-screen boot gate holds the player instead, and the ONLY
+    // paths that release onto built-ins are the deterministic no-cloud ones:
+    // SDK failed to load, Firebase not configured, or a read that failed with
+    // no cache to fall back on.
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
       state.catalogReady = true;
@@ -21362,7 +21455,10 @@
         setAuthVisible(false);
         // No cloud in this build — the bundled categories are all there is, so
         // release the skeletons immediately rather than shimmering forever.
+        // Auth settles too, or the boot gate would wait forever for a session
+        // restore that cannot happen.
         if (window.IZZBAH.markCatalogReady) window.IZZBAH.markCatalogReady();
+        if (window.IZZBAH.markAuthSettled) window.IZZBAH.markAuthSettled();
         return;
       }
       const SDK = "10.12.2";
@@ -23008,15 +23104,27 @@
                 if (typeof showInAppBrowserHelp === "function") showInAppBrowserHelp();
                 return;
               }
-              auth.signInWithPopup(provider).catch((err) => {
+              // Veil up for the whole ride: the Google popup, then the
+              // post-sign-in load, released only once boot is ready — so a
+              // player can never mash buttons on a half-loaded welcome screen.
+              if (window.IZZBAH.holdBootVeil) window.IZZBAH.holdBootVeil();
+              auth.signInWithPopup(provider).then(() => {
+                if (window.IZZBAH.releaseBootVeil) window.IZZBAH.releaseBootVeil();
+              }).catch((err) => {
                 const code = err && err.code;
                 if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+                  if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
                   return;
                 }
                 if (code === "auth/popup-blocked") {
-                  auth.signInWithRedirect(provider).catch(onErr);
+                  // Redirect navigates the whole page; the veil rides along.
+                  auth.signInWithRedirect(provider).catch((e2) => {
+                    if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
+                    onErr(e2);
+                  });
                   return;
                 }
+                if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
                 onErr(err);
               });
             });
@@ -23062,6 +23170,7 @@
         .catch((e) => {
           console.warn("Firebase SDK failed to load", e);
           setAuthVisible(false);
+          if (window.IZZBAH.markAuthSettled) window.IZZBAH.markAuthSettled();
           // No SDK means no cloud catalogue is EVER coming, and we know that the
           // instant the script errors — so release the skeletons now rather than
           // making the player wait out the backstop timer for a result that
