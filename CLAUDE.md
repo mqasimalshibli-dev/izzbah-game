@@ -85,6 +85,18 @@
   احتياطية» first. Optional: raise the cap to 576px (~+30 KB each) for zero
   softness on 3× screens. New publishes are already capped automatically.
 
+- **Question media is LAZY (build .209).** Boot reads ONLY the parent category
+  docs — which already carry a text-only copy of every question — so the
+  picker and board run on ~5 MB. Question/answer images live in the
+  `/questions` subcollection and are fetched per game by
+  `hydrateCategoryMedia()` just before the board draws, then merged into the
+  question objects IN PLACE (so every `q.image` reader downstream is
+  unchanged). Loading them all at boot measured **541 MB** of JS heap at the
+  real catalogue size and was killing the tab on iOS Safari ("A problem
+  repeatedly occurred"). Do NOT reintroduce an eager read of `/questions`.
+  A failed media read must resolve to `null` = "unknown" and cache NOTHING —
+  returning an empty list would re-create the old "no pictures" bug.
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are

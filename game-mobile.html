@@ -11257,7 +11257,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.208";
+    const IZZBAH_BUILD = "2026-08-01.209";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11590,8 +11590,7 @@
       state.gameCounted = !!saved.counted;
       state.runCredit = saved.credit || "replay";
       state.gameStartedAt = saved.startedAt || 0;
-      renderGame();
-      showScreen("game");
+      enterBoard();
       return true;
     }
 
@@ -14986,6 +14985,25 @@
       return [...builtins, ...extras];
     }
 
+    // Pull the pictures for one category into state, for callers that need the
+    // FULL category rather than a board's worth (the admin editor). Returns
+    // true if anything was hydrated.
+    async function hydrateOneCategory(id) {
+      const cat = state.publishedCategories.find(c => c.id === id);
+      if (!categoryNeedsMedia(cat) || !window.IZZBAH.hydrateCategoryMedia) return false;
+      const vers = {}; if (cat.updatedAtMs) vers[id] = cat.updatedAtMs;
+      let media = null;
+      try { media = await window.IZZBAH.hydrateCategoryMedia([id], vers); } catch (e) { return false; }
+      const qs = media && media.get(id);
+      if (!qs) return false;
+      (cat.questions || []).forEach((q, i) => {
+        const m = qs[i]; if (!m) return;
+        if (m.image) q.image = m.image;
+        if (m.answerImage) q.answerImage = m.answerImage;
+      });
+      hydratedCats.add(id);
+      return true;
+    }
     function adminCloneCategory(id) {
       const override = state.publishedCategories.find(c => c.id === id);
       if (override) return JSON.parse(JSON.stringify(override));
@@ -15016,6 +15034,17 @@
     }
 
     function selectAdminCategory(id) {
+      // The admin edits the REAL category, pictures included, so hydrate before
+      // cloning. Without this the editor would show every question as
+      // pictureless and a publish would wipe the images from the cloud.
+      hydrateOneCategory(id).then(got => {
+        if (!got) return;
+        if (state.adminCat && state.adminCat.id === id) {
+          state.adminCat = adminCloneCategory(id);
+          renderAdminTable();
+          renderAdminCatHead();
+        }
+      });
       state.adminCat = adminCloneCategory(id);
       state.adminDirty = false;
       clearAdminUndo(); // undo history is per-category
@@ -18264,6 +18293,63 @@
       renderCustomEditor();
     }
 
+    // Media hydration. Boot deliberately holds text-only questions (see
+    // liteCategoryFromDoc), so the pictures for THIS game's categories are
+    // fetched just before the board is drawn. Merged in place, which is why
+    // every downstream reader of q.image / q.answerImage needs no change.
+    const hydratedCats = new Set();
+    function categoryNeedsMedia(cat) {
+      return !!(cat && cat.__lite && !hydratedCats.has(cat.id));
+    }
+    async function ensureBoardMedia() {
+      if (!window.IZZBAH || !window.IZZBAH.hydrateCategoryMedia) return;
+      const cats = activeCategories().filter(categoryNeedsMedia);
+      if (!cats.length) return;
+      const vers = {};
+      cats.forEach(c => { if (c.updatedAtMs) vers[c.id] = c.updatedAtMs; });
+      let media = null;
+      try { media = await window.IZZBAH.hydrateCategoryMedia(cats.map(c => c.id), vers); }
+      catch (e) { media = null; }
+      cats.forEach(cat => {
+        const qs = media && media.get(cat.id);
+        // Mark hydrated either way: a category with genuinely no pictures must
+        // not be re-fetched before every single game. A FAILED read returns no
+        // entry at all (loadCategoryMedia never reports "none" on error), so the
+        // only thing a miss costs is a retry on the next game.
+        if (!qs) return;
+        (cat.questions || []).forEach((q, i) => {
+          const m = qs[i];
+          if (!m) return;
+          if (m.image) q.image = m.image;
+          if (m.answerImage) q.answerImage = m.answerImage;
+        });
+        hydratedCats.add(cat.id);
+      });
+    }
+    // Both places that open a board funnel through here so neither can forget.
+    //
+    // Deliberately SYNCHRONOUS up to and including renderGame(): callers depend
+    // on the board existing when this returns — startGame() saves the live game
+    // straight after, and renderGame() is what pins this run's questions onto
+    // the record. Making it async silently reordered that and broke eight tests.
+    // So: draw the board now (text is already in memory), hold the veil over it
+    // while the pictures arrive so nobody can open a question early, then
+    // re-render with the media in place.
+    function enterBoard() {
+      renderGame();
+      showScreen("game");
+      if (!activeCategories().some(categoryNeedsMedia)) return;
+      if (window.IZZBAH.holdBootVeil) {
+        window.IZZBAH.holdBootVeil();
+        const t = document.querySelector("#bootVeil .veil-text");
+        if (t) t.textContent = "جارٍ تجهيز الأسئلة…";
+      }
+      ensureBoardMedia()
+        .then(() => { if (state.gameActive) renderGame(); })
+        .catch(() => {})
+        .then(() => { if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil(); });
+    }
+
     function startGame() {
       // Guard against a blank board: every selected category may have been
       // deleted or be empty (e.g. a shared link to a removed category, or a
@@ -18324,8 +18410,7 @@
       state.gameActive = true;
       state.gameCounted = false; // = "results not yet recorded" (stats-only now)
       state.gameStartedAt = Date.now(); // feeds the avg-game-duration insight
-      renderGame();
-      showScreen("game");
+      enterBoard();
       saveLiveGame();
       track("game_start", { teams: state.teamCount, categories: state.selected.size, replay: isReplay });
     }
@@ -21163,6 +21248,12 @@
       return {
         id: c.id, name: c.name || "", image: c.image || publishedCoverFallbacks[c.id] || "", color: c.color || "",
         custom: false, published: true, order: c.order || 0,
+        // Carried through deliberately: __lite says "questions are text-only,
+        // media still to fetch", and updatedAtMs keys the per-category media
+        // cache. Dropping either here makes hydration a silent no-op and the
+        // game plays with no pictures at all.
+        __lite: !!c.__lite,
+        updatedAtMs: c.updatedAtMs || (c.updatedAt && typeof c.updatedAt.toMillis === "function" ? c.updatedAt.toMillis() : 0),
         questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => {
           const out = {
             points: q.points || pointValues[i] || 100,
@@ -21623,6 +21714,18 @@
               return opened;
             }
             return {
+              get(id) { // -> entry | null  (one key; hydration must not load the world)
+                return open().then(idb => {
+                  if (!idb) return null;
+                  return new Promise(resolve => {
+                    try {
+                      const req = idb.transaction("cats", "readonly").objectStore("cats").get(id);
+                      req.onsuccess = () => resolve(req.result || null);
+                      req.onerror = () => resolve(null);
+                    } catch (e) { resolve(null); }
+                  });
+                }).catch(() => null);
+              },
               all() { // -> Map(id -> entry) | null
                 return open().then(idb => {
                   if (!idb) return null;
@@ -21669,51 +21772,98 @@
           function questionMediaCount(qs) {
             return (qs || []).reduce((n, q) => n + ((q && (q.image || q.answerImage)) ? 1 : 0), 0);
           }
-          function loadCategoryDoc(d) {
+          // BOOT SHAPE. The parent doc already carries a text-only copy of every
+          // question, so boot needs nothing else: the picker and the board show
+          // text, and only an OPEN question needs a picture. Reading every
+          // category's /questions subcollection here — which is where the base64
+          // images live — put the whole catalogue's media in memory at launch.
+          // At the real catalogue size that measured 541 MB of JS heap, which is
+          // far past what iOS Safari gives a tab: the app was killed and killed
+          // again on reload ("A problem repeatedly occurred"). Text-only is 5 MB.
+          // Media is fetched per game by hydrateCategoryMedia() below.
+          function liteCategoryFromDoc(d) {
             const data = d.data() || {};
             const inline = Array.isArray(data.questions) ? data.questions : [];
-            // source:"server" — a plain get() on a flaky connection can "succeed"
-            // with an EMPTY snapshot from the SDK's own cache, which read as
-            // "this category has no question docs" and silently served the
-            // parent's TEXT-ONLY copy — players then saw questions with no
-            // pictures. A server read rejects instead and lands in the catch.
-            return d.ref.collection("questions").get({ source: "server" })
-              .then(qsnap => {
-                readStats.questionDocs += qsnap.size;
-                const questions = qsnap.empty
-                  ? inline
-                  : qsnap.docs.map(q => q.data())
-                      .sort((a, b) => (a.idx || 0) - (b.idx || 0))
-                      .map(q => {
-                        const out = { points: q.points || 0, q: q.q || "", a: q.a || "", image: q.image || "", answerImage: q.answerImage || "" };
-                        // Curated distractors come from the meta doc's questions
-                        // array (by index); fall back to a legacy per-question
-                        // copy if one was written by an older build.
-                        const meta = inline[q.idx || 0];
-                        const d = (meta && Array.isArray(meta.distractors) && meta.distractors.length) ? meta.distractors
-                          : (Array.isArray(q.distractors) && q.distractors.length ? q.distractors : null);
-                        if (d) out.distractors = d.slice(0, 3);
-                        // «الأقرب يفوز» winning margin (+ optional unit), on the meta copy.
-                        if (meta && Number(meta.margin) > 0) out.margin = Number(meta.margin);
-                        if (meta && meta.marginUnit) out.marginUnit = String(meta.marginUnit);
-                        return out;
-                      });
-                return Object.assign({ id: d.id }, data, { questions });
-              })
-              // Read failed (offline / App Check hiccup / quota): serve the
-              // text-only copy so the game still works, but MARK it degraded so
-              // it is never written into the device cache — an imageless
-              // category cached under an unchanged publish timestamp used to
-              // stick forever (pictures gone until the next republish).
-              .catch(() => Object.assign({ id: d.id, __degraded: true }, data, { questions: inline }));
+            const questions = inline.map(q => {
+              const out = { points: q.points || 0, q: q.q || "", a: q.a || "", image: "", answerImage: "" };
+              if (Array.isArray(q.distractors) && q.distractors.length) out.distractors = q.distractors.slice(0, 3);
+              if (Number(q.margin) > 0) out.margin = Number(q.margin);
+              if (q.marginUnit) out.marginUnit = String(q.marginUnit);
+              return out;
+            });
+            const ms = data.updatedAt && typeof data.updatedAt.toMillis === "function" ? data.updatedAt.toMillis() : 0;
+            const lite = Object.assign({ id: d.id }, data, { questions: questions, __lite: true, updatedAtMs: ms });
+            // The cover is the one image boot DOES need (the picker shows it).
+            // Everything else that could be heavy is dropped on the floor here.
+            return lite;
           }
+          // Full media for ONE category, used when a game actually starts.
+          // Cached per category under "media:<id>" and keyed by the same publish
+          // timestamp as the lite entry, so an unchanged category costs no reads
+          // on later games.
+          function loadCategoryMedia(catId, ver) {
+            const key = "media:" + catId;
+            return catCache.get(key).then(hit => {
+              if (hit && ver > 0 && hit.ver === ver && Array.isArray(hit.qs)) return hit.qs;
+              // source:"server" — offline, a plain get() "succeeds" EMPTY from the
+              // SDK's own cache, which would read as "this category has no
+              // pictures" and (if cached) stick that way. A server read rejects
+              // instead, and the catch below returns null = "unknown", never "none".
+              return db.collection("categories").doc(catId).collection("questions")
+                .get({ source: "server" })
+                .then(qsnap => {
+                  readStats.questionDocs += qsnap.size;
+                  if (qsnap.empty) return null; // legacy inline-only category
+                  const qs = [];
+                  qsnap.docs.forEach(doc => {
+                    const q = doc.data() || {};
+                    qs[q.idx || 0] = { image: q.image || "", answerImage: q.answerImage || "" };
+                  });
+                  if (ver > 0) catCache.put(key, { ver: ver, qs: qs });
+                  return qs;
+                })
+                .catch(() => null); // never cache a failure as "no images"
+            }).catch(() => null);
+          }
+          // Legacy fallback: categories published before the per-question model
+          // keep their images inline on the parent doc.
+          function loadInlineMedia(catId) {
+            return db.collection("categories").doc(catId).get({ source: "server" })
+              .then(doc => {
+                const inline = ((doc.data() || {}).questions) || [];
+                if (!Array.isArray(inline)) return null;
+                const qs = inline.map(q => ({ image: (q && q.image) || "", answerImage: (q && q.answerImage) || "" }));
+                return qs.some(x => x.image || x.answerImage) ? qs : null;
+              })
+              .catch(() => null);
+          }
+          // Hydrate the categories a game is about to use. Resolves to a Map of
+          // id -> [{image, answerImage}, …] indexed like the question list. Ids
+          // that could not be read are simply absent — the caller plays on with
+          // text, which is what the old degraded path did too.
+          window.IZZBAH.hydrateCategoryMedia = function (ids, vers) {
+            const want = (ids || []).filter(Boolean);
+            if (!want.length || !db) return Promise.resolve(new Map());
+            return Promise.all(want.map(id => {
+              const ver = (vers && vers[id]) || 0;
+              return loadCategoryMedia(id, ver)
+                .then(qs => qs || loadInlineMedia(id))
+                .then(qs => [id, qs])
+                .catch(() => [id, null]);
+            })).then(pairs => {
+              const out = new Map();
+              pairs.forEach(([id, qs]) => { if (qs) out.set(id, qs); });
+              return out;
+            });
+          };
           // Serve the cached official categories (used when the network fails or
           // stalls). A fresher network result arriving later simply re-applies.
           function applyCachedCategories(cache, intentional) {
             if (!cache) return false;
             const cats = [];
             cache.forEach((v, k) => {
-              if (typeof k === "string" && k.indexOf("__") !== 0 && v && v.cat) cats.push(v.cat);
+              if (typeof k !== "string" || k.indexOf("__") === 0 || k.indexOf("media:") === 0) return;
+              if (v && v.cat) cats.push(v.cat);
             });
             if (!cats.length) return false;
             if (!intentional) readStats.fallbackUsed = true; // only a real failure counts
@@ -21730,15 +21880,15 @@
             return catCache.all().then(cache => {
               const revHit = cache && cache.get(CATALOG_REV_KEY);
               const cachedRev = revHit && typeof revHit.rev === "number" ? revHit.rev : null;
-              const haveCats = cache && [...cache.keys()].some(k => typeof k === "string" && k.indexOf("__") !== 0);
-              // A legacy cache entry with zero media may be the frozen text-only
-              // fallback (the "no pictures" bug). The rev fast-path would serve
-              // it forever — skip the fast path until the full pass has healed
-              // (re-read + stamped imgN on) every suspect entry.
-              const cacheSuspect = cache && [...cache.entries()].some(([k, v]) =>
-                typeof k === "string" && k.indexOf("__") !== 0 && v && v.imgN == null && v.cat
-                && Array.isArray(v.cat.questions) && v.cat.questions.length > 0
-                && questionMediaCount(v.cat.questions) === 0);
+              const haveCats = cache && [...cache.keys()].some(k =>
+                typeof k === "string" && k.indexOf("__") !== 0 && k.indexOf("media:") !== 0);
+              // NOTE: the old "cacheSuspect" guard is gone on purpose. It treated
+              // a cached category with zero media as a corrupt text-only copy —
+              // correct when boot cached full categories, but text-only is now
+              // the DESIGNED boot shape, so it would fire on every entry and
+              // permanently disable the fast path. The hazard it guarded (a
+              // failed read cached as "no pictures") now lives in
+              // loadCategoryMedia, which caches nothing on failure.
               // ONE read of meta/catalog decides everything. Read it first (a
               // player, not an admin — admins always take the full path so their
               // own just-published edits appear at once). Any failure (doc
@@ -21753,7 +21903,7 @@
               // straight away and let the freshness check re-apply over it.
               // Admins are excluded: they need to see their own just-published
               // edits, not a cached copy of them.
-              if (haveCats && !cacheSuspect && !cloudIsAdmin) applyCachedCategories(cache, true);
+              if (haveCats && !cloudIsAdmin) applyCachedCategories(cache, true);
 
               const revP = cloudIsAdmin
                 ? Promise.resolve(null)
@@ -21764,7 +21914,7 @@
                 // FAST PATH: the catalog revision is unchanged and we hold a
                 // populated cache — serve it and skip reading every category
                 // doc (1 read this whole load instead of ~one-per-category).
-                if (freshRev != null && cachedRev != null && freshRev === cachedRev && haveCats && !cacheSuspect) {
+                if (freshRev != null && cachedRev != null && freshRev === cachedRev && haveCats) {
                   readStats.versionSkips++;
                   applyCachedCategories(cache, true);
                   return;
@@ -21788,38 +21938,31 @@
                       const data = d.data() || {};
                       const ver = data.updatedAt && typeof data.updatedAt.toMillis === "function" ? data.updatedAt.toMillis() : 0;
                       const hit = cache && cache.get(d.id);
-                      // Legacy entries (no imgN) whose questions carry ZERO media
-                      // are suspect: they may be a text-only fallback that got
-                      // cached by the old code (the "no pictures" bug). Re-read
-                      // them once — the rewrite below stamps imgN, so a genuinely
-                      // text-only category takes this one extra read only once.
-                      const suspect = hit && hit.imgN == null && hit.cat
-                        && Array.isArray(hit.cat.questions) && hit.cat.questions.length > 0
-                        && questionMediaCount(hit.cat.questions) === 0;
-                      if (hit && !suspect && ver > 0 && hit.ver === ver && hit.cat && Array.isArray(hit.cat.questions)) {
+                      if (hit && hit.lite && ver > 0 && hit.ver === ver && hit.cat && Array.isArray(hit.cat.questions)) {
                         readStats.cacheHits++;
                         return hit.cat;
                       }
                       readStats.cacheMisses++;
-                      return loadCategoryDoc(d).then(cat => {
-                        // Strip the Firestore Timestamp before storing; the cache
-                        // key is `ver`, and plain JSON survives IndexedDB cleanly.
-                        // A DEGRADED result (text-only fallback after a failed
-                        // questions read) is served but NEVER cached — the next
-                        // load retries the full read instead of freezing an
-                        // imageless copy under an unchanged version.
-                        if (!cat.__degraded) {
-                          const plain = Object.assign({}, cat);
-                          delete plain.updatedAt;
-                          catCache.put(d.id, { ver, imgN: questionMediaCount(cat.questions), cat: plain });
-                        }
-                        return cat;
-                      });
+                      // Built straight from the parent doc we already hold — no
+                      // extra read, and no media. `lite: true` marks the new
+                      // cache shape so an entry written by an older build (which
+                      // stored whole categories, images and all) is treated as a
+                      // miss and rewritten small.
+                      const cat = liteCategoryFromDoc(d);
+                      const plain = Object.assign({}, cat);
+                      delete plain.updatedAt;
+                      catCache.put(d.id, { ver: ver, lite: true, cat: plain });
+                      return cat;
                     })).then(cats => {
                       // Categories deleted in the cloud leave the cache too (keys
                       // starting with "__" are non-category blobs, keep those).
                       if (cache) cache.forEach((v, k) => {
-                        if (typeof k === "string" && k.indexOf("__") !== 0 && !liveIds.has(k)) catCache.remove(k);
+                        if (typeof k !== "string" || k.indexOf("__") === 0) return;
+                        if (k.indexOf("media:") === 0) {
+                          if (!liveIds.has(k.slice(6))) catCache.remove(k);   // its category is gone
+                          return;
+                        }
+                        if (!liveIds.has(k)) { catCache.remove(k); catCache.remove("media:" + k); }
                       });
                       // Record the catalog revision this complete sync corresponds
                       // to, so the next load's one-doc check can short-circuit.
