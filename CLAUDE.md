@@ -93,6 +93,14 @@
   changed category's parent so devices actually pick the change up). New
   publishes are already capped automatically by both.
 
+- **NEVER add a render-blocking third-party `<link rel=stylesheet>` to
+  `<head>` (build .215).** The Google Fonts sheet was one, and with
+  fonts.googleapis.com unreachable first-contentful-paint and DOMContentLoaded
+  never fired at all — blank screen, game never started, until the browser gave
+  up (~13s) or forever if the request hung. It now loads `media="print"` and is
+  promoted to `all` onload. `tests/bootblock.mjs` fails CI if a blocking
+  third-party stylesheet reappears (`<noscript>` is exempt).
+
 - **COMMUNITY question media is LAZY too (build .213).** A community category
   is ONE doc with its questions and their base64 images inline, and an ADMIN
   loads the approved pool + their own + EVERY pending submission — 39 MB

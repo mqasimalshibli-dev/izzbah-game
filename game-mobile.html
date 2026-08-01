@@ -6138,7 +6138,23 @@
   <link rel="dns-prefetch" href="https://www.gstatic.com">
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   <!-- Unified type system: Cairo (all text) + Lalezar (display numbers) + Aref Ruqaa (عزبة wordmark only) -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Loaded WITHOUT blocking render. As a plain stylesheet this was the single
+       worst thing in the boot path: a render-blocking request to a third party.
+       Measured with fonts.googleapis.com not answering, first-contentful-paint
+       and DOMContentLoaded never fired at all — the player got a blank screen
+       and the game did not start until the browser gave up (~13s), or forever
+       if the request just hung. Captive-portal wifi, a censored network or
+       flaky mobile data all produce exactly that.
+       media="print" makes it non-blocking; onload promotes it to the real
+       stylesheet once it arrives. The page paints immediately in the fallback
+       stack and swaps to Cairo when it lands (the CSS already asks for
+       display=swap), so a slow font costs a font, not the whole app. -->
+  <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap">
+  <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap">
+  <noscript><link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Lalezar&family=Aref+Ruqaa:wght@400;700&display=swap"></noscript>
 </head>
 <body>
   <!-- Boot veil: raised when the player presses «ابدأ لعبة جديدة» or sign-in
@@ -11267,7 +11283,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.214";
+    const IZZBAH_BUILD = "2026-08-01.215";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
