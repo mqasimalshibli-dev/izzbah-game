@@ -184,6 +184,32 @@ try {
     contact.open && contact.qr && contact.insta && contact.mail);
   await page.evaluate(() => document.getElementById("contactClose").click());
 
+  // ---- «إبلاغ عن مشكلة» reaches the SAME modal as the in-game flag ----
+  // Before this row the report modal was reachable only from the flag in the
+  // game topbar, so a player outside a live game had no way to report anything.
+  const report = await page.evaluate(async () => {
+    document.getElementById("userSettingsBtn").click();
+    await new Promise(r => setTimeout(r, 250));
+    const row = document.getElementById("settingsReport");
+    if (!row) return { missing: true };
+    row.click();
+    await new Promise(r => setTimeout(r, 350));
+    return {
+      settingsClosed: !document.getElementById("settingsModal").classList.contains("open"),
+      reportOpen: document.getElementById("reportModal").classList.contains("open"),
+      // the very same modal the topbar flag opens — not a copy
+      sameModal: !!document.querySelector("#reportModal #reportText"),
+      emptied: document.getElementById("reportText").value === "",
+      focused: document.activeElement && document.activeElement.id === "reportText",
+    };
+  });
+  check("settings offers a report row", !report.missing);
+  check("pressing it closes settings and opens the report modal",
+    report.settingsClosed && report.reportOpen);
+  check("it is the same #reportModal the in-game flag opens", report.sameModal);
+  check("the box starts empty and focused", report.emptied && report.focused);
+  await page.evaluate(() => document.getElementById("reportCancel").click());
+
   // ---- admin accounts cannot delete themselves ----
   const adminGuard = await page.evaluate(async () => {
     let calls = 0;

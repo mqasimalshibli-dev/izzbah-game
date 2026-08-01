@@ -6833,6 +6833,7 @@
       <div class="settings-section">الأخبار والدعم</div>
       <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico" aria-hidden="true">💬</span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsReport" type="button"><span class="settings-ico" aria-hidden="true">🚩</span><span class="settings-label">إبلاغ عن مشكلة</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
@@ -11258,7 +11259,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.210";
+    const IZZBAH_BUILD = "2026-08-01.211";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -20897,6 +20898,12 @@
       m.classList.remove("open");
       m.setAttribute("aria-hidden", "true");
     }
+    // The report modal used to be reachable ONLY from the flag in the game
+    // topbar, so a player who hit a problem outside a live game — a broken
+    // category, a bad picture in the picker — had nowhere to say so. Same
+    // modal, same feedback channel; sendReport() just adds no "during question"
+    // context line when there is no question open.
+    $("#settingsReport").addEventListener("click", () => { closeSettings(); openReport(); });
     $("#settingsContact").addEventListener("click", () => { closeSettings(); openContact(); });
     $("#contactClose").addEventListener("click", closeContact);
     $("#contactModal").addEventListener("click", event => { if (event.target.id === "contactModal") closeContact(); });
