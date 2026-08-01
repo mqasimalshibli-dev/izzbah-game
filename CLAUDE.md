@@ -93,6 +93,17 @@
   changed category's parent so devices actually pick the change up). New
   publishes are already capped automatically by both.
 
+- **COMMUNITY question media is LAZY too (build .213).** A community category
+  is ONE doc with its questions and their base64 images inline, and an ADMIN
+  loads the approved pool + their own + EVERY pending submission — 39 MB
+  retained for 20 pending, which is why the Safari crash hit admin accounts
+  hardest. `normalizeCommunityCategory` strips question media at the state
+  boundary (all three apply* paths funnel through it) and marks `__lite`;
+  `hydrateMediaInto()` fetches it back for a game or the editor. ⚠️ Opening the
+  community EDITOR must hydrate first and VERIFY it worked — saving
+  republishes the whole doc, so an editor opened over a stripped copy wipes the
+  author's pictures.
+
 - **Question media is LAZY (build .209).** Boot reads ONLY the parent category
   docs — which already carry a text-only copy of every question — so the
   picker and board run on ~5 MB. Question/answer images live in the
