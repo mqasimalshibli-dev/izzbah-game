@@ -77,6 +77,14 @@
   different places" vs "same room, own phones" (same tech, different networking
   assumptions).
 
+- **Cover-shrink migration — BUILT (.205) but NOT RUN (owner deferred,
+  2026-08-01).** Published category covers are still the old ~600 KB base64
+  blobs inside the parent docs, so the picker's cold load still downloads
+  ~10 MB; the admin button «⚡ ضغط صور الفئات» (next to the backup button)
+  rewrites them to 480px/~95 KB in place. Owner should press «⬇ نسخة
+  احتياطية» first. Optional: raise the cap to 576px (~+30 KB each) for zero
+  softness on 3× screens. New publishes are already capped automatically.
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are
@@ -146,7 +154,10 @@ Single self-contained page, same palette and type system as the game. Marked
   (`VIDEO_UPLOAD_SETUP.md` has the runbook). The rest runs client-side.
 - Develop on the designated feature branch, merge `--no-ff` into `root`
   (the GitHub Pages branch), push, and verify the smoke workflow is green.
-- Bump `IZZBAH_BUILD` on every deploy.
+- Bump `IZZBAH_BUILD` on every deploy — **and the `CACHE` name in `sw.js`
+  with it** (they must match exactly; `tests/swsync.mjs` fails CI otherwise).
+  This drifted once (.204–.207 shipped with a .203 cache name) and phones kept
+  launching the stale shell a deploy behind.
 - Tests live in `tests/*.mjs` (Playwright, offline — Firebase aborted); every
   new feature gets a test registered as a step in
   `.github/workflows/smoke.yml`.

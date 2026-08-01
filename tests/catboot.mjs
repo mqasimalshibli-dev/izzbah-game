@@ -6,11 +6,14 @@
 // seconds, then watched it all swap. The picker must never show that.
 //
 // The rules now:
-//   • Cloud still coming  → shimmer skeletons, and NO bundled covers.
+//   • Cloud still coming  → shimmer skeletons, and NO bundled covers — for as
+//     long as it takes. There is deliberately no timed flip to built-ins any
+//     more: the .207 backstop fired on slow (not dead) phones and showed them
+//     last release's categories, which is the exact complaint this guards
+//     against. The welcome-screen boot gate (tests/welcomegate.mjs) holds the
+//     player instead.
 //   • Cloud can never come (SDK failed to load) → release immediately. Waiting
 //     out a timer for a result that cannot arrive is the worst of both.
-//   • Cloud loaded but Firestore silent → a backstop eventually shows the
-//     built-ins, because stale art still beats a picker that never resolves.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -79,11 +82,12 @@ try {
     const mid = await page.evaluate(GRID);
     check("still waiting a second later → still no stale covers", mid.bundled === 0);
 
-    // the backstop must eventually resolve rather than shimmer forever
+    // Slow is not failed: even well past the old 4s backstop, a cloud that is
+    // merely SLOW must never be answered with last release's built-ins.
     await page.waitForTimeout(4000);
     const late = await page.evaluate(GRID);
-    check("backstop eventually shows the built-ins rather than shimmering forever",
-      late.sk === 0 && late.real > 0);
+    check("a slow cloud is NEVER answered with the built-ins (no timed flip)",
+      late.sk >= 4 && late.real === 0 && late.bundled === 0);
     await page.close();
   }
 
