@@ -2914,12 +2914,14 @@
         margin-top: 0;
         gap: 3px;
       }
+      /* 12x12 was roughly a ninth of a usable target — and these are the ONLY
+         way to correct a mis-award once «متابعة» has been pressed. */
       .score-tools button {
-        width: 12px;
-        height: 12px;
-        border-width: 1px;
-        border-radius: 4px;
-        font-size: 8px;
+        width: 26px;
+        height: 26px;
+        border-width: 2px;
+        border-radius: 8px;
+        font-size: 15px;
       }
       .board-scroll {
         flex: 1 1 auto;
@@ -5186,11 +5188,17 @@
       #game .mini-brand::before { width: clamp(26px, 4.4vw, 38px); height: clamp(18px, 3vw, 26px); }
       #game .mini-brand::after { font-size: clamp(15px, 3vw, 20px); }
       #game .score-unit { border-radius: 12px !important; border-width: 2px !important; box-shadow: 0 2px 0 #fff inset, 0 8px 14px -10px rgba(60, 40, 15, .5) !important; }
-      #game .score-cell.active-team::before { font-size: 7px !important; padding: 1px 6px !important; top: -7px !important; right: 6px !important; }
+      /* Read from across a table, not at arm's length: this is how a room knows
+   whose turn it is. 7px could not do that job. */
+#game .score-cell.active-team::before { font-size: 11px !important; font-weight: 900 !important; padding: 2px 9px !important; top: -10px !important; right: 6px !important; }
       #game .board-category-card { border-radius: 12px !important; }
       #game .board-card-title { top: 6px; right: 6px; padding: 3px 10px !important; font-size: clamp(13px, 2.7vw, 20px) !important; border-radius: 9px !important; }
       #game .board-card-points { padding: clamp(6px, 1.6vh, 11px) !important; gap: clamp(5px, 1.4vh, 9px) !important; }
-      #game .board-card-points .cell { height: clamp(24px, 6.5vh, 46px) !important; border-radius: 8px !important; font-size: clamp(13px, 2.4vw, 19px) !important; line-height: 1 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
+      /* The tile is the thing everyone reaches for, and this clamp made it 24-28px
+   tall on every real phone (the 46px ceiling needs 708px of height, which no
+   phone in landscape has). The card is a flex column, so raising the floor
+   takes the space from the cover art above rather than overflowing the board. */
+#game .board-card-points .cell { height: clamp(34px, 9.5vh, 46px) !important; border-radius: 8px !important; font-size: clamp(13px, 2.4vw, 19px) !important; line-height: 1 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
       #game .topbar .topbar-right { gap: 8px !important; }
       #game .qhelp-bar--team { flex-direction: row !important; flex-wrap: wrap !important; gap: 4px !important; padding: 5px 6px !important; border-radius: 0 !important; align-content: center !important; max-width: 46% !important; }
       #game .qhelp-bar--team .qhelp-slot { width: 24px !important; height: 24px !important; border-width: 1.5px !important; }
@@ -11259,7 +11267,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.213";
+    const IZZBAH_BUILD = "2026-08-01.214";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18541,11 +18549,17 @@
         `;
         const tools = document.createElement("div");
         tools.className = "score-tools";
+        const teamLabel = teamDisplayName(team, i);
         const minus = document.createElement("button");
         minus.textContent = "−";
+        // "−, button" told a screen-reader user nothing: which team, which way?
+        minus.setAttribute("aria-label", "إنقاص نقاط " + teamLabel + " ٥٠");
+        minus.title = "إنقاص ٥٠";
         bindHold(minus, team, -50);
         const plus = document.createElement("button");
         plus.textContent = "+";
+        plus.setAttribute("aria-label", "زيادة نقاط " + teamLabel + " ٥٠");
+        plus.title = "زيادة ٥٠";
         bindHold(plus, team, 50);
         tools.append(minus, plus);
         box.appendChild(tools);
@@ -19720,7 +19734,11 @@
     const HELPERS = {
       fourChoices:  { label: "أربعة خيارات", phase: "question", icon: ICON_GRID },
       firstLetter:  { label: "كشف أول حرف",  phase: "question", icon: ICON_ALINE },
-      doublePoints: { label: "مضاعفة النقاط", phase: "board",    icon: ICON_X2 },
+      // activeOnly, like «سؤال عشوائي»: ×2 belongs to the turn it is played on.
+      // Without it ANY team could arm it from the board, and since the award
+      // read the WINNER's flag they could bank a surprise 600 on a card that
+      // showed no ×2 at all.
+      doublePoints: { label: "مضاعفة النقاط", phase: "board",    icon: ICON_X2, activeOnly: true },
       steal:        { label: "سرقة الدور",    phase: "board",    icon: ICON_STEAL },
       changeTurn:   { label: "سؤال عشوائي",   phase: "board",    icon: ICON_TURN, activeOnly: true },
       banHelp:      { label: "حظر المساعدات",  phase: "board",    icon: ICON_BAN }
@@ -20111,7 +20129,21 @@
       markQuestionAnswered(active.cat, active.q);
       if (typeof winnerIndex === "number") {
         const winnerTeam = state.teams[winnerIndex];
-        const gained = questionReward(active.cat, active.q) * (winnerTeam.doubleArmed ? 2 : 1);
+        // «مضاعفة النقاط» belongs to the TEAM that armed it, not to the
+        // question: if another team answers, they get normal points and the
+        // arming team's one-shot is spent anyway (see the consume below, and
+        // tests/gameplay.mjs which pins exactly this). Since only the team
+        // whose turn it is can arm it now (activeOnly), the winner's flag can
+        // only be set for that team — so this reads correctly and the ×2 on
+        // the card can no longer disagree with what gets paid.
+        // Doubled only when the team that ARMED it is the team being credited.
+        // activeOnly already stops anyone else arming it from the board, but
+        // this is the line that actually decides money-on-the-board, so it does
+        // not rely on the button being disabled: a flag left set on another
+        // team by any means still cannot pay out a double the card never
+        // promised. (active.team is the team whose turn opened this question.)
+        const armedByPicker = winnerIndex === active.team && winnerTeam.doubleArmed;
+        const gained = questionReward(active.cat, active.q) * (armedByPicker ? 2 : 1);
         winnerTeam.score = Math.min(maxTotalScore, winnerTeam.score + gained);
         if (winnerTeam.doubleArmed) winnerTeam.doubleArmed = false; // consumed on an answered question
         playSfx("correct");
