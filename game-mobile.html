@@ -7156,6 +7156,7 @@
           <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
           <button class="secondary" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية">⬇ نسخة احتياطية</button>
           <button class="secondary" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار.">⚡ ضغط صور الفئات</button>
+          <button class="secondary" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار.">⚡ ضغط صور الأسئلة</button>
         </div>
         <div class="admin-controls">
           <div class="admin-search">
@@ -11257,7 +11258,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.209";
+    const IZZBAH_BUILD = "2026-08-01.210";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13217,7 +13218,25 @@
     // Shrink one question's images so its OWN document fits under ~1 MiB. With the
     // per-question storage model each question gets its own 1 MiB budget, so a
     // category can hold many full-quality images.
-    const QUESTION_BUDGET = 950000;
+    // Per-question budget. The old 950 KB let a single question carry most of a
+    // megabyte of base64, which is what made a game's media load so heavy once
+    // hydrateCategoryMedia pulls six categories' worth. A question image is
+    // shown at most 680 CSS px wide, so 1024px is already generous on a phone.
+    const QUESTION_BUDGET = 300000;                    // base64 bytes
+    const QUESTION_PASSES = [[1024, 0.82], [1024, 0.74], [880, 0.72], [720, 0.64], [560, 0.56], [420, 0.46]];
+    // Always re-encode from the ORIGINAL, never from the previous pass —
+    // stacking JPEG passes adds artefacts and saves almost nothing. (Same bug
+    // the cover path had; fixed there in .205.)
+    async function fitQuestionMedia(q, budget) {
+      const orig = { image: q.image || "", answerImage: q.answerImage || "" };
+      const size = () => JSON.stringify({ p: q.points, q: q.q, a: q.a, i: q.image || "", ai: q.answerImage || "" }).length;
+      for (const [dim, ql] of QUESTION_PASSES) {
+        if (orig.image) q.image = await recompressDataUrl(orig.image, dim, ql);
+        if (orig.answerImage) q.answerImage = await recompressDataUrl(orig.answerImage, dim, ql);
+        if (size() <= budget) return true;
+      }
+      return size() <= budget;
+    }
     // Per-cover budget and passes. Small on purpose: see fitCategoryForPublish
     // below — the category picker pays this once per category, in a single
     // query, so the budget is effectively multiplied by the catalogue size.
@@ -13239,15 +13258,12 @@
       return out;
     }
     async function fitQuestionForDoc(q, budget = QUESTION_BUDGET) {
-      const size = () => JSON.stringify({ p: q.points, q: q.q, a: q.a, i: q.image || "", ai: q.answerImage || "" }).length;
-      if (size() <= budget) return true;
-      const passes = [[1280, 0.86], [1040, 0.8], [840, 0.72], [660, 0.64], [520, 0.56], [400, 0.48], [320, 0.42]];
-      for (const [dim, ql] of passes) {
-        if (q.image) q.image = await recompressDataUrl(q.image, dim, ql);
-        if (q.answerImage) q.answerImage = await recompressDataUrl(q.answerImage, dim, ql);
-        if (size() <= budget) return true;
-      }
-      return size() <= budget;
+      // NOTE: no early return on "already under budget". The point is to cap the
+      // DIMENSIONS, not merely to squeeze whatever happens to be oversized — a
+      // 1600px photo that lands under the budget by luck still costs the player
+      // memory it can never use on screen.
+      if (!q.image && !q.answerImage) return true;
+      return fitQuestionMedia(q, budget);
     }
 
     // Prepare a category for publishing under the per-question model: keep the
@@ -19384,6 +19400,67 @@
     //
     // Safe to re-run and safe to interrupt: each category is independent, only
     // the cover field is written, and anything already under budget is skipped.
+    // Admin maintenance: shrink the QUESTION images already published.
+    //
+    // Companion to shrinkPublishedCovers. Covers ride on the parent doc; these
+    // live in each category's /questions subcollection, so this walks category
+    // by category and rewrites only the questions whose media is over budget.
+    // New publishes are already capped by fitQuestionForDoc — this is for what
+    // is out there from before build .209.
+    //
+    // Safe to re-run and safe to interrupt: each question is independent, only
+    // the two media fields are written, and anything already small is skipped.
+    // Each finished category has its parent touched, which is what invalidates
+    // every device's cached copy — without that players keep the old images.
+    async function shrinkPublishedQuestionMedia() {
+      const btn = $("#adminShrinkQMedia");
+      if (!window.IZZBAH.listQuestionMedia) { showToast("سجّل الدخول كمشرف أولاً"); return; }
+      const cats = (state.publishedCategories || []).filter(c => c && c.id);
+      if (!cats.length) { showToast("لا توجد فئات منشورة"); return; }
+      if (!confirm("سيتم فحص صور الأسئلة في " + toArabicDigits(cats.length) + " فئة وضغط الكبير منها.\n\n"
+        + "قد تستغرق العملية عدة دقائق. الصور ستبقى واضحة — لن تتغير الأسئلة نفسها.\n\nنكمل؟")) return;
+
+      const orig = btn ? btn.textContent : "";
+      if (btn) btn.disabled = true;
+      let done = 0, shrunk = 0, failed = 0, before = 0, after = 0;
+      for (const cat of cats) {
+        done++;
+        if (btn) btn.textContent = "⏳ ضغط صور الأسئلة… " + toArabicDigits(done) + "/" + toArabicDigits(cats.length);
+        let list = null;
+        try { list = await window.IZZBAH.listQuestionMedia(cat.id); }
+        catch (e) { failed++; continue; }
+        let touched = false;
+        for (const item of (list || [])) {
+          const sizeOf = (o) => JSON.stringify({ i: o.image || "", ai: o.answerImage || "" }).length;
+          if (sizeOf(item) <= QUESTION_BUDGET) continue;
+          const q = { points: 0, q: "", a: "", image: item.image, answerImage: item.answerImage };
+          const wasBytes = sizeOf(item);
+          try {
+            await fitQuestionMedia(q, QUESTION_BUDGET);
+            const nowBytes = sizeOf(q);
+            // Never write a result that failed to shrink, and never blank an
+            // image out because a decode went wrong.
+            if (nowBytes >= wasBytes) continue;
+            if ((item.image && !q.image) || (item.answerImage && !q.answerImage)) continue;
+            const patch = {};
+            if (item.image) patch.image = q.image;
+            if (item.answerImage) patch.answerImage = q.answerImage;
+            await window.IZZBAH.writeQuestionMedia(cat.id, item.docId, patch);
+            before += wasBytes; after += nowBytes; shrunk++; touched = true;
+          } catch (e) { failed++; }
+        }
+        // Only touch a category we actually changed — a needless bump would
+        // make every device re-read a category for nothing.
+        if (touched) { try { await window.IZZBAH.touchCategory(cat.id); } catch (e) {} }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      const mb = (n) => toArabicDigits((n / 1048576).toFixed(1));
+      showToast(shrunk
+        ? "✓ تم ضغط " + toArabicDigits(shrunk) + " صورة سؤال — من " + mb(before) + " إلى " + mb(after) + " ميجابايت"
+          + (failed ? " (تعذّر " + toArabicDigits(failed) + ")" : "")
+        : (failed ? "تعذّر الوصول للأسئلة — تحقّق من الاتصال" : "كل صور الأسئلة مضغوطة بالفعل ✓"));
+    }
+
     async function shrinkPublishedCovers() {
       const btn = $("#adminShrinkCovers");
       if (!window.IZZBAH.cloudUpdateCover) { showToast("سجّل الدخول كمشرف أولاً"); return; }
@@ -21023,6 +21100,7 @@
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
     $("#adminShrinkCovers").addEventListener("click", shrinkPublishedCovers);
+    $("#adminShrinkQMedia").addEventListener("click", shrinkPublishedQuestionMedia);
     $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesQuestions").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesCancel").addEventListener("click", closeFetchImagesDialog);
@@ -22889,6 +22967,35 @@
           // updatedAt is bumped deliberately: it is the cache key every client
           // uses, and without it devices that already cached the old oversized
           // cover would keep serving it forever.
+          // ── Question-media migration bridge ─────────────────────────────
+          // The app scope owns the actual recompression (it needs a canvas), so
+          // this side just moves bytes: list a category's question media, write
+          // one question back, and touch the parent when a category is done.
+          window.IZZBAH.listQuestionMedia = function (catId) {
+            if (!db) return Promise.reject(new Error("no-db"));
+            return db.collection("categories").doc(catId).collection("questions")
+              .get({ source: "server" })
+              .then(snap => snap.docs
+                .map(d => ({ docId: d.id, idx: (d.data() || {}).idx || 0,
+                             image: (d.data() || {}).image || "",
+                             answerImage: (d.data() || {}).answerImage || "" }))
+                .filter(q => q.image || q.answerImage));
+          };
+          window.IZZBAH.writeQuestionMedia = function (catId, docId, patch) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            return db.collection("categories").doc(catId).collection("questions")
+              .doc(docId).update(patch);
+          };
+          // Bumping the parent is what makes players pick the change up: the
+          // lite cache AND the per-category media cache are both keyed by this
+          // timestamp, so without it every device keeps serving the old, large
+          // images from its own cache indefinitely.
+          window.IZZBAH.touchCategory = function (catId) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            return db.collection("categories").doc(catId)
+              .update({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(() => bumpCatalogRev());
+          };
           window.IZZBAH.cloudUpdateCover = function (id, image) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             return db.collection("categories").doc(id).update({

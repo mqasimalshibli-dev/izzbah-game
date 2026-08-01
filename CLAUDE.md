@@ -77,13 +77,21 @@
   different places" vs "same room, own phones" (same tech, different networking
   assumptions).
 
-- **Cover-shrink migration — BUILT (.205) but NOT RUN (owner deferred,
-  2026-08-01).** Published category covers are still the old ~600 KB base64
+- **Cover-shrink migration — BUILT (.205), still not run; see the migrations
+  note above.** (owner deferred, 2026-08-01). Published category covers are still the old ~600 KB base64
   blobs inside the parent docs, so the picker's cold load still downloads
   ~10 MB; the admin button «⚡ ضغط صور الفئات» (next to the backup button)
   rewrites them to 480px/~95 KB in place. Owner should press «⬇ نسخة
   احتياطية» first. Optional: raise the cap to 576px (~+30 KB each) for zero
   softness on 3× screens. New publishes are already capped automatically.
+
+- **TWO shrink migrations are BUILT but NOT RUN** (both admin buttons, both
+  safe to re-run, both irreversible — press «⬇ نسخة احتياطية» first):
+  «⚡ ضغط صور الفئات» rewrites published COVERS to 480px/95 KB, and
+  «⚡ ضغط صور الأسئلة» rewrites published QUESTION/ANSWER images to
+  1024px/300 KB (walks every /questions doc; takes minutes; touches each
+  changed category's parent so devices actually pick the change up). New
+  publishes are already capped automatically by both.
 
 - **Question media is LAZY (build .209).** Boot reads ONLY the parent category
   docs — which already carry a text-only copy of every question — so the
