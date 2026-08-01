@@ -448,6 +448,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node perceived.mjs
 
+      - name: Run lazy question-media test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node lazymedia.mjs
+
       - name: Run sw.js/build lockstep check
         working-directory: tests
         run: node swsync.mjs
