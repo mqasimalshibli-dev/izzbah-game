@@ -172,6 +172,22 @@ try {
   check("every created game is saved in the library and marked permanent",
     library.count >= 3 && library.allCharged);
 
+  // ---- a bailed saved game must not leave a free-replay pointer behind ----
+  // Opening a saved game whose categories no longer resolve bailed back to the
+  // picker with state.editingSavedGameId still set, so the NEXT start still
+  // counted as a replay of that (already-charged) record: free games forever.
+  const bail = await page.evaluate(async () => {
+    state.savedGames = [{ id: "sg-gone", title: "لعبة قديمة", categoryIds: ["ghost-cat"],
+                          charged: true, credit: "code", frozen: {}, createdAt: 1 }];
+    playSavedGame("sg-gone");                 // categories do not resolve
+    await new Promise(r => setTimeout(r, 150));
+    startGame();                              // bails to the picker
+    await new Promise(r => setTimeout(r, 150));
+    return { pointer: state.editingSavedGameId, replay: !!(activeSavedGameRecord() || {}).charged };
+  });
+  check("a bailed saved game clears its record pointer", bail.pointer === null);
+  check("...so the next start is NOT treated as a free replay", !bail.replay);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
