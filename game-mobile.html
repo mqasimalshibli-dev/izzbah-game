@@ -11259,7 +11259,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.211";
+    const IZZBAH_BUILD = "2026-08-01.212";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14164,7 +14164,7 @@
       const name = best.cat.name || "فئة";
       el.hidden = false;
       el.innerHTML = `<span class="cps-fire" aria-hidden="true">🔥</span>`
-        + `<span>الأكثر لعباً: <b class="cps-name">«${name}»</b></span>`
+        + `<span>الأكثر لعباً: <b class="cps-name">«${escapeHtml(name)}»</b></span>`
         + `<span class="cps-count clean-number">${toArabicDigits(best.count)}</span>`
         + `<span>مرّة</span>`;
       el.setAttribute("aria-label", `الأكثر لعباً: ${name}، ${best.count} مرّة. اضغط لاختيارها.`);
@@ -18373,6 +18373,13 @@
       // saved game whose categories are gone). Don't start with nothing to play.
       if (!activeCategories().length) {
         showToast("لا توجد فئات صالحة للّعب — اختر فئة تحتوي على أسئلة.");
+        // Drop the saved-game link before handing the player back to the
+        // picker. Leaving it set meant the NEXT start still resolved that
+        // record, so isReplay stayed true and the game ran free: open a saved
+        // game whose categories no longer resolve (deleted, hidden, or not yet
+        // loaded), let this bail fire, then pick any categories — unlimited
+        // uncharged games, and the private-category gate skipped with them.
+        state.editingSavedGameId = null;
         showScreen("categories");
         return;
       }
