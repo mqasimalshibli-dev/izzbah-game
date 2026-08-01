@@ -93,6 +93,18 @@
   changed category's parent so devices actually pick the change up). New
   publishes are already capped automatically by both.
 
+- **Fonts are SELF-HOSTED in `assets/fonts/` (build .216).** 28 woff2 files
+  (Cairo 400–900, Lalezar, Aref Ruqaa × arabic/latin/latin-ext), pulled from
+  Google Fonts with their `unicode-range` splits kept verbatim, so a browser
+  fetches only the ranges it renders (~10 files for an Arabic session). The
+  `@font-face` block is inlined in `<head>`; CSP is now `font-src 'self'` /
+  `style-src 'self' 'unsafe-inline'` with no font CDN allowed at all.
+  `tests/bootblock.mjs` fails CI if a third-party font reference or CSP
+  allowance reappears, and width-probes that each family really renders
+  (`document.fonts.check()` is useless — it returns true for a fallback).
+  These are FULL faces, not the landing page's 212 KB subsets: the game shows
+  cloud and player-typed Arabic, so a subset would render .notdef.
+
 - **NEVER add a render-blocking third-party `<link rel=stylesheet>` to
   `<head>` (build .215).** The Google Fonts sheet was one, and with
   fonts.googleapis.com unreachable first-contentful-paint and DOMContentLoaded
