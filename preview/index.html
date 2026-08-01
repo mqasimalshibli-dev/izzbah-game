@@ -521,17 +521,22 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
           <a class="btn magnetic" href="../game-mobile.html">العب الآن — مجاناً</a>
           <a class="btn ghost magnetic" href="#cats">شوف الفئات</a>
         </div>
+        <!-- ⚠️ These badges say «متوفّر الآن» and link to {{APP_STORE_URL}} /
+             {{PLAY_STORE_URL}}. Both are PLACEHOLDERS. Do not make this page
+             public until the apps are actually live AND these are replaced
+             with the real listing URLs — otherwise the page promises a
+             download that does not exist and the links 404. -->
         <div class="store-row rv" data-d="4">
-          <span class="store" aria-disabled="true" title="قريباً">
+          <a class="store magnetic" href="{{APP_STORE_URL}}" title="عِزبة على App Store">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8s-1.6-.8-2.7-.8c-1.4 0-2.7.8-3.4 2.700-1.5 2.5-.4 6.2 1 8.2.7 1 1.5 2.1 2.6 2.1 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7 1.8-1 2.5-2c.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.2-.8-2.2-3.2zM15.5 6.3c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
-            <span class="t"><b>App Store</b><span>قريباً</span></span>
-          </span>
-          <span class="store" aria-disabled="true" title="قريباً">
+            <span class="t"><b>App Store</b><span>متوفّر الآن</span></span>
+          </a>
+          <a class="store magnetic" href="{{PLAY_STORE_URL}}" title="عِزبة على Google Play">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.3c-.3.3-.5.8-.5 1.4v16.6c0 .6.2 1.1.5 1.4l.1.1 9.3-9.3v-.2L3.6 2.3zM16.2 15.6l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1 .6 1 1.6 0 2.2l-3.8 2zM15.3 16.5l-3.2-3.2-9 9c.4.3 1 .4 1.6 0l10.6-5.8zM15.3 7.5L4.7 1.7c-.6-.4-1.2-.3-1.6 0l9 9 3.2-3.2z"/></svg>
-            <span class="t"><b>Google Play</b><span>قريباً</span></span>
-          </span>
+            <span class="t"><b>Google Play</b><span>متوفّر الآن</span></span>
+          </a>
         </div>
-        <div class="hero-note rv" data-d="5"><span class="dot"></span> تشتغل من المتصفح مباشرة — والتقدّم محفوظ بحسابك</div>
+        <div class="hero-note rv" data-d="5"><span class="dot"></span> على الآيفون والأندرويد والمتصفح — وحسابك واحد في الثلاثة</div>
       </div>
 
       <div class="rv" data-d="2">
@@ -736,8 +741,8 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         <p class="lede" style="margin:20px auto 0; text-align:center">أول لعبة مجانية — افتحها من المتصفح وابدأ على طول.</p>
         <div class="cta-row"><a class="btn magnetic" href="../game-mobile.html">افتح اللعبة الحين</a></div>
         <div class="store-row">
-          <span class="store" aria-disabled="true"><span class="t"><b>App Store</b><span>قريباً</span></span></span>
-          <span class="store" aria-disabled="true"><span class="t"><b>Google Play</b><span>قريباً</span></span></span>
+          <a class="store magnetic" href="{{APP_STORE_URL}}"><span class="t"><b>App Store</b><span>متوفّر الآن</span></span></a>
+          <a class="store magnetic" href="{{PLAY_STORE_URL}}"><span class="t"><b>Google Play</b><span>متوفّر الآن</span></span></a>
         </div>
       </div>
     </div>
