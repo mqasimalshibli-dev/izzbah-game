@@ -11259,7 +11259,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.212";
+    const IZZBAH_BUILD = "2026-08-01.213";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15006,20 +15006,15 @@
     // FULL category rather than a board's worth (the admin editor). Returns
     // true if anything was hydrated.
     async function hydrateOneCategory(id) {
-      const cat = state.publishedCategories.find(c => c.id === id);
-      if (!categoryNeedsMedia(cat) || !window.IZZBAH.hydrateCategoryMedia) return false;
-      const vers = {}; if (cat.updatedAtMs) vers[id] = cat.updatedAtMs;
-      let media = null;
-      try { media = await window.IZZBAH.hydrateCategoryMedia([id], vers); } catch (e) { return false; }
-      const qs = media && media.get(id);
-      if (!qs) return false;
-      (cat.questions || []).forEach((q, i) => {
-        const m = qs[i]; if (!m) return;
-        if (m.image) q.image = m.image;
-        if (m.answerImage) q.answerImage = m.answerImage;
-      });
-      hydratedCats.add(id);
-      return true;
+      // Looks in every pool, not just the official one — the admin editor and
+      // «معاينة» both open community categories too.
+      const cat = (state.publishedCategories || []).find(c => c.id === id)
+        || (state.communityCategories || []).find(c => c.id === id)
+        || (state.pendingCommunity || []).find(c => c.id === id)
+        || (state.myCommunity || []).find(c => c.id === id);
+      if (!categoryNeedsMedia(cat)) return false;
+      await hydrateMediaInto([cat]);
+      return hydratedCats.has(id);
     }
     function adminCloneCategory(id) {
       const override = state.publishedCategories.find(c => c.id === id);
@@ -18049,9 +18044,30 @@
     }
 
     function editCustomCategory(cat) {
-      state.editingCategory = JSON.parse(JSON.stringify(cat));
-      renderCustomEditor();
-      showScreen("customEditor");
+      // A COMMUNITY category arrives here without its question media (see
+      // mapCommunityDoc), and saving republishes the WHOLE doc — so editing a
+      // lite copy would wipe the author's own pictures. Fetch them back first.
+      // Private drafts live in localStorage and are never lite, so they open
+      // instantly as before.
+      const openWith = (src) => {
+        state.editingCategory = JSON.parse(JSON.stringify(src));
+        renderCustomEditor();
+        showScreen("customEditor");
+      };
+      if (!categoryNeedsMedia(cat)) { openWith(cat); return; }
+      showToast("جارٍ تحميل صور الفئة…");
+      hydrateMediaInto([cat]).then(() => {
+        // Check the RESULT, not just that the promise settled: hydrateMediaInto
+        // deliberately swallows read errors so a game can still be played
+        // without pictures. Here that would be data loss — saving republishes
+        // the whole doc — so refuse unless the media actually arrived.
+        // hydratedCats only gains the id when a merge really happened.
+        if (!hydratedCats.has(cat.id)) {
+          showToast("تعذّر تحميل صور الفئة — تحقّق من الاتصال وحاول مجدداً");
+          return;
+        }
+        openWith(cat);
+      });
     }
 
     function renderCustomEditor() {
@@ -18318,16 +18334,29 @@
     function categoryNeedsMedia(cat) {
       return !!(cat && cat.__lite && !hydratedCats.has(cat.id));
     }
-    async function ensureBoardMedia() {
-      if (!window.IZZBAH || !window.IZZBAH.hydrateCategoryMedia) return;
-      const cats = activeCategories().filter(categoryNeedsMedia);
-      if (!cats.length) return;
+    // Fetch media for a specific set of categories and merge it in place.
+    // Official categories keep their pictures in a /questions subcollection;
+    // community ones keep theirs inline on their single doc — different reads,
+    // same merge, so both go through here.
+    async function hydrateMediaInto(cats) {
+      const list = (cats || []).filter(categoryNeedsMedia);
+      if (!list.length) return;
+      const official = list.filter(c => !c.community);
+      const community = list.filter(c => c.community);
       const vers = {};
-      cats.forEach(c => { if (c.updatedAtMs) vers[c.id] = c.updatedAtMs; });
-      let media = null;
-      try { media = await window.IZZBAH.hydrateCategoryMedia(cats.map(c => c.id), vers); }
-      catch (e) { media = null; }
-      cats.forEach(cat => {
+      official.forEach(c => { if (c.updatedAtMs) vers[c.id] = c.updatedAtMs; });
+      const media = new Map();
+      const jobs = [];
+      if (official.length && window.IZZBAH.hydrateCategoryMedia) {
+        jobs.push(window.IZZBAH.hydrateCategoryMedia(official.map(c => c.id), vers)
+          .then(m => m.forEach((v, k) => media.set(k, v))).catch(() => {}));
+      }
+      if (community.length && window.IZZBAH.hydrateCommunityMedia) {
+        jobs.push(window.IZZBAH.hydrateCommunityMedia(community.map(c => c.id))
+          .then(m => m.forEach((v, k) => media.set(k, v))).catch(() => {}));
+      }
+      await Promise.all(jobs);
+      list.forEach(cat => {
         const qs = media && media.get(cat.id);
         // Mark hydrated either way: a category with genuinely no pictures must
         // not be re-fetched before every single game. A FAILED read returns no
@@ -18342,6 +18371,9 @@
         });
         hydratedCats.add(cat.id);
       });
+    }
+    async function ensureBoardMedia() {
+      await hydrateMediaInto(activeCategories());
     }
     // Both places that open a board funnel through here so neither can forget.
     //
@@ -21528,6 +21560,16 @@
       n.community = true; n.custom = true; n.visibility = "public";
       n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
       n.votes = c.votes || 0; n.approved = c.approved === true;
+      // Question media never enters state. mapCommunityDoc already strips it on
+      // the way out of Firestore, but the invariant is enforced HERE, at the
+      // state boundary every caller funnels through — the cached copy, the
+      // approval queue and the member's own submissions all land here too, and
+      // one caller forgetting is how 115 MB got onto an admin's heap.
+      // hydrateMediaInto() puts the pictures back for the few categories that
+      // actually need them (played, or opened in the editor).
+      n.questions = (n.questions || []).map(q =>
+        (q.image || q.answerImage) ? Object.assign({}, q, { image: "", answerImage: "" }) : q);
+      n.__lite = true;
       return n;
     }
     window.IZZBAH.applyMyCommunity = function (cats) {
@@ -23102,16 +23144,50 @@
           };
 
           // ---- Community categories (member-submitted, ADMIN-APPROVED) ---------
+          // A community category is ONE doc with its questions — and their
+          // base64 images — inline. Holding them all was the second half of the
+          // iOS Safari crash: measured 69 MB for a player's approved pool and
+          // 115 MB for an ADMIN, who additionally loads every pending
+          // submission. That is on top of the official catalogue, and it was
+          // why the crash hit admin accounts hardest.
+          //
+          // The pool list, the approval queue and the picker only ever show the
+          // COVER and a question count, so the question media is dropped here
+          // and re-read on demand (one doc) when a category is previewed,
+          // played, or edited. Marked __lite exactly like official categories.
           function mapCommunityDoc(d) {
             const x = d.data() || {};
+            const src = Array.isArray(x.questions) ? x.questions : [];
             return {
               id: d.id, name: x.name || "", image: x.image || "", color: x.color || "",
               description: x.description || "",
-              questions: Array.isArray(x.questions) ? x.questions : [],
+              questions: src.map(q => Object.assign({}, q, { image: "", answerImage: "" })),
               authorUid: x.authorUid || "", authorName: x.authorName || "",
-              votes: x.votes || 0, approved: x.approved === true, community: true, custom: true
+              votes: x.votes || 0, approved: x.approved === true, community: true, custom: true,
+              __lite: true
             };
           }
+          // Media for community categories. One doc each, so this is 1 read per
+          // category — no version to cache against, and a community category is
+          // edited by its author at will, so a fresh read is also the correct
+          // one. Failures resolve to absent, never to "has no pictures".
+          window.IZZBAH.hydrateCommunityMedia = function (ids) {
+            const want = (ids || []).filter(Boolean);
+            if (!want.length || !db) return Promise.resolve(new Map());
+            return Promise.all(want.map(id =>
+              db.collection("community").doc(id).get({ source: "server" })
+                .then(doc => {
+                  const src = ((doc.data() || {}).questions) || [];
+                  if (!Array.isArray(src)) return [id, null];
+                  return [id, src.map(q => ({ image: (q && q.image) || "", answerImage: (q && q.answerImage) || "" }))];
+                })
+                .catch(() => [id, null])
+            )).then(pairs => {
+              const out = new Map();
+              pairs.forEach(([id, qs]) => { if (qs) out.set(id, qs); });
+              return out;
+            });
+          };
           function loadCommunityCategories() {
             // Public pool = APPROVED only (rules also block reading others' pending).
             const jobs = [
