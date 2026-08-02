@@ -5087,7 +5087,7 @@
     #game .mini-brand .mini-brand-name { display: none !important; }
     #game .mini-brand::before {
       content: ""; width: clamp(34px, 5.4vw, 50px); height: clamp(24px, 3.8vw, 35px);
-      background: url("assets/brand/izzbah-mark.png") center / contain no-repeat;
+      background: url("assets/brand/izzbah-mark.webp") center / contain no-repeat;
       filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .45)); flex: 0 0 auto;
     }
     #game .mini-brand::after {
@@ -5566,7 +5566,7 @@
     #questionPage .mini-brand .mini-brand-name, #answerPage .mini-brand .mini-brand-name { display: none !important; }
     #questionPage .mini-brand::before, #answerPage .mini-brand::before {
       content: ""; width: 44px; height: 31px; flex: 0 0 auto;
-      background: url("assets/brand/izzbah-mark.png") center / contain no-repeat; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .4));
+      background: url("assets/brand/izzbah-mark.webp") center / contain no-repeat; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .4));
     }
     #questionPage .mini-brand::after, #answerPage .mini-brand::after {
       /* same gold-cream as the game board's topbar so «عزبة» matches everywhere */
@@ -6136,78 +6136,25 @@
        survive offline), and nothing about our players reaches Google.
        Google's own unicode-range splits are kept verbatim, so a browser fetches
        ONLY the ranges a page actually renders — an Arabic session pulls the
-       arabic faces and never touches the latin ones. -->
+       arabic faces and never touches the latin ones.
+       Cairo is a VARIABLE font: one file carries the whole 400–900 weight axis.
+       It first shipped as six per-weight faces, which were byte-identical files
+       under six URLs — a boot that paints four weights downloaded the same
+       30 KB four times. One face per unicode-range now, declared across the
+       full axis, so every weight is one shared file. (Proof it really is
+       variable, rather than one static weight copied six times: the same
+       string advances to six different widths — tests/fontweight.mjs.) -->
   <style>
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400; font-display: swap;
-      src: url(assets/fonts/Cairo-400-ar.woff2) format('woff2');
+    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url(assets/fonts/Cairo-var-ar.woff2) format('woff2');
       unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
     }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400; font-display: swap;
-      src: url(assets/fonts/Cairo-400-lat.woff2) format('woff2');
+    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url(assets/fonts/Cairo-var-lat.woff2) format('woff2');
       unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
     }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400; font-display: swap;
-      src: url(assets/fonts/Cairo-400-latx.woff2) format('woff2');
-      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 500; font-display: swap;
-      src: url(assets/fonts/Cairo-500-ar.woff2) format('woff2');
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 500; font-display: swap;
-      src: url(assets/fonts/Cairo-500-lat.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 500; font-display: swap;
-      src: url(assets/fonts/Cairo-500-latx.woff2) format('woff2');
-      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 600; font-display: swap;
-      src: url(assets/fonts/Cairo-600-ar.woff2) format('woff2');
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 600; font-display: swap;
-      src: url(assets/fonts/Cairo-600-lat.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 600; font-display: swap;
-      src: url(assets/fonts/Cairo-600-latx.woff2) format('woff2');
-      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; font-display: swap;
-      src: url(assets/fonts/Cairo-700-ar.woff2) format('woff2');
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; font-display: swap;
-      src: url(assets/fonts/Cairo-700-lat.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; font-display: swap;
-      src: url(assets/fonts/Cairo-700-latx.woff2) format('woff2');
-      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 800; font-display: swap;
-      src: url(assets/fonts/Cairo-800-ar.woff2) format('woff2');
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 800; font-display: swap;
-      src: url(assets/fonts/Cairo-800-lat.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 800; font-display: swap;
-      src: url(assets/fonts/Cairo-800-latx.woff2) format('woff2');
-      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 900; font-display: swap;
-      src: url(assets/fonts/Cairo-900-ar.woff2) format('woff2');
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 900; font-display: swap;
-      src: url(assets/fonts/Cairo-900-lat.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 900; font-display: swap;
-      src: url(assets/fonts/Cairo-900-latx.woff2) format('woff2');
+    @font-face { font-family: 'Cairo'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url(assets/fonts/Cairo-var-latx.woff2) format('woff2');
       unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
     }
     @font-face { font-family: 'Lalezar'; font-style: normal; font-weight: 400; font-display: swap;
@@ -6915,7 +6862,7 @@
   </style>
   <div id="appSplash" role="status" aria-label="جارٍ تحميل عِزبة">
     <div class="splash-inner">
-      <img class="splash-mark" src="assets/brand/izzbah-logo.png" alt="" aria-hidden="true">
+      <img class="splash-mark" src="assets/brand/izzbah-logo.webp" alt="" aria-hidden="true">
       <div class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
   </div>
@@ -7140,7 +7087,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
         <div class="wlc-center">
-          <div class="wlc-logo"><img class="wlc-mark" src="assets/brand/izzbah-logo.png" alt="" aria-hidden="true"><div class="wlc-logo-text">عزبة</div><div class="wlc-logo-sweep"></div></div>
+          <div class="wlc-logo"><img class="wlc-mark" src="assets/brand/izzbah-logo.webp" alt="" aria-hidden="true"><div class="wlc-logo-text">عزبة</div><div class="wlc-logo-sweep"></div></div>
           <div class="wlc-subtitle">لعبة أسئلة جماعية</div>
           <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ لعبة جديدة</span></button>
           <div class="wlc-or" style="display:none"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
@@ -7773,7 +7720,7 @@
         </div>
         <div class="topbar-center">
           <div class="mini-brand">
-            <img class="mini-brand-logo" src="assets/brand/izzbah-mark.png" alt="عِزبه">
+            <img class="mini-brand-logo" src="assets/brand/izzbah-mark.webp" alt="عِزبه">
           </div>
         </div>
         <div class="topbar-right">
@@ -11379,7 +11326,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-01.216";
+    const IZZBAH_BUILD = "2026-08-02.217";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -20530,7 +20477,7 @@
       };
       const logo = new Image();
       const logoReady = new Promise(res => { logo.onload = () => res(true); logo.onerror = () => res(false); });
-      logo.src = "assets/brand/izzbah-mark.png"; // tent + campfire, transparent
+      logo.src = "assets/brand/izzbah-mark.webp"; // tent + campfire, transparent
       return Promise.all([fontsReady, logoReady]).then(results => {
         const logoOk = results[1];
         // ── Ground: deep maroon radial with depth (matches the promo look) ──
