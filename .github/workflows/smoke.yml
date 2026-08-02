@@ -517,3 +517,13 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node theme.mjs
+
+      - name: Run boot byte-budget test
+        working-directory: tests
+        run: node bootweight.mjs
+
+      - name: Run Cairo variable-font weight test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node fontweight.mjs

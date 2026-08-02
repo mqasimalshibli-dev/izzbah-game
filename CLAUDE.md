@@ -77,26 +77,58 @@
   different places" vs "same room, own phones" (same tech, different networking
   assumptions).
 
-- **Cover-shrink migration — BUILT (.205), still not run; see the migrations
-  note above.** (owner deferred, 2026-08-01). Published category covers are still the old ~600 KB base64
-  blobs inside the parent docs, so the picker's cold load still downloads
-  ~10 MB; the admin button «⚡ ضغط صور الفئات» (next to the backup button)
-  rewrites them to 480px/~95 KB in place. Owner should press «⬇ نسخة
-  احتياطية» first. Optional: raise the cap to 576px (~+30 KB each) for zero
-  softness on 3× screens. New publishes are already capped automatically.
+- **Cover-shrink migration — no longer needed (verified 2026-08-02).** The note
+  that used to sit here said published covers were still ~600 KB blobs totalling
+  ~10 MB. That is now WRONG and was left stale: reading all 39 parent docs
+  straight from the Firestore REST API shows the largest cover is **92 KB**, the
+  median **53 KB**, and **not one is over 150 KB** — every category is already
+  inside the 95 KB `COVER_BUDGET`. Covers total **1.87 MB** stored (~1.4 MB
+  gzipped on the wire). Pressing «⚡ ضغط صور الفئات» would re-encode them for no
+  gain. Before quoting any figure like this again, re-measure — the public
+  `categories` collection is readable unauthenticated over REST, so it takes one
+  script.
 
-- **TWO shrink migrations are BUILT but NOT RUN** (both admin buttons, both
-  safe to re-run, both irreversible — press «⬇ نسخة احتياطية» first):
-  «⚡ ضغط صور الفئات» rewrites published COVERS to 480px/95 KB, and
-  «⚡ ضغط صور الأسئلة» rewrites published QUESTION/ANSWER images to
-  1024px/300 KB (walks every /questions doc; takes minutes; touches each
-  changed category's parent so devices actually pick the change up). New
-  publishes are already capped automatically by both.
+- **«⚡ ضغط صور الأسئلة» is BUILT but not worth running either (verified
+  2026-08-02).** Scanned all 4401 published questions over REST: 3060 stored
+  images, 160 MB in total, **average 54 KB, and exactly ONE over the 300 KB cap**
+  (`cars/q81 answerImage`, 318 KB). The button still works and is safe to press,
+  but it would rewrite one image. It also never affected boot — question images
+  are lazy-loaded (.209) and only cost bytes once a game actually starts on that
+  category.
 
-- **Fonts are SELF-HOSTED in `assets/fonts/` (build .216).** 28 woff2 files
-  (Cairo 400–900, Lalezar, Aref Ruqaa × arabic/latin/latin-ext), pulled from
+- **Boot weight — measured, and where it now goes (build .217, 2026-08-02).**
+  Measured with a throttled Playwright harness (CDP network emulation + 4× CPU)
+  against the REAL 39 Firestore parent docs. Cold first visit, time until the
+  category list is ready: **3G 13.0s → 7.7s, slow 4G 4.8s → 3.1s**, fast 4G and
+  wifi unchanged at ~1.6s (those are CPU-bound on parsing the shell, not
+  network-bound). Warm repeat visits were already ~0.9s on every connection and
+  download nothing. Two things caused the drop:
+  - `izzbah-logo.png` (892 KB) was the splash AND welcome logo and
+    `izzbah-mark.png` (372 KB) the top-bar mark — **1.24 MB of PNG on the first
+    paint of every cold boot**, more than the shell and the Firebase SDK
+    combined. Now WebP at q95, 149 KB for both, SSIM 0.993/0.997 composited on
+    the app background. The master PNGs stay in the repo (never fetched).
+  - Cairo shipped as six per-weight faces whose files were **byte-identical** —
+    a boot painting four weights downloaded the same 30 KB Arabic subset four
+    times. It is a VARIABLE font, so it is now one face per unicode-range across
+    `font-weight: 400 900`; the 15 duplicate files are gone (~190 KB/boot).
+  - `tests/bootweight.mjs` holds a byte budget for every asset the shell
+    references (and bans PNGs on the boot path); `tests/fontweight.mjs`
+    width-probes that the six weights still render differently, which is the
+    only way to catch a variable font silently collapsing to one weight.
+  - What is LEFT: the catalogue read is ~1.6 MB gzipped, ~88% of it the 39
+    covers, and it is now the single biggest item in a cold boot. Shrinking the
+    covers further is NOT the answer (they are already at the cap). The fix, if
+    the owner wants it, is to stop putting covers in the boot read at all: a
+    `meta/index` doc carrying id/name/order/colour/count plus a ~7 KB thumbnail
+    per category (≈250 KB for all 39, measured by re-encoding the real covers),
+    with the full 92 KB cover hydrated lazily like question media already is.
+    Needs a publish-path change, a backfill button, and a rules entry.
+
+- **Fonts are SELF-HOSTED in `assets/fonts/` (build .216).** 13 woff2 files
+  (Cairo variable, Lalezar, Aref Ruqaa × arabic/latin/latin-ext), pulled from
   Google Fonts with their `unicode-range` splits kept verbatim, so a browser
-  fetches only the ranges it renders (~10 files for an Arabic session). The
+  fetches only the ranges it renders (~5 files for an Arabic session). The
   `@font-face` block is inlined in `<head>`; CSP is now `font-src 'self'` /
   `style-src 'self' 'unsafe-inline'` with no font CDN allowed at all.
   `tests/bootblock.mjs` fails CI if a third-party font reference or CSP
