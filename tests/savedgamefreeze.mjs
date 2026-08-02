@@ -107,15 +107,26 @@ try {
     freshRun.distinct === 6);
   check("the seen tracker now holds the whole pool", freshRun.seenLen === 6);
 
-  // ---- 7) with the pool exhausted, the LEAST-recently-seen question returns ----
+  // ---- 7) with the pool exhausted, an OLD question returns — but at random ----
+  // This used to assert the single strict least-recently-seen question. That
+  // was deterministic, and since serving a question bumps it to the end of the
+  // recency list it produced a perfect round-robin: with N questions, game N+1
+  // was byte-identical to game 1. The owner reported it as "the questions are
+  // locked in sets". The pick is now random over the least-recently-seen HALF,
+  // so what has to hold is the property, not the exact choice: the returned
+  // question is one of the older half, never one of the recently served ones.
   const lru = await page.evaluate(() => {
-    const oldest = (state.seen["pub-freeze-test"] || [])[0]; // first-ever seen = LRU
-    const id = window.__startFresh(); // 7th game: pool exhausted → LRU fallback
+    const before = (state.seen["pub-freeze-test"] || []).slice();
+    const olderHalf = before.slice(0, Math.ceil(before.length / 2));
+    const recentHalf = before.slice(Math.ceil(before.length / 2));
+    const id = window.__startFresh(); // 7th game: pool exhausted → recycle
     const pin = window.__pinOf(id);
     const list = state.seen["pub-freeze-test"] || [];
-    return { oldest, pin, bumpedToEnd: list[list.length - 1] === pin, len: list.length };
+    return { pin, fromOlderHalf: olderHalf.includes(pin), fromRecentHalf: recentHalf.includes(pin),
+             bumpedToEnd: list[list.length - 1] === pin, len: list.length };
   });
-  check("an exhausted category re-serves the least-recently-seen question", lru.pin === lru.oldest);
+  check("an exhausted category re-serves one of the least-recently-seen questions",
+    lru.fromOlderHalf && !lru.fromRecentHalf);
   check("the re-served question is bumped to most-recent (so games keep cycling)",
     lru.bumpedToEnd && lru.len === 6);
 

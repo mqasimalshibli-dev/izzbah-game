@@ -294,4 +294,41 @@ Single self-contained page, same palette and type system as the game. Marked
   Cross-game freshness: every question that APPEARS on a board is recorded in
   the `izzbah-seen-v1` tracker (`state.seen`, catId → [sig,…], LRU-ordered,
   cloud-synced); `pickUnseen` refuses to serve seen questions to a NEW game
-  until the category is exhausted, then falls back least-recently-seen first.
+  until the category is exhausted, then recycles the least-recently-seen ones.
+  Owner re-confirmed on 2026-08-02: only NEW games shuffle — a replay keeps its
+  own board, because free replays plus a reshuffle would turn one purchase into
+  unlimited fresh content.
+
+- **Boards stopped being "locked in sets" (build .219, 2026-08-02).** Reported
+  as "the questions should shuffle always… the same set is found exactly on
+  another device". New games were already fine — measured: two fresh devices,
+  and a device that had pulled another's cloud blob on sign-in, all produced
+  boards with **0/15 shared tiles**. The break was at the far end.
+  `pickUnseen`'s exhausted-category fallback returned the single strict
+  least-recently-seen question, and serving one bumps it to the end of the
+  recency list — a perfect round-robin. With N questions in a tier, game N+1
+  came back **byte-identical** to game 1, N+2 to game 2, forever (verified 4/4
+  before, 0/4 after). It now picks at RANDOM across the least-recently-seen
+  HALF, which keeps the guarantee that mattered — a question just served sits
+  in the recent half and cannot come straight back — while making recycled
+  boards differ. `tests/qshuffle.mjs`.
+  ⚠️ `tests/savedgamefreeze.mjs` asserted the strict-oldest pick; it now
+  asserts the property (from the older half, never the recent half) instead.
+
+- **Some categories are too thin to shuffle — a CONTENT gap, not a bug.**
+  Measured against the live catalogue: «دين» and «ميمز» hold 5 questions each,
+  one per tier, so every device gets a byte-identical board every single game
+  and a repeat on game 2. «جلسة حريم» is [2,2,2,2,1] and «من الي سجل؟» is
+  [5,3,3,4,2] — first repeat on game 2 and 3. No selection logic can fix this;
+  the categories need more questions. 12 of 196 published tiers hold exactly
+  one question. By contrast «تاريخ» ([20,29,29,27,27]) shows no repeat inside
+  13 consecutive games.
+
+- **`izzbah-seen-v1` is no longer silently dropped from the cloud sync.** When
+  the `users/{uid}.data` blob crossed 700 KB, `cloudBlob()` deleted the whole
+  play history — which resets question freshness for that account, so every
+  category looks unplayed and questions start repeating. It now shaves the
+  OLDEST signatures from the biggest categories until it fits, and only drops
+  the key outright if nothing meaningful is left. (In practice the budget is
+  not reached today: `seen` is trimmed to 120 KB, `progress` maxes near 80 KB
+  at the current catalogue size, saved games ~100 KB.)

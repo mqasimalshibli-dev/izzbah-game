@@ -11002,16 +11002,27 @@
       played.forEach(sig => appeared.add(sig));
       const fresh = pool.filter(item => !appeared.has(sigOf(item)));
       if (fresh.length) return fresh[Math.floor(Math.random() * fresh.length)];
-      // Category exhausted: fall back to the LEAST-recently-seen question.
-      // (progress-only sigs have no recency — treat them as oldest of all.)
+      // Category exhausted: come back to the LEAST-recently-seen questions —
+      // but pick at RANDOM among them, not the single strict oldest.
+      //
+      // Taking the one oldest was fully deterministic, and because serving a
+      // question bumps it to the end of the recency list, the result was a
+      // perfect round-robin: with N questions in a tier, game N+1 was
+      // byte-identical to game 1, N+2 to game 2, and so on forever. Two players
+      // whose histories lined up then saw the same boards in the same order.
+      // That is the "the questions are locked in sets" report.
+      //
+      // Randomising over the least-recently-seen HALF keeps the guarantee that
+      // actually mattered — a question just served sits in the recent half and
+      // cannot come straight back — while making every board after exhaustion
+      // genuinely different. (progress-only sigs have no recency: they rank as
+      // oldest of all, so they are offered first.)
       const pos = new Map(seenArr.map((sig, i) => [sig, i]));
-      let best = null, bestPos = Infinity;
-      for (const item of pool) {
-        const sig = sigOf(item);
-        const p = pos.has(sig) ? pos.get(sig) : -1;
-        if (p < bestPos) { best = item; bestPos = p; }
-      }
-      return best || pool[Math.floor(Math.random() * pool.length)];
+      const ranked = pool
+        .map(item => ({ item, p: pos.has(sigOf(item)) ? pos.get(sigOf(item)) : -1 }))
+        .sort((a, b) => a.p - b.p);
+      const oldest = ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 2)));
+      return oldest[Math.floor(Math.random() * oldest.length)].item;
     }
 
     function randomQuestion(categoryId, points) {
@@ -11352,7 +11363,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.218";
+    const IZZBAH_BUILD = "2026-08-02.219";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -21926,9 +21937,29 @@
         const o = {};
         KEYS.forEach(k => { const v = localStorage.getItem(k); if (v != null) o[k] = v; });
         try {
-          if (JSON.stringify(o).length > CLOUD_BUDGET && o["izzbah-seen-v1"]) {
-            delete o["izzbah-seen-v1"];
-            console.warn("izzbah: play history omitted from cloud sync (doc size guard)");
+          // SHRINK the play history to fit; only drop it outright if even a
+          // minimal one won't. It used to be deleted whole the moment the blob
+          // crossed the budget, which silently reset question freshness for
+          // that account — every category looked unplayed again and questions
+          // started repeating. Dropping the OLDEST signatures first loses only
+          // the entries pickUnseen would have recycled next anyway, so recent
+          // history — the part that actually stops a repeat — survives.
+          let guard = 40;
+          while (guard-- > 0 && JSON.stringify(o).length > CLOUD_BUDGET && o["izzbah-seen-v1"]) {
+            let map;
+            try { map = JSON.parse(o["izzbah-seen-v1"]) || {}; } catch (e) { map = {}; }
+            let biggest = null, biggestLen = 0;
+            for (const k of Object.keys(map)) {
+              const n = (map[k] || []).length;
+              if (n > biggestLen) { biggestLen = n; biggest = k; }
+            }
+            if (!biggest || biggestLen <= 10) {   // nothing meaningful left to shave
+              delete o["izzbah-seen-v1"];
+              console.warn("izzbah: play history omitted from cloud sync (doc size guard)");
+              break;
+            }
+            map[biggest].splice(0, Math.max(1, Math.ceil(biggestLen * 0.25)));
+            o["izzbah-seen-v1"] = JSON.stringify(map);
           }
         } catch (e) { /* stringify failure — push what we have */ }
         return o;
