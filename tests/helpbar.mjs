@@ -101,9 +101,16 @@ try {
     if (applied) el.style.setProperty("font-size", applied, "important");
     return { size: parseFloat(getComputedStyle(el).fontSize), base };
   });
-  // A short question is never shrunk MORE than a long one (font-metric-robust:
-  // CI lacks the Cairo web font, so absolute sizes differ, but this invariant
-  // always holds — the fitter only shrinks to avoid overlap).
+  // A short question must be rendered LARGE — not merely "no smaller than a
+  // long one". The old assertion was `short >= long`, which passed happily
+  // while BOTH sat on the 15px floor, and that is exactly what was happening:
+  // Cairo's Arabic ink box overhangs its line box by ~0.25em at every size, so
+  // scrollHeight was permanently above clientHeight, the fitter read that as
+  // overflow forever, and every question — three words or thirty — was driven
+  // to 15px and then cut off by the card's `overflow: hidden`. Pin the floor
+  // explicitly so it can never silently come back.
+  check(`phone: a short question is rendered at readable size, not the floor (${short.size}px)`,
+    short.size >= 40);
   check(`phone: a short question is never shrunk more than a long one (${short.size}px ≥ ${fit.size}px)`,
     short.size >= fit.size);
 

@@ -168,6 +168,44 @@
   A failed media read must resolve to `null` = "unknown" and cache NOTHING —
   returning an empty list would re-create the old "no pictures" bug.
 
+- **«أربعة خيارات» can be switched off per category (build .218).** The admin
+  category head has «🚫 تعطيل «أربعة خيارات»» next to «إخفاء الفئة». It is
+  GLOBAL and reversible, keyed by category id in **`config/noChoices`**
+  (`{map:{catId:true}, updatedAt}` — public read, admin write, mirrored in
+  `izzbah-nochoice-cats-v1` for offline). It fits the deployed `/config` rules,
+  so **no firestore.rules change was needed**; do NOT move it onto the category
+  doc, whose rule field-locks the key set. It hides the helper only — the
+  authored wrong answers stay stored and come straight back when it is switched
+  on again. Categories that are choice-free by their own nature (word guess,
+  reactions, «من الي سجل؟», «الأقرب يفوز», emoji, «قول غيرها») show the button
+  disabled and labelled, rather than a toggle that appears to do nothing.
+  ⚠️ `hidesMultipleChoice()` was ALSO the gate for "don't fetch pictures for
+  this category". Those are different facts, so the media question now has its
+  own `usesSpecialAnswerMedia()` (word guess + reactions only) — folding the new
+  switch into the image-fetch gate would silently disable image fetching on any
+  ordinary picture category the moment multiple choice was turned off.
+  `tests/nochoices.mjs`.
+
+- **Question text was being cut off on EVERY question (fixed .218).** Reported
+  as "some questions get clipped behind «إظهار الإجابة»" — the button was not
+  the cause. Cairo's Arabic glyphs (ج ح ع م) draw below the line box, so
+  `scrollHeight` sits ~**0.25em** above `clientHeight` at every font size.
+  `fitQuestionText()` treated anything over 1px as overflow, so its shrink loop
+  could never be satisfied and drove EVERY question — three words or thirty —
+  to its 15px floor, where the card's `overflow: hidden` cut the tail off. The
+  same effect was already documented and allowed for in the EMOJI branch; plain
+  text never got the allowance. Three changes, all needed: `.question-text` now
+  reserves `padding-block: .26em` for the ink (em, so it scales with whatever
+  size the fitter picks); the fitter's own-box test tolerates 0.6em (between
+  0.25em of glyph overhang and ~1.4em for a real extra line); and the box is
+  `overflow-y: auto`, not `hidden`, so a question that genuinely cannot fit at
+  the floor stays readable instead of being silently truncated. A 3-word
+  question now renders at ~95–130px instead of 15px. `tests/qclip.mjs` measures
+  the cut-off at four viewports × four question lengths.
+  ⚠️ `tests/helpbar.mjs` asserted `short >= long` for the font size, which
+  passed happily while BOTH sat on the floor — it is now pinned to an absolute
+  minimum. Beware that shape of assertion.
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are
