@@ -5675,10 +5675,22 @@
        NOTE: no `flex` — forcing flex:1 made the text fight a flex:1 question
        IMAGE and vanish. */
     #questionPage .question-main-card .question-text {
-      min-height: 0; overflow: hidden; overscroll-behavior: contain;
+      min-height: 0; overflow-y: auto; overscroll-behavior: contain;
       width: 100%;
+      /* Room for the ink. Cairo's Arabic descenders (ج ح ع م) reach below the
+         line box, so without this the box is shorter than what it draws: the
+         glyph tails get shaved, and scrollHeight sits permanently ~0.25em above
+         clientHeight, which the font-fitter reads as overflow. Padding in EM
+         keeps the allowance correct at every size the fitter picks. */
+      padding-block: 0.26em;
       max-height: calc(var(--game-vh, 100dvh) * 0.78);
     }
+    /* `overflow-y: auto`, NOT hidden. The fitter shrinks the type until the
+       question fits, so in practice nothing scrolls — but a question long
+       enough to hit the 15px floor has to stay READABLE. With `hidden` its
+       tail was silently cut off behind the reveal button with no hint that
+       anything was missing; the comment above always claimed scrolling was the
+       fallback, the stylesheet just didn't do it. */
     /* Emoji puzzle: center it vertically (and enlarge) so a short prompt fills
        the card instead of hugging the top on wide/desktop screens. */
     #questionPage .question-main-card.emoji-q .question-text {
@@ -11190,8 +11202,21 @@
     function hidesMultipleChoice(cat) {
       // …and «قول غيرها», whose distractors are BANNED words, not options —
       // offering them as multiple choice would invert the whole game.
-      return isWordGuessCategory(cat) || isReactionCategory(cat) || isChoiceFreeCategory(cat)
-        || isEmojiCategory(cat) || isSayAnotherCategory(cat);
+      // Last clause: the admin's own per-category switch (config/noChoices),
+      // so a category can opt out without a code change.
+      return usesSpecialAnswerMedia(cat) || isChoiceFreeCategory(cat)
+        || isEmojiCategory(cat) || isSayAnotherCategory(cat)
+        || isCategoryChoiceFree(cat && cat.id);
+    }
+    // A NARROWER question than hidesMultipleChoice: these categories answer with
+    // a QR code or a video clip instead of a picture, so the admin's
+    // fetch-images tool must leave them alone. Kept separate on purpose —
+    // "no four-choices" and "don't fetch pictures for this" are different
+    // facts, and folding the admin's new switch into the second would stop
+    // image fetching working on an ordinary picture category the moment the
+    // admin turned multiple choice off.
+    function usesSpecialAnswerMedia(cat) {
+      return isWordGuessCategory(cat) || isReactionCategory(cat);
     }
     // Answer -> bundled QR path, per word category (built lazily from the banks).
     // Lets a published override of a word category — whose stored questions
@@ -11279,6 +11304,7 @@
       signedIn: false,
       myUid: "",
       hiddenCategories: [],
+      noChoiceCategories: [],   // «أربعة خيارات» switched off, by category id
       savedGames: [],
       used: new Set(),
       history: [],
@@ -11326,7 +11352,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.217";
+    const IZZBAH_BUILD = "2026-08-02.218";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -11953,6 +11979,54 @@
         state.hiddenCategories = Object.keys(map).filter(k => map[k]);
         saveHiddenCategories();
         if (typeof renderCategories === "function" && document.body.dataset.screen === "categories") renderCategories();
+      }).catch(() => {});
+    }
+
+    // ---- «أربعة خيارات» switched off, per category --------------------------
+    // Some categories read wrong with a multiple-choice list — an estimation
+    // round, a puzzle, anything where seeing four candidate answers hands the
+    // round over. A few of those are recognised by name/id in
+    // hidesMultipleChoice(); this is the ADMIN's switch for all the rest, so a
+    // new category no longer needs a code change to opt out.
+    //
+    // It is GLOBAL, exactly like «إخفاء الفئة»: config/noChoices is the source
+    // of truth (public read, admin write) and the localStorage copy below is
+    // only an offline mirror so the board behaves before the cloud answers.
+    // Keyed by category id, so it works for official, community and custom
+    // categories alike. Fits the deployed /config rules ({map, updatedAt}) —
+    // deliberately NOT a field on the category doc, because the categories rule
+    // field-locks its key set and adding one would need a rules change.
+    const noChoiceCatsKey = "izzbah-nochoice-cats-v1";
+    function loadNoChoiceCategories() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(noChoiceCatsKey) || "[]");
+        state.noChoiceCategories = Array.isArray(parsed) ? parsed : [];
+      } catch (e) { state.noChoiceCategories = []; }
+    }
+    function saveNoChoiceCategories() {
+      try { localStorage.setItem(noChoiceCatsKey, JSON.stringify(state.noChoiceCategories)); } catch (e) {}
+    }
+    function isCategoryChoiceFree(id) {
+      return !!id && Array.isArray(state.noChoiceCategories) && state.noChoiceCategories.includes(String(id));
+    }
+    function setCategoryChoiceFree(id, off) {
+      const set = new Set(state.noChoiceCategories || []);
+      if (off) set.add(String(id)); else set.delete(String(id));
+      state.noChoiceCategories = [...set];
+      saveNoChoiceCategories();                       // local mirror (instant + offline)
+      const bridge = window.IZZBAH && window.IZZBAH.saveNoChoices;
+      if (bridge) {
+        const map = {}; state.noChoiceCategories.forEach(c => { map[c] = true; });
+        bridge(map).catch(() => showToast("تعذّر حفظ الإعداد في السحابة — تأكّد من تسجيل الدخول كمشرف"));
+      }
+    }
+    function loadNoChoicesConfig() {
+      const bridge = window.IZZBAH && window.IZZBAH.loadNoChoices;
+      if (!bridge) return Promise.resolve();
+      return bridge().then(cfg => {
+        const map = (cfg && cfg.map) || {};
+        state.noChoiceCategories = Object.keys(map).filter(k => map[k]);
+        saveNoChoiceCategories();
       }).catch(() => {});
     }
 
@@ -13083,13 +13157,25 @@
       const emojiLine = el.querySelector(".q-emojis");
       if (emojiLine) emojiLine.style.removeProperty("font-size");
       const overlaps = () => {
-        // Emoji clue: allow a small PROPORTIONAL slack — emoji glyph boxes can
-        // exceed the line box by a few px on some platforms at every size, and
-        // treating that as overflow makes shrinking a death spiral. A real
-        // overflow (an extra wrapped line) is a whole em, far beyond the slack.
+        // PROPORTIONAL slack, and it is needed for ordinary Arabic text — not
+        // just for emoji. Cairo's Arabic ink box (deep descenders: ج ح ع م) is
+        // taller than the line box at the line-heights this card uses, so
+        // scrollHeight sits ~0.25em above clientHeight at EVERY font size. With
+        // a 1px tolerance that reads as permanent overflow, and the shrink loop
+        // below drove every single question — a three-word one included — down
+        // to the 15px floor, where `overflow: hidden` then cut the tail off.
+        // That is the "questions clipped behind «إظهار الإجابة»" report.
+        //
+        // The tolerance has to separate "glyph ink pokes out of the line box"
+        // (~0.25em, measured) from "the text needed one more line" (a whole
+        // line-height, ~1.4em). 0.6em sits in the middle of that gap, so a real
+        // extra line is still caught and the phantom overflow is not.
+        // The emoji line keeps its own, larger allowance: colour-emoji fonts
+        // overhang far more, and by a platform-dependent amount.
+        const px = parseFloat(getComputedStyle(el).fontSize) || 0;
         const slack = emojiLine
           ? Math.max(6, (parseFloat(getComputedStyle(emojiLine).fontSize) || 0) * 0.15)
-          : 1;
+          : Math.max(4, px * 0.6);
         if (el.scrollHeight > el.clientHeight + slack) return true; // exceeds its own box
         const t = el.getBoundingClientRect();
         if (reveal) { const r = reveal.getBoundingClientRect(); if (r.height && t.bottom > r.top + 1 && t.top < r.bottom) return true; }
@@ -15257,7 +15343,39 @@
         renderAdminCatHead();
         if (typeof renderAdminCategoryList === "function") renderAdminCategoryList();
       });
-      const controls = [hideBtn];
+      // «أربعة خيارات» on/off for THIS category. Some rounds are spoiled by a
+      // multiple-choice list (estimation, puzzles, anything where four
+      // candidate answers give it away). A handful of those are recognised in
+      // code; this switch covers every other category without one. Global and
+      // reversible, like hide — it changes what every player sees. It hides the
+      // helper only; the authored wrong answers stay stored and come straight
+      // back when it is switched on again.
+      const forcedFree = hidesMultipleChoice(cat) && !isCategoryChoiceFree(cat.id);
+      const choiceOff = isCategoryChoiceFree(cat.id);
+      const choiceBtn = document.createElement("button");
+      choiceBtn.className = (choiceOff ? "secondary" : "ghost") + " ac-choices";
+      choiceBtn.id = "adminToggleChoices";
+      choiceBtn.textContent = choiceOff ? "🔢 تفعيل «أربعة خيارات»" : "🚫 تعطيل «أربعة خيارات»";
+      if (forcedFree) {
+        // Already off by the category's own nature — say so rather than offer a
+        // switch that would appear to do nothing.
+        choiceBtn.disabled = true;
+        choiceBtn.textContent = "🚫 «أربعة خيارات» معطّلة لهذا النوع";
+        choiceBtn.title = "نوع هذه الفئة لا يستخدم الاختيار من متعدد أصلاً";
+      } else {
+        choiceBtn.title = choiceOff
+          ? "إعادة مساعد «أربعة خيارات» لهذه الفئة لكل اللاعبين"
+          : "إخفاء مساعد «أربعة خيارات» في هذه الفئة لكل اللاعبين — الخيارات الخاطئة تبقى محفوظة";
+        choiceBtn.addEventListener("click", () => {
+          setCategoryChoiceFree(cat.id, !choiceOff);
+          showToast(choiceOff
+            ? "تم تفعيل «أربعة خيارات» في هذه الفئة"
+            : "تم تعطيل «أربعة خيارات» في هذه الفئة (الخيارات محفوظة)");
+          renderAdminCatHead();
+          renderAdminTable();   // the per-question options chip appears/disappears
+        });
+      }
+      const controls = [hideBtn, choiceBtn];
       if (!isBuiltin) {
         const del = document.createElement("button");
         del.className = "danger ac-delete";
@@ -19415,8 +19533,10 @@
       const cat = state.adminCat;
       if (!cat) { showToast("اختر فئة أولاً"); return; }
       // Word-guess / reaction categories use special media (QR / video) — leave
-      // their images alone.
-      if (hidesMultipleChoice(cat)) { showToast("هذه الفئة تستخدم وسائط خاصة — لا يُجلب لها صور"); return; }
+      // their images alone. Deliberately NOT hidesMultipleChoice(): switching
+      // «أربعة خيارات» off for an ordinary picture category must not also
+      // switch off its images.
+      if (usesSpecialAnswerMedia(cat)) { showToast("هذه الفئة تستخدم وسائط خاصة — لا يُجلب لها صور"); return; }
       const ansN = cat.questions.filter(questionNeedsImage).length;
       const qN = cat.questions.filter(questionNeedsQuestionImage).length;
       if (!ansN && !qN) { showToast("كل الأسئلة لديها صورها بالفعل"); return; }
@@ -21570,6 +21690,7 @@
       if (typeof loadCatFilter === "function") loadCatFilter();         // admin-defined category-type filter
       if (typeof loadCoachConfig === "function") loadCoachConfig();     // admin-tweakable first-run tips
       if (typeof loadHiddenConfig === "function") loadHiddenConfig();   // globally hidden categories
+      if (typeof loadNoChoicesConfig === "function") loadNoChoicesConfig(); // «أربعة خيارات» switched off per category
       if (typeof loadTextConfig === "function") loadTextConfig();       // admin-reworded UI text
       if (typeof loadFeaturedSets === "function") loadFeaturedSets();   // recommended sets in «ألعابنا»
       if (typeof renderCategories === "function") renderCategories();
@@ -21708,6 +21829,7 @@
     syncGameViewport();
     loadTheme(); // apply the saved light/dark preference before the first paint
     loadHiddenCategories();
+    loadNoChoiceCategories();
     loadGameSettings();
     loadSavedGames();
     loadFreeGameState();
@@ -22701,6 +22823,21 @@
             const clean = {};
             Object.keys(map || {}).slice(0, 500).forEach(k => { if ((map || {})[k]) clean[String(k).slice(0, 128)] = true; });
             return db.collection("config").doc("hidden")
+              .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // Categories with «أربعة خيارات» switched off (config/noChoices).
+          // Same shape and same reasoning as config/hidden above: public read so
+          // every player's board matches the admin's choice, admin-only write,
+          // and it fits the existing /config rules — no rules change.
+          window.IZZBAH.loadNoChoices = function () {
+            return db.collection("config").doc("noChoices").get()
+              .then(doc => (doc.exists ? { map: (doc.data() || {}).map || {} } : { map: {} }));
+          };
+          window.IZZBAH.saveNoChoices = function (map) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const clean = {};
+            Object.keys(map || {}).slice(0, 500).forEach(k => { if ((map || {})[k]) clean[String(k).slice(0, 128)] = true; });
+            return db.collection("config").doc("noChoices")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           };
           // UI text overrides (config/text): public read so every player sees
