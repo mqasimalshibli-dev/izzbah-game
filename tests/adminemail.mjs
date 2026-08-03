@@ -142,6 +142,52 @@ try {
   check("a hostile email in an order cannot inject an element", xss.imgs === 0 && !xss.pwned);
   check("...it is rendered as text instead", /&lt;img/.test(xss.html));
 
+  // ---- the Auth fallback: naming a player who is in NO Firestore source ----
+  // A gift-code redeemer has no sale, no order, and (before the rules land) no
+  // stamp. Firebase Auth still knows their address, so an admin-only Cloud
+  // Function fills the row in. This is the only retroactive path.
+  const viaAuth = await page.evaluate(async () => {
+    const asked = [];
+    window.IZZBAH.resolveEmails = (uids) => {
+      asked.push(...uids);
+      return Promise.resolve({ uidGIFT111aaa222bbb333c: "gifted@gmail.com" });
+    };
+    premData = {
+      codes: [], orders: [], sales: [],
+      usage: {
+        uidGIFT111aaa222bbb333c: { used: 3, granted: 12, premium: false },   // unnamed
+        uidPAID111aaa222bbb333c: { used: 1, granted: 8, premium: false, email: "paid@gmail.com" },
+      },
+    };
+    renderPremLists();
+    const before = [...document.querySelectorAll("#premPlayers .prem-row-id")].map(r => r.textContent);
+    resolveMissingEmails();
+    await new Promise(r => setTimeout(r, 60));
+    const after = [...document.querySelectorAll("#premPlayers .prem-row-id")].map(r => r.textContent);
+    return { asked, before, after };
+  });
+  check("a player nothing in Firestore can name starts as a raw uid",
+    viaAuth.before.some(t => t.indexOf("uidGIFT") === 0));
+  check("...the Auth lookup is asked about exactly the unresolved uid",
+    viaAuth.asked.length === 1 && viaAuth.asked[0] === "uidGIFT111aaa222bbb333c");
+  check("...and the row is renamed to their email without a reload",
+    viaAuth.after.includes("gifted@gmail.com"));
+  check("an already-named player is never sent to the Auth lookup",
+    !viaAuth.asked.includes("uidPAID111aaa222bbb333c"));
+
+  // If the function is not deployed the panel must degrade, not break.
+  const notDeployed = await page.evaluate(async () => {
+    window.IZZBAH.resolveEmails = () => Promise.reject(new Error("not-found"));
+    premData = { codes: [], orders: [], sales: [],
+                 usage: { uidNONE111aaa222bbb333c: { used: 1, granted: 5, premium: false } } };
+    renderPremLists();
+    resolveMissingEmails();
+    await new Promise(r => setTimeout(r, 60));
+    return [...document.querySelectorAll("#premPlayers .prem-row-id")].map(r => r.textContent);
+  });
+  check("with the function undeployed the panel still renders (uids, no crash)",
+    notDeployed.some(t => t.indexOf("uidNONE") === 0));
+
   check("no page errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 3));
   await page.close();

@@ -224,3 +224,44 @@ exports.paymentWebhook = onRequest(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// resolveEmails — admin-only: uid -> email, read straight from Firebase Auth.
+//
+// The admin centre names players by email. It can assemble most of them from
+// Firestore (sales/{id} for past buyers, and each player's own stamp on their
+// usage doc), but neither covers a player who was GIFTED a code and never
+// bought anything: nothing they can write holds their address, and the one doc
+// that does — users/{uid} — is owner-read-only by rules, deliberately, because
+// it also holds their entire saved-game blob.
+//
+// Firebase AUTH holds the address for every account, and the Admin SDK can read
+// it without touching any of that private data. So this returns exactly one
+// field per uid and nothing else. It is the only way to name players
+// retroactively; every other route needs the player to open the game again.
+//
+// Gated on admins/{uid}, the same source of truth as the game and the rules.
+exports.resolveEmails = onCall({ cors: true }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const adminDoc = await admin.firestore().collection("admins").doc(uid).get();
+  if (!adminDoc.exists) throw new HttpsError("permission-denied", "Admins only.");
+
+  const raw = (request.data && request.data.uids) || [];
+  if (!Array.isArray(raw)) throw new HttpsError("invalid-argument", "uids must be an array.");
+  // De-duplicate and bound the work: getUsers takes 100 identifiers per call,
+  // and the admin panel only ever asks about the rows it is showing.
+  const uids = [...new Set(raw.map(u => String(u || "").trim()).filter(Boolean))].slice(0, 1000);
+  if (!uids.length) return { emails: {} };
+
+  const emails = {};
+  for (let i = 0; i < uids.length; i += 100) {
+    const batch = uids.slice(i, i + 100).map(u => ({ uid: u }));
+    // getUsers does NOT throw on unknown uids — they come back in notFound,
+    // which we simply skip (a deleted account stays unnamed rather than
+    // failing the whole panel).
+    const res = await admin.auth().getUsers(batch);
+    res.users.forEach(u => { if (u.email) emails[u.uid] = u.email; });
+  }
+  return { emails };
+});

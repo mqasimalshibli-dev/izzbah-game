@@ -11366,7 +11366,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.221";
+    const IZZBAH_BUILD = "2026-08-02.222";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17725,6 +17725,31 @@
       if (players) renderPlayers(players, usage, q, emailIndex(usage, orderRows, saleRows)); // filter matches email or uid
       if (list) renderCodeList(list, fCodes, codes.length >= 2000, emailIndex(usage, orderRows, saleRows));
     }
+    // Any player row we could not name from Firestore gets looked up in Firebase
+    // Auth (admin-only Cloud Function). Asks ONLY about the uids still showing
+    // raw, caches what comes back for the session, and re-renders once. If the
+    // function is not deployed this rejects and the panel simply keeps the uids.
+    let authEmailCache = {};
+    function resolveMissingEmails() {
+      const bridge = window.IZZBAH && window.IZZBAH.resolveEmails;
+      if (!bridge) return;
+      const known = emailIndex(premData.usage, premData.orders, premData.sales);
+      const missing = Object.keys(premData.usage || {})
+        .filter(uid => !known[uid] && !(uid in authEmailCache));
+      if (!missing.length) return;
+      bridge(missing).then(map => {
+        // Cache every uid we ASKED about, including the ones that came back
+        // empty (deleted accounts), so the panel doesn't re-ask on every open.
+        missing.forEach(uid => { authEmailCache[uid] = (map && map[uid]) || ""; });
+        let added = 0;
+        Object.keys(map || {}).forEach(uid => {
+          if (map[uid] && premData.usage[uid]) { premData.usage[uid].email = map[uid]; added++; }
+        });
+        if (added) renderPremLists();
+      }).catch(e => {
+        console.warn("resolveEmails unavailable", e && (e.code || e.message));
+      });
+    }
     function refreshPremiumList() {
       const list = $("#premList");
       const players = $("#premPlayers");
@@ -17756,6 +17781,7 @@
       ]).then(([rows, usage, orderRows, saleRows]) => {
         premData = { codes: rows || [], usage: usage || {}, orders: orderRows || [], sales: saleRows || [] };
         renderPremLists();
+        resolveMissingEmails();
       }).catch(err => {
         console.warn("list codes failed", err);
         list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة. تأكّد من نشر قواعد Firestore المحدّثة (مجموعة الأكواد).</div>';
@@ -22741,6 +22767,20 @@
               uid: String(s.uid || "").slice(0, 128),
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(ref => ref.id);
+          };
+          // Admin-only: uid -> email, straight from Firebase Auth via a Cloud
+          // Function. This is the ONLY way to name a player retroactively — a
+          // gift-code redeemer who never bought has no sale, and their own
+          // users/{uid} doc (which does hold an email) is owner-read-only by
+          // rules on purpose. Resolves nothing if the function is not deployed;
+          // the panel just keeps showing uids, exactly as before.
+          window.IZZBAH.resolveEmails = function (uids) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            if (!firebase.functions) return Promise.resolve({});
+            const list = (uids || []).filter(Boolean);
+            if (!list.length) return Promise.resolve({});
+            return firebase.functions().httpsCallable("resolveEmails")({ uids: list })
+              .then(r => ((r && r.data && r.data.emails) || {}));
           };
           window.IZZBAH.listSales = function () {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));

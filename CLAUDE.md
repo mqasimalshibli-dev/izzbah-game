@@ -224,6 +224,15 @@
   the uid stays on the row as `title` + copy-on-click, since it is still what
   support and the Firestore console need. A row with no email anywhere falls
   back to the uid in a muted style (`.prem-row-id-uid`).
+  - **`resolveEmails`, a Cloud Function (build .222)** — uid → email read
+    straight from **Firebase Auth** via the Admin SDK, admin-gated on
+    `admins/{uid}`. This is the ONLY way to name a player RETROACTIVELY: a
+    gift-code redeemer has no sale, no order, and no stamp until they next open
+    the game. The panel asks about just the rows still showing a raw uid,
+    caches the answers for the session (including the empty ones, so a deleted
+    account is not re-asked), and re-renders once. It returns ONE field per uid
+    and never touches `users/{uid}`. Needs `firebase deploy --only functions`;
+    if it is not deployed the call rejects and the panel keeps showing uids.
   ⚠️ **Transition hazard, guarded:** a usage write also carries `gamesUsed`. If
   the new rules are not published yet, a write carrying `email` is rejected —
   which would silently stop the billing counter. `pushUsage` therefore drops the
