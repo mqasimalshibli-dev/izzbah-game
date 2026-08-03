@@ -147,10 +147,19 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if isSignedIn()
         && (request.auth.uid == uid || isAdmin())
-        && request.resource.data.keys().hasOnly(['gamesUsed', 'gamesGranted', 'premium', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['gamesUsed', 'gamesGranted', 'premium', 'email', 'updatedAt'])
         && request.resource.data.gamesUsed is int
         && request.resource.data.gamesUsed >= 0
         && request.resource.data.gamesUsed <= 100000
+        // `email` lets the admin's players list name a row instead of showing a
+        // 28-character uid. OPTIONAL, and a player may only stamp their OWN doc
+        // (the uid == doc-id check above guarantees that), so it can never be
+        // used to write someone else's address anywhere. users/{uid} also holds
+        // an email but is owner-read-only, so the admin genuinely cannot get at
+        // it — this mirror is the meeting point.
+        && (!('email' in request.resource.data)
+            || (request.resource.data.email is string
+                && request.resource.data.email.size() <= 320))
         // MONOTONIC consumed count: a player can only ever RAISE their own
         // gamesUsed, never lower it. This closes the one revenue leak — a
         // technical player writing gamesUsed back down to replay games they

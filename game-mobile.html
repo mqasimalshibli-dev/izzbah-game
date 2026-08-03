@@ -4822,6 +4822,9 @@
     }
     .prem-row-main { min-width: 0; }
     .prem-row-id { font: 700 13.5px 'Cairo', sans-serif; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+    /* Falling back to the raw uid: smaller and muted, so a row that could not be
+       resolved to a person reads as "unknown player" rather than as a name. */
+    .prem-row-id-uid { font-size: 11.5px; font-weight: 600; color: #8a7550; letter-spacing: .2px; }
     .prem-row-sub { font: 600 12px 'Cairo', sans-serif; color: #7a6738; margin-top: 2px; }
     .prem-badge { display: inline-block; background: #9e1322; color: #fff; border-radius: 6px; padding: 1px 7px; font: 800 11.5px 'Cairo', sans-serif; }
     .prem-badge.games { background: #1b6a3f; }
@@ -11363,7 +11366,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.219";
+    const IZZBAH_BUILD = "2026-08-02.220";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17394,7 +17397,8 @@
     // code query hit its cap, so this list is only the most recent slice — shown
     // as a note. This NO LONGER affects any balance: player balances come from
     // the usage mirror, so a capped audit list can't under-count a player.
-    function renderCodeList(list, rows, truncated) {
+    function renderCodeList(list, rows, truncated, emails) {
+      const mail = emails || {};
       if (!rows.length) { list.innerHTML = '<div class="prem-empty">لا توجد أكواد بعد — أنشئ أول كود أعلاه.</div>'; return; }
       list.innerHTML = "";
       if (truncated) {
@@ -17417,8 +17421,13 @@
         const badge = r.premium
           ? '<span class="prem-badge">اشتراك مفتوح</span>'
           : `<span class="prem-badge games">${toArabicDigits(r.gamesAllowed)} ألعاب</span>`;
+        // ESCAPED: unlike the uid this used to print, an email can come from
+        // orders/{uid}, which the PLAYER writes — the rules only check it is a
+        // string, so it can carry markup, and this goes through innerHTML.
+        const who = mail[r.usedBy] || r.usedBy;
         const status = r.used
-          ? ` · ✅ فعّله: <span dir="ltr">${r.usedBy}</span>` + (r.usedAt ? ` · ${new Date(r.usedAt).toLocaleDateString("ar")}` : "")
+          ? ` · ✅ فعّله: <span dir="ltr" title="${escapeHtml(r.usedBy)}">${escapeHtml(who)}</span>`
+            + (r.usedAt ? ` · ${new Date(r.usedAt).toLocaleDateString("ar")}` : "")
           : " · ⏳ غير مستخدم";
         sub.innerHTML = badge + status;
         main.appendChild(id); main.appendChild(sub);
@@ -17436,17 +17445,36 @@
     // `granted` is each player's own mirror of their authoritative codes; `left`
     // = granted − used. Unlimited subscribers show ∞. A player appears once they
     // hold any grant (games or unlimited).
-    function renderPlayers(container, usage, uidFilter) {
+    // uid -> email, from everything the ADMIN is allowed to read. The player's
+    // own users/{uid} doc holds an email but is owner-read-only by rules, so it
+    // is out of reach here (and should stay that way — it also holds their whole
+    // saved-game blob). Two sources that ARE readable:
+    //   • orders/{uid}, which has always carried the email of anyone who ordered
+    //     a pack — that covers paying customers with NO rules change, and
+    //   • the usage mirror, which each player now stamps themselves.
+    function emailIndex(usage, orders) {
+      const map = {};
+      (orders || []).forEach(o => { if (o && o.uid && o.email) map[o.uid] = o.email; });
+      Object.keys(usage || {}).forEach(uid => {
+        const e = (usage[uid] || {}).email;
+        if (e) map[uid] = e;   // the player's own stamp beats an older order
+      });
+      return map;
+    }
+    function renderPlayers(container, usage, uidFilter, emails) {
       if (!container) return;
+      const mail = emails || {};
       let players = Object.keys(usage || {}).map(uid => {
         const d = usage[uid] || {};
-        return { uid, granted: Math.max(0, Math.floor(Number(d.granted) || 0)), unlimited: !!d.premium, used: Math.max(0, Math.floor(Number(d.used) || 0)) };
+        return { uid, email: d.email || mail[uid] || "",
+                 granted: Math.max(0, Math.floor(Number(d.granted) || 0)), unlimited: !!d.premium, used: Math.max(0, Math.floor(Number(d.used) || 0)) };
       }).filter(u => u.granted > 0 || u.unlimited);
       if (!players.length) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعبون فعّلوا أكواداً بعد.</div>'; return; }
       // most games granted first
       players.sort((a, b) => (b.unlimited - a.unlimited) || (b.granted - a.granted));
       const q = (uidFilter || "").trim().toLowerCase();
-      if (q) players = players.filter(u => (u.uid || "").toLowerCase().includes(q));
+      if (q) players = players.filter(u =>
+        (u.uid || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
       if (!players.length) { container.innerHTML = '<div class="prem-empty">لا يوجد لاعب مطابق للبحث.</div>'; return; }
       container.innerHTML = "";
       players.forEach(u => {
@@ -17457,8 +17485,17 @@
         const main = document.createElement("div");
         main.className = "prem-row-main";
         const id = document.createElement("div");
-        id.className = "prem-row-id";
-        id.textContent = u.uid;
+        id.className = "prem-row-id" + (u.email ? "" : " prem-row-id-uid");
+        // Show WHO, not an opaque 28-character uid. The uid stays ON the element
+        // (title + copy-on-click) because it is still what support and the
+        // Firestore console need — it is just no longer the thing on screen.
+        id.textContent = u.email || u.uid;
+        id.title = u.email ? (u.email + "\n" + u.uid) : u.uid;
+        id.style.cursor = "pointer";
+        id.addEventListener("click", () => {
+          const t = navigator.clipboard && navigator.clipboard.writeText(u.uid);
+          if (t && t.then) t.then(() => showToast("نُسخ معرّف اللاعب")).catch(() => {});
+        });
         const sub = document.createElement("div");
         sub.className = "prem-row-sub";
         const grantBadge = u.unlimited
@@ -17669,7 +17706,7 @@
       return ((el && el.value) || "").trim().toLowerCase();
     }
     // Render all three lists from the cache, applying the current search term.
-    // Codes match on code/redeemer-uid; orders on email/uid/pack; players on uid.
+    // Codes match on code/redeemer-uid; orders on email/uid/pack; players on email or uid.
     function renderPremLists() {
       const list = $("#premList"), players = $("#premPlayers"), orders = $("#premOrders");
       const q = premFilterTerm();
@@ -17677,8 +17714,8 @@
       const fCodes = q ? codes.filter(c => (c.code || "").toLowerCase().includes(q) || (c.usedBy || "").toLowerCase().includes(q)) : codes;
       const fOrders = q ? orderRows.filter(o => `${o.email || ""} ${o.uid || ""} ${o.pack || ""}`.toLowerCase().includes(q)) : orderRows;
       if (orders) renderOrders(orders, fOrders);
-      if (players) renderPlayers(players, usage, q); // from the usage mirror, filter by uid inside
-      if (list) renderCodeList(list, fCodes, codes.length >= 2000);
+      if (players) renderPlayers(players, usage, q, emailIndex(usage, orderRows)); // filter matches email or uid
+      if (list) renderCodeList(list, fCodes, codes.length >= 2000, emailIndex(usage, orderRows));
     }
     function refreshPremiumList() {
       const list = $("#premList");
@@ -23096,6 +23133,9 @@
           // games — it can only misstate the admin dashboard, which «rebuild»
           // recomputes from codes. Deduped on the whole {used,granted,premium}.
           let lastUsagePushed = "";
+          // Cleared the first time the rules reject a usage write carrying the
+          // email field, so an un-published rules file degrades gracefully.
+          let usageEmailAllowed = true;
           window.IZZBAH.pushUsage = function (n, grant) {
             if (!currentUser) return Promise.resolve(false);
             const v = Math.max(0, Math.floor(Number(n) || 0));
@@ -23122,15 +23162,36 @@
             return db.runTransaction(tx => tx.get(ref).then(doc => {
               const d = doc.exists ? (doc.data() || {}) : {};
               const nextUsed = Math.max(Number(d.gamesUsed) || 0, v);
-              tx.set(ref, {
+              const base = {
                 gamesUsed: nextUsed,
                 gamesGranted: g === null ? (Number(d.gamesGranted) || 0) : g,
                 premium: prem === null ? !!d.premium : prem,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-              });
+              };
+              // Carry the player's own email so the admin's players list can show
+              // WHO a row belongs to instead of a raw uid. The admin cannot read
+              // users/{uid} (owner-only by rules), so this mirror is the only
+              // place the two can meet.
+              const email = String((currentUser && currentUser.email) || "").slice(0, 320);
+              if (usageEmailAllowed && email) base.email = email;
+              else if (d.email) base.email = d.email;   // never drop what is there
+              tx.set(ref, base);
               return nextUsed;
             })).then(() => { lastUsagePushed = key; return true; })
-              .catch(e => { console.warn("usage push failed", e && (e.code || e)); lastUsagePushed = ""; return false; });
+              .catch(e => {
+                const code = String((e && (e.code || e.message)) || "");
+                // The rules field-lock usage docs, so until the updated rules are
+                // published a write carrying `email` is REJECTED — and that same
+                // write carries gamesUsed, so failing it silently would stop the
+                // billing counter. Drop the field and retry once, then stop
+                // trying for the session.
+                if (usageEmailAllowed && code.indexOf("permission-denied") !== -1) {
+                  usageEmailAllowed = false;
+                  console.warn("izzbah: usage email rejected by rules — falling back (publish the updated firestore.rules)");
+                  return window.IZZBAH.pushUsage(v, g, prem);
+                }
+                console.warn("usage push failed", code); lastUsagePushed = ""; return false;
+              });
           };
           // Player: read the authoritative consumed count from the cloud.
           window.IZZBAH.loadMyUsage = function () {
@@ -23153,7 +23214,8 @@
                 map[doc.id] = {
                   used: Number(d.gamesUsed) || 0,
                   granted: Number(d.gamesGranted) || 0,
-                  premium: !!d.premium
+                  premium: !!d.premium,
+                  email: String(d.email || "")
                 };
               });
               return map;
@@ -23191,19 +23253,30 @@
               // consumed count (and doesn't resurrect a cleared player who has no
               // remaining codes — only redeemers appear in byUser).
               return Promise.all(uids.map(uid =>
-                db.collection("usage").doc(uid).get().then(doc => ({ uid, used: doc.exists ? Number((doc.data() || {}).gamesUsed) || 0 : 0 })).catch(() => ({ uid, used: 0 }))
+                db.collection("usage").doc(uid).get()
+                  .then(doc => {
+                    const d = doc.exists ? (doc.data() || {}) : {};
+                    return { uid, used: Number(d.gamesUsed) || 0, email: String(d.email || "") };
+                  })
+                  .catch(() => ({ uid, used: 0, email: "" }))
               )).then(existing => {
-                const usedByUid = {};
-                existing.forEach(e => { usedByUid[e.uid] = e.used; });
+                const usedByUid = {}, emailByUid = {};
+                // This REWRITES every doc, so anything not carried over is erased.
+                // The email is written by the player and cannot be re-derived
+                // here — dropping it would blank the admin list until each player
+                // next opened the game.
+                existing.forEach(e => { usedByUid[e.uid] = e.used; emailByUid[e.uid] = e.email; });
                 let batch = db.batch(), n = 0, total = 0;
                 const commits = [];
                 uids.forEach(uid => {
-                  batch.set(db.collection("usage").doc(uid), {
+                  const rec = {
                     gamesUsed: usedByUid[uid] || 0,
                     gamesGranted: byUser[uid].granted,
                     premium: byUser[uid].premium,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                  });
+                  };
+                  if (emailByUid[uid]) rec.email = emailByUid[uid];
+                  batch.set(db.collection("usage").doc(uid), rec);
                   n++; total++;
                   if (n >= 400) { commits.push(batch.commit()); batch = db.batch(); n = 0; }
                 });
