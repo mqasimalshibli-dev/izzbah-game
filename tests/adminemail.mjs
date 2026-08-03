@@ -66,7 +66,7 @@ try {
     };
     // an order supplies the email for the player who never stamped their mirror
     const orders = [{ uid: "uidBBB111aaa222bbb333ccc4444", email: "khalid@gmail.com", pack: "٢٠ لعبة" }];
-    renderPlayers(el, usage, "", emailIndex(usage, orders));
+    renderPlayers(el, usage, "", emailIndex(usage, orders, []));
     const rows = [...el.querySelectorAll(".prem-row-id")];
     return {
       shown: rows.map(r => r.textContent),
@@ -88,6 +88,30 @@ try {
   check("the uid is still reachable on the row (title) for support",
     out.titles.some(t => t && t.includes("uidAAA111aaa222bbb333ccc4444")));
 
+  // orders/{uid} is a QUEUE — fulfilling an order deletes it — so on its own it
+  // names almost nobody. sales/{id} is the permanent purchase record and is what
+  // actually resolves past customers.
+  const fromSales = await page.evaluate(() => {
+    const el = document.createElement("div");
+    const usage = { "uidPAST111aaa222bbb333cc": { used: 4, granted: 20, premium: false } };
+    const sales = [{ uid: "uidPAST111aaa222bbb333cc", email: "past.buyer@gmail.com", pack: "٢٠ لعبة" }];
+    renderPlayers(el, usage, "", emailIndex(usage, [], sales));   // no pending order
+    return [...el.querySelectorAll(".prem-row-id")].map(r => r.textContent);
+  });
+  check("a past customer with no pending order is still named, from sales",
+    fromSales.includes("past.buyer@gmail.com"));
+
+  // and the player's own stamp beats a stale address recorded at purchase time
+  const priority = await page.evaluate(() => {
+    const usage = { u1: { used: 0, granted: 5, premium: false, email: "current@gmail.com" } };
+    const el = document.createElement("div");
+    renderPlayers(el, usage, "", emailIndex(usage,
+      [{ uid: "u1", email: "order@gmail.com" }], [{ uid: "u1", email: "old.sale@gmail.com" }]));
+    return [...el.querySelectorAll(".prem-row-id")].map(r => r.textContent);
+  });
+  check("the player's own stamped email wins over an order or an old sale",
+    priority.includes("current@gmail.com"));
+
   // the search box has to find people by the thing now on screen
   const search = await page.evaluate(() => {
     const usage = {
@@ -95,9 +119,9 @@ try {
       "uidBBB111aaa222bbb333ccc4444": { used: 0, granted: 10, premium: false, email: "khalid@gmail.com" },
     };
     const byMail = document.createElement("div");
-    renderPlayers(byMail, usage, "sara", emailIndex(usage, []));
+    renderPlayers(byMail, usage, "sara", emailIndex(usage, [], []));
     const byUid = document.createElement("div");
-    renderPlayers(byUid, usage, "uidbbb", emailIndex(usage, []));
+    renderPlayers(byUid, usage, "uidbbb", emailIndex(usage, [], []));
     return {
       mail: [...byMail.querySelectorAll(".prem-row-id")].map(r => r.textContent),
       uid: [...byUid.querySelectorAll(".prem-row-id")].map(r => r.textContent),
@@ -112,7 +136,7 @@ try {
     const el = document.createElement("div");
     const orders = [{ uid: "uidEVIL", email: "<img src=x onerror=window.__pwn=1>@gmail.com", pack: "p" }];
     renderCodeList(el, [{ code: "ABC123", gamesAllowed: 5, premium: false, used: true,
-                          usedBy: "uidEVIL", usedAt: Date.now() }], false, emailIndex({}, orders));
+                          usedBy: "uidEVIL", usedAt: Date.now() }], false, emailIndex({}, orders, []));
     return { html: el.innerHTML, pwned: !!window.__pwn, imgs: el.querySelectorAll("img").length };
   });
   check("a hostile email in an order cannot inject an element", xss.imgs === 0 && !xss.pwned);

@@ -212,8 +212,11 @@
   way**: an admin genuinely cannot read it, and it should not be opened up
   (that doc also holds the player's entire saved-game blob). Two sources the
   admin CAN read:
-  - `orders/{uid}.email` — always been admin-readable, covers everyone who
-    ordered a pack, and needs **no rules change**;
+  - `sales/{id}` — the PERMANENT purchase record, carrying both `uid` and
+    `email`. This is what actually names past customers, and needs **no rules
+    change**. (`orders/{uid}` is also read, but it is only a QUEUE — fulfilling
+    an order DELETES the doc — so on its own it names almost nobody. Getting
+    that wrong is why .220 still showed uids.)
   - the `usage/{uid}` mirror, which each player now stamps with their own
     email. This needs `'email'` added to that rule's `hasOnly` list.
   `emailIndex(usage, orders)` merges the two (the player's own stamp wins) and
