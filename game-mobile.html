@@ -11366,7 +11366,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.222";
+    const IZZBAH_BUILD = "2026-08-02.223";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17745,9 +17745,19 @@
         Object.keys(map || {}).forEach(uid => {
           if (map[uid] && premData.usage[uid]) { premData.usage[uid].email = map[uid]; added++; }
         });
-        if (added) renderPremLists();
+        if (added) { renderPremLists(); premSetStatus("تم التعرّف على " + toArabicDigits(added) + " لاعباً بالبريد الإلكتروني", "ok"); }
+        else if (missing.length) premSetStatus("لم يُعثر على بريد لـ " + toArabicDigits(missing.length) + " من اللاعبين (حسابات محذوفة غالباً)", "");
       }).catch(e => {
-        console.warn("resolveEmails unavailable", e && (e.code || e.message));
+        // SAY SO. This used to fail only into the console, so "the emails still
+        // aren't showing" gave the owner nothing to act on. The lookup is the
+        // only thing that can name a player who never bought, so when it fails
+        // the panel now explains which of the two causes it is.
+        const code = String((e && (e.code || e.message)) || "");
+        console.warn("resolveEmails unavailable", code);
+        const notFound = /not-found|NOT_FOUND|internal/.test(code);
+        premSetStatus(notFound
+          ? "تعذّر جلب البُرد الإلكترونية: الدالة resolveEmails غير منشورة بعد — شغّل firebase deploy --only functions"
+          : "تعذّر جلب البُرد الإلكترونية (" + (code || "خطأ") + ")", "err");
       });
     }
     function refreshPremiumList() {
