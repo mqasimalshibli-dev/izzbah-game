@@ -124,8 +124,27 @@ try {
     return {
       bannedHidden: document.getElementById("bannedWrap").hidden,
       qText: document.getElementById("modalQuestion").textContent.trim(),
-      // no banned word may appear ANYWHERE on the question screen
-      leaks: banned.filter(w => page.textContent.includes(w)),
+      // No banned word may be VISIBLE while answering. Matched as a whole word,
+      // not a substring: Arabic roots nest, so `includes()` flagged «حر» inside
+      // «الصحراء» and failed at random depending on which question the board
+      // drew. The property that matters is that the player cannot READ a banned
+      // word, and a word buried inside a longer one is not readable as itself.
+      leaks: (() => {
+        const norm = (x) => x.replace(/[\u064B-\u0652\u0670]/g, "")
+          .replace(/[\u0623\u0625\u0622]/g, "\u0627").replace(/\u0629/g, "\u0647").replace(/\u0649/g, "\u064A");
+        const strip = (x) => x.replace(/^(ال|و|ب|ل|ف)/, "");
+        const tokens = (x) => new Set(norm(x).split(/[\s\u060C.\u061F!،:()«»\-]+/)
+          .filter(Boolean).map(strip));
+        const onScreen = tokens(page.textContent);
+        // A banned word that is part of the PROMPT ITSELF is not a leak — the
+        // player is meant to read the prompt, and «اذكر اسم ميناء» tells them
+        // nothing by containing «ميناء». (It IS a wasted ban slot, but that is a
+        // content question for the owner, not a spoiler this test can decide.)
+        const inPrompt = tokens(document.getElementById("modalQuestion").textContent);
+        const isWholeWordIn = (set, w) =>
+          norm(w).split(/\s+/).filter(Boolean).every(t => set.has(strip(t)));
+        return banned.filter(w => isWholeWordIn(onScreen, w) && !isWholeWordIn(inPrompt, w));
+      })(),
     };
   });
   check("the question screen shows only the domain prompt", /اذكر/.test(opened.qText));
