@@ -4521,6 +4521,12 @@
     /* ---- Bulk question import modal ---- */
     .import-modal { max-width: 620px; width: 94%; text-align: right; }
     .import-help { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: var(--dark); }
+    /* «إبلاغ» modal: the undo-a-block line, only present once something is blocked. */
+    .report-blocked { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between;
+      margin: 10px 0 2px; padding: 9px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.5;
+      background: color-mix(in srgb, var(--dark) 6%, transparent); color: var(--dark); }
+    .report-blocked[hidden] { display: none; }
+    .report-blocked button { flex: 0 0 auto; padding: 6px 14px; font-size: 13px; }
     .import-format {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center;
       background: #f3ead3; border: 1px solid rgba(201,151,74,.5); border-radius: 8px;
@@ -6915,11 +6921,10 @@
       <div class="settings-section">الأخبار والدعم</div>
       <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico" aria-hidden="true">💬</span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsReport" type="button"><span class="settings-ico" aria-hidden="true">🚩</span><span class="settings-label">إبلاغ عن مشكلة</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsReport" type="button"><span class="settings-ico" aria-hidden="true">🚩</span><span class="settings-label">إبلاغ</span><span class="settings-state" id="settingsReportState"></span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsBlocked" type="button" hidden><span class="settings-ico" aria-hidden="true">🚫</span><span class="settings-label">المحتوى المحظور</span><span class="settings-state" id="settingsBlockedState"></span></button>
       <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
     </div>
@@ -7719,6 +7724,13 @@
         <p class="import-help">لاحظت مشكلة في سؤال، أو شيء غير مناسب، أو عندك ملاحظة؟ اكتبها هنا وتصل للمطوّرين مباشرة.</p>
         <textarea id="reportText" class="import-text" placeholder="اكتب ما تريد الإبلاغ عنه..."></textarea>
         <div class="prem-status" id="reportStatus" aria-live="polite"></div>
+        <!-- The blocked-content control used to be its own settings row. It
+             lives here now: this is where a player who hid something comes
+             looking for it, and a UGC app has to offer a way to undo a block. -->
+        <div class="report-blocked" id="reportBlocked" hidden>
+          <span id="reportBlockedText"></span>
+          <button class="ghost" id="reportUnblock" type="button">إظهار الكل</button>
+        </div>
         <div class="actions">
           <button class="ghost" id="reportCancel" type="button">إلغاء</button>
           <button class="primary" id="reportSend" type="button">إرسال</button>
@@ -11366,7 +11378,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.225";
+    const IZZBAH_BUILD = "2026-08-03.226";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18031,13 +18043,13 @@
       if (ss) ss.textContent = soundOn ? "مفعّل" : "مكتوم";
       const ts = $("#settingsThemeState");
       if (ts) ts.textContent = (state.theme === "dark") ? "🌙 داكن" : "☀️ فاتح";
-      // «المحتوى المحظور» row: only shown once the player has blocked something.
-      const brow = $("#settingsBlocked");
-      if (brow) {
+      // «إبلاغ» row: always available. It carries a quiet count when the player
+      // has hidden community categories, because the undo for that now lives
+      // inside the report sheet rather than in a row of its own.
+      const rst = $("#settingsReportState");
+      if (rst) {
         const bc = blockedCommCount();
-        brow.hidden = bc === 0;
-        const bst = $("#settingsBlockedState");
-        if (bst) bst.textContent = bc ? toArabicDigits(bc) + " — إظهار الكل" : "";
+        rst.textContent = bc ? toArabicDigits(bc) + " مخفية" : "";
       }
     }
     function openSettings() {
@@ -20850,9 +20862,20 @@
     // Posts through the same feedback channel as «اقتراحاتك وملاحظاتك», so an
     // admin sees it in «رسائل اللاعبين» with the usual unread notification.
     function reportSetStatus(msg) { const st = $("#reportStatus"); if (st) st.textContent = msg || ""; }
+    // The blocked-content line inside the report sheet — present only when this
+    // device is actually hiding something.
+    function renderReportBlocked() {
+      const row = $("#reportBlocked");
+      if (!row) return;
+      const bc = blockedCommCount();
+      row.hidden = bc === 0;
+      const txt = $("#reportBlockedText");
+      if (txt) txt.textContent = bc ? "أخفيت " + toArabicDigits(bc) + " من فئات المجتمع على هذا الجهاز." : "";
+    }
     function openReport() {
       const t = $("#reportText"); if (t) t.value = "";
       reportSetStatus("");
+      renderReportBlocked();
       const m = $("#reportModal");
       m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       if (t) setTimeout(() => { try { t.focus(); } catch (e) {} }, 60);
@@ -21269,11 +21292,11 @@
     $("#contactClose").addEventListener("click", closeContact);
     $("#contactModal").addEventListener("click", event => { if (event.target.id === "contactModal") closeContact(); });
     $("#settingsLegal").addEventListener("click", () => { closeSettings(); openLegal("privacy", "review"); });
-    $("#settingsBlocked").addEventListener("click", () => {
+    $("#reportUnblock").addEventListener("click", () => {
       if (!blockedCommCount()) return;
       if (!window.confirm("إظهار كل الفئات المحظورة على هذا الجهاز؟")) return;
       unblockAllComm();
-      renderSettingsSheet();
+      renderReportBlocked();
       showToast("تم إلغاء الحظر — عادت الفئات للظهور");
     });
     $("#settingsAbout").addEventListener("click", () => { closeSettings(); showDiagnostics(); });

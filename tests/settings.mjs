@@ -184,7 +184,7 @@ try {
     contact.open && contact.qr && contact.insta && contact.mail);
   await page.evaluate(() => document.getElementById("contactClose").click());
 
-  // ---- «إبلاغ عن مشكلة» reaches the SAME modal as the in-game flag ----
+  // ---- «إبلاغ» reaches the SAME modal as the in-game flag ----
   // Before this row the report modal was reachable only from the flag in the
   // game topbar, so a player outside a live game had no way to report anything.
   const report = await page.evaluate(async () => {

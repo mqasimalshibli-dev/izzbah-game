@@ -70,9 +70,39 @@ const afterReport = await p.evaluate(()=>({
 ck("report sends a structured report via feedback", afterReport.fbLen===1 && afterReport.fbIsReport && afterReport.fbHasId);
 ck("report also hides the reported category", afterReport.present===false && afterReport.count>=1);
 
-// SETTINGS unblock row appears
-const rowShown = await p.evaluate(()=>{ renderSettingsSheet(); const r=document.getElementById("settingsBlocked"); return r && !r.hidden && /إظهار الكل/.test(document.getElementById("settingsBlockedState").textContent); });
-ck("settings shows «المحتوى المحظور» unblock row when blocked", rowShown);
+// The unblock control moved OUT of its own «المحتوى المحظور» settings row and
+// into the «إبلاغ» sheet, so the settings list carries one report entry named
+// exactly like the flag on the board and the 🚩 on a category card. The row now
+// only hints at the count; the undo itself lives in the report modal.
+const rowShown = await p.evaluate(()=>{
+  renderSettingsSheet();
+  const r = document.getElementById("settingsReport");
+  const st = document.getElementById("settingsReportState");
+  return {
+    gone: !document.getElementById("settingsBlocked"),      // old row is retired
+    label: (r && r.querySelector(".settings-label").textContent || "").trim(),
+    always: !!r && !r.hidden,                                // never hidden now
+    hint: /مخفية/.test((st && st.textContent) || ""),
+  };
+});
+ck("the old «المحتوى المحظور» row is gone", rowShown.gone);
+ck("settings carries one row named «إبلاغ», always visible", rowShown.label==="إبلاغ" && rowShown.always);
+ck("…and it hints how many categories are hidden", rowShown.hint);
+
+// The undo lives in the report sheet, and still works from there.
+const inSheet = await p.evaluate(async ()=>{
+  openReport();
+  await new Promise(r=>setTimeout(r,120));
+  const row = document.getElementById("reportBlocked");
+  const shown = row && !row.hidden;
+  const text = document.getElementById("reportBlockedText").textContent;
+  document.getElementById("reportUnblock").click();   // window.confirm auto-accepts
+  await new Promise(r=>setTimeout(r,120));
+  return { shown, text, count: blockedCommCount(), hiddenAfter: document.getElementById("reportBlocked").hidden };
+});
+ck("the report sheet shows the blocked-content line when something is hidden", inSheet.shown && /أخفيت/.test(inSheet.text));
+ck("«إظهار الكل» in the report sheet clears every block", inSheet.count===0);
+ck("…and the line disappears once nothing is blocked", inSheet.hiddenAfter===true);
 
 ck("no uncaught JS errors", errs.length===0);
 if(errs.length) console.log("  errs:", errs.slice(0,3));
