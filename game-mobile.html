@@ -5179,8 +5179,20 @@
     }
     #game .board-card-points .cell {
       height: 56px !important; min-height: 0 !important; border-radius: 13px !important; border: 1px solid #e7c373 !important;
-      font: 900 clamp(15px, 2.4vw, 19px) 'Cairo', sans-serif !important; line-height: 1 !important; color: #ffe6b0 !important;
+      /* The number was small because the button kept Chrome's default 6px side
+         padding: a 40px border-box cell had only 26px of content box, so 15px
+         type already filled 80% of it. The padding is dead space — the label is
+         centred and the background/border are painted on the border box — so
+         dropping it frees 12px and lets the number grow by half. */
+      padding-inline: 0 !important;
+      font: 900 clamp(21px, 2.5vw, 24px) 'Cairo', sans-serif !important; line-height: 1 !important; color: #ffe6b0 !important;
       text-shadow: 0 1px 2px rgba(80, 6, 10, .7) !important;
+    }
+    /* A category is free to use non-canonical tiers (١٠٠٠ and up), which is four
+       glyphs rather than three. Those step down a size so a wider number cannot
+       spill out of a cell that stayed the same width. */
+    #game .board-card-points .cell.cell-long {
+      font-size: clamp(16px, 2vw, 18px) !important;
     }
     #game .board-card-points .cell:not(.used) {
       background: radial-gradient(120% 130% at 50% 16%, #ef565a 0%, #c11f2a 52%, #8c1419 100%) !important;
@@ -5207,7 +5219,7 @@
    tall on every real phone (the 46px ceiling needs 708px of height, which no
    phone in landscape has). The card is a flex column, so raising the floor
    takes the space from the cover art above rather than overflowing the board. */
-#game .board-card-points .cell { height: clamp(34px, 9.5vh, 46px) !important; border-radius: 8px !important; font-size: clamp(13px, 2.4vw, 19px) !important; line-height: 1 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
+#game .board-card-points .cell { height: clamp(34px, 9.5vh, 46px) !important; border-radius: 8px !important; font-size: clamp(19px, 2.9vw, 24px) !important; line-height: 1 !important; padding-inline: 0 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
       #game .topbar .topbar-right { gap: 8px !important; }
       #game .qhelp-bar--team { flex-direction: row !important; flex-wrap: wrap !important; gap: 4px !important; padding: 5px 6px !important; border-radius: 0 !important; align-content: center !important; max-width: 46% !important; }
       #game .qhelp-bar--team .qhelp-slot { width: 24px !important; height: 24px !important; border-width: 1.5px !important; }
@@ -11378,7 +11390,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.226";
+    const IZZBAH_BUILD = "2026-08-03.227";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18930,6 +18942,9 @@
           cell.className = "cell" + (used ? " used" : "");
           cell.style.setProperty("--cell-bg", rgba("#db161b", .85));
           cell.textContent = used ? "✓" : toArabicDigits(isFlat200Category(cat) ? EMOJI_REWARD : points);
+          // Four-digit tiers get the smaller step (see .cell-long) — the cell
+          // width is fixed, so the number has to give.
+          if ((cell.textContent || "").length > 3) cell.classList.add("cell-long");
           cell.disabled = used;
           // Decide this cell's question ONCE and pin it — permanently: the pin
           // lives on the saved-game record and is never cleared, so replays
