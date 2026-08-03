@@ -231,8 +231,23 @@
     the game. The panel asks about just the rows still showing a raw uid,
     caches the answers for the session (including the empty ones, so a deleted
     account is not re-asked), and re-renders once. It returns ONE field per uid
-    and never touches `users/{uid}`. Needs `firebase deploy --only functions`;
-    if it is not deployed the call rejects and the panel keeps showing uids.
+    and never touches `users/{uid}`. **DEPLOYED and confirmed working
+    2026-08-03** — the panel shows emails, including retroactive ones. If it is
+    ever undeployed the call rejects and the panel falls back to uids.
+    Deploying it took four failed attempts; the traps, for next time:
+    - The owner deploys from **Cloud Shell** (`~/izzbah-game`), which is a
+      SEPARATE clone. It does not follow GitHub — `git pull` there FIRST, or
+      the deploy packages stale source and reports
+      `Skipped (No changes detected)` while looking completely successful.
+    - `defineSecret` is resolved for the WHOLE codebase before `--only` filters
+      anything, so `--only functions:resolveEmails` still prompted for
+      `PAYMENT_WEBHOOK_SECRET` (declared by the frozen `paymentWebhook`).
+    - That masked prompt CRASHES in Cloud Shell (`Error: An unexpected error has
+      occurred`) — it cannot read masked stdin. Create the secret out of band
+      instead: `printf 'value' | gcloud secrets create PAYMENT_WEBHOOK_SECRET
+      --data-file=- --project=izzbahgame`, then deploy. The value stored today
+      is a throwaway random string; `paymentWebhook` itself is NOT deployed and
+      the real Thawani secret replaces it when payments are wired.
   ⚠️ **Transition hazard, guarded:** a usage write also carries `gamesUsed`. If
   the new rules are not published yet, a write carrying `email` is rejected —
   which would silently stop the billing counter. `pushUsage` therefore drops the
