@@ -3,6 +3,54 @@
 // shows them, and dodging them scores. The banned words live in `distractors`,
 // so multiple choice must be off (it would hand the team the trap), and nothing
 // on the question screen may leak them.
+// ---- static: the built-in bank's own consistency ---------------------------
+// Offline checks on the question data itself, so a bad entry is caught at author
+// time rather than surfacing as a one-in-N flaky failure on whichever question a
+// board happened to draw.
+import { readFileSync as __read } from "fs";
+import { fileURLToPath as __f } from "url";
+import { dirname as __d, join as __j } from "path";
+function __bankChecks(check) {
+  const src = __read(__j(__d(__f(import.meta.url)), "..", "game-mobile.html"), "utf8");
+  const start = src.indexOf("sayAnother:");
+  const after = src.slice(start + 11);
+  const end = after.search(/\n\s{4,6}[a-zA-Z_]\w*:\s*\{/);
+  const seg = after.slice(0, end > 0 ? end : 80000);
+  const re = /\[\s*"([^"]{4,})"\s*,\s*"([^"]*)"\s*,\s*\[([^\]]*)\]/g;
+  const norm = (x) => x.replace(/[\u064B-\u0652\u0670]/g, "")
+    .replace(/[\u0623\u0625\u0622]/g, "\u0627").replace(/\u0629/g, "\u0647").replace(/\u0649/g, "\u064A");
+  const strip = (x) => x.replace(/^(ال|و|ب|ل|ف)/, "");
+  let m, n = 0, self = [], dup = [], clash = [], thin = [];
+  while ((m = re.exec(seg))) {
+    n++;
+    const q = m[1];
+    const acc = m[2].split("·").map(x => x.trim()).filter(Boolean);
+    const bans = m[3].split(",").map(x => x.trim().replace(/"/g, "")).filter(Boolean);
+    const qw = new Set(norm(q).split(/[\s\u060C.\u061F!:()«»\-]+/).filter(Boolean).map(strip));
+    bans.forEach(w => {
+      if (norm(w).split(/\s+/).every(t => qw.has(strip(t)))) self.push(`${q} → ${w}`);
+    });
+    if (new Set(bans.map(norm)).size !== bans.length) dup.push(q);
+    const B = new Set(bans.map(norm));
+    acc.forEach(x => { if (B.has(norm(x))) clash.push(`${q} → ${x}`); });
+    if (acc.length < 3) thin.push(q);
+  }
+  check(`the built-in bank has questions (${n})`, n > 100);
+  // A ban lifted straight from the prompt costs the team nothing — nobody
+  // answers «ميناء» to «اذكر اسم ميناء» — so that question is really playing
+  // with one ban fewer than it looks.
+  check(`no question bans a word from its own prompt${self.length ? " (" + self.slice(0, 3).join("; ") + ")" : ""}`,
+    self.length === 0);
+  check(`no question lists the same ban twice${dup.length ? " (" + dup.slice(0, 3).join("; ") + ")" : ""}`,
+    dup.length === 0);
+  // The two lists must not contradict: a word cannot be both banned and offered
+  // as an accepted answer on the reveal screen.
+  check(`no banned word also appears in its own accepted list${clash.length ? " (" + clash.slice(0, 3).join("; ") + ")" : ""}`,
+    clash.length === 0);
+  check(`every question keeps at least 3 accepted examples${thin.length ? " (" + thin.slice(0, 3).join("; ") + ")" : ""}`,
+    thin.length === 0);
+}
+
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -12,6 +60,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8402;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
+__bankChecks(check);
 
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
