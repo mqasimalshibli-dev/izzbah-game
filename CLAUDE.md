@@ -206,6 +206,32 @@
   passed happily while BOTH sat on the floor — it is now pinned to an absolute
   minimum. Beware that shape of assertion.
 
+- **The admin centre names players by EMAIL, not uid (build .220).** A
+  28-character uid told the owner nothing about whose row it was. The obvious
+  source — `users/{uid}.email` — is **owner-read-only by rules and stays that
+  way**: an admin genuinely cannot read it, and it should not be opened up
+  (that doc also holds the player's entire saved-game blob). Two sources the
+  admin CAN read:
+  - `orders/{uid}.email` — always been admin-readable, covers everyone who
+    ordered a pack, and needs **no rules change**;
+  - the `usage/{uid}` mirror, which each player now stamps with their own
+    email. This needs `'email'` added to that rule's `hasOnly` list.
+  `emailIndex(usage, orders)` merges the two (the player's own stamp wins) and
+  feeds BOTH the players list and the codes list; search matches email or uid;
+  the uid stays on the row as `title` + copy-on-click, since it is still what
+  support and the Firestore console need. A row with no email anywhere falls
+  back to the uid in a muted style (`.prem-row-id-uid`).
+  ⚠️ **Transition hazard, guarded:** a usage write also carries `gamesUsed`. If
+  the new rules are not published yet, a write carrying `email` is rejected —
+  which would silently stop the billing counter. `pushUsage` therefore drops the
+  field and retries once on `permission-denied`, then sets `usageEmailAllowed =
+  false` for the session. Emails simply fill in later, once the rules land.
+  ⚠️ `rebuildBalances` REWRITES usage docs, so it now carries the email across.
+  Without that, one press of «إعادة بناء الأرصدة» would blank the whole list.
+  ⚠️ The codes list interpolates the redeemer into `innerHTML`. A uid was safe;
+  an email from `orders` is PLAYER-written and only type-checked by the rules,
+  so it is `escapeHtml`-ed. `tests/adminemail.mjs` covers all of it.
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are

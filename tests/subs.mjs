@@ -71,8 +71,11 @@ try {
   });
   check("the panel shows a «مباشر» live badge + a search box", opened.liveBadge && opened.hasSearch);
   check("opening the panel subscribes to live orders (watchOrders)", opened.subscribed);
+  // userALICE placed an order, so the players list resolves that row to her
+  // EMAIL; userBOB has no order and no stamped mirror, so he still shows a uid.
   check("initial orders/codes/players all render", /alice@example\.com/.test(opened.orders)
-    && /AAAA-1111/.test(opened.codes) && /userALICE/.test(opened.players) && /userBOB/.test(opened.players));
+    && /AAAA-1111/.test(opened.codes)
+    && /alice@example\.com/.test(opened.players) && /userBOB/.test(opened.players));
 
   // ---- live push: a new order arrives with the panel open ----
   const live = await page.evaluate(async () => {
@@ -114,8 +117,10 @@ try {
       codes: document.getElementById("premList").textContent,
     };
   });
+  // Searching by uid still WORKS (the filter matches uid or email) — but the
+  // row it finds is now labelled with her email, so assert on that.
   check("searching a uid filters players to that account",
-    /userALICE/.test(byUid.players) && !/userBOB/.test(byUid.players));
+    /alice@example\.com/.test(byUid.players) && !/userBOB/.test(byUid.players));
   check("the same uid search filters the codes list by redeemer",
     /AAAA-1111/.test(byUid.codes) && !/BBBB-2222/.test(byUid.codes));
 
@@ -125,7 +130,8 @@ try {
     await new Promise(r => setTimeout(r, 50));
     return document.getElementById("premPlayers").textContent;
   });
-  check("clearing the search restores every player row", /userALICE/.test(cleared) && /userBOB/.test(cleared));
+  check("clearing the search restores every player row",
+    /alice@example\.com/.test(cleared) && /userBOB/.test(cleared));
 
   // ---- closing the panel tears the live listener down ----
   const closed = await page.evaluate(async () => {
