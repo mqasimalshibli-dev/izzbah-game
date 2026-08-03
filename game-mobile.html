@@ -11366,7 +11366,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.223";
+    const IZZBAH_BUILD = "2026-08-02.224";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17752,12 +17752,25 @@
         // aren't showing" gave the owner nothing to act on. The lookup is the
         // only thing that can name a player who never bought, so when it fails
         // the panel now explains which of the two causes it is.
+        // Distinguish the causes — they need OPPOSITE fixes, and lumping them
+        // together sent the owner chasing a deploy that had already happened:
+        //   not-found      the function really is not deployed
+        //   internal       it IS deployed and threw — look at the logs
+        //   unauthenticated / permission-denied   not signed in as an admin
+        // The raw code is always shown, so an unexpected one is still actionable.
         const code = String((e && (e.code || e.message)) || "");
-        console.warn("resolveEmails unavailable", code);
-        const notFound = /not-found|NOT_FOUND|internal/.test(code);
-        premSetStatus(notFound
-          ? "تعذّر جلب البُرد الإلكترونية: الدالة resolveEmails غير منشورة بعد — شغّل firebase deploy --only functions"
-          : "تعذّر جلب البُرد الإلكترونية (" + (code || "خطأ") + ")", "err");
+        console.warn("resolveEmails failed", code, e);
+        let why;
+        if (/not-found/i.test(code)) {
+          why = "الدالة resolveEmails غير منشورة — شغّل firebase deploy --only functions";
+        } else if (/internal/i.test(code)) {
+          why = "الدالة منشورة لكنها فشلت — راجع سجلّ الدوال في Firebase (Functions → Logs)";
+        } else if (/unauthenticated|permission-denied/i.test(code)) {
+          why = "سجّل الدخول بحساب المشرف أولاً";
+        } else {
+          why = "تعذّر الاتصال بالدالة";
+        }
+        premSetStatus("البُرد الإلكترونية: " + why + " [" + (code || "خطأ") + "]", "err");
       });
     }
     function refreshPremiumList() {
