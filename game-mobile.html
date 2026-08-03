@@ -5510,8 +5510,32 @@
     #gameLibrary .saved-game-category span {
       position: absolute !important; top: 11px; inset-inline-end: 11px; z-index: 2; place-self: auto;
       background: #fdf6e6; border: 2px solid #d6ad42; color: #a8172a; border-radius: 10px;
-      padding: 5px 13px; font: 800 14px 'Cairo', sans-serif !important; line-height: 1;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, .22); text-shadow: none; max-width: calc(100% - 22px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      /* The line-height rides INSIDE the shorthand on purpose: `font:` is
+         !important here, and the shorthand resets line-height to `normal`
+         (~1.86em in Cairo) with that same importance — a separate
+         `line-height: 1.25` beside it is silently outranked, which made every
+         wrapped pill half again as tall as it needed to be. */
+      padding: 5px 9px; font: 800 14px/1.25 'Cairo', sans-serif !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .22); text-shadow: none; max-width: calc(100% - 20px);
+      /* The pill used to be a single nowrap line with an ellipsis, which cut
+         ordinary category names in half — «رياكشنات عمانية» showed as
+         «رياكشنات ع…». A player picking a saved game could not read what was in
+         it. It wraps onto a second line instead, so the whole name is legible at
+         the same size; two lines hold every name in the catalogue with room to
+         spare, and the clamp is only a backstop against a future long one. */
+      overflow: hidden; white-space: normal; text-align: center; overflow-wrap: break-word;
+      /* Without this the pill takes its MIN-content width — `break-word` makes
+         that about one character — so it would stack a name into a narrow
+         column instead of using the room beside it. `max-content` asks for the
+         whole name on one line and the max-width above caps it, so it wraps
+         only as much as it has to.
+         (A `line-clamp` was tried here and removed: declaring it computes
+         `display` to `flow-root`, which is not a `-webkit-box`, so the clamp
+         silently did nothing while looking like it was doing the work.) */
+      width: max-content;
+    }
+    #gameLibrary .saved-game-category span.name-long {
+      font-size: 12.5px !important; padding-inline: 8px;
     }
     #gameLibrary .saved-game-category.span-2, #gameLibrary .saved-game-category:last-child:nth-child(odd) { grid-column: span 2; }
     /* footer actions */
@@ -11390,7 +11414,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.227";
+    const IZZBAH_BUILD = "2026-08-03.228";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14654,6 +14678,16 @@
       } catch (e) { return false; }
     }
 
+    // The category-name pill on a saved-game tile wraps rather than ellipsing,
+    // so every name is readable in full. One name in the catalogue is long
+    // enough («معنى الايموجي (English)») that at the normal size it needs three
+    // lines and the pill starts to swallow the tile art beneath it. Those get a
+    // slightly smaller step, which brings them back to two lines. The threshold
+    // is deliberately high: it catches the outliers, not ordinary names.
+    function markLongCategoryName(label) {
+      if (label && (label.textContent || "").length > 16) label.classList.add("name-long");
+    }
+
     function categoryCountLabel(n) {
       if (!n) return "بدون فئات";
       if (n === 1) return "فئة واحدة";
@@ -14680,6 +14714,7 @@
         }
         const label = document.createElement("span");
         label.textContent = cat.name || "فئة بدون اسم";
+        markLongCategoryName(label);
         tile.appendChild(label);
         chips.appendChild(tile);
       });
@@ -14793,6 +14828,7 @@
             }
             const label = document.createElement("span");
             label.textContent = cat.name || "فئة بدون اسم";
+            markLongCategoryName(label);
             tile.appendChild(label);
             chips.appendChild(tile);
           });
@@ -14861,6 +14897,7 @@
             }
             const label = document.createElement("span");
             label.textContent = cat.name || "فئة بدون اسم";
+            markLongCategoryName(label);
             tile.appendChild(label);
             chips.appendChild(tile);
           });
