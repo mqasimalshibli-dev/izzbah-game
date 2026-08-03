@@ -2653,7 +2653,7 @@
          sit side by side without overlapping on a narrow question card */
       #questionPage .question-main-card .meta-category,
       #questionPage .question-main-card .meta-points {
-        font-size: clamp(11px, 3.3vw, 17px) !important; padding: 5px 10px 7px !important; max-width: 22% !important;
+        font-size: clamp(13px, 3.9vw, 21px) !important; padding: 6px 13px 8px !important; max-width: 27% !important;
       }
       #questionPage .q-timer { padding: 5px 10px 7px !important; gap: 5px !important; }
       #questionPage .q-timer-ico { display: none !important; }
@@ -5981,7 +5981,7 @@
       #questionPage .question-main-card::before { font-size: clamp(90px, 34vh, 170px) !important; }
       #answerPage .answer-card { padding: clamp(28px, 11vh, 56px) 12px 10px !important; min-height: 0 !important; }
       #questionPage .meta-points, #answerPage .answer-points,
-      #questionPage .meta-category, #answerPage .answer-category { font-size: clamp(13px, 3.6vh, 22px) !important; padding: 4px 12px !important; }
+      #questionPage .meta-category, #answerPage .answer-category { font-size: clamp(15px, 4.4vh, 26px) !important; padding: 5px 14px 6px !important; }
       #questionPage .question-text { font-size: clamp(15px, 3.6vh, 26px) !important; line-height: 1.3 !important; }
       #questionPage #revealAnswer { padding: 6px 16px !important; font-size: 13px !important; }
       /* four-choices options: shrink to fit the short landscape card */
@@ -11414,7 +11414,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.228";
+    const IZZBAH_BUILD = "2026-08-03.229";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13258,18 +13258,40 @@
       // the shrink pass below, means the font always FITS exactly — no scroll.
       const canGrow = qcard && (qcard.classList.contains("text-only")
         || qcard.classList.contains("emoji-q") || qcard.classList.contains("emoji-split"));
+      // Growing until it ALMOST collides filled 62% of the card in landscape and
+      // 77% in portrait, which read as "the question is too big" — the card had
+      // no quiet space left. Growth now also stops at a share of the card's own
+      // height, so a short clue is still large and a two- or three-line question
+      // keeps air around it. This is the dial to turn if the balance is wrong:
+      // higher fills more of the card, lower leaves more room.
+      // Worded questions only. On an emoji card the emoji line IS the puzzle and
+      // is meant to dominate — it has its own ratio-stepping further down — so
+      // capping it here would shrink the one thing the players are reading.
+      const FILL = 0.45;
+      const capFill = !!qcard && qcard.classList.contains("text-only") && !emojiLine;
+      const tooTall = () => {
+        if (!capFill) return false;
+        const cardH = qcard.getBoundingClientRect().height;
+        return cardH > 0 && el.getBoundingClientRect().height > cardH * FILL;
+      };
       if (canGrow && !overlaps()) {
         const MAXG = 220; // absolute ceiling so a one-word clue can't go absurd
         let grow = 60;
         while (grow-- > 0 && size < MAXG) {
           const next = size + 2;
           el.style.setProperty("font-size", next + "px", "important");
-          if (overlaps()) { el.style.setProperty("font-size", size + "px", "important"); break; }
+          if (overlaps() || tooTall()) { el.style.setProperty("font-size", size + "px", "important"); break; }
           size = next;
         }
       }
+      // The same FILL cap has to apply DOWNWARD too, not only to growth: on a
+      // landscape phone the stylesheet's own size already filled 62% of the
+      // card, so a grow-only cap changed nothing there. Below FLOOR the cap
+      // stops mattering — at that point the question is long, and making it
+      // smaller still buys nothing but strain.
+      const FLOOR = 22;
       let guard = 30;
-      while (guard-- > 0 && size > MIN && overlaps()) {
+      while (guard-- > 0 && size > MIN && (overlaps() || (size > FLOOR && tooTall()))) {
         size = Math.max(MIN, size - 2);
         el.style.setProperty("font-size", size + "px", "important");
       }
