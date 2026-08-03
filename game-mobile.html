@@ -11366,7 +11366,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-02.220";
+    const IZZBAH_BUILD = "2026-08-02.221";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17452,12 +17452,19 @@
     //   • orders/{uid}, which has always carried the email of anyone who ordered
     //     a pack — that covers paying customers with NO rules change, and
     //   • the usage mirror, which each player now stamps themselves.
-    function emailIndex(usage, orders) {
+    function emailIndex(usage, orders, sales) {
       const map = {};
+      // Weakest first, so a better source overwrites it.
+      // SALES: the permanent purchase record — this is what names past
+      // customers. orders/{uid} is only the pending queue (fulfilling an order
+      // DELETES it), so on its own it names almost nobody.
+      (sales || []).forEach(o => { if (o && o.uid && o.email) map[o.uid] = o.email; });
       (orders || []).forEach(o => { if (o && o.uid && o.email) map[o.uid] = o.email; });
+      // The player's own stamp on their usage mirror wins: it is their CURRENT
+      // address, where a sale records whatever they typed at purchase time.
       Object.keys(usage || {}).forEach(uid => {
         const e = (usage[uid] || {}).email;
-        if (e) map[uid] = e;   // the player's own stamp beats an older order
+        if (e) map[uid] = e;
       });
       return map;
     }
@@ -17699,7 +17706,7 @@
     // The last-loaded subscription data, kept so the search box can re-filter the
     // three lists WITHOUT re-reading Firestore, and so the live orders listener
     // can refresh just the orders in place.
-    let premData = { codes: [], usage: {}, orders: [] };
+    let premData = { codes: [], usage: {}, orders: [], sales: [] };
     let premOrdersUnsub = null;
     function premFilterTerm() {
       const el = $("#premSearch");
@@ -17710,12 +17717,13 @@
     function renderPremLists() {
       const list = $("#premList"), players = $("#premPlayers"), orders = $("#premOrders");
       const q = premFilterTerm();
-      const codes = premData.codes || [], usage = premData.usage || {}, orderRows = premData.orders || [];
+      const codes = premData.codes || [], usage = premData.usage || {},
+            orderRows = premData.orders || [], saleRows = premData.sales || [];
       const fCodes = q ? codes.filter(c => (c.code || "").toLowerCase().includes(q) || (c.usedBy || "").toLowerCase().includes(q)) : codes;
       const fOrders = q ? orderRows.filter(o => `${o.email || ""} ${o.uid || ""} ${o.pack || ""}`.toLowerCase().includes(q)) : orderRows;
       if (orders) renderOrders(orders, fOrders);
-      if (players) renderPlayers(players, usage, q, emailIndex(usage, orderRows)); // filter matches email or uid
-      if (list) renderCodeList(list, fCodes, codes.length >= 2000, emailIndex(usage, orderRows));
+      if (players) renderPlayers(players, usage, q, emailIndex(usage, orderRows, saleRows)); // filter matches email or uid
+      if (list) renderCodeList(list, fCodes, codes.length >= 2000, emailIndex(usage, orderRows, saleRows));
     }
     function refreshPremiumList() {
       const list = $("#premList");
@@ -17735,12 +17743,18 @@
       // Codes + usage + orders in parallel; a usage/orders failure (e.g. rules
       // not yet published) still lets the code list and a used=0 view render.
       const ordersBridge = window.IZZBAH && window.IZZBAH.listOrders;
+      // SALES too — not for the money, for the NAMES. orders/{uid} is a transient
+      // QUEUE (fulfilling one deletes it), so it only ever holds players with a
+      // PENDING order; sales/{id} is the permanent record and carries both uid
+      // and email, so it is what actually names past customers.
+      const salesBridge = window.IZZBAH && window.IZZBAH.listSales;
       Promise.all([
         listBridge(),
         usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({}),
-        ordersBridge ? ordersBridge().catch(() => []) : Promise.resolve([])
-      ]).then(([rows, usage, orderRows]) => {
-        premData = { codes: rows || [], usage: usage || {}, orders: orderRows || [] };
+        ordersBridge ? ordersBridge().catch(() => []) : Promise.resolve([]),
+        salesBridge ? salesBridge().catch(() => []) : Promise.resolve([])
+      ]).then(([rows, usage, orderRows, saleRows]) => {
+        premData = { codes: rows || [], usage: usage || {}, orders: orderRows || [], sales: saleRows || [] };
         renderPremLists();
       }).catch(err => {
         console.warn("list codes failed", err);
