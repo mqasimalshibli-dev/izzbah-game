@@ -105,8 +105,16 @@ try {
 
     // The fitter must be doing real work, not just parking everything at one
     // size: a short clue gets big type, a long one gets smaller type.
+    // The bound is deliberately well clear of the 15px floor rather than tuned
+    // to whatever the fitter currently produces. It was 40 when the fitter grew
+    // a question until it nearly touched the reveal button; the owner asked for
+    // smaller type (FILL in fitQuestionText), so a 3-word clue now lands at
+    // ~38px in landscape. What this canary exists to catch is the .218 bug —
+    // EVERY question, three words or thirty, driven to 15px and then clipped —
+    // and the relational check on the next line is what proves the fitter is
+    // still doing real work.
     check(`${label}: a 3-word question is NOT driven to the 15px floor (${sizes["3 words"]}px)`,
-      sizes["3 words"] >= 40);
+      sizes["3 words"] >= 30);
     check(`${label}: type shrinks as the question grows (${sizes["3 words"]} > ${sizes["long"]} ≥ ${sizes["extreme"]})`,
       sizes["3 words"] > sizes["long"] && sizes["long"] >= sizes["extreme"]);
     await page.close();
