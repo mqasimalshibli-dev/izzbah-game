@@ -4251,8 +4251,8 @@
     .wlc-subtitle { font-family: 'Cairo', sans-serif; font-weight: 600; font-size: clamp(17px, 4vw, 23px); letter-spacing: .5px; color: #f3dcae; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
     .wlc-start {
       position: relative; overflow: hidden; cursor: pointer; border: none; margin-top: 8px;
-      font-family: 'Cairo', sans-serif; font-weight: 800; font-size: clamp(19px, 5vw, 22px); color: #3a0a0c;
-      padding: clamp(16px,4vw,19px) clamp(44px,14vw,64px); border-radius: 17px;
+      font-family: 'Cairo', sans-serif; font-weight: 800; font-size: clamp(16px, 4.1vw, 19px); color: #3a0a0c;
+      padding: clamp(12px,3vw,14px) clamp(32px,9.5vw,44px); border-radius: 14px;
       background: linear-gradient(165deg, #f3d488, #d9ad52 52%, #c0902f);
       /* Pressable 3D: a solid gold "edge" under the ambient glow; the face
          sinks into it on press. */
@@ -6257,7 +6257,7 @@
   </style>
 </head>
 <body>
-  <!-- Boot veil: raised when the player presses «ابدأ لعبة جديدة» or sign-in
+  <!-- Boot veil: raised when the player presses «ابدأ اللعب» or sign-in
        before boot has finished (catalogue + session restore). It blocks every
        press underneath and completes the navigation itself the moment boot is
        done — so nobody ever walks into a half-loaded game. Hidden at parse. -->
@@ -7145,7 +7145,7 @@
         <div class="wlc-center">
           <div class="wlc-logo"><img class="wlc-mark" src="assets/brand/izzbah-logo.webp" alt="" aria-hidden="true"><div class="wlc-logo-text">عزبة</div><div class="wlc-logo-sweep"></div></div>
           <div class="wlc-subtitle">لعبة أسئلة جماعية</div>
-          <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ لعبة جديدة</span></button>
+          <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ اللعب</span></button>
           <div class="wlc-or" style="display:none"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
@@ -7911,7 +7911,7 @@
         <h3 class="preview-title" id="howToTitle">كيف تلعب؟</h3>
         <p class="preview-desc">عِزبة لعبة جماعية: تتنافس فرق على أسئلة من فئات مختلفة، والفريق صاحب أعلى نقاط يفوز. اتبع الخطوات:</p>
         <ol class="preview-list howto-list">
-          <li><div><b>ابدأ لعبة جديدة.</b> من الشاشة الرئيسية اضغط «ابدأ لعبة جديدة» (سجّل الدخول بحساب Google في أول مرة).</div></li>
+          <li><div><b>ابدأ اللعب.</b> من الشاشة الرئيسية اضغط «ابدأ اللعب» (سجّل الدخول بحساب Google في أول مرة).</div></li>
           <li><div><b>اختر فئاتك.</b> اختر من فئة واحدة حتى ٦ فئات (تاريخ، علوم، رياضة، أفلام وغيرها)، اكتب اسماً للعبة، ثم اضغط «اختيار الفرق».</div></li>
           <li><div><b>جهّز الفرق.</b> حدّد عدد الفرق (من ٢ إلى ٥)، اكتب أسماءهم، وأضف صورة لكل فريق إن أحببت.</div></li>
           <li><div><b>اختر وسائل المساعدة.</b> لكل فريق ٣ وسائل يختارها: <b>أربعة خيارات</b>، <b>كشف أول حرف</b>، <b>مضاعفة النقاط</b>، <b>سرقة الدور</b>، <b>سؤال عشوائي</b>، و<b>حظر المساعدات</b> — ثم اضغط «ابدأ اللعبة».</div></li>
@@ -11414,7 +11414,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.229";
+    const IZZBAH_BUILD = "2026-08-03.230";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -21093,7 +21093,7 @@
     }
 
     // ── Boot gate ─────────────────────────────────────────────────────
-    // «ابدأ لعبة جديدة» must never drop the player into a half-loaded game.
+    // «ابدأ اللعب» must never drop the player into a half-loaded game.
     // On slow phones the catalogue (and the restored sign-in session) can
     // still be in flight when they tap — so the tap raises a blocking veil
     // with a spinner and finishes the navigation itself when boot completes.
@@ -21921,7 +21921,7 @@
         }
       }
       // Welcome sign-in affordance: the «أو» divider + Google button show ONLY
-      // when signed OUT (the alternative to «ابدأ لعبة جديدة» is «سجّل الدخول»).
+      // when signed OUT (the alternative to «ابدأ اللعب» is «سجّل الدخول»).
       // Signed in → hide both; a prominent «سجّل الخروج» here reads as nonsense
       // and sign-out already lives in Settings. applyAuth only ever runs once
       // auth is available, so revealing on sign-out is safe.
