@@ -6712,6 +6712,15 @@
     :root[data-theme="dark"] #modalAnswer,
     :root[data-theme="dark"] .answer-text,
     :root[data-theme="dark"] .q-prompt { color: #f6ead2 !important; }
+    /* The `#modalAnswer` entry above never actually applied. `#answerPage
+       #modalAnswer` is two IDs (2,0,0) and out-specifies
+       `:root[data-theme="dark"] #modalAnswer` (1,2,0), !important on both — so
+       in dark mode the answer stayed the light-theme green while the question
+       beside it went cream. Matching the page selector settles it.
+       The eyebrow goes with it: dark green on the dark card is about 3.5:1,
+       under the 4.5:1 needed at its size. */
+    :root[data-theme="dark"] #answerPage #modalAnswer { color: #f6ead2 !important; }
+    :root[data-theme="dark"] #answerPage #modalAnswer::before { color: #d8c49a !important; }
     :root[data-theme="dark"] .answer-card .meta-box { background: rgba(255,255,255,.05); border-color: var(--dk-line); }
     /* Answer «من جاوب؟» scoring panel */
     :root[data-theme="dark"] #answerPage .award-row {
@@ -11414,7 +11423,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.231";
+    const IZZBAH_BUILD = "2026-08-04.232";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
