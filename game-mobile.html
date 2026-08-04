@@ -11414,7 +11414,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-03.230";
+    const IZZBAH_BUILD = "2026-08-03.231";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13261,13 +13261,21 @@
       // Growing until it ALMOST collides filled 62% of the card in landscape and
       // 77% in portrait, which read as "the question is too big" — the card had
       // no quiet space left. Growth now also stops at a share of the card's own
-      // height, so a short clue is still large and a two- or three-line question
-      // keeps air around it. This is the dial to turn if the balance is wrong:
-      // higher fills more of the card, lower leaves more room.
+      // height. This is the dial to turn if the balance is wrong: higher fills
+      // more of the card, lower leaves more room.
+      //
+      // Owner-set, lowered from 0.45 to 0.25 on 2026-08-04. Worth knowing before
+      // nudging it again: a typical question wraps to ONE line at these sizes,
+      // and a one-line box is ~26-29% of the card whatever the font, so anything
+      // from 0.30 upward is not binding for it at all — the value only starts
+      // doing anything below ~0.28. That is why 0.45 -> 0.32 changed nothing.
+      // The side effect of going under that line is that a SHORT clue no longer
+      // gets outsized type: once both fit on one line, the height cap lands them
+      // at the same size.
       // Worded questions only. On an emoji card the emoji line IS the puzzle and
       // is meant to dominate — it has its own ratio-stepping further down — so
       // capping it here would shrink the one thing the players are reading.
-      const FILL = 0.45;
+      const FILL = 0.25;
       const capFill = !!qcard && qcard.classList.contains("text-only") && !emojiLine;
       const tooTall = () => {
         if (!capFill) return false;
