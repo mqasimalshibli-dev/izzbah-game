@@ -458,6 +458,69 @@ try {
   check(`…while the identical questions in an ordinary category are (${choiceFree.plain})`,
     choiceFree.plain >= 2);
 
+  // ---- fixing a wrong-kind option ----
+  // The smart findings deliberately had no fix button: a wrong KIND needs a
+  // human replacement, not another guess from the machinery that mis-sorted the
+  // options. Now that the scan has established what kind each term is, the
+  // suggestion can be principled — a term from the same category whose kind
+  // MATCHES the answer's — while the admin can always type their own.
+  const smartFix = await page.evaluate(async () => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-w2", name: "مصارعة حره", image: "", order: 1, questions: [
+      q(100, "من يُلقب بـ The Viper؟", "راندي أورتن", ["سماكداون", "درو ماكنتاير", "رومان رينز"]),
+      q(200, "من هو أقوى مصارع؟", "جون سينا", ["ذا روك", "بروك ليسنر", "أندرتيكر"]),
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const desc = {
+      "راندي أورتن": "مصارع محترف أمريكي", "سماكداون": "برنامج مصارعة تلفزيوني",
+      "درو ماكنتاير": "مصارع محترف اسكتلندي", "رومان رينز": "مصارع محترف أمريكي",
+      "جون سينا": "مصارع محترف أمريكي", "ذا روك": "مصارع محترف أمريكي",
+      "بروك ليسنر": "مصارع محترف أمريكي", "أندرتيكر": "مصارع محترف أمريكي",
+    };
+    localStorage.setItem("izzbah-wikikind-v1", JSON.stringify(desc));
+    const items = distCollect().filter(i => i.catId === "pub-w2");
+    distFindIssues();                       // builds distIndex for the suggester
+    distSmart = { ran: true, cat: "", findings: distSmartFindings(items, desc) };
+    const entry = distSmart.findings[0];
+    const suggested = distSmartSuggest(entry, desc);
+
+    // an admin-typed value that clashes is refused
+    const before = entry.it.d.slice();
+    distApplySmartFix(entry, "راندي أورتن");          // the correct answer
+    const afterAnswer = state.publishedCategories.find(c => c.id === "pub-w2").questions[0].distractors.slice();
+    distApplySmartFix(entry, "رومان رينز");           // already an option
+    const afterDupe = state.publishedCategories.find(c => c.id === "pub-w2").questions[0].distractors.slice();
+
+    distApplySmartFix(entry, "كيفن أوينز");           // a real replacement
+    await new Promise(r => setTimeout(r, 120));
+    const after = state.publishedCategories.find(c => c.id === "pub-w2").questions[0].distractors.slice();
+    return { suggested, before, afterAnswer, afterDupe, after,
+             left: distSmart.findings.length, option: entry.option };
+  });
+  check(`the offending option is the show, not a wrestler ("${smartFix.option}")`,
+    smartFix.option === "سماكداون");
+  check(`it suggests a replacement of the RIGHT kind ("${smartFix.suggested}")`,
+    ["ذا روك", "بروك ليسنر", "أندرتيكر", "جون سينا"].includes(smartFix.suggested));
+  check("typing the correct answer is refused",
+    smartFix.afterAnswer.join("|") === smartFix.before.join("|"));
+  check("typing an option that already exists is refused",
+    smartFix.afterDupe.join("|") === smartFix.before.join("|"));
+  check(`a real replacement is applied (${smartFix.before[0]} → ${smartFix.after[0]})`,
+    smartFix.after[0] === "كيفن أوينز" && smartFix.after.length === 3);
+  check("…and the finding leaves the list", smartFix.left === 0);
+
+  const smartUi = await page.evaluate(async () => {
+    distTab = "smart";
+    renderDistReport();
+    await new Promise(r => setTimeout(r, 120));
+    return {
+      inputs: document.querySelectorAll("#distList .dist-input").length,
+      buttons: document.querySelectorAll("#distList .dist-fixrow .dup-del").length,
+    };
+  });
+  check("each remaining smart finding renders an editable replacement box",
+    smartUi.inputs === smartUi.buttons);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {

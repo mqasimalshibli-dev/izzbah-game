@@ -4684,6 +4684,12 @@
     .dist-why { font: 700 12.5px 'Cairo', sans-serif; color: #9a3412; margin-top: 4px; }
     .dist-opts { font: 600 12.5px 'Cairo', sans-serif; color: #5a4a2a; margin-top: 3px; opacity: .9; }
     .dist-act { margin-top: 6px; }
+    .dist-fixrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .dist-input { flex: 1 1 180px; min-width: 140px; font: 600 13px 'Cairo', sans-serif;
+      padding: 7px 10px; border-radius: 10px; border: 1.5px solid #d9c39c;
+      background: #fdf8ec; color: #1b3a2f; direction: rtl; }
+    :root[data-theme="dark"] .dist-input { background: rgba(255,255,255,.06);
+      border-color: var(--dk-line); color: #f6ead2; }
     :root[data-theme="dark"] .dist-why { color: #f0a882 !important; }
     :root[data-theme="dark"] .dist-opts { color: #d9c39c !important; }
     .dup-occ-row { font: 600 13px 'Cairo', sans-serif; color: #5a4a2a; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
@@ -11568,7 +11574,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.246";
+    const IZZBAH_BUILD = "2026-08-05.247";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17353,6 +17359,42 @@
       });
       return out;
     }
+    // A replacement for a wrong-KIND option. Unlike the mechanical fixes, this
+    // one can be principled rather than a guess: the scan has just established
+    // what kind each term is, so it offers a term from the SAME category whose
+    // kind MATCHES the answer's. If nothing in the category qualifies it offers
+    // nothing, and the admin types their own — which is always available anyway,
+    // because a machine that mis-sorted the options is not the thing to trust
+    // for the final word on them.
+    function distSmartSuggest(entry, cache) {
+      const it = entry.it;
+      const want = distKindOf(cache[it.a] || "");
+      if (!want) return "";
+      const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
+      const e = distIndex && distIndex[it.catId];
+      if (!e) return "";
+      const out = [];
+      e.pool.forEach((val) => {
+        if (used.has(distNorm(val))) return;
+        if (distKindOf(cache[val] || "") === want) out.push(val);
+      });
+      return out.length ? out[Math.abs(hashString(it.q + entry.option)) % out.length] : "";
+    }
+    // Apply an admin-chosen replacement for one option.
+    function distApplySmartFix(entry, value) {
+      const v = String(value == null ? "" : value).trim();
+      if (!v) { showToast("اكتب البديل أولاً"); return; }
+      if (distNorm(v) === distNorm(entry.it.a)) { showToast("هذا هو الجواب الصحيح"); return; }
+      if (entry.it.d.some((d, i) => i !== entry.idx && distNorm(d) === distNorm(v))) {
+        showToast("هذا الخيار موجود بالفعل"); return;
+      }
+      entry.fix = { type: "replace", idx: entry.idx, value: v };
+      distApplyFix(entry, true);
+      distSmart.findings = distSmart.findings.filter(f => f !== entry);
+      renderDistReport();
+      showToast("تم الاستبدال — جارٍ الحفظ…");
+    }
+
     // Findings from the last smart run, keyed so the renderer can merge them in.
     let distSmart = { ran: false, cat: "", findings: [] };
     // A run in flight is app-level, not panel-level: closing the sheet or walking
@@ -17514,6 +17556,27 @@
         opts.className = "dist-opts";
         opts.textContent = "الخيارات: " + (f.it.d.length ? f.it.d.map(d => d.trim() || "(فارغ)").join("  •  ") : "—");
         occ.appendChild(opts);
+        if (f.kind === "kindmix") {
+          // Typed replacement, prefilled with a same-kind suggestion when the
+          // category has one. Nothing is applied until the admin presses.
+          const act = document.createElement("div");
+          act.className = "dist-act dist-fixrow";
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "dist-input";
+          input.value = distSmartSuggest(f, distKindCache());
+          input.placeholder = `بديل لـ «${f.option}»`;
+          input.setAttribute("aria-label", `بديل للخيار ${f.option}`);
+          const go = document.createElement("button");
+          go.className = "dup-del"; go.type = "button"; go.textContent = "استبدال";
+          go.addEventListener("click", () => distApplySmartFix(f, input.value));
+          input.addEventListener("keydown", ev => { if (ev.key === "Enter") go.click(); });
+          act.append(input, go);
+          occ.appendChild(act);
+          box.appendChild(occ);
+          list.appendChild(box);
+          return;
+        }
         const fx = distResolveFix(f);   // only the drawn rows pay for this
         if (fx) {
           const act = document.createElement("div");
