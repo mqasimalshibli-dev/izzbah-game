@@ -331,6 +331,48 @@ try {
   check(`the report has three tabs (${smartTab.tabs.join(" | ")})`, smartTab.tabs.length === 3);
   check("the «فحص ذكي» button is present", smartTab.btn);
 
+  // ---- it has to be usable at the real catalogue size ----
+  // Reported as "«فحص الخيارات» takes a while to load when pressed". Measured at
+  // 4,560 questions: 25 SECONDS to scan, and the render scanned again, so the
+  // button cost about fifty seconds before anything appeared.
+  //
+  // The cause was computing a replacement for every finding during the scan,
+  // each one re-filtering the whole catalogue — with roughly as many findings as
+  // questions that is ~20M operations. Two changes: a per-category index built
+  // once, and replacements resolved only when a row is actually drawn or
+  // applied, since only 400 render at a time and most are never touched.
+  const perf = await page.evaluate(async () => {
+    const cats = [];
+    for (let c = 0; c < 40; c++) {
+      const qs = [];
+      for (let i = 0; i < 114; i++) {
+        qs.push({ points: 100 + (i % 5) * 100, q: `سؤال ${c}-${i}`, a: `حصن رقم ${c}-${i}`,
+          image: "", answerImage: "",
+          distractors: [`حصن رقم ${c}-${(i + 1) % 114}`, `خيار ${c}-${i}-ب`, `خيار ${c}-${i}-ج`] });
+      }
+      cats.push({ id: "pub-perf-" + c, name: "فئة " + c, image: "", order: c, questions: qs });
+    }
+    window.IZZBAH.applyPublished(cats);
+    state.communityCategories = [];
+    const t0 = performance.now();
+    const found = distFindIssues().found;
+    const scan = performance.now() - t0;
+    const t1 = performance.now();
+    renderDistReport();
+    const render = performance.now() - t1;
+    // the deferred value must still be there once a row is drawn
+    const drawn = document.querySelectorAll("#distList .dup-del").length;
+    const labelled = [...document.querySelectorAll("#distList .dup-del")]
+      .filter(b => !/undefined|«»/.test(b.textContent)).length;
+    return { n: found.length, questions: cats.length * 114, scan, render, drawn, labelled };
+  });
+  check(`scanning ${perf.questions} questions is quick (${Math.round(perf.scan)}ms, was 25000)`,
+    perf.scan < 3000);
+  check(`…and rendering the report is quick (${Math.round(perf.render)}ms, was 25900)`,
+    perf.render < 3000);
+  check(`the deferred replacement still reaches every drawn button (${perf.labelled}/${perf.drawn})`,
+    perf.drawn > 0 && perf.labelled === perf.drawn);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
