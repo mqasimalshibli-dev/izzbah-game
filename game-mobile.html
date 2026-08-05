@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.251";
+    const IZZBAH_BUILD = "2026-08-05.252";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17304,13 +17304,21 @@
         if (!(w in m)) m[w] = kind;    // first listing wins, so order here is priority
       });
       add("شخص", `لاعب لاعبه ممثل ممثله مغني مغنيه مطرب مطربه شاعر شاعره كاتب كاتبه اديب
-        روائي مؤرخ فيلسوف رئيس ملك سلطان امير اميره قائد مصارع ملاكم مدرب صحابي تابعي
+        روائي مؤرخ فيلسوف رئيس ملك ملكه سلطان امير اميره قائد مصارع ملاكم مدرب صحابي تابعي
         خليفه فنان فنانه مخرج منتج سياسي دبلوماسي مؤسس داعيه شيخ امام قاضي طبيب طبيبه
         مهندس رحاله مستكشف اعلامي مذيع مذيعه مقدم صحفي صحفيه رسام نحات موسيقي ملحن مؤلف
-        ناشط بطل بطله فارس محارب جندي ضابط عالم عالمه شخصيه`);
+        ناشط بطل بطله فارس محارب جندي ضابط عالم عالمه شخصيه
+        حاكم زعيم وزير والي نبي رسول شهيد مجاهد فقيه مفسر مستشرق طيار رائد تاجر مصمم
+        معماري مصور كوميدي مؤثر ملياردير مليونير قنصل سفير
+        سلاطين خلفاء رؤساء ملوك امراء قاده حكام زعماء وزراء ولاه شعراء علماء اطباء
+        فقهاء فلاسفه ادباء صحابه انبياء ائمه مشايخ دعاه نشطاء ابطال فرسان جنود ضباط
+        تجار رواد ملاح بحار قبطان جغرافي فلكي كيميائي فيزيائي جراح صيدلي باحث معلم استاذ
+        تجار رواد مهندسون مؤرخون مؤرخين روائيون فنانون ممثلون مغنون لاعبون لاعبين
+        مصارعون صحفيون مذيعون رسامون موسيقيون مؤلفون مستكشفون`);
       add("مكان", `حصن حصون قلعه قلاع وادي واد وديان عين عيون جبل جبال مدينه مدن قريه قري
         بلده بلدات ولايه ولايات محافظه محافظات منطقه مناطق شاطئ شواطئ كهف كهوف جزيره جزر
-        ميناء موانئ متحف متاحف مسجد مساجد سوق اسواق حديقه حدائق بحيره بحيرات نهر انهار
+        ميناء موانئ متحف متاحف مسجد مساجد جامع جوامع كنيسه معبد دير ضريح مقبره
+        سوق اسواق حديقه حدائق بحيره بحيرات نهر انهار
         صحراء دوله دول عاصمه عواصم مملكه ممالك اماره امارات امبراطوريه امبراطوريات سلطنه
         خلافه جمهوريه موقع مواقع خليج مضيق برج ابراج قصر قصور جامعه جامعات كليه معهد مدرسه
         مستشفي مكتبه ملعب استاد
@@ -17318,12 +17326,12 @@
       add("عمل فني", `فيلم افلام مسلسل مسلسلات برنامج برامج اغنيه اغاني البوم رواية روايه
         كتاب مسرحيه قصيده ديوان`);
       add("شركة", `شركه شركات مؤسسه علامه مطعم مطاعم مقهي مقاهي سلسله مصرف بنك بنوك متجر
-        متاجر فندق فنادق`);
+        متاجر فندق فنادق طيران ناقل خطوط مصنع مصانع مجموعه`);
       add("طعام", `طبق اطباق طعام حلوي مشروب مشروبات وجبه فاكهه فواكه خضار توابل قهوه شاي عصير`);
       add("حيوان أو نبات", `حيوان حيوانات طائر طيور سمكه اسماك زاحف حشره ثديي نبات نباتات شجره اشجار`);
-      add("رياضة", `بطوله دوري كاس نادي منتخب مباراه`);
+      add("رياضة", `بطوله بطولات دوري كاس نادي ناد نوادي فريق فرق منتخب منتخبات مباراه`);
       add("حدث", `معركه معارك غزوه غزوات حرب حروب ثوره ثورات معاهده معاهدات اتفاقيه اتفاق
-        مؤتمر مؤتمرات صلح هدنه ميثاق قمه حصار فتح حمله انتفاضه زلزال اعصار فيضان`);
+        مؤتمر مؤتمرات صلح هدنه ميثاق حصار حمله انتفاضه زلزال اعصار فيضان`);
       // English, for the many terms that only have an English page.
       add("شخص", `footballer actor actress singer songwriter writer poet novelist historian
         scientist president king sultan prince wrestler boxer player coach politician
@@ -17353,7 +17361,9 @@
       return w.replace(/^(?:وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)(?=.{3,})/, "");
     }
     function distKindOf(text) {
-      const words = distWords(text);
+      return distKindOfWords(distWords(text));
+    }
+    function distKindOfWords(words) {
       for (let i = 0; i < words.length; i++) {
         const two = words[i] + " " + (words[i + 1] || "");
         if (DIST_KIND_PHRASES[two]) return DIST_KIND_PHRASES[two];
@@ -17378,8 +17388,53 @@
     // all self-describing. The first sentence is still needed for bare proper
     // nouns — «وستفاليا», «سماكداون», a person's name — which say nothing on
     // their own, so it stays as the fallback rather than the first resort.
+    // Only the term's HEAD — its first word — may speak for it. Scanning the
+    // whole term reads «باب الحارة» (a Syrian drama) as a place, because
+    // «حارة» is a neighbourhood and it sits in second position. Arabic puts the
+    // defining noun first and everything after it is the specifier: «جامع
+    // السلطان قابوس» is a mosque, not a sultan, and only the head says so.
+    function distKindOfHead(term) {
+      const w = distWords(term);
+      if (!w.length) return "";
+      const two = w[0] + " " + (w[1] || "");
+      if (DIST_KIND_PHRASES[two]) return DIST_KIND_PHRASES[two];
+      if (DIST_KIND_WORDS[w[0]]) return DIST_KIND_WORDS[w[0]];
+      const bare = distStrip(w[0]);
+      if (bare !== w[0] && DIST_KIND_WORDS[bare]) return DIST_KIND_WORDS[bare];
+      return "";
+    }
+    // Arabic Wikipedia opens by restating the title, so the description carries
+    // the term's own words at the front — and they spring the very trap the head
+    // rule just avoided. «باب الحارة مسلسل درامي سوري» matches «حارة» before it
+    // ever reaches «مسلسل». Drop that leading echo (and the «هو/هي/أو» that
+    // usually follows it) and read what the sentence actually adds.
+    const DIST_ECHO_GLUE = new Set(["هو", "هي", "هما", "او", "و", "كان", "كانت", "هم"]);
+    function distDescWords(term, desc) {
+      const words = distWords(desc);
+      const own = distWords(term);
+      // In ORDER, and only once. Matching the term's words as a set instead ate
+      // the second «مؤتمر» of «مؤتمر فيينا هو مؤتمر لسفراء الدولِ…» — the very
+      // word that defines it — and left the sentence to be judged on «الدول».
+      let i = 0, j = 0;
+      while (i < words.length) {
+        if (j < own.length && words[i] === own[j]) { i++; j++; continue; }
+        if (i > 0 && DIST_ECHO_GLUE.has(words[i])) { i++; continue; }
+        break;
+      }
+      return i < words.length ? words.slice(i) : words;
+    }
+    // When the term's head and its sentence disagree, the term is ambiguous and
+    // the honest answer is "no idea" — not whichever guess happens to be checked
+    // first. «حارة اليهود» is both a quarter of Cairo and a television drama;
+    // «مدرسة المشاغبين» is a play, not a school. An unknown kind is never
+    // reported and never suggested, which is the right outcome for a term the
+    // scan cannot actually place. Only when one side is silent does the other
+    // speak alone.
     function distKindFor(term, desc) {
-      return distKindOf(term) || distKindOf(desc || "");
+      const head = distKindOfHead(term);
+      const body = distKindOfWords(distDescWords(term, desc || ""));
+      if (head && body && head !== body) return "";
+      return head || body;
     }
     // term -> one-line description, cached across sessions: the same fort is an
     // option on many questions and the catalogue barely moves between runs.
