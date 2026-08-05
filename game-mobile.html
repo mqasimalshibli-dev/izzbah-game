@@ -7089,7 +7089,7 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — وهذا هو المقصود بـ«لا تناسب». أما أن يكون الخيار إجابةَ سؤال آخر في نفس الفئة فليس خطأً: في «علم أي دولة؟» كل الخيارات دول، وهي مناسبة تماماً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
@@ -11554,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.243";
+    const IZZBAH_BUILD = "2026-08-05.244";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17055,6 +17055,7 @@
       const items = distCollect();
       distIndex = distBuildIndex(items);
       const found = [];
+      let recycledCount = 0;
       // Every ANSWER in each category, so an option can be recognised as some
       // other question's answer recycled as a wrong one.
       const answersByCat = {};
@@ -17099,26 +17100,25 @@
             why: `عدد الخيارات ${toArabicDigits(it.d.length)} بدل ٣`, fix: null });
           return;
         }
-        // Options that are simply another question's ANSWER in the same
-        // category. Not malformed — the game works — so this is its own
-        // severity and its own tab: in some categories it is nearly every
-        // question, and mixing it into the defect list would bury the defects.
+        // Recycling another question's ANSWER as an option is NOT a defect, and
+        // reporting it as one was wrong. The owner put it plainly: in «علم أي
+        // دولة؟» the options البحرين / عُمان / الكويت are other questions'
+        // answers and they fit perfectly, because they are all countries.
+        // What actually goes wrong is an option that does not FIT — and that is
+        // a judgement about KIND, not about where the string came from, so it
+        // belongs to «فحص ذكي» and not here. The count is kept for the summary;
+        // it is information, not a to-do list.
         const answers = answersByCat[it.catId];
         if (answers) {
-          const hits = it.d.map((d, i) => ({ d, i })).filter(x => {
-            const n = distNorm(x.d);
+          const hits = it.d.filter(d => {
+            const n = distNorm(d);
             return n && n !== distNorm(it.a) && answers.has(n);
           });
-          if (hits.length) {
-            found.push({ it, kind: "recycled", sev: 4,
-              why: `${toArabicDigits(hits.length)} من الخيارات هي إجابات أسئلة أخرى في نفس الفئة`,
-              hits: hits.map(h => h.d),
-              fix: { type: "replace", idx: hits[0].i, avoidAnswers: true } });
-          }
+          if (hits.length) recycledCount += hits.length;
         }
       });
       found.sort((a, b) => a.sev - b.sev || a.it.catName.localeCompare(b.it.catName, "ar"));
-      return { total: items.length, found };
+      return { total: items.length, found, recycled: recycledCount };
     }
     // Applying a fix reuses the duplicate scanner's write path exactly: change
     // local state so the report updates with no wait, then one debounced publish
@@ -17310,22 +17310,20 @@
 
     const DIST_TAGS = {
       answer: ["الإجابة نفسها", "conf"], twice: ["مكرّر", "dup"], empty: ["فارغ", "dup"],
-      points: ["نقاط", "dup"], short: ["ناقص", "dup"], recycled: ["إجابة معادة", "dup"], kindmix: ["نوع مختلف", "conf"],
+      points: ["نقاط", "dup"], short: ["ناقص", "dup"], kindmix: ["نوع مختلف", "conf"],
     };
     // Which tab is showing: "bad" = the malformed ones, "recycled" = options that
     // are another question's answer.
     let distTab = "bad";
     function distVisible(found) {
-      if (distTab === "smart") return distSmart.findings;
-      return found.filter(f => distTab === "recycled" ? f.sev === 4 : f.sev < 4);
+      return distTab === "smart" ? distSmart.findings : found.filter(f => f.sev < 4);
     }
     function renderDistTabs(found) {
       const wrap = $("#distTabs"); if (!wrap) return;
       const nBad = found.filter(f => f.sev < 4).length;
-      const nRec = found.filter(f => f.sev === 4).length;
       wrap.innerHTML = "";
-      const smartLabel = distSmart.ran ? `نوع مختلف (${toArabicDigits(distSmart.findings.length)})` : "فحص ذكي";
-      [["bad", `خلل (${toArabicDigits(nBad)})`], ["recycled", `إجابات معادة (${toArabicDigits(nRec)})`], ["smart", smartLabel]]
+      const smartLabel = distSmart.ran ? `لا تناسب (${toArabicDigits(distSmart.findings.length)})` : "لا تناسب";
+      [["bad", `خلل (${toArabicDigits(nBad)})`], ["smart", smartLabel]]
         .forEach(([id, label]) => {
           const b = document.createElement("button");
           b.type = "button";
@@ -17355,7 +17353,7 @@
       showToast(`تم إصلاح ${toArabicDigits(done)} ملاحظة — جارٍ الحفظ…`);
     }
     function renderDistReport() {
-      const { total, found } = distFindIssues();
+      const { total, found, recycled: rec } = distFindIssues();
       const sum = $("#distSummary"), list = $("#distList");
       if (!sum || !list) return;
       renderDistTabs(found);
@@ -17366,11 +17364,9 @@
       if (!shown.length) {
         sum.className = "dup-summary clean";
         sum.textContent = distTab === "smart"
-          ? (distSmart.ran ? "✓ لم يجد الفحص الذكي خياراً من نوع مختلف."
+          ? (distSmart.ran ? "✓ لم يجد الفحص خياراً من نوع مختلف عن إجابته."
                            : "اضغط «فحص ذكي» ليسأل ويكيبيديا عن نوع كل خيار.")
-          : distTab === "recycled"
-            ? `✓ لا خيار مأخوذ من إجابة سؤال آخر — فُحص ${toArabicDigits(total)} سؤالاً.`
-            : `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
+          : `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
         list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">${distTab === "smart" && !distSmart.ran ? "لم يُشغَّل الفحص الذكي بعد" : "كل الخيارات سليمة 🎉"}</div>`;
         return;
       }
@@ -17378,16 +17374,10 @@
       sum.className = "dup-summary";
       if (distTab === "smart") {
         sum.textContent = `${toArabicDigits(shown.length)} خياراً من نوع مختلف عن إجابته — راجعها واستبدلها يدوياً.`;
-      } else if (distTab === "recycled") {
-        const byCat = {};
-        shown.forEach(f => { byCat[f.it.catName] = (byCat[f.it.catName] || 0) + 1; });
-        const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4)
-          .map(([c, n]) => `${c} ${toArabicDigits(n)}`).join(" · ");
-        sum.textContent = `${toArabicDigits(shown.length)} سؤالاً فيه خيار مأخوذ من إجابة سؤال آخر`
-          + ` من أصل ${toArabicDigits(total)}. الأكثر: ${top}`;
       } else {
         sum.textContent = `وُجدت ${toArabicDigits(shown.length)} ملاحظة من أصل ${toArabicDigits(total)} سؤال`
-          + (bad ? ` — منها ${toArabicDigits(bad)} يراها اللاعب مباشرة.` : ".");
+          + (bad ? ` — منها ${toArabicDigits(bad)} يراها اللاعب مباشرة.` : ".")
+          + (rec ? ` (${toArabicDigits(rec)} خياراً مأخوذ من إجابة سؤال آخر — طبيعي في فئات مثل «أعلام»، وليس خطأً.)` : "");
       }
       shown.slice(0, 400).forEach(f => {
         const [label, cls] = DIST_TAGS[f.kind] || ["ملاحظة", "dup"];
