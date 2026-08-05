@@ -142,7 +142,9 @@ try {
 
   // ---- the modal renders ----
   const ui = await page.evaluate(async () => {
-    // re-seed: the fix step above cleaned the only defective questions left
+    // re-seed: the fix step above cleaned the only defective questions left,
+    // and marked them done — clear that memory so this step sees them again
+    localStorage.removeItem("izzbah-dist-done-v1");
     const q = (points, text, a, d) => ({ points, q: text, a, image: "", answerImage: "", distractors: d });
     window.IZZBAH.applyPublished([{
       id: "pub-sites", name: "مواقع في عمان", image: "", order: 1, questions: [
@@ -325,6 +327,7 @@ try {
   // once, and replacements resolved only when a row is actually drawn or
   // applied, since only 400 render at a time and most are never touched.
   const perf = await page.evaluate(async () => {
+    localStorage.removeItem("izzbah-dist-done-v1");
     const cats = [];
     for (let c = 0; c < 40; c++) {
       const qs = [];
@@ -520,6 +523,53 @@ try {
   });
   check("each remaining smart finding renders an editable replacement box",
     smartUi.inputs === smartUi.buttons);
+
+  // ---- a question that has been fixed is not reported again ----
+  // Applying a fix usually removes the finding by itself, because the data
+  // changed. Two cases do not, and both read as the report ignoring the admin's
+  // work: DROPPING an option leaves two, which the «ناقص» rule then reports; and
+  // a replacement Wikipedia does not know can be re-judged on the next smart
+  // scan. So a fix is remembered per question and per kind.
+  const done = await page.evaluate(async () => {
+    localStorage.removeItem("izzbah-dist-done-v1");
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-d", name: "تاريخ", image: "", order: 1, questions: [
+      // no other option to borrow, so the only possible fix is a DROP —
+      // which leaves two options and used to come straight back as «ناقص»
+      q(100, "سؤال؟", "بغداد", ["بغداد", "دمشق", "عمّان"]),
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const first = distFindIssues().found.filter(f => f.it.catId === "pub-d");
+    const entry = first[0];
+    distApplyFix(entry, true);
+    await new Promise(r => setTimeout(r, 120));
+    const after = distFindIssues().found.filter(f => f.it.catId === "pub-d");
+    const stored = Object.keys(JSON.parse(localStorage.getItem("izzbah-dist-done-v1") || "{}")).length;
+
+    // editing the ANSWER is a real change and must bring the question back
+    const cat = state.publishedCategories.find(c => c.id === "pub-d");
+    cat.questions[0].a = "القاهرة";
+    cat.questions[0].distractors = ["القاهرة", "دمشق", "عمّان"];
+    upsertPublished(cat);
+    const afterEdit = distFindIssues().found.filter(f => f.it.catId === "pub-d");
+
+    // and «إظهار المُصلَحة» empties the memory
+    localStorage.setItem("izzbah-dist-done-v1", JSON.stringify({ x: ["answer"] }));
+    distClearDone();
+    const cleared = localStorage.getItem("izzbah-dist-done-v1");
+    return { firstKinds: first.map(f => f.kind), afterKinds: after.map(f => f.kind),
+             stored, afterEditKinds: afterEdit.map(f => f.kind), cleared };
+  });
+  check(`the broken question is reported (${done.firstKinds.join(", ")})`,
+    done.firstKinds.includes("answer"));
+  // Not merely "the same finding is gone": dropping the duplicate leaves two
+  // options, so a per-KIND memory would have let it return as «ناقص».
+  check(`…and does not come back in ANY form after the fix (${done.afterKinds.join(", ") || "nothing"})`,
+    done.afterKinds.length === 0);
+  check(`…the fix is remembered (${done.stored} question)`, done.stored === 1);
+  check(`editing the answer brings it back (${done.afterEditKinds.join(", ") || "nothing"})`,
+    done.afterEditKinds.includes("answer"));
+  check("«إظهار المُصلَحة» clears the memory", done.cleared === null);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

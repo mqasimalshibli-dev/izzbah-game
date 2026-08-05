@@ -7118,6 +7118,7 @@
         <button class="secondary" id="distSmart" type="button">🧠 فحص ذكي</button>
         <button class="primary" id="distFixAll" type="button" hidden>🛠 إصلاح الكل</button>
         <button class="secondary" id="distRescan" type="button">↻ إعادة الفحص</button>
+        <button class="ghost" id="distShowAll" type="button" hidden>👁 إظهار المُصلَحة</button>
         <button class="ghost" id="distCloseBtn" type="button">إغلاق</button>
       </div>
     </div>
@@ -11574,7 +11575,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.247";
+    const IZZBAH_BUILD = "2026-08-05.248";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17031,6 +17032,51 @@
       const distinct = new Set(list.map(distToNumber));
       return list.length < 3 || distinct.size === 1;
     }
+    // Questions the admin has already dealt with.
+    //
+    // Applying a fix normally makes the finding go away by itself, because the
+    // data changed. Two cases do not, and both look to the admin like the
+    // report ignoring their work: dropping an option leaves two, which the
+    // «ناقص» rule then reports; and a replacement Wikipedia does not recognise
+    // can be re-judged on the next smart scan. So a fix is remembered, per
+    // question and per KIND of finding.
+    //
+    // Keyed on the question and its ANSWER, so editing either — a real change
+    // to the question — brings it back into the report. «إظهار الكل» clears the
+    // memory, because a suppression list with no way out is how a checker
+    // quietly stops checking.
+    const DIST_DONE_KEY = "izzbah-dist-done-v1";
+    function distDone() {
+      try { return JSON.parse(localStorage.getItem(DIST_DONE_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function distDoneSave(m) {
+      try { localStorage.setItem(DIST_DONE_KEY, JSON.stringify(m)); } catch (e) {}
+    }
+    function distSig(it) { return `${it.catId}|${distNorm(it.q)}|${distNorm(it.a)}`; }
+    function distMarkDone(entry) {
+      if (!entry || !entry.it) return;
+      const m = distDone();
+      const sig = distSig(entry.it);
+      const kinds = new Set(m[sig] || []);
+      kinds.add(entry.kind);
+      m[sig] = [...kinds];
+      distDoneSave(m);
+    }
+    // Suppression is per QUESTION, not per kind of finding. Per-kind was the
+    // obvious design and it was wrong: fixing «الإجابة نفسها» by dropping the
+    // option leaves two, and the question came straight back as «ناقص» — from
+    // the admin's side, the report ignoring the fix they just made. The kinds
+    // are still recorded, but any recorded fix quiets the question until its
+    // text or answer changes.
+    function distIsDone(doneMap, it) { return !!doneMap[distSig(it)]; }
+    function distClearDone() {
+      try { localStorage.removeItem(DIST_DONE_KEY); } catch (e) {}
+      distSmart = { ran: false, cat: "", findings: [] };
+      renderDistReport();
+      showToast("أُعيد إظهار كل الملاحظات");
+    }
+
     // Per-category index, built once per scan. Without it distSuggest filtered
     // the entire catalogue on every call — with 4,560 questions and about as
     // many findings that is ~20M operations, and pressing the button took 25
@@ -17095,6 +17141,8 @@
       const items = distCollect();
       distIndex = distBuildIndex(items);
       const found = [];
+      const done = distDone();
+      const push = f => { if (!distIsDone(done, f.it)) found.push(f); };
       let recycledCount = 0;
       // Every ANSWER in each category, so an option can be recognised as some
       // other question's answer recycled as a wrong one.
@@ -17110,7 +17158,7 @@
         if (!it.uses) return;   // skipped upstream; kept as a guard
         const dupIdx = nd.findIndex((d, i) => d && d === na);
         if (dupIdx >= 0) {
-          found.push({ it, kind: "answer", sev: 1,
+          push({ it, kind: "answer", sev: 1,
             why: "أحد الخيارات هو الإجابة الصحيحة نفسها — تظهر مرتين",
             fix: { type: "replace", idx: dupIdx } });
           return;
@@ -17119,24 +17167,24 @@
         let dupPair = -1;
         nd.forEach((d, i) => { if (!d) return; if (seen.has(d)) dupPair = i; else seen.set(d, i); });
         if (dupPair >= 0) {
-          found.push({ it, kind: "twice", sev: 2, why: "خياران متطابقان",
+          push({ it, kind: "twice", sev: 2, why: "خياران متطابقان",
             fix: { type: "replace", idx: dupPair } });
           return;
         }
         const emptyIdx = it.d.findIndex(d => !d.trim());
         if (it.d.length && emptyIdx >= 0) {
-          found.push({ it, kind: "empty", sev: 2, why: "خيار فارغ",
+          push({ it, kind: "empty", sev: 2, why: "خيار فارغ",
             fix: { type: "drop", idx: emptyIdx } });
           return;
         }
         if (distIsPointsNoise(it.d) && !distIsDigits(it.a)) {
-          found.push({ it, kind: "points", sev: 2,
+          push({ it, kind: "points", sev: 2,
             why: "الخيار المخزّن هو قيمة نقاط (١٠٠/٢٠٠/٣٠٠/٤٠٠/٥٠٠)، لا إجابة خاطئة",
             fix: { type: "clear" } });
           return;
         }
         if (it.d.length && it.d.length < 3) {
-          found.push({ it, kind: "short", sev: 3,
+          push({ it, kind: "short", sev: 3,
             why: `عدد الخيارات ${toArabicDigits(it.d.length)} بدل ٣`, fix: null });
           return;
         }
@@ -17170,6 +17218,7 @@
       if (it.community) { cat = (state.communityCategories || []).find(c => c.id === it.catId); kind = "community"; }
       else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === it.catId) || m.extras.find(c => c.id === it.catId); }
       if (!cat) { showToast("تعذّر إيجاد الفئة"); return; }
+      distMarkDone(entry);
       const clone = JSON.parse(JSON.stringify(cat));
       // The index can move if something else was edited first, so re-find the
       // question by its own text rather than trusting the stored position.
@@ -17340,6 +17389,7 @@
     // options are a different kind of thing from their answer?
     function distSmartFindings(items, descByTerm) {
       const out = [];
+      const done = distDone();
       (items || []).forEach(it => {
         if (!it.uses || !it.d.length) return;
         const aDesc = descByTerm[it.a] || "";
@@ -17349,6 +17399,7 @@
           const dDesc = descByTerm[d] || "";
           const dKind = distKindOf(dDesc);
           if (!dKind || dKind === aKind) return;   // unknown or matching -> fine
+          if (distIsDone(done, it)) return;
           out.push({
             it, kind: "kindmix", sev: 2, idx: i, option: d,
             why: `«${d}» ${dKind}، بينما الإجابة ${aKind}`,
@@ -17509,6 +17560,12 @@
       const shown = distVisible(found);
       const fixAll = $("#distFixAll");
       if (fixAll) fixAll.hidden = !shown.some(f => f.fix);
+      const nDone = Object.keys(distDone()).length;
+      const showAll = $("#distShowAll");
+      if (showAll) {
+        showAll.hidden = !nDone;
+        showAll.textContent = `👁 إظهار المُصلَحة (${toArabicDigits(nDone)})`;
+      }
       list.innerHTML = "";
       if (!shown.length) {
         sum.className = "dup-summary clean";
@@ -22431,6 +22488,7 @@
     });
     $("#distFixAll").addEventListener("click", distFixAll);
     $("#distSmart").addEventListener("click", distRunSmart);
+    $("#distShowAll").addEventListener("click", distClearDone);
     $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
