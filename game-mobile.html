@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.249";
+    const IZZBAH_BUILD = "2026-08-05.250";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17274,39 +17274,89 @@
     // two things can share a kind and still pair badly — so a wrong kind needs a
     // human replacement, not another guess from the same machine that produced
     // the wrong ones in the first place.
-    // Matched as WHOLE WORDS, not substrings. JS regex has no \b for Arabic, and
-    // substring matching is actively wrong here: «مصارعة» (wrestling, the sport)
-    // contains «مصارع» (a wrestler), and «مملكة» (kingdom) contains «ملك» (king),
-    // so a TV programme classified as a person and a country would have
-    // classified as one too. The description is split into words instead, with a
-    // leading ال/و stripped, and rules match a word exactly.
-    const DIST_KIND_RULES = [
-      // Work/company first: «برنامج مصارعة» must read as a programme, and those
-      // opening nouns are decisive in a Wikipedia first sentence.
-      ["عمل فني", "فيلم أفلام مسلسل مسلسلة برنامج برامج أغنية ألبوم رواية كتاب مسرحية film movie series television programme program song album novel book game"],
-      ["شركة", "شركة مؤسسة علامة مطعم مقهى سلسلة مصرف بنك متجر company brand restaurant cafe chain bank retailer corporation"],
-      ["مكان", "حصن قلعة قلاع وادي واد وديان عين جبل مدينة قرية ولاية محافظة منطقة شاطئ كهف جزيرة ميناء متحف مسجد سوق حديقة بحيرة نهر صحراء دولة عاصمة مملكة city town village fort castle valley mountain island museum beach cave region province country capital river lake"],
-      ["شخص", "لاعب لاعبة ممثل ممثلة مغني مغنية شاعر كاتب رئيس ملك سلطان أمير قائد مصارع مدرب صحابي خليفة فنان مخرج سياسي عالم رحالة مهندس طبيب footballer actor actress singer writer poet scientist president king wrestler player coach politician director"],
-      ["طعام", "طبق طعام حلوى مشروب وجبة فاكهة فواكه خضار توابل قهوة شاي عصير dish food dessert drink beverage fruit vegetable snack"],
-      ["حيوان أو نبات", "حيوان طائر سمكة زاحف حشرة ثديي نبات شجرة animal bird fish reptile insect mammal plant tree species"],
-      ["رياضة", "بطولة دوري كأس نادي منتخب مباراة league championship cup club tournament"],
-      ["حدث", "معركة غزوة حرب ثورة معاهدة زلزال battle war revolution treaty earthquake"],
-    ].map(([kind, words]) => [kind, new Set(words.split(/\s+/).filter(Boolean))]);
+    // Reading Wikipedia's first sentence for the KIND of thing a term is.
+    //
+    // Two rules, both learned by being wrong:
+    //
+    // 1. WHOLE WORDS, not substrings. JS regex has no \b for Arabic, and
+    //    substring matching is actively wrong here: «مصارعة» (the sport)
+    //    contains «مصارع» (a wrestler), «مملكة» contains «ملك».
+    //
+    // 2. The EARLIEST defining word wins — not the first rule in a list. The
+    //    first version tested one kind at a time against the whole sentence, so
+    //    «علي بن سالم لاعب كرة قدم عماني من مدينة صحار» came back as a PLACE:
+    //    the place rule ran first and found «مدينة» near the end. Arabic
+    //    Wikipedia opens with the defining noun, so position is the signal, and
+    //    8 of 16 realistic sentences were classified wrongly without it.
+    //
+    // Two-word phrases are checked before single words at the same position,
+    // because «مقدم برامج» is a person and «برامج» alone is a programme, and
+    // «رجل أعمال» is a person while neither word alone means anything useful.
+    const DIST_KIND_PHRASES = {
+      "رجل اعمال": "شخص", "سيده اعمال": "شخص", "مقدم برامج": "شخص",
+      "رائد فضاء": "شخص", "لاعب كره": "شخص", "نجم كره": "شخص",
+      "شبه جزيره": "مكان", "موقع اثري": "مكان", "موقع سياحي": "مكان",
+      "راس الخيمه": "مكان", "لعبه فيديو": "عمل فني", "برنامج تلفزيوني": "عمل فني",
+    };
+    const DIST_KIND_WORDS = (() => {
+      const m = {};
+      const add = (kind, words) => words.split(/\s+/).filter(Boolean).forEach(w => {
+        if (!(w in m)) m[w] = kind;    // first listing wins, so order here is priority
+      });
+      add("شخص", `لاعب لاعبه ممثل ممثله مغني مغنيه مطرب مطربه شاعر شاعره كاتب كاتبه اديب
+        روائي مؤرخ فيلسوف رئيس ملك سلطان امير اميره قائد مصارع ملاكم مدرب صحابي تابعي
+        خليفه فنان فنانه مخرج منتج سياسي دبلوماسي مؤسس داعيه شيخ امام قاضي طبيب طبيبه
+        مهندس رحاله مستكشف اعلامي مذيع مذيعه مقدم صحفي صحفيه رسام نحات موسيقي ملحن مؤلف
+        ناشط بطل بطله فارس محارب جندي ضابط عالم عالمه شخصيه`);
+      add("مكان", `حصن حصون قلعه قلاع وادي واد وديان عين عيون جبل جبال مدينه مدن قريه قري
+        بلده بلدات ولايه ولايات محافظه محافظات منطقه مناطق شاطئ شواطئ كهف كهوف جزيره جزر
+        ميناء موانئ متحف متاحف مسجد مساجد سوق اسواق حديقه حدائق بحيره بحيرات نهر انهار
+        صحراء دوله دول عاصمه عواصم مملكه اماره موقع مواقع خليج مضيق برج ابراج قصر قصور
+        سد سدود منتزه محميه هضبه سهل واحه فلج افلاج حاره مطار مطارات بحر محيط ضريح`);
+      add("عمل فني", `فيلم افلام مسلسل مسلسلات برنامج برامج اغنيه اغاني البوم رواية روايه
+        كتاب مسرحيه قصيده ديوان`);
+      add("شركة", `شركه شركات مؤسسه علامه مطعم مطاعم مقهي مقاهي سلسله مصرف بنك بنوك متجر
+        متاجر فندق فنادق`);
+      add("طعام", `طبق اطباق طعام حلوي مشروب مشروبات وجبه فاكهه فواكه خضار توابل قهوه شاي عصير`);
+      add("حيوان أو نبات", `حيوان حيوانات طائر طيور سمكه اسماك زاحف حشره ثديي نبات نباتات شجره اشجار`);
+      add("رياضة", `بطوله دوري كاس نادي منتخب مباراه`);
+      add("حدث", `معركه غزوه حرب ثوره معاهده زلزال`);
+      // English, for the many terms that only have an English page.
+      add("شخص", `footballer actor actress singer songwriter writer poet novelist historian
+        scientist president king sultan prince wrestler boxer player coach politician
+        director producer businessman entrepreneur journalist painter composer athlete`);
+      add("مكان", `city town village fort castle valley mountain island museum beach cave
+        region province country capital river lake district municipality wadi bay strait
+        tower palace park reserve desert oasis port airport peninsula emirate state`);
+      add("عمل فني", `film movie series television programme program song album novel book
+        play sitcom`);
+      add("شركة", `company brand restaurant cafe chain bank retailer corporation hotel`);
+      return m;
+    })();
     function distWords(text) {
       return String(text || "")
         .normalize("NFKC")
-        .replace(/[\u064B-\u0652\u0640]/g, "")
+        .replace(/[ً-ْـ]/g, "")
+        .replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
         .toLowerCase()
-        .split(/[^\u0621-\u064Aa-z0-9]+/i)
-        .filter(Boolean)
-        .map(w => w.replace(/^(?:ال|و)/, "") || w);
+        .split(/[^ء-يa-z0-9]+/i)
+        .filter(Boolean);
+    }
+    // Arabic glues particles onto the front of a word (بمدينة، وقرية، للاعب), so
+    // the bare noun has to be tried too — but ONLY as a fallback. Stripping
+    // first is wrong: «لاعب» begins with ل and becomes «اعب», which is how a
+    // footballer was still being read as a place after the ordering was fixed.
+    function distStrip(w) {
+      return w.replace(/^(?:وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)(?=.{3,})/, "");
     }
     function distKindOf(text) {
       const words = distWords(text);
-      if (!words.length) return "";
-      for (let i = 0; i < DIST_KIND_RULES.length; i++) {
-        const set = DIST_KIND_RULES[i][1];
-        for (let j = 0; j < words.length; j++) if (set.has(words[j])) return DIST_KIND_RULES[i][0];
+      for (let i = 0; i < words.length; i++) {
+        const two = words[i] + " " + (words[i + 1] || "");
+        if (DIST_KIND_PHRASES[two]) return DIST_KIND_PHRASES[two];
+        if (DIST_KIND_WORDS[words[i]]) return DIST_KIND_WORDS[words[i]];
+        const bare = distStrip(words[i]);
+        if (bare !== words[i] && DIST_KIND_WORDS[bare]) return DIST_KIND_WORDS[bare];
       }
       return "";
     }

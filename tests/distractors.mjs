@@ -253,6 +253,42 @@ try {
 
   // The substring collisions that forced whole-word matching. Each of these
   // classified WRONG when the rules were regexes over the raw string.
+  // Realistic Wikipedia opening sentences, Arabic and English. 8 of these 16
+  // were classified wrongly before, and each wrong one is here on purpose:
+  //   • ordering — «لاعب كرة قدم … من مدينة صحار» read as a PLACE, because the
+  //     place rule ran first and found «مدينة» near the end;
+  //   • vocabulary — موقع / خليج / منتزه / برج matched nothing at all;
+  //   • prefixes — «وُلد في قرية» hides قرية behind و, «بمدينة» behind ب;
+  //   • phrases — «مقدم برامج» is a person, «برامج» alone is a programme.
+  const kindCases = await page.evaluate(() => {
+    const CASES = [
+      ["شخص", "علي بن سالم لاعب كرة قدم عماني من مدينة صحار"],
+      ["شخص", "محمود درويش شاعر فلسطيني وُلد في قرية البروة"],
+      ["شخص", "هو مؤرخ وكاتب عُماني"],
+      ["شخص", "رجل أعمال سعودي ومؤسس شركة كبرى"],
+      ["شخص", "صحابي جليل من قبيلة قريش"],
+      ["شخص", "مقدم برامج وإعلامي عماني"],
+      ["شخص", "Omani footballer who plays as a forward"],
+      ["مكان", "وادي شاب موقع سياحي في ولاية صور"],
+      ["مكان", "قلعة نزوى قلعة تاريخية في مدينة نزوى"],
+      ["مكان", "خليج عُمان ذراع بحري"],
+      ["مكان", "بلدة في محافظة شمال الباطنة"],
+      ["مكان", "منتزه وطني في سلطنة عمان"],
+      ["مكان", "is a city in the Sultanate of Oman"],
+      ["مكان", "برج تاريخي يقع في ولاية بهلاء"],
+      ["عمل فني", "مسلسل درامي عماني عُرض عام ٢٠٢٠"],
+      ["شركة", "سلسلة مطاعم وجبات سريعة أمريكية"],
+    ];
+    return CASES.map(([want, txt]) => ({ want, txt, got: distKindOf(txt) }));
+  });
+  const wrong = kindCases.filter(c => c.got !== c.want);
+  check(`realistic descriptions classify correctly (${kindCases.length - wrong.length}/${kindCases.length}, was 8/16)`,
+    wrong.length === 0);
+  wrong.slice(0, 4).forEach(c => console.log(`   want ${c.want}, got ${c.got || "—"}: ${c.txt.slice(0, 46)}`));
+  // The specific trap: a person described near a place must stay a person.
+  check("a footballer «من مدينة صحار» is a person, not a place",
+    kindCases[0].got === "شخص");
+
   const collisions = await page.evaluate(() => ({
     wrestling: distKindOf("برنامج مصارعة تلفزيوني"),   // مصارعة contains مصارع
     kingdom: distKindOf("مملكة في شبه الجزيرة العربية"), // مملكة contains ملك
