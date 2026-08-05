@@ -4661,6 +4661,20 @@
     .dup-tag.dup { background: #fdeaea; color: #9e1322; }
     .dup-tag.conf { background: #fff0cf; color: #9a5a12; }
     .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
+    .app-notice {
+      position: fixed; z-index: 9999; inset-inline: 12px; bottom: 16px; margin-inline: auto;
+      max-width: 520px; display: none; align-items: flex-start; gap: 12px;
+      padding: 12px 14px; border-radius: 14px; direction: rtl; text-align: start;
+      background: #1f5237; color: #f6ead2; border: 2px solid #2f7c55;
+      box-shadow: 0 14px 34px rgba(0,0,0,.35); font-family: 'Cairo', sans-serif;
+    }
+    .app-notice.show { display: flex; }
+    .app-notice.warn { background: #7a3f12; border-color: #a35a1e; }
+    .app-notice-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .app-notice-body b { font-size: 14.5px; font-weight: 800; }
+    .app-notice-body span { font-size: 12.5px; opacity: .9; }
+    .app-notice-x { flex: 0 0 auto; background: transparent; border: none; color: inherit;
+      font-size: 15px; cursor: pointer; opacity: .8; padding: 2px 4px; }
     .dist-tabs { display: flex; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
     .dist-tab { font: 800 13px 'Cairo', sans-serif; padding: 6px 14px; border-radius: 999px; cursor: pointer;
       border: 2px solid #e0cfa0; background: #fdf8ec; color: #6b5a33; }
@@ -11554,7 +11568,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.244";
+    const IZZBAH_BUILD = "2026-08-05.245";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16277,13 +16291,29 @@
         + `<span class="qh-plays">${toArabicDigits(r.n)} لعبة</span></div></div>`;
       const section = (title, ico, list, metric) => list.length
         ? `<div class="qh-section"><h4 class="qh-h">${ico} ${title}</h4>${list.map(r => rowHtml(r, metric)).join("")}</div>` : "";
-      const hardest = rows.slice().sort((a, b) => a.pctCorrect - b.pctCorrect).slice(0, 10);
+      // «أصعب» and «الأسهل» are opposite ends of ONE ranking, so they must not
+      // share a question. They used to be two independent slices of the same
+      // array: with only two questions past the play threshold, both lists
+      // showed both questions, and the same question appeared as the hardest
+      // AND the easiest. Split the ranking down the middle instead — each list
+      // can take at most half, so the two can never meet.
+      const byCorrect = rows.slice().sort((a, b) => a.pctCorrect - b.pctCorrect);
+      const half = Math.floor(byCorrect.length / 2);
+      const hardest = byCorrect.slice(0, Math.min(10, half));
+      const easiest = half ? byCorrect.slice(byCorrect.length - Math.min(8, half)).reverse() : [];
+      // Skipping is a DIFFERENT axis — a question can be the most skipped and
+      // still the easiest for whoever did attempt it — so overlap here is
+      // meaningful rather than contradictory, and is left alone.
       const skipped = rows.slice().filter(r => r.pctSkip > 0).sort((a, b) => b.pctSkip - a.pctSkip).slice(0, 10);
-      const easiest = rows.slice().sort((a, b) => b.pctCorrect - a.pctCorrect).slice(0, 8);
-      body.innerHTML =
-        section("أصعب الأسئلة", "🧗", hardest, r => `${pct(r.pctCorrect)} صح`)
+      const thin = byCorrect.length < 4
+        ? `<div class="qh-empty">بيانات قليلة (${toArabicDigits(byCorrect.length)} سؤال تجاوز الحد) — الترتيب غير ذي دلالة بعد.</div>`
+        : "";
+      body.innerHTML = thin
+        + section("أصعب الأسئلة", "🧗", hardest, r => `${pct(r.pctCorrect)} صح`)
         + section("الأكثر تخطّياً", "🙈", skipped, r => `${pct(r.pctSkip)} تخطّي`)
         + section("الأسهل", "✅", easiest, r => `${pct(r.pctCorrect)} صح · ${secs(r.avgSecs)}`);
+      appNotice("انتهى فحص صحة الأسئلة",
+        `${toArabicDigits(rows.length)} سؤالاً تجاوز حد مرّات اللعب.`);
     }
     function resetQHealth() {
       const reset = window.IZZBAH && window.IZZBAH.resetQStats;
@@ -16885,6 +16915,10 @@
     function openDupModal() {
       const sync = $("#dupSync"); if (sync) sync.hidden = true;  // clear any stale status
       renderDupReport();
+      const d = findDuplicateQuestions();
+      appNotice("انتهى فحص المتكررات",
+        d.dups.length ? `${toArabicDigits(d.dups.length)} مجموعة مكرّرة من أصل ${toArabicDigits(d.total)} سؤال.`
+                      : `لا تكرار — فُحص ${toArabicDigits(d.total)} سؤالاً.`);
       const m = $("#dupModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
     function closeDupModal() { const m = $("#dupModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
@@ -17251,6 +17285,13 @@
           return missing;
         }).catch(() => list);
       };
+      // The cache is written after EVERY chunk, not once at the end. It used to
+      // be saved only on completion, so a hard refresh part-way through a run
+      // that takes minutes threw away every description fetched so far and the
+      // next run started from nothing. Now a refresh costs at most the chunk
+      // that was in flight, and pressing the button again resumes: the terms
+      // already known are skipped before a single request is made.
+      distScanMark(true);
       return chunks.reduce((chain, chunk) => chain.then(() =>
         runLang(chunk, "ar")
           .then(miss => runLang(miss, "en"))
@@ -17259,9 +17300,35 @@
             // about the same terms it has never heard of.
             (stillMissing || []).forEach(t => { if (!(t in cache)) cache[t] = ""; });
             done++;
+            distKindCacheSave(cache);
             if (onProgress) onProgress(done, chunks.length);
           })
-      ), Promise.resolve()).then(() => { distKindCacheSave(cache); return cache; });
+      ), Promise.resolve()).then(() => { distKindCacheSave(cache); distScanMark(false); return cache; });
+    }
+    // A run that was interrupted leaves this set, so reopening the panel can say
+    // so instead of the admin wondering whether the scan ever finished.
+    const DIST_SCAN_KEY = "izzbah-wikiscan-v1";
+    function distScanMark(running) {
+      try {
+        if (running) localStorage.setItem(DIST_SCAN_KEY, "1");
+        else localStorage.removeItem(DIST_SCAN_KEY);
+      } catch (e) {}
+    }
+    function distScanInterrupted() {
+      try { return localStorage.getItem(DIST_SCAN_KEY) === "1"; } catch (e) { return false; }
+    }
+    // How many distinct terms the smart scan still has to ask about.
+    function distScanRemaining() {
+      const cache = distKindCache();
+      const seen = new Set();
+      distCollect().forEach(it => {
+        if (!it.uses || !it.d.length) return;
+        [it.a].concat(it.d).forEach(t => {
+          const v = String(t == null ? "" : t).trim();
+          if (v && !(v in cache)) seen.add(v);
+        });
+      });
+      return seen.size;
     }
     // Pure, and therefore testable with no network: given descriptions, which
     // options are a different kind of thing from their answer?
@@ -17288,6 +17355,10 @@
     }
     // Findings from the last smart run, keyed so the renderer can merge them in.
     let distSmart = { ran: false, cat: "", findings: [] };
+    function distSmartBtnLabel() {
+      const left = distScanRemaining();
+      return left ? `🧠 فحص ذكي (${toArabicDigits(left)} متبقٍ)` : "🧠 فحص ذكي";
+    }
     function distRunSmart() {
       const btn = $("#distSmart");
       const items = distCollect().filter(it => it.uses && it.d.length);
@@ -17304,8 +17375,13 @@
         showToast(distSmart.findings.length
           ? `وُجدت ${toArabicDigits(distSmart.findings.length)} ملاحظة ذكية`
           : "لم يجد الفحص الذكي خيارات من نوع مختلف");
-      }).catch(() => showToast("تعذّر الاتصال بويكيبيديا — حاول لاحقاً"))
-        .then(() => { if (btn) { btn.disabled = false; btn.textContent = "🧠 فحص ذكي"; } });
+        appNotice("انتهى الفحص الذكي",
+          distSmart.findings.length
+            ? `${toArabicDigits(distSmart.findings.length)} خياراً من نوع مختلف عن إجابته.`
+            : "لم يُعثر على خيار من نوع مختلف عن إجابته.");
+      }).catch(() => {
+        appNotice("توقّف الفحص الذكي", "تعذّر الاتصال بويكيبيديا — ما جُلب حتى الآن محفوظ، والضغط مرة أخرى يُكمل من حيث توقف.", "warn");
+      }).then(() => { if (btn) { btn.disabled = false; btn.textContent = distSmartBtnLabel(); } });
     }
 
     const DIST_TAGS = {
@@ -17433,6 +17509,14 @@
     function openDistModal() {
       renderDistReport();
       const m = $("#distModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      const btn = $("#distSmart");
+      if (btn) btn.textContent = distSmartBtnLabel();
+      if (distScanInterrupted()) {
+        const left = distScanRemaining();
+        appNotice("الفحص الذكي لم يكتمل",
+          left ? `بقي ${toArabicDigits(left)} مصطلحاً. اضغط «فحص ذكي» ليُكمل من حيث توقف — ما جُلب سابقاً محفوظ.`
+               : "كل المصطلحات مجلوبة — اضغط «فحص ذكي» لعرض النتيجة.", "warn");
+      }
     }
     function closeDistModal() { const m = $("#distModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
 
@@ -21684,6 +21768,38 @@
         .catch(() => reportSetStatus("تعذّر الإرسال — حاول مجدداً"));
     }
 
+    // An in-app notification for work that FINISHES rather than work you just
+    // did. A toast is wrong for this: a scan can take minutes, the admin looks
+    // away, and a 2.2-second toast is gone before they look back. This stays
+    // until dismissed.
+    let appNoticeTimer = null;
+    function appNotice(title, body, kind) {
+      let el = document.getElementById("appNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "appNotice";
+        el.className = "app-notice";
+        el.setAttribute("role", "status");
+        el.setAttribute("aria-live", "polite");
+        document.body.appendChild(el);
+      }
+      el.className = "app-notice" + (kind ? " " + kind : "");
+      el.innerHTML = `<div class="app-notice-body"><b></b><span></span></div>`
+        + `<button class="app-notice-x" type="button" aria-label="إغلاق">✕</button>`;
+      el.querySelector("b").textContent = title || "";
+      el.querySelector("span").textContent = body || "";
+      el.querySelector(".app-notice-x").addEventListener("click", () => hideAppNotice());
+      el.classList.add("show");
+      window.clearTimeout(appNoticeTimer);
+      // Long enough to be read after looking back at the screen, not permanent.
+      appNoticeTimer = window.setTimeout(hideAppNotice, 20000);
+    }
+    function hideAppNotice() {
+      const el = document.getElementById("appNotice");
+      if (el) el.classList.remove("show");
+      window.clearTimeout(appNoticeTimer);
+    }
+
     function showToast(message) {
       const el = $("#appToast");
       if (!el) return;
@@ -22211,7 +22327,12 @@
     applyAdminGroups();
     $("#distClose").addEventListener("click", closeDistModal);
     $("#distCloseBtn").addEventListener("click", closeDistModal);
-    $("#distRescan").addEventListener("click", renderDistReport);
+    $("#distRescan").addEventListener("click", () => {
+      const r = distFindIssues();
+      renderDistReport();
+      appNotice("انتهى فحص الخيارات",
+        `${toArabicDigits(r.found.filter(f => f.sev < 4).length)} ملاحظة من أصل ${toArabicDigits(r.total)} سؤال.`);
+    });
     $("#distFixAll").addEventListener("click", distFixAll);
     $("#distSmart").addEventListener("click", distRunSmart);
     $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
