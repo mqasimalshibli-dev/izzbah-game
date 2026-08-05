@@ -177,13 +177,75 @@ try {
     const t = document.getElementById("distSummary").textContent;
     const cls = document.getElementById("distSummary").className;
     closeDistModal();
-    return { t, cls, n: distFindIssues().found.length };
+    const f = distFindIssues().found;
+    return { t, cls, n: f.filter(x => x.sev < 4).length, rec: f.filter(x => x.sev === 4).length };
   });
   // Built-in categories are scanned too, so this also asserts the shipped banks
   // are themselves clean — including «خمّن الإيموجي», whose unused-but-good
   // options an earlier version of the scanner wanted to delete.
-  check(`a clean catalogue (built-ins included) says so (“${clean.t.slice(0, 44)}…”)`,
+  // Counts the MALFORMED class only — recycled options are a separate tab and a
+  // separate judgement, and the built-in banks do reuse answers as options.
+  check(`a clean catalogue (built-ins included) reports no defects (${clean.rec} recycled, separate tab)`,
     clean.n === 0 && /clean/.test(clean.cls));
+
+  // ---- options recycled from other answers in the same category ----
+  // Reported by the owner: "some of the categories' options are from the other
+  // answers in the same category". Not malformed — the game works — so it gets
+  // its own tab and its own severity, because in some live categories it is
+  // nearly every question and would otherwise bury the real defects.
+  const rec = await page.evaluate(async () => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-s", name: "مواقع في عمان", image: "", order: 1, questions: [
+      q(100, "موقع ١؟", "حصن مرباط", ["حصن مرباط", "حصن سدح", "حصن رخيوت"]),   // answer in its own options
+      q(200, "موقع ٢؟", "حصن سدح", ["حصن نخل", "حصن الخندق", "حصن السليف"]),
+      q(300, "موقع ٣؟", "حصن نخل", ["حصن مرباط", "حصن بهلا", "حصن الرستاق"]),  // recycled
+      q(400, "موقع ٤؟", "حصن بهلا", ["حصن سدح", "حصن الحزم", "حصن جبرين"]),    // recycled
+    ] }]);
+    state.communityCategories = [];
+    const before = distFindIssues().found;
+    const answersOf = () => new Set(state.publishedCategories.find(c => c.id === "pub-s")
+      .questions.map(x => distNorm(x.a)));
+
+    distTab = "bad"; distFixAll(); await new Promise(r => setTimeout(r, 150));
+    const midBad = distFindIssues().found.filter(f => f.sev < 4).length;
+
+    distTab = "recycled"; distFixAll(); await new Promise(r => setTimeout(r, 150));
+    const after = distFindIssues().found;
+    const cat = state.publishedCategories.find(c => c.id === "pub-s");
+    const ans = answersOf();
+    return {
+      recBefore: before.filter(f => f.kind === "recycled").length,
+      badBefore: before.filter(f => f.sev < 4).length,
+      midBad,
+      recAfter: after.filter(f => f.kind === "recycled").length,
+      anyLeft: after.length,
+      // the real property: no option is any question's answer any more
+      leaks: cat.questions.flatMap(x => x.distractors.filter(d => ans.has(distNorm(d)))),
+      sizes: cat.questions.map(x => x.distractors.length),
+    };
+  });
+  check(`recycled answers are detected (${rec.recBefore} found)`, rec.recBefore >= 3);
+  check(`«إصلاح الكل» clears the malformed tab (${rec.badBefore} → ${rec.midBad})`,
+    rec.badBefore > 0 && rec.midBad === 0);
+  check(`«إصلاح الكل» clears the recycled tab (${rec.recAfter} left)`, rec.recAfter === 0);
+  check("…and no option is another question's answer afterwards",
+    rec.leaks.length === 0);
+  check("…without losing any options along the way",
+    rec.sizes.every(n => n === 3));
+
+  // The malformed-tab fix may fall back to using an answer, which the recycled
+  // pass then cleans. Pinning that the two passes compose rather than fight.
+  check("the two passes compose to a fully clean category", rec.anyLeft === 0);
+
+  const tabs = await page.evaluate(async () => {
+    openDistModal();
+    await new Promise(r => setTimeout(r, 200));
+    const n = document.querySelectorAll("#distTabs .dist-tab").length;
+    const on = document.querySelectorAll("#distTabs .dist-tab.on").length;
+    closeDistModal();
+    return { n, on };
+  });
+  check("the report shows both tabs, one selected", tabs.n === 2 && tabs.on === 1);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
