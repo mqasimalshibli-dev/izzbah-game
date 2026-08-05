@@ -116,6 +116,63 @@ try {
   check("…and remembered between visits", collapse.stored.content === 0);
   check("…and it opens again", collapse.reopened === "1");
 
+  // ---- the group header has to be READABLE, in both themes ----
+  // A <button> does not inherit text colour: it takes the UA default, which is
+  // BLACK. The subtitle and chevron were therefore pure black on a dark maroon
+  // panel — visible enough in a screenshot to look intentional, and unreadable
+  // in use. Contrast is measured against the PAINTED pixel rather than computed
+  // from the CSS, because the header background is translucent and stacking the
+  // layers by hand is exactly where such a check goes quietly wrong.
+  const lum = ([r, g, b]) => {
+    const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const rgbOf = s => (s.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+
+  for (const theme of ["light", "dark"]) {
+    const c = await page.evaluate(async (theme) => {
+      state.theme = theme;
+      document.documentElement.setAttribute("data-theme", theme);
+      openAdminChoice();
+      await new Promise(r => setTimeout(r, 260));
+      const g = document.querySelector(".admin-group");
+      const cs = k => getComputedStyle(g.querySelector(k));
+      const r = g.querySelector(".admin-group-head").getBoundingClientRect();
+      return {
+        name: cs(".admin-group-name").color,
+        sub: cs(".admin-group-sub").color,
+        subOp: cs(".admin-group-sub").opacity,
+        chev: cs(".admin-group-chev").color,
+        at: { x: Math.round(r.left + r.width * 0.5), y: Math.round(r.top + r.height * 0.72) },
+      };
+    }, theme);
+    const shot = await page.screenshot({ clip: { x: c.at.x - 2, y: c.at.y - 2, width: 4, height: 4 } });
+    const bg = await page.evaluate(async (b64) => {
+      const img = new Image(); img.src = "data:image/png;base64," + b64;
+      await img.decode();
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const ctx = cv.getContext("2d"); ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(2, 2, 1, 1).data;
+      return [d[0], d[1], d[2]];
+    }, shot.toString("base64"));
+
+    const blend = (col, op) => {
+      const C = rgbOf(col), a = parseFloat(op || "1");
+      return C.map((v, i) => v * a + bg[i] * (1 - a));
+    };
+    const nm = contrast(rgbOf(c.name), bg);
+    const sb = contrast(blend(c.sub, c.subOp), bg);
+    const cv = contrast(rgbOf(c.chev), bg);
+    check(`${theme}: the group name is readable (${nm.toFixed(1)}:1)`, nm >= 4.5);
+    check(`${theme}: the group subtitle is readable (${sb.toFixed(1)}:1)`, sb >= 4.5);
+    check(`${theme}: the chevron is readable (${cv.toFixed(1)}:1)`, cv >= 4.5);
+    // The specific regression: nothing in the header may fall back to black.
+    check(`${theme}: nothing in the header is the browser's default black`,
+      ![c.name, c.sub, c.chev].some(x => /^rgb\(0, 0, 0\)$/.test(x)));
+  }
+  await page.evaluate(() => { state.theme = "light"; document.documentElement.setAttribute("data-theme", "light"); });
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
