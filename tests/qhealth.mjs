@@ -55,7 +55,18 @@ ck("has «الأسهل» section", !!easySec);
 ck("hardest question ranks #1 in أصعب", hardSec && hardSec.rows[0]===res.hard);
 ck("most-skipped question ranks #1 in تخطّياً", skipSec && skipSec.rows[0]===res.skip);
 ck("easiest question ranks #1 in الأسهل", easySec && easySec.rows[0]===res.easy);
-ck("junk hash is ignored (only 3 known questions shown across hardest)", hardSec && hardSec.rows.length===3);
+// «أصعب» and «الأسهل» are the two ends of ONE ranking, so a question may sit in
+// one or the other but never in both. They used to be independent slices of the
+// same sorted array, which is why a small sample showed the SAME question as the
+// hardest and the easiest at once. Each list can now take at most half the rows —
+// so with three ranked questions the hard list holds one, not all three. What
+// this check guards is that property, not the old count.
+ck("no question is both the hardest and the easiest",
+   hardSec && easySec && !hardSec.rows.some(r=>easySec.rows.includes(r)));
+ck("…and the two lists together never exceed the ranked questions (1+1 of 3)",
+   hardSec && easySec && (hardSec.rows.length+easySec.rows.length)<=3);
+ck("only questions the client can name are listed",
+   res.secs.every(s=>s.rows.every(r=>[res.hard,res.skip,res.easy].includes(r))));
 
 // the answer shows next to each question, so a broken one can be judged in place
 ck("every row shows an answer", hardSec && hardSec.answers.every(a=>a && a.length>1));
