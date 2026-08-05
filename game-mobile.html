@@ -11554,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.239";
+    const IZZBAH_BUILD = "2026-08-05.240";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16949,28 +16949,58 @@
     // with the same word as the answer — so a حصن question gets another حصن and
     // not a wadi or, as an earlier attempt produced, a TV show in place of a
     // wrestler. Same category is not the same as same kind.
-    function distSuggest(items, item, taken, avoidAnswers) {
+    // Per-category index, built once per scan. Without it distSuggest filtered
+    // the entire catalogue on every call — with 4,560 questions and about as
+    // many findings that is ~20M operations, and pressing the button took 25
+    // seconds before anything appeared.
+    let distIndex = null;
+    function distBuildIndex(items) {
+      const idx = {};
+      items.forEach(it => {
+        const e = idx[it.catId] || (idx[it.catId] = { answers: new Set(), pool: new Map() });
+        const na = distNorm(it.a);
+        if (na) { e.answers.add(na); if (!e.pool.has(na)) e.pool.set(na, it.a.trim()); }
+        it.d.forEach(d => {
+          const nd = distNorm(d);
+          if (nd && !e.pool.has(nd)) e.pool.set(nd, String(d).trim());
+        });
+      });
+      return idx;
+    }
+    function distSuggest(item, taken, avoidAnswers) {
+      const e = distIndex && distIndex[item.catId];
+      if (!e) return null;
       const head = s => distNorm(s).split(" ")[0];
       const used = new Set([distNorm(item.a), ...taken.map(distNorm)]);
-      const sameCat = items.filter(x => x.catId === item.catId);
-      const answers = new Set(sameCat.map(x => distNorm(x.a)).filter(Boolean));
-      const pool = [];
-      sameCat.forEach(x => { pool.push(x.a); x.d.forEach(d => pool.push(d)); });
-      const uniq = [...new Map(pool.filter(v => (v || "").trim()).map(v => [distNorm(v), v.trim()])).values()];
-      const free = c => !used.has(distNorm(c));
-      // When the point of the fix is to STOP recycling other questions' answers,
-      // a replacement that is itself an answer elsewhere just moves the problem.
-      const ok = c => free(c) && (!avoidAnswers || !answers.has(distNorm(c)));
-      const tiers = [
-        uniq.filter(c => ok(c) && head(c) === head(item.a)),
-        uniq.filter(c => ok(c) && item.d.some(d => distNorm(d) !== distNorm(item.a) && head(c) === head(d))),
-        uniq.filter(ok),
-      ];
-      // Last resort for the plain defects only: any answer in the category is
-      // still better than leaving the correct answer sitting in its own options.
-      if (!avoidAnswers) tiers.push(sameCat.map(x => x.a).filter(c => (c || "").trim() && free(c)));
+      const aHead = head(item.a);
+      const dHeads = new Set(item.d.filter(d => distNorm(d) !== distNorm(item.a)).map(head));
+      // A replacement that is itself an answer elsewhere just moves the problem
+      // along, when the point of the fix is to stop recycling answers.
+      const ok = v => !used.has(distNorm(v)) && (!avoidAnswers || !e.answers.has(distNorm(v)));
+      const t1 = [], t2 = [], t3 = [], t4 = [];
+      e.pool.forEach((val, key) => {
+        if (!ok(val)) return;
+        const h = head(val);
+        if (h === aHead) t1.push(val);
+        else if (dHeads.has(h)) t2.push(val);
+        else t3.push(val);
+        if (!avoidAnswers && e.answers.has(key)) t4.push(val);
+      });
+      const tiers = avoidAnswers ? [t1, t2, t3] : [t1, t2, t3, t4];
       for (const t of tiers) if (t.length) return t[Math.abs(hashString(item.q + item.a)) % t.length];
       return null;
+    }
+    // Findings carry only the SHAPE of their fix; the replacement value is
+    // resolved when a row is actually drawn or applied. Most findings are never
+    // either — only 400 render at a time — so computing thousands of
+    // replacements up front was pure waste.
+    function distResolveFix(entry) {
+      if (!entry || !entry.fix) return null;
+      if (entry.fix.type !== "replace" || entry.fix.value != null) return entry.fix;
+      const val = distSuggest(entry.it, entry.it.d, !!entry.fix.avoidAnswers);
+      if (val == null) { entry.fix = entry.fix.idx != null ? { type: "drop", idx: entry.fix.idx } : null; return entry.fix; }
+      entry.fix.value = val;
+      return entry.fix;
     }
     function hashString(s) {
       let h = 0;
@@ -16981,6 +17011,7 @@
     // renderer never has to re-derive it.
     function distFindIssues() {
       const items = distCollect();
+      distIndex = distBuildIndex(items);
       const found = [];
       // Every ANSWER in each category, so an option can be recognised as some
       // other question's answer recycled as a wrong one.
@@ -17011,20 +17042,17 @@
         }
         const dupIdx = nd.findIndex((d, i) => d && d === na);
         if (dupIdx >= 0) {
-          const rep = distSuggest(items, it, it.d);
           found.push({ it, kind: "answer", sev: 1,
             why: "أحد الخيارات هو الإجابة الصحيحة نفسها — تظهر مرتين",
-            fix: rep ? { type: "replace", idx: dupIdx, value: rep } : { type: "drop", idx: dupIdx } });
+            fix: { type: "replace", idx: dupIdx } });
           return;
         }
         const seen = new Map();
         let dupPair = -1;
         nd.forEach((d, i) => { if (!d) return; if (seen.has(d)) dupPair = i; else seen.set(d, i); });
         if (dupPair >= 0) {
-          const rep = distSuggest(items, it, it.d);
-          found.push({ it, kind: "twice", sev: 2,
-            why: "خياران متطابقان",
-            fix: rep ? { type: "replace", idx: dupPair, value: rep } : { type: "drop", idx: dupPair } });
+          found.push({ it, kind: "twice", sev: 2, why: "خياران متطابقان",
+            fix: { type: "replace", idx: dupPair } });
           return;
         }
         const emptyIdx = it.d.findIndex(d => !d.trim());
@@ -17057,11 +17085,10 @@
             return n && n !== distNorm(it.a) && answers.has(n);
           });
           if (hits.length) {
-            const rep = distSuggest(items, it, it.d, true);
             found.push({ it, kind: "recycled", sev: 4,
               why: `${toArabicDigits(hits.length)} من الخيارات هي إجابات أسئلة أخرى في نفس الفئة`,
               hits: hits.map(h => h.d),
-              fix: rep ? { type: "replace", idx: hits[0].i, value: rep } : null });
+              fix: { type: "replace", idx: hits[0].i, avoidAnswers: true } });
           }
         }
       });
@@ -17072,7 +17099,7 @@
     // local state so the report updates with no wait, then one debounced publish
     // per category in the background.
     function distApplyFix(entry, quiet) {
-      const it = entry.it, fx = entry.fix;
+      const it = entry.it, fx = distResolveFix(entry);
       if (!fx) return;
       let cat = null, kind = "official";
       if (it.community) { cat = (state.communityCategories || []).find(c => c.id === it.catId); kind = "community"; }
@@ -17288,7 +17315,7 @@
     // even though each one rewrites the array the next is indexed into.
     function distFixAll() {
       const all = distFindIssues().found;
-      const todo = distVisible(all).filter(f => f.fix);
+      const todo = distVisible(all).filter(f => f.fix);   // shape only; value resolves on apply
       if (!todo.length) { showToast("لا شيء لإصلاحه هنا"); return; }
       if (!window.confirm(`إصلاح ${toArabicDigits(todo.length)} ملاحظة؟ يمكن التراجع بتعديل السؤال يدوياً.`)) return;
       let done = 0;
@@ -17365,13 +17392,14 @@
         opts.className = "dist-opts";
         opts.textContent = "الخيارات: " + (f.it.d.length ? f.it.d.map(d => d.trim() || "(فارغ)").join("  •  ") : "—");
         occ.appendChild(opts);
-        if (f.fix) {
+        const fx = distResolveFix(f);   // only the drawn rows pay for this
+        if (fx) {
           const act = document.createElement("div");
           act.className = "dist-act";
           const b = document.createElement("button");
           b.className = "dup-del"; b.type = "button";
-          b.textContent = f.fix.type === "clear" ? "تفريغ الخيارات"
-            : f.fix.type === "replace" ? `استبدال بـ «${f.fix.value}»` : "حذف الخيار";
+          b.textContent = fx.type === "clear" ? "تفريغ الخيارات"
+            : fx.type === "replace" ? `استبدال بـ «${fx.value}»` : "حذف الخيار";
           b.addEventListener("click", () => distApplyFix(f));
           act.appendChild(b);
           occ.appendChild(act);
