@@ -4577,6 +4577,29 @@
       box-shadow: 0 24px 70px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .35) !important; }
     .admin-choice-modal .preview-title { color: #8a3520; } /* warm brown title, not the loud alert red */
     .admin-choice-grid { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+    /* The admin centre was twelve flat buttons; several are plainly facets of
+       another (تصنيف الفئات and الألعاب المقترحة are both content; المتكررات and
+       فحص الخيارات are both catalogue scans). They are grouped now, with each
+       group collapsible so the panel can be short without hiding anything. */
+    .admin-group { border: 1px solid rgba(201,190,159,.35); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
+    .admin-group-head {
+      display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer;
+      padding: 10px 14px; border: none; background: rgba(201,151,74,.12);
+      font-family: 'Cairo', sans-serif; text-align: start;
+    }
+    .admin-group-ico { font-size: 18px; line-height: 1; }
+    .admin-group-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+    .admin-group-name { font-weight: 800; font-size: 15px; color: var(--gold-dark, #8a6118); }
+    .admin-group-sub { font-weight: 600; font-size: 11.5px; opacity: .75; }
+    .admin-group-chev { font-size: 16px; transition: transform .18s ease; opacity: .7; }
+    .admin-group[data-open="0"] .admin-group-chev { transform: rotate(-90deg); }
+    .admin-group[data-open="0"] .admin-group-body { display: none; }
+    .admin-group-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .admin-group-body .admin-choice-btn { margin-bottom: 0; }
+    :root[data-theme="dark"] .admin-group { border-color: var(--dk-line); }
+    :root[data-theme="dark"] .admin-group-head { background: rgba(255,255,255,.05); }
+    :root[data-theme="dark"] .admin-group-name { color: #e0c684; }
+
     .admin-choice-btn {
       display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto;
       column-gap: 10px; align-items: center; text-align: right; cursor: pointer;
@@ -7474,66 +7497,111 @@
       <div class="question-modal admin-choice-modal" role="dialog" aria-modal="true" aria-labelledby="adminChoiceTitle">
         <h3 class="preview-title" id="adminChoiceTitle">لوحة المشرف</h3>
         <div class="admin-choice-grid">
-          <button class="admin-choice-btn" id="adminChoiceContent" type="button">
+          <div class="admin-group" data-group="content">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">📁</span>
+              <span class="admin-group-text"><span class="admin-group-name">المحتوى</span><span class="admin-group-sub">الفئات والأسئلة وما يظهر للاعب</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceContent" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🗂️</span>
             <span class="admin-choice-name">إدارة المحتوى</span>
             <span class="admin-choice-sub">الفئات والأسئلة والوسائط</span>
           </button>
-          <button class="admin-choice-btn" id="adminChoiceSubs" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">⭐</span>
-            <span class="admin-choice-name">إدارة الاشتراكات</span>
-            <span class="admin-choice-sub">منح اللاعبين اشتراكات وألعاباً</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceStats" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">📊</span>
-            <span class="admin-choice-name">الإحصائيات</span>
-            <span class="admin-choice-sub">الفئات الأكثر لعباً وعدد الألعاب</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceQHealth" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">🩺</span>
-            <span class="admin-choice-name">صحة الأسئلة</span>
-            <span class="admin-choice-sub">أصعب الأسئلة والأكثر تخطّياً من واقع اللعب</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceAnnounce" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">📢</span>
-            <span class="admin-choice-name">الإعلانات</span>
-            <span class="admin-choice-sub">أرسل إعلاناً للاعبين وصمّمه</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceFilters" type="button">
+              <button class="admin-choice-btn" id="adminChoiceFilters" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🏷️</span>
             <span class="admin-choice-name">تصنيف الفئات</span>
             <span class="admin-choice-sub">أنواع الفئات لفلترتها في شاشة الاختيار</span>
           </button>
-          <button class="admin-choice-btn" id="adminChoiceFeedback" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">💬</span>
-            <span class="admin-choice-name">رسائل اللاعبين</span>
-            <span class="admin-choice-sub">اقرأ اقتراحات اللاعبين وردّ عليهم</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceDupes" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">🔎</span>
-            <span class="admin-choice-name">المتكررات</span>
-            <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceDist" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">🎯</span>
-            <span class="admin-choice-name">فحص الخيارات</span>
-            <span class="admin-choice-sub">خيارات «أربعة خيارات» الخاطئة أو المكرّرة</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceCoach" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">🧭</span>
-            <span class="admin-choice-name">التعليمات الإرشادية</span>
-            <span class="admin-choice-sub">عدّل نصوص تعليمات أول لعبة وأماكن ظهورها</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceText" type="button">
-            <span class="admin-choice-ico" aria-hidden="true">✏️</span>
-            <span class="admin-choice-name">تحرير النصوص</span>
-            <span class="admin-choice-sub">تجوّل في اللعبة وعدّل أي نص تشوفه — يوصل للجميع</span>
-          </button>
-          <button class="admin-choice-btn" id="adminChoiceFeatured" type="button">
+              <button class="admin-choice-btn" id="adminChoiceFeatured" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🎯</span>
             <span class="admin-choice-name">الألعاب المقترحة</span>
             <span class="admin-choice-sub">جهّز مجموعات فئات جاهزة تظهر في «ألعابنا»</span>
           </button>
+            </div>
+          </div>
+          <div class="admin-group" data-group="audit">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">🔎</span>
+              <span class="admin-group-text"><span class="admin-group-name">فحص المحتوى</span><span class="admin-group-sub">أدوات تفحص الكتالوج وتصلحه</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceDupes" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🔎</span>
+            <span class="admin-choice-name">المتكررات</span>
+            <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceDist" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🎯</span>
+            <span class="admin-choice-name">فحص الخيارات</span>
+            <span class="admin-choice-sub">خيارات «أربعة خيارات» الخاطئة أو المكرّرة</span>
+          </button>
+            </div>
+          </div>
+          <div class="admin-group" data-group="reports">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">📊</span>
+              <span class="admin-group-text"><span class="admin-group-name">التقارير</span><span class="admin-group-sub">أرقام من واقع اللعب — للقراءة فقط</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceStats" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">📊</span>
+            <span class="admin-choice-name">الإحصائيات</span>
+            <span class="admin-choice-sub">الفئات الأكثر لعباً وعدد الألعاب</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceQHealth" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🩺</span>
+            <span class="admin-choice-name">صحة الأسئلة</span>
+            <span class="admin-choice-sub">أصعب الأسئلة والأكثر تخطّياً من واقع اللعب</span>
+          </button>
+            </div>
+          </div>
+          <div class="admin-group" data-group="players">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">👥</span>
+              <span class="admin-group-text"><span class="admin-group-name">اللاعبون</span><span class="admin-group-sub">الأرصدة والرسائل والإعلانات</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceSubs" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">⭐</span>
+            <span class="admin-choice-name">إدارة الاشتراكات</span>
+            <span class="admin-choice-sub">منح اللاعبين اشتراكات وألعاباً</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceFeedback" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">💬</span>
+            <span class="admin-choice-name">رسائل اللاعبين</span>
+            <span class="admin-choice-sub">اقرأ اقتراحات اللاعبين وردّ عليهم</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceAnnounce" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">📢</span>
+            <span class="admin-choice-name">الإعلانات</span>
+            <span class="admin-choice-sub">أرسل إعلاناً للاعبين وصمّمه</span>
+          </button>
+            </div>
+          </div>
+          <div class="admin-group" data-group="copy">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">✏️</span>
+              <span class="admin-group-text"><span class="admin-group-name">النصوص</span><span class="admin-group-sub">كل ما هو مكتوب داخل اللعبة</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceText" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">✏️</span>
+            <span class="admin-choice-name">تحرير النصوص</span>
+            <span class="admin-choice-sub">تجوّل في اللعبة وعدّل أي نص تشوفه — يوصل للجميع</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceCoach" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🧭</span>
+            <span class="admin-choice-name">التعليمات الإرشادية</span>
+            <span class="admin-choice-sub">عدّل نصوص تعليمات أول لعبة وأماكن ظهورها</span>
+          </button>
+            </div>
+          </div>
         </div>
         <div class="actions">
           <button class="ghost" id="adminChoiceCancel" type="button">إغلاق</button>
@@ -11480,7 +11548,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.237";
+    const IZZBAH_BUILD = "2026-08-05.238";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -22061,6 +22129,37 @@
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
     $("#adminChoiceDist").addEventListener("click", () => { closeAdminChoice(); openDistModal(); });
+    // Group collapse. Remembered per group, so an admin who only ever touches
+    // «المحتوى» does not re-collapse the other four every time they open it.
+    const ADMIN_GROUP_KEY = "izzbah-admin-groups-v1";
+    function adminGroupState() {
+      try { return JSON.parse(localStorage.getItem(ADMIN_GROUP_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function applyAdminGroups() {
+      const st = adminGroupState();
+      document.querySelectorAll(".admin-group").forEach(g => {
+        // Default OPEN: the flat list showed everything, and quietly hiding
+        // items behind a closed group would lose things the owner knows are
+        // there.
+        const open = st[g.dataset.group] !== 0;
+        g.dataset.open = open ? "1" : "0";
+        const head = g.querySelector(".admin-group-head");
+        if (head) head.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+    document.querySelectorAll(".admin-group-head").forEach(head => {
+      head.addEventListener("click", () => {
+        const g = head.closest(".admin-group");
+        const open = g.dataset.open !== "0";
+        g.dataset.open = open ? "0" : "1";
+        head.setAttribute("aria-expanded", open ? "false" : "true");
+        const st = adminGroupState();
+        st[g.dataset.group] = open ? 0 : 1;
+        try { localStorage.setItem(ADMIN_GROUP_KEY, JSON.stringify(st)); } catch (e) {}
+      });
+    });
+    applyAdminGroups();
     $("#distClose").addEventListener("click", closeDistModal);
     $("#distCloseBtn").addEventListener("click", closeDistModal);
     $("#distRescan").addEventListener("click", renderDistReport);
