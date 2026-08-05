@@ -114,9 +114,16 @@ try {
     check(`${v.n}: a plain picture question shows its picture too (${Math.round(m.plain.imgH)}px)`,
       m.plain.imgShown && m.plain.imgH > 40 && !m.plain.imgOverflows);
 
-    // ---- the wording is the same size as the answer screen ----
-    check(`${v.n}: the question matches the answer's size (${Math.round(m.withImg.font)}px vs ${Math.round(m.answerFont)}px)`,
-      Math.abs(m.withImg.font - m.answerFont) <= 1);
+    // ---- the wording sits one step BELOW the answer screen ----
+    // It was first matched to the answer exactly; the owner then asked for it
+    // smaller still, so what is pinned now is the RELATIONSHIP (a step below,
+    // never above) rather than equality — the answer's own size still moves
+    // across four breakpoints, and the two must move together.
+    const ratio = m.withImg.font / m.answerFont;
+    check(`${v.n}: the question sits below the answer's size (${Math.round(m.withImg.font)}px vs ${Math.round(m.answerFont)}px, ${ratio.toFixed(2)}×)`,
+      ratio >= 0.7 && ratio <= 0.9);
+    check(`${v.n}: …but stays readable (${Math.round(m.withImg.font)}px ≥ 12px)`,
+      m.withImg.font >= 12);
 
     // ---- and no longer dominates ----
     check(`${v.n}: the wording no longer crowds out the picture (${Math.round(m.withImg.textPct * 100)}% of the card, was 77%)`,
