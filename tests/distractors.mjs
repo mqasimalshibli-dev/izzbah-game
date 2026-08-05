@@ -571,6 +571,49 @@ try {
     done.afterEditKinds.includes("answer"));
   check("«إظهار المُصلَحة» clears the memory", done.cleared === null);
 
+  // ---- skipping ----
+  // Not every finding is a mistake: the rule may be blunt and the option fine.
+  // Without a skip the only ways to clear one were to change data that did not
+  // need changing, or to scroll past it forever.
+  const skip = await page.evaluate(async () => {
+    localStorage.removeItem("izzbah-dist-done-v1");
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-s2", name: "تاريخ", image: "", order: 1, questions: [
+      q(100, "سؤال أول؟", "بغداد", ["بغداد", "دمشق", "عمّان"]),   // fixable
+      q(200, "سؤال ثانٍ؟", "القاهرة", ["تونس", "الرباط"]),         // «ناقص» — no automatic fix
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    distTab = "bad";
+    renderDistReport();
+    await new Promise(r => setTimeout(r, 150));
+
+    const before = distFindIssues().found.filter(f => f.it.catId === "pub-s2");
+    const shortOne = before.find(f => f.kind === "short");
+    const rows = document.querySelectorAll("#distList .dup-group").length;
+    const skips = document.querySelectorAll("#distList .dist-skip").length;
+
+    const dataBefore = JSON.stringify(state.publishedCategories.find(c => c.id === "pub-s2").questions);
+    distSkipFinding(shortOne);
+    await new Promise(r => setTimeout(r, 120));
+    const after = distFindIssues().found.filter(f => f.it.catId === "pub-s2");
+    const dataAfter = JSON.stringify(state.publishedCategories.find(c => c.id === "pub-s2").questions);
+    const showAll = document.getElementById("distShowAll");
+    return {
+      beforeN: before.length, afterN: after.length, rows, skips,
+      hadShort: !!shortOne, untouched: dataBefore === dataAfter,
+      showAllVisible: !showAll.hidden, showAllText: showAll.textContent,
+    };
+  });
+  check(`a finding with no automatic fix exists to skip (${skip.hadShort ? "«ناقص»" : "none"})`,
+    skip.hadShort === true);
+  check(`every drawn finding offers a skip (${skip.skips} on ${skip.rows} rows)`,
+    skip.rows > 0 && skip.skips === skip.rows);
+  check(`skipping removes it from the report (${skip.beforeN} → ${skip.afterN})`,
+    skip.afterN === skip.beforeN - 1);
+  check("…without touching the question's data", skip.untouched === true);
+  check(`…and the hidden count is shown with a way back ("${skip.showAllText}")`,
+    skip.showAllVisible && /إظهار المخفية/.test(skip.showAllText));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {

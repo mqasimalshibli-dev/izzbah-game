@@ -4685,6 +4685,9 @@
     .dist-opts { font: 600 12.5px 'Cairo', sans-serif; color: #5a4a2a; margin-top: 3px; opacity: .9; }
     .dist-act { margin-top: 6px; }
     .dist-fixrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .dist-skip { background: transparent !important; border: 1.5px solid #b9a06a !important;
+      color: #7a6636 !important; }
+    :root[data-theme="dark"] .dist-skip { border-color: var(--dk-line) !important; color: #d9c39c !important; }
     .dist-input { flex: 1 1 180px; min-width: 140px; font: 600 13px 'Cairo', sans-serif;
       padding: 7px 10px; border-radius: 10px; border: 1.5px solid #d9c39c;
       background: #fdf8ec; color: #1b3a2f; direction: rtl; }
@@ -7109,7 +7112,7 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — وهذا هو المقصود بـ«لا تناسب». أما أن يكون الخيار إجابةَ سؤال آخر في نفس الفئة فليس خطأً: في «علم أي دولة؟» كل الخيارات دول، وهي مناسبة تماماً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — وهذا هو المقصود بـ«لا تناسب». وكل ملاحظة فيها زر «تخطٍ» إن كانت مقبولة كما هي. أما أن يكون الخيار إجابةَ سؤال آخر في نفس الفئة فليس خطأً: في «علم أي دولة؟» كل الخيارات دول، وهي مناسبة تماماً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
@@ -7118,7 +7121,7 @@
         <button class="secondary" id="distSmart" type="button">🧠 فحص ذكي</button>
         <button class="primary" id="distFixAll" type="button" hidden>🛠 إصلاح الكل</button>
         <button class="secondary" id="distRescan" type="button">↻ إعادة الفحص</button>
-        <button class="ghost" id="distShowAll" type="button" hidden>👁 إظهار المُصلَحة</button>
+        <button class="ghost" id="distShowAll" type="button" hidden>👁 إظهار المخفية</button>
         <button class="ghost" id="distCloseBtn" type="button">إغلاق</button>
       </div>
     </div>
@@ -11575,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.248";
+    const IZZBAH_BUILD = "2026-08-05.249";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17070,11 +17073,23 @@
     // are still recorded, but any recorded fix quiets the question until its
     // text or answer changes.
     function distIsDone(doneMap, it) { return !!doneMap[distSig(it)]; }
+    // Skipping is the other half of fixing. Not every finding is a mistake —
+    // the option may be fine and the rule merely blunt — and without this the
+    // only ways to clear one were to change data that did not need changing, or
+    // to keep scrolling past it forever. It records the same memory a fix does,
+    // and «إظهار المخفية» brings everything back.
+    function distSkipFinding(entry) {
+      if (!entry || !entry.it) return;
+      distMarkDone(entry);
+      distSmart.findings = distSmart.findings.filter(f => f !== entry);
+      renderDistReport();
+      showToast("تم التخطي — لن يظهر مجدداً حتى يُعدَّل السؤال");
+    }
     function distClearDone() {
       try { localStorage.removeItem(DIST_DONE_KEY); } catch (e) {}
       distSmart = { ran: false, cat: "", findings: [] };
       renderDistReport();
-      showToast("أُعيد إظهار كل الملاحظات");
+      showToast("أُعيد إظهار كل الملاحظات المخفية");
     }
 
     // Per-category index, built once per scan. Without it distSuggest filtered
@@ -17564,7 +17579,7 @@
       const showAll = $("#distShowAll");
       if (showAll) {
         showAll.hidden = !nDone;
-        showAll.textContent = `👁 إظهار المُصلَحة (${toArabicDigits(nDone)})`;
+        showAll.textContent = `👁 إظهار المخفية (${toArabicDigits(nDone)})`;
       }
       list.innerHTML = "";
       if (!shown.length) {
@@ -17628,7 +17643,11 @@
           go.className = "dup-del"; go.type = "button"; go.textContent = "استبدال";
           go.addEventListener("click", () => distApplySmartFix(f, input.value));
           input.addEventListener("keydown", ev => { if (ev.key === "Enter") go.click(); });
-          act.append(input, go);
+          const skipS = document.createElement("button");
+          skipS.className = "dup-del dist-skip"; skipS.type = "button"; skipS.textContent = "تخطٍ";
+          skipS.title = "الخيار مناسب — لا تُظهره مرة أخرى";
+          skipS.addEventListener("click", () => distSkipFinding(f));
+          act.append(input, go, skipS);
           occ.appendChild(act);
           box.appendChild(occ);
           list.appendChild(box);
@@ -17646,6 +17665,18 @@
           act.appendChild(b);
           occ.appendChild(act);
         }
+        // Skipping is available even when there is nothing to press a fix on —
+        // «ناقص» has no automatic remedy, and without this it could never be
+        // cleared from the report at all.
+        const skipWrap = occ.querySelector(".dist-act") || (() => {
+          const w = document.createElement("div"); w.className = "dist-act";
+          occ.appendChild(w); return w;
+        })();
+        const skip = document.createElement("button");
+        skip.className = "dup-del dist-skip"; skip.type = "button"; skip.textContent = "تخطٍ";
+        skip.title = "مقبول كما هو — لا تُظهره مرة أخرى";
+        skip.addEventListener("click", () => distSkipFinding(f));
+        skipWrap.appendChild(skip);
         box.appendChild(occ);
         list.appendChild(box);
       });
