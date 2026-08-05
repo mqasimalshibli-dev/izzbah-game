@@ -400,6 +400,105 @@ try {
   check(`a drama named after a quarter is not typed at all (${kindOfTerm("باب الحارة") || "unknown"})`,
     kindOfTerm("باب الحارة") === "عمل فني");
 
+  // ---- a question can have MORE THAN ONE wrong option ----
+  //
+  // Asked for as "have the ability to rescan as some questions have more than
+  // one wrong distractor", and it was two problems wearing one coat:
+  //
+  //   1. A decision was remembered against the QUESTION, so fixing the first
+  //      bad option silenced the whole question and the second could never be
+  //      reached again — not by reopening the panel, not by rescanning, not by
+  //      anything short of «إظهار المخفية», which also un-hides every skip.
+  //   2. «إعادة الفحص» only re-ran the mechanical checks. The «لا تناسب» tab
+  //      kept showing whatever state it was scanned in.
+  //
+  // Decisions are recorded against the OPTION now. The per-question rule was
+  // right about the case it was written for — dropping an option to fix «الإجابة
+  // نفسها» leaves two options and the question came back as «ناقص», which read
+  // as the report ignoring the fix — so that is kept deliberately instead: a
+  // «drop» records «short» at the same moment, because the fix is what caused
+  // it. The test above («does not come back in ANY form after the fix») is what
+  // holds that line.
+  const multi = await page.evaluate(() => {
+    const D = {
+      "بروك ليسنر": "بروك ليسنر مصارع محترف أمريكي.",
+      "جون سينا": "جون سينا مصارع محترف أمريكي.",
+      "ذا روك": "دواين جونسون مصارع محترف وممثل أمريكي.",
+      "أندرتيكر": "مارك كالاواي مصارع محترف أمريكي.",
+      "سماكداون": "سماكداون برنامج تلفزيوني للمصارعة المحترفة.",
+      "رو": "رو برنامج تلفزيوني للمصارعة المحترفة تنتجه دبليو دبليو إي.",
+    };
+    localStorage.removeItem("izzbah-dist-done-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-two", name: "مصارعة حره", image: "", order: 1, questions: [
+      { points: 100, q: "من هو أقوى مصارع؟", a: "بروك ليسنر", image: "", answerImage: "",
+        distractors: ["سماكداون", "رو", "جون سينا"] },      // TWO wrong options
+      { points: 200, q: "سؤال ثانٍ؟", a: "ذا روك", image: "", answerImage: "",
+        distractors: ["أندرتيكر", "جون سينا", "بروك ليسنر"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const items = distCollect().filter(i => i.catId === "pub-two");
+    distIndex = distBuildIndex(items);
+    distSmart = { ran: true, cat: "", findings: distSmartFindings(items, D) };
+    const first = distSmart.findings.map(f => f.option).sort();
+
+    distApplySmartFix(distSmart.findings.find(f => f.option === "سماكداون"), "أندرتيكر");
+    const afterFix = distSmart.findings.map(f => f.option);
+
+    // reopening the panel later, or pressing «إعادة الفحص»: computed fresh from
+    // the current data, not from the list held in memory
+    const items2 = distCollect().filter(i => i.catId === "pub-two");
+    distIndex = distBuildIndex(items2);
+    const afterRescan = distSmartFindings(items2, D).map(f => f.option);
+    const stored = JSON.parse(localStorage.getItem("izzbah-dist-done-v1") || "{}");
+    const entry = stored[Object.keys(stored)[0]] || {};
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return { first, afterFix, afterRescan, opts: entry.opts || [], kinds: entry.kinds || [] };
+  });
+  check(`both wrong options in one question are found (${multi.first.join("، ")})`,
+    multi.first.length === 2);
+  check(`fixing one leaves the other (${multi.afterFix.join("، ") || "none"})`,
+    multi.afterFix.length === 1 && multi.afterFix[0] === "رو");
+  check(`…and it SURVIVES a full rescan (${multi.afterRescan.join("، ") || "none"})`,
+    multi.afterRescan.length === 1 && multi.afterRescan[0] === "رو");
+  check(`the decision is recorded against the option, not the question (${multi.opts.join("، ")})`,
+    multi.opts.length === 1 && multi.opts[0] === "سماكداون");
+
+  // «إعادة الفحص» must refresh BOTH tabs.
+  const rescan = await page.evaluate(async () => {
+    const D = {
+      "بروك ليسنر": "بروك ليسنر مصارع محترف أمريكي.",
+      "جون سينا": "جون سينا مصارع محترف أمريكي.",
+      "سماكداون": "سماكداون برنامج تلفزيوني للمصارعة المحترفة.",
+    };
+    localStorage.removeItem("izzbah-dist-done-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-rs", name: "مصارعة حره", image: "", order: 1, questions: [
+      { points: 100, q: "س؟", a: "بروك ليسنر", image: "", answerImage: "",
+        distractors: ["سماكداون", "جون سينا", "ذا روك"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const items = distCollect().filter(i => i.catId === "pub-rs");
+    distIndex = distBuildIndex(items);
+    distSmart = { ran: true, cat: "", findings: distSmartFindings(items, D) };
+    const before = distSmart.findings.length;
+    // edit the data behind the report's back, the way the category editor would
+    const cat = state.publishedCategories.find(c => c.id === "pub-rs");
+    cat.questions[0].distractors = ["أندرتيكر", "جون سينا", "ذا روك"];
+    document.getElementById("distRescan").click();
+    await new Promise(r => setTimeout(r, 250));
+    const after = distSmart.findings.length;
+    const notice = (document.getElementById("appNotice") || {}).textContent || "";
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return { before, after, notice };
+  });
+  check(`«إعادة الفحص» re-runs the smart half too (${rescan.before} → ${rescan.after})`,
+    rescan.before === 1 && rescan.after === 0);
+  check(`…and reports both halves ("${rescan.notice.slice(0, 44)}…")`,
+    /لا تناسب/.test(rescan.notice));
+
   // ---- the suggested replacement has to be RELEVANT, not merely same-kind ----
   //
   // Reported as "the recommended distractors are irrelevant": a question about
