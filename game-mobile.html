@@ -4586,19 +4586,25 @@
       display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer;
       padding: 10px 14px; border: none; background: rgba(201,151,74,.12);
       font-family: 'Cairo', sans-serif; text-align: start;
+      /* A <button> does not inherit text colour — it takes the UA default,
+         which is BLACK. The subtitle and the chevron were therefore black on a
+         dark maroon panel in dark mode and black on gold in light mode:
+         present, but not readable. Everything inside inherits from here. */
+      color: var(--dark, #1b3a2f);
     }
     .admin-group-ico { font-size: 18px; line-height: 1; }
     .admin-group-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-    .admin-group-name { font-weight: 800; font-size: 15px; color: var(--gold-dark, #8a6118); }
-    .admin-group-sub { font-weight: 600; font-size: 11.5px; opacity: .75; }
-    .admin-group-chev { font-size: 16px; transition: transform .18s ease; opacity: .7; }
+    .admin-group-name { font-weight: 800; font-size: 15px; color: #5c420c; }  /* --gold-dark measured 3.3:1 on this panel; 15px bold needs 4.5, and a value that lands exactly on it fails on rounding */
+    .admin-group-sub { font-weight: 600; font-size: 11.5px; color: inherit; opacity: .8; }
+    .admin-group-chev { font-size: 16px; transition: transform .18s ease; color: inherit; opacity: .8; }
     .admin-group[data-open="0"] .admin-group-chev { transform: rotate(-90deg); }
     .admin-group[data-open="0"] .admin-group-body { display: none; }
     .admin-group-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .admin-group-body .admin-choice-btn { margin-bottom: 0; }
     :root[data-theme="dark"] .admin-group { border-color: var(--dk-line); }
     :root[data-theme="dark"] .admin-group-head { background: rgba(255,255,255,.05); }
-    :root[data-theme="dark"] .admin-group-name { color: #e0c684; }
+    :root[data-theme="dark"] .admin-group-head { color: #f6ead2; }
+    :root[data-theme="dark"] .admin-group-name { color: #f0d79a; }
 
     .admin-choice-btn {
       display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto;
@@ -11548,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.238";
+    const IZZBAH_BUILD = "2026-08-05.239";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
