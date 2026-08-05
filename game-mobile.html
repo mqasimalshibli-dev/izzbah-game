@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.250";
+    const IZZBAH_BUILD = "2026-08-05.251";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17311,7 +17311,9 @@
       add("مكان", `حصن حصون قلعه قلاع وادي واد وديان عين عيون جبل جبال مدينه مدن قريه قري
         بلده بلدات ولايه ولايات محافظه محافظات منطقه مناطق شاطئ شواطئ كهف كهوف جزيره جزر
         ميناء موانئ متحف متاحف مسجد مساجد سوق اسواق حديقه حدائق بحيره بحيرات نهر انهار
-        صحراء دوله دول عاصمه عواصم مملكه اماره موقع مواقع خليج مضيق برج ابراج قصر قصور
+        صحراء دوله دول عاصمه عواصم مملكه ممالك اماره امارات امبراطوريه امبراطوريات سلطنه
+        خلافه جمهوريه موقع مواقع خليج مضيق برج ابراج قصر قصور جامعه جامعات كليه معهد مدرسه
+        مستشفي مكتبه ملعب استاد
         سد سدود منتزه محميه هضبه سهل واحه فلج افلاج حاره مطار مطارات بحر محيط ضريح`);
       add("عمل فني", `فيلم افلام مسلسل مسلسلات برنامج برامج اغنيه اغاني البوم رواية روايه
         كتاب مسرحيه قصيده ديوان`);
@@ -17320,7 +17322,8 @@
       add("طعام", `طبق اطباق طعام حلوي مشروب مشروبات وجبه فاكهه فواكه خضار توابل قهوه شاي عصير`);
       add("حيوان أو نبات", `حيوان حيوانات طائر طيور سمكه اسماك زاحف حشره ثديي نبات نباتات شجره اشجار`);
       add("رياضة", `بطوله دوري كاس نادي منتخب مباراه`);
-      add("حدث", `معركه غزوه حرب ثوره معاهده زلزال`);
+      add("حدث", `معركه معارك غزوه غزوات حرب حروب ثوره ثورات معاهده معاهدات اتفاقيه اتفاق
+        مؤتمر مؤتمرات صلح هدنه ميثاق قمه حصار فتح حمله انتفاضه زلزال اعصار فيضان`);
       // English, for the many terms that only have an English page.
       add("شخص", `footballer actor actress singer songwriter writer poet novelist historian
         scientist president king sultan prince wrestler boxer player coach politician
@@ -17359,6 +17362,24 @@
         if (bare !== words[i] && DIST_KIND_WORDS[bare]) return DIST_KIND_WORDS[bare];
       }
       return "";
+    }
+    // The TERM comes first, and the description is only the fallback.
+    //
+    // This was backwards, and it is what «still doesn't work» was. Reading the
+    // description of «مؤتمر فيينا» walks past «مؤتمر» (which meant nothing to
+    // the word list) into «…لسفراء الدولِ الأوروبية», hits «دول», and calls the
+    // Congress of Vienna a PLACE — after which all three genuine treaties beside
+    // it were reported as the wrong kind. Same shape for «الدولة القاجارية»,
+    // read as a person because its sentence says «أسرة حاكمة».
+    //
+    // Arabic is head-initial: a compound term names its own kind in its first
+    // word, and it does so with no surrounding prose to trip over. «الدولة
+    // القاجارية», «مؤتمر فيينا», «معاهدة فرساي», «برج خليفة», «جامعة الأزهر» are
+    // all self-describing. The first sentence is still needed for bare proper
+    // nouns — «وستفاليا», «سماكداون», a person's name — which say nothing on
+    // their own, so it stays as the fallback rather than the first resort.
+    function distKindFor(term, desc) {
+      return distKindOf(term) || distKindOf(desc || "");
     }
     // term -> one-line description, cached across sessions: the same fort is an
     // option on many questions and the catalogue barely moves between runs.
@@ -17458,12 +17479,21 @@
       (items || []).forEach(it => {
         if (!it.uses || !it.d.length) return;
         const aDesc = descByTerm[it.a] || "";
-        const aKind = distKindOf(aDesc);
+        const aKind = distKindFor(it.a, aDesc);
         if (!aKind) return;                        // unknown answer -> say nothing
+        // How the question's own four terms sort themselves. A classifier that
+        // puts the answer on one side and EVERY option on the other has almost
+        // certainly misread the answer, not the options — that is exactly what
+        // «ما اسم المعاهدة التي أنهت حرب الثلاثين عاماً» looked like, with the
+        // answer read as a place and all three treaties reported against it.
+        // So an option is only worth reporting while it is in the MINORITY.
+        const dKinds = it.d.map(d => distKindFor(d, descByTerm[d] || ""));
+        const tally = {};
+        [aKind, ...dKinds].forEach(k => { if (k) tally[k] = (tally[k] || 0) + 1; });
         it.d.forEach((d, i) => {
-          const dDesc = descByTerm[d] || "";
-          const dKind = distKindOf(dDesc);
+          const dKind = dKinds[i];
           if (!dKind || dKind === aKind) return;   // unknown or matching -> fine
+          if (tally[dKind] > tally[aKind]) return; // the answer is the odd one out
           if (distIsDone(done, it)) return;
           out.push({
             it, kind: "kindmix", sev: 2, idx: i, option: d,
@@ -17484,7 +17514,7 @@
     // for the final word on them.
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
-      const want = distKindOf(cache[it.a] || "");
+      const want = distKindFor(it.a, cache[it.a] || "");
       if (!want) return "";
       const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
       const e = distIndex && distIndex[it.catId];
@@ -17492,7 +17522,7 @@
       const out = [];
       e.pool.forEach((val) => {
         if (used.has(distNorm(val))) return;
-        if (distKindOf(cache[val] || "") === want) out.push(val);
+        if (distKindFor(val, cache[val] || "") === want) out.push(val);
       });
       return out.length ? out[Math.abs(hashString(it.q + entry.option)) % out.length] : "";
     }
