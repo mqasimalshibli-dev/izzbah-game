@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.254";
+    const IZZBAH_BUILD = "2026-08-05.255";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17371,7 +17371,8 @@
         خليفه فنان فنانه مخرج منتج سياسي دبلوماسي مؤسس داعيه شيخ امام قاضي طبيب طبيبه
         مهندس رحاله مستكشف اعلامي مذيع مذيعه مقدم صحفي صحفيه رسام نحات موسيقي ملحن مؤلف
         ناشط بطل بطله فارس محارب جندي ضابط عالم عالمه شخصيه
-        حاكم زعيم وزير والي نبي رسول شهيد مجاهد فقيه مفسر مستشرق طيار رائد تاجر مصمم
+        رجل حاكم زعيم وزير والي نبي رسول شهيد مجاهد فقيه مفسر مستشرق طيار رائد تاجر مصمم
+        محام محامي عسكري مفكر مصلح مستثمر ناقد مترجم معلمه ممرضه سائق مصرفي جاسوس مغامر
         معماري مصور كوميدي مؤثر ملياردير مليونير قنصل سفير
         سلاطين خلفاء رؤساء ملوك امراء قاده حكام زعماء وزراء ولاه شعراء علماء اطباء
         فقهاء فلاسفه ادباء صحابه انبياء ائمه مشايخ دعاه نشطاء ابطال فرسان جنود ضباط
@@ -17423,6 +17424,34 @@
     function distStrip(w) {
       return w.replace(/^(?:وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)(?=.{3,})/, "");
     }
+    // Every form of one word, in the order it should be tried.
+    //
+    // Listing plurals by hand does not converge — «سلاطين» and «خلفاء» were
+    // added last build and «المؤسسين» still read as a place, because the scan
+    // walked through it into «للولايات». Arabic sound plurals are regular, so
+    // they are derived: مؤسسين → مؤسس, لاعبون → لاعب, لاعبات → لاعب. A derived
+    // form only counts if the singular is already a word the map knows, so a
+    // name that merely ends the same way — «تشامبرلين», «فرانكلين» — yields
+    // «تشامبرل» and «فرانكل», finds nothing, and is passed over. The length
+    // floor keeps «الصين» and «برلين» from being taken apart at all.
+    function distForms(w) {
+      const out = [w];
+      const bare = distStrip(w);
+      if (bare !== w) out.push(bare);
+      out.slice().forEach(x => {
+        if (x.length < 6) return;
+        const stem = x.replace(/(?:ين|ون|ات)$/, "");
+        if (stem !== x && stem.length >= 3) out.push(stem);
+      });
+      return out;
+    }
+    function distWordKind(w) {
+      const forms = distForms(w);
+      for (let i = 0; i < forms.length; i++) {
+        if (DIST_KIND_WORDS[forms[i]]) return DIST_KIND_WORDS[forms[i]];
+      }
+      return "";
+    }
     function distKindOf(text) {
       return distKindOfWords(distWords(text));
     }
@@ -17430,9 +17459,8 @@
       for (let i = 0; i < words.length; i++) {
         const two = words[i] + " " + (words[i + 1] || "");
         if (DIST_KIND_PHRASES[two]) return DIST_KIND_PHRASES[two];
-        if (DIST_KIND_WORDS[words[i]]) return DIST_KIND_WORDS[words[i]];
-        const bare = distStrip(words[i]);
-        if (bare !== words[i] && DIST_KIND_WORDS[bare]) return DIST_KIND_WORDS[bare];
+        const k = distWordKind(words[i]);
+        if (k) return k;
       }
       return "";
     }
@@ -17461,10 +17489,7 @@
       if (!w.length) return "";
       const two = w[0] + " " + (w[1] || "");
       if (DIST_KIND_PHRASES[two]) return DIST_KIND_PHRASES[two];
-      if (DIST_KIND_WORDS[w[0]]) return DIST_KIND_WORDS[w[0]];
-      const bare = distStrip(w[0]);
-      if (bare !== w[0] && DIST_KIND_WORDS[bare]) return DIST_KIND_WORDS[bare];
-      return "";
+      return distWordKind(w[0]);
     }
     // Arabic Wikipedia opens by restating the title, so the description carries
     // the term's own words at the front — and they spring the very trap the head
@@ -17516,7 +17541,7 @@
     // the exact mistakes each fix removed. Verdicts are stored under the
     // classifier's version and discarded wholesale when it moves; decisions
     // («fixed», «skipped») are the admin's and survive.
-    const DIST_CLASSIFIER_VERSION = 4;
+    const DIST_CLASSIFIER_VERSION = 5;
     const DIST_KINDS_KEY = "izzbah-distkinds-v1";
     let distKindsMem = null;
     function distKinds() {

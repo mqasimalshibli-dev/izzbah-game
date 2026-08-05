@@ -400,6 +400,64 @@ try {
   check(`a drama named after a quarter is not typed at all (${kindOfTerm("باب الحارة") || "unknown"})`,
     kindOfTerm("باب الحارة") === "عمل فني");
 
+  // ---- statesmen read as places, and the plurals behind it ----
+  //
+  // Reported with two screenshots: «جون آدامز» flagged against «جورج واشنطن»,
+  // «نيفيل تشامبرلين» against «ونستون تشرشل». Both answers open with «كان رجل
+  // دولة» — «رجل» was not a word the map knew, so the scan walked through it
+  // into «دولة» and made a statesman a PLACE.
+  //
+  // «بنجامين فرانكلين» then showed the general form of it: «أحد الآباء
+  // المؤسسين للولايات المتحدة» walks past «المؤسسين» into «للولايات». Listing
+  // plurals by hand does not converge — «سلاطين» and «خلفاء» went in last
+  // build and this still slipped through — so sound plurals are DERIVED now
+  // (مؤسسين → مؤسس), accepted only when the singular is already known.
+  const statesmen = await page.evaluate(() => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن (بالإنجليزية: George Washington) (22 فبراير 1732 - 14 ديسمبر 1799)، كان رجل دولة وقائداً عسكرياً أمريكياً وأول رئيس للولايات المتحدة.",
+      "توماس جيفرسون": "توماس جيفرسون (13 أبريل 1743 - 4 يوليو 1826) كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة.",
+      "بنجامين فرانكلين": "بنجامين فرانكلين كان أحد الآباء المؤسسين للولايات المتحدة وعالماً ومخترعاً.",
+      "ونستون تشرشل": "السير ونستون ليونارد سبنسر تشرشل (30 نوفمبر 1874 – 24 يناير 1965) كان رجل دولة وضابطاً بريطانياً ورئيس وزراء المملكة المتحدة.",
+      "نيفيل تشامبرلين": "آرثر نيفيل تشامبرلين سياسي بريطاني شغل منصب رئيس وزراء المملكة المتحدة.",
+      "مارغريت تاتشر": "مارغريت هيلدا تاتشر سياسية بريطانية وأول امرأة تتولى رئاسة وزراء المملكة المتحدة.",
+    };
+    const run = (a, d) => { distKindsReset(); return distSmartFindings(
+      [{ catId: "c", cat: "تاريخ", q: "س؟", a, d, uses: true, points: 100 }], D); };
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    const out = {
+      kinds: Object.keys(D).map(t => { distKindsReset(); return [t, distKindFor(t, D[t])]; }),
+      usa: run("جورج واشنطن", ["توماس جيفرسون", "جون آدامز", "بنجامين فرانكلين"]).length,
+      uk: run("ونستون تشرشل", ["نيفيل تشامبرلين", "مارغريت تاتشر"]).length,
+    };
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return out;
+  });
+  statesmen.kinds.forEach(([t, k]) =>
+    check(`«${t}» is a person (${k || "unknown"})`, k === "شخص"));
+  check(`the American presidents question reports nothing (${statesmen.usa})`, statesmen.usa === 0);
+  check(`the British prime ministers question reports nothing (${statesmen.uk})`, statesmen.uk === 0);
+
+  // The derivation must not tear apart words that merely END that way.
+  const plurals = await page.evaluate(() => ({
+    founders: distWordKind("المؤسسين"),
+    players: distWordKind("لاعبون"),
+    actresses: distWordKind("ممثلات"),
+    chamberlain: distWordKind("تشامبرلين"),
+    franklin: distWordKind("فرانكلين"),
+    china: distWordKind("الصين"),
+    berlin: distWordKind("برلين"),
+    states: distWordKind("الولايات"),
+  }));
+  check(`«المؤسسين» resolves through its singular (${plurals.founders})`, plurals.founders === "شخص");
+  check(`«لاعبون» too (${plurals.players})`, plurals.players === "شخص");
+  check(`«ممثلات» too (${plurals.actresses})`, plurals.actresses === "شخص");
+  check("«تشامبرلين» is not taken apart", plurals.chamberlain === "");
+  check("«فرانكلين» is not taken apart", plurals.franklin === "");
+  check("«الصين» is not taken apart", plurals.china === "");
+  check("«برلين» is not taken apart", plurals.berlin === "");
+  check(`«الولايات» still resolves directly (${plurals.states})`, plurals.states === "مكان");
+
   // ---- the whole history report was false positives ----
   //
   // Reported with screenshots: «معاهدة فرساي» flagged against «مؤتمر فيينا»,
