@@ -466,9 +466,17 @@ try {
                 "ب": "معركة فاصلة", "ج": "غزوة من غزوات الرسول" };
     const one = { "س": "مدينة في العراق", "أ": "معركة وقعت عام 1187",
                   "ب": "مدينة كبيرة", "ج": "مدينة ساحلية" };
-    const run = (D) => distSmartFindings(
-      [{ catId: "c", cat: "ت", q: "س؟", a: "س", d: ["أ", "ب", "ج"], uses: true, points: 100 }], D);
-    return { allAgree: run(D).length, minority: run(one).length };
+    // Both runs reuse «ب» and «ج» with different descriptions, so each needs
+    // its own clean ledger — otherwise the second reads the first's verdicts.
+    // The ledger is put back afterwards: later scenarios in this file are built
+    // on the verdicts the wrestling scan produced, and wiping them here left
+    // those with nothing to work on.
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    const run = (D) => { distKindsReset(); return distSmartFindings(
+      [{ catId: "c", cat: "ت", q: "س؟", a: "س", d: ["أ", "ب", "ج"], uses: true, points: 100 }], D); };
+    const out = { allAgree: run(D).length, minority: run(one).length };
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return out;
   });
   check(`three options agreeing against the answer are left alone (${tally.allAgree})`,
     tally.allAgree === 0);
@@ -507,11 +515,17 @@ try {
   // Silence when Wikipedia knows nothing: the scanner must not invent findings
   // from missing data, which is how a checker starts crying wolf.
   const silent = await page.evaluate(() => {
+    // A verdict is resolved once per term and reused, so both of these need a
+    // clean ledger — and the ledger is restored afterwards, because the
+    // scenarios below depend on the verdicts the wrestling scan produced.
+    const keep = JSON.parse(JSON.stringify(distKinds()));
     const items = distCollect().filter(i => i.catId === "pub-w");
-    return {
-      noData: distSmartFindings(items, {}).length,
-      answerOnly: distSmartFindings(items, { "راندي أورتن": "مصارع محترف أمريكي" }).length,
-    };
+    distKindsReset();
+    const noData = distSmartFindings(items, {}).length;
+    distKindsReset();
+    const answerOnly = distSmartFindings(items, { "راندي أورتن": "مصارع محترف أمريكي" }).length;
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return { noData, answerOnly };
   });
   check("no descriptions → no findings", silent.noData === 0);
   check("answer known but options unknown → still no findings", silent.answerOnly === 0);

@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.252";
+    const IZZBAH_BUILD = "2026-08-05.253";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17057,6 +17057,64 @@
       try { localStorage.setItem(DIST_DONE_KEY, JSON.stringify(m)); } catch (e) {}
     }
     function distSig(it) { return `${it.catId}|${distNorm(it.q)}|${distNorm(it.a)}`; }
+    // ---- keeping the two halves in step across the admin's devices ----------
+    //
+    // Decisions merge as a UNION: «fixed» and «skipped» both mean "I have dealt
+    // with this", and a decision made on the phone must hold on the laptop.
+    // Clearing is the one destructive act, so it clears both sides at once —
+    // otherwise «إظهار المخفية» would empty the local list and the next pull
+    // would put everything straight back, which reads as the button not working.
+    let distSyncTimer = null;
+    let distSyncPulled = false;
+    function distMergeDone(local, remote) {
+      const out = {};
+      [local || {}, remote || {}].forEach(src => {
+        Object.keys(src).forEach(sig => {
+          out[sig] = [...new Set((out[sig] || []).concat(src[sig] || []))];
+        });
+      });
+      return out;
+    }
+    function distPushSync(now) {
+      if (!window.IZZBAH || !window.IZZBAH.saveDistScan || !state.isAdmin) return;
+      if (distSyncTimer) clearTimeout(distSyncTimer);
+      const send = () => {
+        distSyncTimer = null;
+        window.IZZBAH.saveDistScan(distKinds(), distDone(), DIST_CLASSIFIER_VERSION)
+          .catch(() => {});   // offline or not admin: the local copy still stands
+      };
+      if (now) send(); else distSyncTimer = setTimeout(send, 1500);
+    }
+    // Pulled once per session, when the panel is opened. A verdict written under
+    // an older classifier is dropped rather than trusted — it would reinstate
+    // precisely the misreadings each fix removed.
+    function distPullSync() {
+      if (distSyncPulled || !window.IZZBAH || !window.IZZBAH.loadDistScan) return Promise.resolve(false);
+      distSyncPulled = true;
+      return window.IZZBAH.loadDistScan().then(map => {
+        const got = { kinds: 0, done: 0, at: +(map && map.at) || 0 };
+        if (!map || !Object.keys(map).length) return got;
+        if (String(map.v || "") === String(DIST_CLASSIFIER_VERSION)) {
+          try {
+            const remote = JSON.parse(map.kinds || "{}") || {};
+            const mine = distKinds();
+            Object.keys(remote).forEach(t => {
+              if (!(t in mine)) { mine[t] = remote[t]; got.kinds++; }
+            });
+            if (got.kinds) distKindsSave();
+          } catch (e) {}
+        }
+        try {
+          const remoteDone = JSON.parse(map.done || "{}") || {};
+          const n = Object.keys(remoteDone).length;
+          if (n) {
+            distDoneSave(distMergeDone(distDone(), remoteDone));
+            got.done = n;
+          }
+        } catch (e) {}
+        return got;
+      }).catch(() => ({ kinds: 0, done: 0, at: 0 }));
+    }
     function distMarkDone(entry) {
       if (!entry || !entry.it) return;
       const m = distDone();
@@ -17065,6 +17123,7 @@
       kinds.add(entry.kind);
       m[sig] = [...kinds];
       distDoneSave(m);
+      distPushSync();
     }
     // Suppression is per QUESTION, not per kind of finding. Per-kind was the
     // obvious design and it was wrong: fixing «الإجابة نفسها» by dropping the
@@ -17088,6 +17147,10 @@
     function distClearDone() {
       try { localStorage.removeItem(DIST_DONE_KEY); } catch (e) {}
       distSmart = { ran: false, cat: "", findings: [] };
+      // Cleared everywhere, immediately. Clearing only the local copy would let
+      // the next pull restore every hidden finding — the button appearing to do
+      // nothing on the device that pressed it.
+      distPushSync(true);
       renderDistReport();
       showToast("أُعيد إظهار كل الملاحظات المخفية");
     }
@@ -17436,6 +17499,55 @@
       if (head && body && head !== body) return "";
       return head || body;
     }
+    // ---- the scan's VERDICTS, shared across the admin's devices -------------
+    //
+    // The descriptions below are raw material and stay on the device that
+    // fetched them: 7,454 distinct option terms in the live catalogue, ~1.5 MB
+    // of extracts, which is past Firestore's 1 MiB document limit before any
+    // other field. The VERDICT — term → kind — is what the report is actually
+    // built from, and the same 7,454 terms cost ~250 KB, so that is what syncs.
+    //
+    // Consequence worth stating: a second device does not re-ask Wikipedia at
+    // all. It reads the verdicts, and the report it draws is identical to the
+    // first device's because the catalogue is shared and the matching is pure.
+    //
+    // The stamp matters. The classifier has been rewritten repeatedly, and a
+    // verdict cached under an older one is worse than no verdict — it would pin
+    // the exact mistakes each fix removed. Verdicts are stored under the
+    // classifier's version and discarded wholesale when it moves; decisions
+    // («fixed», «skipped») are the admin's and survive.
+    const DIST_CLASSIFIER_VERSION = 4;
+    const DIST_KINDS_KEY = "izzbah-distkinds-v1";
+    let distKindsMem = null;
+    function distKinds() {
+      if (distKindsMem) return distKindsMem;
+      let stored = null;
+      try { stored = JSON.parse(localStorage.getItem(DIST_KINDS_KEY) || "null"); } catch (e) {}
+      distKindsMem = (stored && stored.v === DIST_CLASSIFIER_VERSION && stored.m) ? stored.m : {};
+      return distKindsMem;
+    }
+    function distKindsSave() {
+      try {
+        localStorage.setItem(DIST_KINDS_KEY,
+          JSON.stringify({ v: DIST_CLASSIFIER_VERSION, m: distKinds() }));
+      } catch (e) {}
+    }
+    // Resolve once and remember. "" is a real answer — the term is unknown or
+    // genuinely ambiguous — so it is recorded too, or every device re-asks
+    // Wikipedia about the same terms it has already failed to place.
+    function distKindsReset() {
+      distKindsMem = {};
+      try { localStorage.removeItem(DIST_KINDS_KEY); } catch (e) {}
+    }
+    function distKindResolved(term, desc) {
+      const t = String(term == null ? "" : term).trim();
+      if (!t) return "";
+      const m = distKinds();
+      if (t in m) return m[t];
+      const k = distKindFor(t, desc || "");
+      m[t] = k;
+      return k;
+    }
     // term -> one-line description, cached across sessions: the same fort is an
     // option on many questions and the catalogue barely moves between runs.
     const DIST_KIND_CACHE_KEY = "izzbah-wikikind-v1";
@@ -17451,8 +17563,11 @@
     // foreign shows only exist there.
     function distFetchDescriptions(terms, onProgress) {
       const cache = distKindCache();
+      // A term already judged on the admin's other device needs no request:
+      // the verdict is what the report consumes, and it has already arrived.
+      const judged = distKinds();
       const want = [...new Set(terms.map(t => String(t == null ? "" : t).trim()).filter(Boolean))]
-        .filter(t => !(t in cache));
+        .filter(t => !(t in cache) && !(t in judged));
       if (!want.length) return Promise.resolve(cache);
       const chunks = [];
       for (let i = 0; i < want.length; i += 20) chunks.push(want.slice(i, i + 20));
@@ -17516,25 +17631,37 @@
     // How many distinct terms the smart scan still has to ask about.
     function distScanRemaining() {
       const cache = distKindCache();
+      const judged = distKinds();
       const seen = new Set();
       distCollect().forEach(it => {
         if (!it.uses || !it.d.length) return;
         [it.a].concat(it.d).forEach(t => {
           const v = String(t == null ? "" : t).trim();
-          if (v && !(v in cache)) seen.add(v);
+          if (v && !(v in cache) && !(v in judged)) seen.add(v);
         });
       });
       return seen.size;
     }
-    // Pure, and therefore testable with no network: given descriptions, which
-    // options are a different kind of thing from their answer?
+    // Given descriptions, which options are a different kind of thing from
+    // their answer? No network — but not pure either, and the difference
+    // matters: each term's kind is resolved ONCE into the shared ledger and
+    // reused from then on, which is what lets a second device draw this report
+    // without asking Wikipedia anything. Re-running with a different
+    // description for a term already judged returns the ORIGINAL verdict.
+    // distKindsReset() is how a test asks for a clean slate.
     function distSmartFindings(items, descByTerm) {
       const out = [];
       const done = distDone();
       (items || []).forEach(it => {
         if (!it.uses || !it.d.length) return;
         const aDesc = descByTerm[it.a] || "";
-        const aKind = distKindFor(it.a, aDesc);
+        const aKind = distKindResolved(it.a, aDesc);
+        // Resolve the options too, even when the answer is unknown and nothing
+        // can be reported for this question. The verdicts are what the admin's
+        // OTHER devices read, and returning early here left them a queue of
+        // terms to re-ask Wikipedia about — 174 of them in the test catalogue,
+        // for a report that was otherwise already complete.
+        const dKinds = it.d.map(d => distKindResolved(d, descByTerm[d] || ""));
         if (!aKind) return;                        // unknown answer -> say nothing
         // How the question's own four terms sort themselves. A classifier that
         // puts the answer on one side and EVERY option on the other has almost
@@ -17542,7 +17669,6 @@
         // «ما اسم المعاهدة التي أنهت حرب الثلاثين عاماً» looked like, with the
         // answer read as a place and all three treaties reported against it.
         // So an option is only worth reporting while it is in the MINORITY.
-        const dKinds = it.d.map(d => distKindFor(d, descByTerm[d] || ""));
         const tally = {};
         [aKind, ...dKinds].forEach(k => { if (k) tally[k] = (tally[k] || 0) + 1; });
         it.d.forEach((d, i) => {
@@ -17569,7 +17695,7 @@
     // for the final word on them.
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
-      const want = distKindFor(it.a, cache[it.a] || "");
+      const want = distKindResolved(it.a, cache[it.a] || "");
       if (!want) return "";
       const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
       const e = distIndex && distIndex[it.catId];
@@ -17577,7 +17703,7 @@
       const out = [];
       e.pool.forEach((val) => {
         if (used.has(distNorm(val))) return;
-        if (distKindFor(val, cache[val] || "") === want) out.push(val);
+        if (distKindResolved(val, cache[val] || "") === want) out.push(val);
       });
       return out.length ? out[Math.abs(hashString(it.q + entry.option)) % out.length] : "";
     }
@@ -17639,6 +17765,11 @@
         if (live) live.textContent = distSmartBtnLabel();
       }).then(cache => {
         distSmart = { ran: true, cat: "", findings: distSmartFindings(items, cache) };
+        // distSmartFindings resolved a kind for every term it touched; persist
+        // that and hand it to the admin's other devices, which then need no
+        // Wikipedia call at all to draw the same report.
+        distKindsSave();
+        distPushSync(true);
         distTab = "smart";
         renderDistReport();
         showToast(distSmart.findings.length
@@ -17828,6 +17959,30 @@
       const m = $("#distModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       const btn = $("#distSmart");
       if (btn) { btn.textContent = distSmartBtnLabel(); btn.disabled = distSmartBusy; }
+      // Whatever the admin's other device already worked out arrives here, and
+      // the panel redraws with it. Nothing waits on the network: the report is
+      // already on screen and this only ever removes work from it.
+      distPullSync().then(got => {
+        if (!got.kinds && !got.done) return;
+        const live = $("#distSmart");
+        if (live && !distSmartBusy) live.textContent = distSmartBtnLabel();
+        // With the verdicts in hand the report is pure computation over a
+        // catalogue this device already has — ~120ms at the live size, no
+        // network. So a device that has never scanned still shows the scan,
+        // rather than an empty tab and a button the admin has to find.
+        if (got.kinds || distSmart.ran) {
+          distSmart = {
+            ran: true, cat: "",
+            findings: distSmartFindings(
+              distCollect().filter(it => it.uses && it.d.length), distKindCache()),
+          };
+        }
+        renderDistReport();
+        if (got.kinds && !distSmartBusy) {
+          appNotice("وصلت نتائج الفحص من جهازك الآخر",
+            `${toArabicDigits(distSmart.findings.length)} ملاحظة — لا حاجة لإعادة الفحص.`);
+        }
+      });
       if (distSmartBusy) {
         appNotice("الفحص الذكي مستمر", "يعمل في الخلفية — يمكنك إغلاق هذه الشاشة.");
       } else if (distScanInterrupted()) {
@@ -24270,6 +24425,55 @@
             Object.keys(map || {}).slice(0, 500).forEach(k => { if ((map || {})[k]) clean[String(k).slice(0, 128)] = true; });
             return db.collection("config").doc("noChoices")
               .set({ map: clean, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          };
+          // The option scan's shared state (config/distScan), so every device
+          // the admin signs in on shows the SAME report: the classifier's
+          // verdicts (term → kind) and the admin's own decisions (which
+          // findings are fixed or skipped).
+          //
+          // Both travel as JSON inside `map`, which keeps the doc inside the
+          // deployed /config rules — {map, updatedAt}, admin-only write — so no
+          // rules change was needed. They are NOT separate fields because the
+          // rule pins the key set, and not raw maps because a term can contain
+          // any character and Firestore field names cannot.
+          //
+          // Public read is the same trade the rest of /config makes. What is
+          // exposed is "«دمشق» is a place" and a list of question signatures —
+          // the catalogue those come from is already world-readable.
+          window.IZZBAH.loadDistScan = function () {
+            return db.collection("config").doc("distScan").get()
+              .then(doc => (doc.exists ? (doc.data() || {}).map || {} : {}))
+              .catch(() => ({}));
+          };
+          // 700 KB of payload against a 1 MiB document limit. The whole live
+          // catalogue of verdicts measures ~250 KB, so this is a guard rather
+          // than a working limit — but an unbounded write that fails is a scan
+          // that silently stops syncing, so the caller is told what landed.
+          window.IZZBAH.saveDistScan = function (kinds, done, version) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const BUDGET = 700 * 1024;
+            const doneJson = JSON.stringify(done || {});
+            let entries = Object.keys(kinds || {}).map(k => [k, kinds[k]]);
+            let kindsJson = JSON.stringify(Object.fromEntries(entries));
+            let dropped = 0;
+            // Decisions are the admin's work and are never shaved; verdicts are
+            // recomputable, so they give way first.
+            while (entries.length &&
+                   kindsJson.length + doneJson.length > BUDGET) {
+              const cut = Math.max(1, Math.floor(entries.length * 0.1));
+              entries = entries.slice(cut);
+              dropped += cut;
+              kindsJson = JSON.stringify(Object.fromEntries(entries));
+            }
+            return db.collection("config").doc("distScan").set({
+              map: {
+                v: String(version || 0),
+                kinds: kindsJson,
+                done: doneJson,
+                at: String(Date.now()),
+              },
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }).then(() => ({ dropped, bytes: kindsJson.length + doneJson.length }));
           };
           // UI text overrides (config/text): public read so every player sees
           // the owner's reworded text; admin-only write, shape-clamped. Keyed
