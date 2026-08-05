@@ -7089,7 +7089,7 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة، وكذلك أي فئة عُطِّلت فيها «أربعة خيارات».</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
@@ -11554,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.242";
+    const IZZBAH_BUILD = "2026-08-05.243";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16925,16 +16925,23 @@
     // Owner's call, 2026-08-05: if the helper is off, its option list is not
     // worth a line in the report. Turning the category back on brings its
     // findings back with it — the scan reads the switch every time it runs.
-    function distSkipCategory(cat) {
-      return distIsBannedWordCategory(cat) || isCategoryChoiceFree(cat && cat.id);
-    }
-    // Categories that never show four choices by their own NATURE (emoji, word
-    // guess, reactions). Their stored options are unused rather than wrong, so
-    // only outright corrupt data is reported for them.
+    // The rule is simply: if a player never sees four choices for this category,
+    // its option list is not reported. That covers both ways a category gets
+    // there, which is the part I got wrong twice:
+    //   • by its own NATURE — emoji, word guess, reactions, «قول غيرها»,
+    //     «الأقرب يفوز» and friends. The admin toggle is disabled for these, so
+    //     they never appear in config/noChoices and a check on that map alone
+    //     misses them entirely — which is why «معنى الايموجي» kept filling the
+    //     report after the switch was being honoured.
+    //   • by the admin's switch — «🚫 تعطيل «أربعة خيارات»», config/noChoices.
+    // Read live on every scan, so switching a category back on brings its
+    // findings back with it.
     function distUsesOptions(cat) {
       return !(isChoiceFreeCategory(cat) || isWordGuessCategory(cat)
-        || isReactionCategory(cat) || isEmojiCategory(cat) || distSkipCategory(cat));
+        || isReactionCategory(cat) || isEmojiCategory(cat)
+        || distIsBannedWordCategory(cat) || isCategoryChoiceFree(cat && cat.id));
     }
+    function distSkipCategory(cat) { return !distUsesOptions(cat); }
     function distCollect() {
       const out = [];
       const push = (cat, community) => {
@@ -17059,21 +17066,7 @@
       items.forEach(it => {
         const nd = it.d.map(distNorm);
         const na = distNorm(it.a);
-        if (!it.uses) {
-          // A category that never shows four choices. Its options are UNUSED,
-          // which is not the same as wrong: «خمّن الإيموجي» ships carefully
-          // written ones (الأسد الملك → كتاب الأدغال / طرزان / مدغشقر) that would
-          // matter again the moment the category's rules change. An earlier
-          // version reported them all as junk to delete, which would have thrown
-          // away good authoring on the scanner's say-so.
-          // Only genuinely corrupt data is worth reporting here.
-          if (distIsPointsNoise(it.d)) {
-            found.push({ it, kind: "points", sev: 2,
-              why: "الخيار المخزّن هو قيمة نقاط (١٠٠/٢٠٠/٣٠٠/٤٠٠/٥٠٠)، لا إجابة خاطئة",
-              fix: { type: "clear" } });
-          }
-          return;
-        }
+        if (!it.uses) return;   // skipped upstream; kept as a guard
         const dupIdx = nd.findIndex((d, i) => d && d === na);
         if (dupIdx >= 0) {
           found.push({ it, kind: "answer", sev: 1,

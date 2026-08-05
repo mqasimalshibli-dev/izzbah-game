@@ -90,6 +90,8 @@ try {
   check(`it finds an empty option (${scan.byKind.empty || 0})`, (scan.byKind.empty || 0) === 1);
   check(`it finds the points value stored as an option (${scan.byKind.points || 0})`,
     (scan.byKind.points || 0) === 1);
+  // «تاريخ» is an ordinary category, so its leaked points value IS reported.
+  // An emoji category's would not be — see the choice-free test below.
   // The expensive kind of wrong: crying wolf on good questions.
   check("it does NOT report healthy questions", scan.healthy === false);
   check("every finding it can fix offers a fix", scan.fixes.filter(Boolean).length >= 5);
@@ -436,6 +438,40 @@ try {
     locked.whileLocked === 0);
   check(`…and they come back when it is switched on again (${locked.after})`,
     locked.after === locked.before);
+
+  // ---- categories that never show four choices are not scanned at all ----
+  // Reported twice. The first fix honoured only the admin's switch
+  // (config/noChoices), which «معنى الايموجي» can never be in: the toggle is
+  // DISABLED for categories that are choice-free by nature, so the map is empty
+  // for them and the report stayed full of them.
+  //
+  // The rule is now the one that matters to a player: if four choices are never
+  // shown for this category, its options are not reported — whether that is
+  // because of what the category is, or because the switch was thrown.
+  const choiceFree = await page.evaluate(() => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    // Every one of these questions would be a finding in an ordinary category.
+    const broken = [
+      q(100, "وش معنى الايموجي", "لبنى", ["100"]),
+      q(200, "وش معنى الايموجي", "جاموس", ["جاموس", "بقرة", "ثور"]),
+      q(300, "وش معنى الايموجي", "ضابط", ["", "جندي", "ضابط"]),
+    ];
+    window.IZZBAH.applyPublished([
+      { id: "pub-emoji", name: "معنى الايموجي", image: "", order: 1, questions: broken },
+      { id: "pub-plain", name: "تاريخ", image: "", order: 2, questions: broken.map(x => Object.assign({}, x)) },
+    ]);
+    state.communityCategories = [];
+    state.noChoiceCategories = [];
+    const found = distFindIssues().found;
+    return {
+      emoji: found.filter(f => f.it.catId === "pub-emoji").length,
+      plain: found.filter(f => f.it.catId === "pub-plain").length,
+    };
+  });
+  check(`an emoji category is not scanned at all (${choiceFree.emoji} findings)`,
+    choiceFree.emoji === 0);
+  check(`…while the identical questions in an ordinary category are (${choiceFree.plain})`,
+    choiceFree.plain >= 2);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
