@@ -4632,6 +4632,11 @@
     .dup-tag.dup { background: #fdeaea; color: #9e1322; }
     .dup-tag.conf { background: #fff0cf; color: #9a5a12; }
     .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
+    .dist-why { font: 700 12.5px 'Cairo', sans-serif; color: #9a3412; margin-top: 4px; }
+    .dist-opts { font: 600 12.5px 'Cairo', sans-serif; color: #5a4a2a; margin-top: 3px; opacity: .9; }
+    .dist-act { margin-top: 6px; }
+    :root[data-theme="dark"] .dist-why { color: #f0a882 !important; }
+    :root[data-theme="dark"] .dist-opts { color: #d9c39c !important; }
     .dup-occ-row { font: 600 13px 'Cairo', sans-serif; color: #5a4a2a; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
     .dup-occ-cat { font-weight: 800; color: #9e1322; }
     .dup-occ-pts { color: var(--gold-dark); font-weight: 800; }
@@ -7043,6 +7048,23 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="distModal" aria-hidden="true">
+    <div class="question-modal dup-modal" role="dialog" aria-modal="true" aria-labelledby="distTitle">
+      <div class="settings-head">
+        <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
+        <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
+      <div class="dup-summary" id="distSummary"></div>
+      <div class="dup-sync" id="distSync" hidden></div>
+      <div class="dup-list" id="distList"></div>
+      <div class="actions">
+        <button class="secondary" id="distRescan" type="button">↻ إعادة الفحص</button>
+        <button class="ghost" id="distCloseBtn" type="button">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Player ↔ developers: private two-way feedback thread -->
   <div class="modal-backdrop" id="feedbackModal" aria-hidden="true">
     <div class="question-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
@@ -7482,6 +7504,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🔎</span>
             <span class="admin-choice-name">المتكررات</span>
             <span class="admin-choice-sub">افحص كل الفئات وعالِج التكرار والتعارض</span>
+          </button>
+          <button class="admin-choice-btn" id="adminChoiceDist" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🎯</span>
+            <span class="admin-choice-name">فحص الخيارات</span>
+            <span class="admin-choice-sub">خيارات «أربعة خيارات» الخاطئة أو المكرّرة</span>
           </button>
           <button class="admin-choice-btn" id="adminChoiceCoach" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🧭</span>
@@ -11444,7 +11471,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.234";
+    const IZZBAH_BUILD = "2026-08-05.235";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16779,6 +16806,250 @@
     }
     function closeDupModal() { const m = $("#dupModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
 
+    // ============================================================
+    // «فحص الخيارات» — the distractor scanner.
+    //
+    // «أربعة خيارات» shows the answer plus the three stored `distractors`. This
+    // walks every question in every category and reports the ways that list can
+    // be wrong in a way a player would feel. It is deliberately MECHANICAL: it
+    // never judges whether a wrong answer is a *good* wrong answer, only whether
+    // the option list is malformed. Judging plausibility is the owner's call and
+    // no scanner should pretend otherwise.
+    //
+    // The normaliser is the point of the whole thing. «راندي أورتن» and
+    // «راندي اورتن» are the same name spelled with and without the hamza; on the
+    // board they are two separate options, one marked right and one wrong, and
+    // nobody can see the difference. Comparing raw strings finds none of those.
+    function distNorm(s) {
+      return String(s == null ? "" : s)
+        .normalize("NFKC")
+        .replace(/[ً-ْـ]/g, "")          // harakat + tatweel
+        .replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/[ىي]/g, "ي")
+        .replace(/[ؤئ]/g, "ء")
+        .replace(/\s+/g, " ")
+        .trim().toLowerCase();
+    }
+    // Categories whose `distractors` field is NOT a list of wrong answers.
+    // «قول غيرها» stores its BANNED WORDS there — touching them would break the
+    // game — so it is excluded from every check rather than merely from fixes.
+    function distIsBannedWordCategory(cat) { return isSayAnotherCategory(cat); }
+    // Categories that never show four choices by their own nature. Their
+    // distractors are dead weight, not wrong answers. The admin's per-category
+    // switch is deliberately NOT consulted: it is reversible, so a category
+    // switched off today still needs correct options for when it comes back.
+    function distUsesOptions(cat) {
+      return !(isChoiceFreeCategory(cat) || isWordGuessCategory(cat)
+        || isReactionCategory(cat) || isEmojiCategory(cat) || distIsBannedWordCategory(cat));
+    }
+    function distCollect() {
+      const out = [];
+      const push = (cat, community) => {
+        if (distIsBannedWordCategory(cat)) return;
+        (cat.questions || []).forEach((q, qIdx) => {
+          if (!(q.q || "").trim()) return;
+          out.push({
+            catId: cat.id, catName: cat.name || "بدون اسم", community: !!community,
+            qIdx, q: (q.q || "").trim(), a: (q.a || "").trim(), points: q.points || 0,
+            d: Array.isArray(q.distractors) ? q.distractors.map(x => String(x == null ? "" : x)) : [],
+            uses: distUsesOptions(cat),
+          });
+        });
+      };
+      const merged = mergedOfficialCategories();
+      merged.builtins.forEach(c => push(c, false));
+      merged.extras.forEach(c => push(c, false));
+      (state.communityCategories || []).forEach(c => push(c, true));
+      return out;
+    }
+    // A replacement is never invented. It is taken from options the author has
+    // already written elsewhere in the SAME category, preferring one that starts
+    // with the same word as the answer — so a حصن question gets another حصن and
+    // not a wadi or, as an earlier attempt produced, a TV show in place of a
+    // wrestler. Same category is not the same as same kind.
+    function distSuggest(items, item, taken) {
+      const head = s => distNorm(s).split(" ")[0];
+      const used = new Set([distNorm(item.a), ...taken.map(distNorm)]);
+      const sameCat = items.filter(x => x.catId === item.catId);
+      const pool = [];
+      sameCat.forEach(x => { pool.push(x.a); x.d.forEach(d => pool.push(d)); });
+      const uniq = [...new Map(pool.filter(v => (v || "").trim()).map(v => [distNorm(v), v.trim()])).values()];
+      const tiers = [
+        uniq.filter(c => head(c) === head(item.a) && !used.has(distNorm(c))),
+        uniq.filter(c => item.d.some(d => distNorm(d) !== distNorm(item.a) && head(c) === head(d)) && !used.has(distNorm(c))),
+        sameCat.map(x => x.a).filter(c => (c || "").trim() && !used.has(distNorm(c))),
+      ];
+      for (const t of tiers) if (t.length) return t[Math.abs(hashString(item.q + item.a)) % t.length];
+      return null;
+    }
+    function hashString(s) {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+      return h;
+    }
+    // The findings. `fix` describes what pressing the button would do, so the
+    // renderer never has to re-derive it.
+    function distFindIssues() {
+      const items = distCollect();
+      const found = [];
+      items.forEach(it => {
+        const nd = it.d.map(distNorm);
+        const na = distNorm(it.a);
+        if (!it.uses) {
+          // A category that never shows four choices. Its options are UNUSED,
+          // which is not the same as wrong: «خمّن الإيموجي» ships carefully
+          // written ones (الأسد الملك → كتاب الأدغال / طرزان / مدغشقر) that would
+          // matter again the moment the category's rules change. An earlier
+          // version reported them all as junk to delete, which would have thrown
+          // away good authoring on the scanner's say-so.
+          // Only genuinely corrupt data is worth reporting here.
+          const onlyDigits = it.d.length && it.d.every(d => /^[0-9٠-٩]+$/.test(String(d).trim()));
+          if (onlyDigits) {
+            found.push({ it, kind: "points", sev: 2,
+              why: "الخيار المخزّن هو قيمة النقاط، لا إجابة خاطئة",
+              fix: { type: "clear" } });
+          }
+          return;
+        }
+        const dupIdx = nd.findIndex((d, i) => d && d === na);
+        if (dupIdx >= 0) {
+          const rep = distSuggest(items, it, it.d);
+          found.push({ it, kind: "answer", sev: 1,
+            why: "أحد الخيارات هو الإجابة الصحيحة نفسها — تظهر مرتين",
+            fix: rep ? { type: "replace", idx: dupIdx, value: rep } : { type: "drop", idx: dupIdx } });
+          return;
+        }
+        const seen = new Map();
+        let dupPair = -1;
+        nd.forEach((d, i) => { if (!d) return; if (seen.has(d)) dupPair = i; else seen.set(d, i); });
+        if (dupPair >= 0) {
+          const rep = distSuggest(items, it, it.d);
+          found.push({ it, kind: "twice", sev: 2,
+            why: "خياران متطابقان",
+            fix: rep ? { type: "replace", idx: dupPair, value: rep } : { type: "drop", idx: dupPair } });
+          return;
+        }
+        const emptyIdx = it.d.findIndex(d => !d.trim());
+        if (it.d.length && emptyIdx >= 0) {
+          found.push({ it, kind: "empty", sev: 2, why: "خيار فارغ",
+            fix: { type: "drop", idx: emptyIdx } });
+          return;
+        }
+        // The points value leaking into the options — an import bug, not authoring.
+        const digits = s => /^[0-9٠-٩]+$/.test(String(s).trim());
+        if (it.d.length && it.d.every(digits) && !digits(it.a)) {
+          found.push({ it, kind: "points", sev: 2,
+            why: "الخيار المخزّن هو قيمة النقاط، لا إجابة خاطئة",
+            fix: { type: "clear" } });
+          return;
+        }
+        if (it.d.length && it.d.length < 3) {
+          found.push({ it, kind: "short", sev: 3,
+            why: `عدد الخيارات ${toArabicDigits(it.d.length)} بدل ٣`, fix: null });
+        }
+      });
+      found.sort((a, b) => a.sev - b.sev || a.it.catName.localeCompare(b.it.catName, "ar"));
+      return { total: items.length, found };
+    }
+    // Applying a fix reuses the duplicate scanner's write path exactly: change
+    // local state so the report updates with no wait, then one debounced publish
+    // per category in the background.
+    function distApplyFix(entry) {
+      const it = entry.it, fx = entry.fix;
+      if (!fx) return;
+      let cat = null, kind = "official";
+      if (it.community) { cat = (state.communityCategories || []).find(c => c.id === it.catId); kind = "community"; }
+      else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === it.catId) || m.extras.find(c => c.id === it.catId); }
+      if (!cat) { showToast("تعذّر إيجاد الفئة"); return; }
+      const clone = JSON.parse(JSON.stringify(cat));
+      // The index can move if something else was edited first, so re-find the
+      // question by its own text rather than trusting the stored position.
+      let idx = it.qIdx;
+      const matches = q => (q.q || "").trim() === it.q && (q.a || "").trim() === it.a;
+      if (!(idx >= 0 && clone.questions[idx] && matches(clone.questions[idx]))) idx = clone.questions.findIndex(matches);
+      if (idx < 0) { showToast("تعذّر إيجاد السؤال — أعد الفحص"); return; }
+      const q = clone.questions[idx];
+      const ds = Array.isArray(q.distractors) ? q.distractors.slice() : [];
+      if (fx.type === "clear") q.distractors = [];
+      else if (fx.type === "replace") { ds[fx.idx] = fx.value; q.distractors = ds; }
+      else if (fx.type === "drop") { ds.splice(fx.idx, 1); q.distractors = ds; }
+      if (kind === "community") {
+        const i = state.communityCategories.findIndex(c => c.id === clone.id);
+        if (i >= 0) state.communityCategories[i] = clone;
+      } else {
+        upsertPublished(clone);
+      }
+      renderDistReport();
+      scheduleDupPersist(kind, clone);   // same debounced publisher as «المتكررات»
+    }
+    const DIST_TAGS = {
+      answer: ["الإجابة نفسها", "conf"], twice: ["مكرّر", "dup"], empty: ["فارغ", "dup"],
+      points: ["نقاط", "dup"], short: ["ناقص", "dup"],
+    };
+    function renderDistReport() {
+      const { total, found } = distFindIssues();
+      const sum = $("#distSummary"), list = $("#distList");
+      if (!sum || !list) return;
+      list.innerHTML = "";
+      if (!found.length) {
+        sum.className = "dup-summary clean";
+        sum.textContent = `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
+        list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">كل الخيارات سليمة 🎉</div>`;
+        return;
+      }
+      const bad = found.filter(f => f.sev === 1).length;
+      sum.className = "dup-summary";
+      sum.textContent = `وُجدت ${toArabicDigits(found.length)} ملاحظة من أصل ${toArabicDigits(total)} سؤال`
+        + (bad ? ` — منها ${toArabicDigits(bad)} يراها اللاعب مباشرة.` : ".");
+      found.slice(0, 400).forEach(f => {
+        const [label, cls] = DIST_TAGS[f.kind] || ["ملاحظة", "dup"];
+        const box = document.createElement("div");
+        box.className = "dup-group" + (f.sev === 1 ? " conflict" : "");
+        box.insertAdjacentHTML("beforeend",
+          `<div class="dup-q">${escapeHtml(toArabicDigits(f.it.q))}<span class="dup-tag ${cls}">${escapeHtml(label)}</span></div>`);
+        const occ = document.createElement("div");
+        occ.className = "dup-occ";
+        const row = document.createElement("div");
+        row.className = "dup-occ-row";
+        row.innerHTML = `<span class="dup-occ-cat">${escapeHtml(f.it.catName)}</span>`
+          + `<span class="dup-occ-pts">${toArabicDigits(f.it.points)}</span>`
+          + `<span class="dup-occ-a">← ${escapeHtml(toArabicDigits(f.it.a || "—"))}</span>`;
+        occ.appendChild(row);
+        const why = document.createElement("div");
+        why.className = "dist-why";
+        why.textContent = f.why;
+        occ.appendChild(why);
+        const opts = document.createElement("div");
+        opts.className = "dist-opts";
+        opts.textContent = "الخيارات: " + (f.it.d.length ? f.it.d.map(d => d.trim() || "(فارغ)").join("  •  ") : "—");
+        occ.appendChild(opts);
+        if (f.fix) {
+          const act = document.createElement("div");
+          act.className = "dist-act";
+          const b = document.createElement("button");
+          b.className = "dup-del"; b.type = "button";
+          b.textContent = f.fix.type === "clear" ? "تفريغ الخيارات"
+            : f.fix.type === "replace" ? `استبدال بـ «${f.fix.value}»` : "حذف الخيار";
+          b.addEventListener("click", () => distApplyFix(f));
+          act.appendChild(b);
+          occ.appendChild(act);
+        }
+        box.appendChild(occ);
+        list.appendChild(box);
+      });
+      if (found.length > 400) {
+        const more = document.createElement("div");
+        more.className = "dup-group";
+        more.style.textAlign = "center";
+        more.textContent = `…و${toArabicDigits(found.length - 400)} ملاحظة أخرى. أصلح المعروض ثم أعد الفحص.`;
+        list.appendChild(more);
+      }
+    }
+    function openDistModal() {
+      renderDistReport();
+      const m = $("#distModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeDistModal() { const m = $("#distModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+
     // ---- Announcements: admin composer + manager ------------------------
     let annEditId = null;      // id of the announcement being edited (else new)
     let annDraftColor = ANN_COLORS[0];
@@ -21520,6 +21791,11 @@
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
+    $("#adminChoiceDist").addEventListener("click", () => { closeAdminChoice(); openDistModal(); });
+    $("#distClose").addEventListener("click", closeDistModal);
+    $("#distCloseBtn").addEventListener("click", closeDistModal);
+    $("#distRescan").addEventListener("click", renderDistReport);
+    $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
     $("#adminChoiceFeatured").addEventListener("click", () => { closeAdminChoice(); openFeaturedAdmin(); });
