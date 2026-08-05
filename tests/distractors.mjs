@@ -373,6 +373,42 @@ try {
   check(`the deferred replacement still reaches every drawn button (${perf.labelled}/${perf.drawn})`,
     perf.drawn > 0 && perf.labelled === perf.drawn);
 
+  // ---- numeric options that are NOT points must be left alone ----
+  // Reported from the live report: «كم تبلغ قيمة استخراج هذا الرقم؟» (answer
+  // «٧٠ ريال», options 60/50/40) and «كم هدف سجل عماد الحوسني؟» (answer «٥٢
+  // هدف», options ٤١/٤٨/٥٩) were both listed as errors. They are perfectly good
+  // numeric questions; the old rule only asked "are all the options digits?",
+  // which they are. An option now counts as points-noise only if it is EXACTLY
+  // one of the board's tiers.
+  const numeric = await page.evaluate(() => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-num", name: "خريف ظفار", image: "", order: 1, questions: [
+      q(200, "كم تبلغ قيمة استخراج هذا الرقم؟", "٧٠ ريال", ["60", "50", "40"]),        // legitimate
+      q(300, "كم هدف سجل عماد الحوسني؟", "٥٢ هدف", ["٤١", "٤٨", "٥٩"]),                // legitimate, Arabic digits
+      q(100, "🥠🔮 خمن اسم الشيء", "Fortune Cookie", ["100"]),                          // the import bug
+      q(200, "🚪🔔 خمن الكلمة المركبة", "Doorbell", ["١٠٠"]),                           // same, Arabic digits
+      q(400, "كم عدد سكان المدينة؟", "٢٥٠ ألف", ["100", "200", "300"]),                 // three real tiers, all distinct
+    ] }]);
+    state.communityCategories = [];
+    const found = distFindIssues().found.filter(f => f.it.catId === "pub-num");
+    return {
+      points: found.filter(f => f.kind === "points").map(f => f.it.a),
+      all: found.map(f => `${f.kind}:${f.it.a}`),
+    };
+  });
+  check(`a price question with options 60/50/40 is NOT an error (${numeric.points.join(", ") || "none flagged"})`,
+    !numeric.points.includes("٧٠ ريال"));
+  check("a goals question with Arabic-digit options is NOT an error",
+    !numeric.points.includes("٥٢ هدف"));
+  check("the real import bug is still caught (Western digits)",
+    numeric.points.includes("Fortune Cookie"));
+  check("…and when the leaked value is written in Arabic digits",
+    numeric.points.includes("Doorbell"));
+  // Three DISTINCT tier values is a plausible real option set, and every real
+  // case in the catalogue stores a single value — so this is left alone too.
+  check("three distinct tier-looking options are left alone",
+    !numeric.points.includes("٢٥٠ ألف"));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
