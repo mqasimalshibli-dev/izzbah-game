@@ -94,6 +94,7 @@ async function device(label) {
       });
       return Promise.resolve({ query: { pages } });
     };
+    window.__DESC = desc;
   }, [cats0(), DESC]);
   return { ctx, page };
 }
@@ -139,7 +140,18 @@ try {
       calls, ran: distSmart.ran,
       findings: distSmart.findings.length,
       which: distSmart.findings.map(f => f.option).sort(),
-      remaining: distScanRemaining(),
+      // Restricted to the PUBLISHED category on purpose — see the note below.
+      remainingPub: (() => {
+        const cache = distKindCache(), judged = distKinds(), left = new Set();
+        distCollect().forEach(it => {
+          if (!it.uses || !it.d.length || it.catId !== "pub-sync") return;
+          [it.a].concat(it.d).forEach(t => {
+            const v = String(t || "").trim();
+            if (v && !(v in cache) && !(v in judged)) left.add(v);
+          });
+        });
+        return left.size;
+      })(),
       notice: (document.getElementById("appNotice") || {}).textContent || "",
     };
   });
@@ -148,7 +160,15 @@ try {
   check(`…identical to device A's (${b1.which.join("، ")})`,
     JSON.stringify(b1.which) === JSON.stringify(a1.which));
   check(`…having made ZERO Wikipedia requests (${b1.calls})`, b1.calls === 0);
-  check(`…and with nothing left to fetch (${b1.remaining} remaining)`, b1.remaining === 0);
+  // Counted over the published category only. A built-in category with no
+  // published override is served from its BANK, and the bank hands over a
+  // random board draw per page load — so two devices legitimately hold
+  // different built-in questions and each has terms the other never saw. That
+  // is not a sync failure, and measuring the whole catalogue here would report
+  // one. Checked against the real data: all 40 published categories override
+  // their built-in, so nothing in production is served from a random draw.
+  check(`…and nothing of the shared catalogue left to fetch (${b1.remainingPub})`,
+    b1.remainingPub === 0);
   check(`…and it says where the results came from ("${b1.notice.slice(0, 30)}…")`,
     /جهازك الآخر/.test(b1.notice));
 
@@ -204,6 +224,67 @@ try {
   }));
   check(`a verdict cached under an older classifier is discarded (${afterReload.kept} kept)`,
     stale && afterReload.kept === 0 && afterReload.vienna === undefined);
+
+  // ---- a device that scanned under an OLDER build seeds the document ----
+  //
+  // This is what left config/distScan absent in production. Pushing only when a
+  // scan COMPLETES meant the laptop, which already held every description from
+  // earlier builds, published nothing until it re-ran the scan — so the phone
+  // read nothing and fetched all 7,454 terms. Opening the panel is now enough.
+  CLOUD = null;
+  const D = await device("D");
+  const seeded = await D.page.evaluate(async () => {
+    // this device has the descriptions but has never produced a verdict
+    localStorage.setItem("izzbah-wikikind-v1", JSON.stringify(window.__DESC));
+    localStorage.removeItem("izzbah-distkinds-v1");
+    distKindsReset();
+    let calls = 0;
+    const real = window.wikiApi;
+    window.wikiApi = (...a) => { calls++; return real(...a); };
+    openDistModal();
+    await new Promise(r => setTimeout(r, 900));
+    return { calls, ran: distSmart.ran, findings: distSmart.findings.length };
+  });
+  check(`a device with cached descriptions publishes without re-scanning (${seeded.findings} findings, ${seeded.calls} requests)`,
+    seeded.ran === true && seeded.calls === 0);
+  check("…and the shared document now exists", !!CLOUD && !!CLOUD.kinds);
+  check(`…carrying the verdicts (${Object.keys(JSON.parse((CLOUD || {}).kinds || "{}")).length})`,
+    Object.keys(JSON.parse((CLOUD || {}).kinds || "{}")).length > 0);
+
+  // ---- a term never looked up must NOT be recorded as judged ----
+  //
+  // The latent one, and the more dangerous of the two: resolving a kind for a
+  // term with no description recorded "" — indistinguishable from "asked and
+  // could not place it". distScanRemaining() then counted it settled, so the
+  // scan reported itself complete having never asked about those terms at all.
+  // The first version of this test missed it because the pull happened to
+  // carry every term in the catalogue.
+  const E = await device("E");
+  const unresearched = await E.page.evaluate(async () => {
+    distKindsReset();
+    localStorage.removeItem("izzbah-wikikind-v1");
+    const items = distCollect().filter(it => it.uses && it.d.length);
+    const remainingBefore = distScanRemaining();
+    // no descriptions at all: nothing here has been researched
+    distSmartFindings(items, {});
+    const recorded = Object.keys(distKinds()).length;
+    const remainingAfter = distScanRemaining();
+    // one term genuinely looked up and found to have no page is different:
+    // it IS a verdict, and must be remembered so nobody asks again
+    distSmartFindings(items, { "قلعة نزوى": "" });
+    return {
+      remainingBefore, recorded, remainingAfter,
+      afterKnownMiss: Object.keys(distKinds()).length,
+      missIsRecorded: "قلعة نزوى" in distKinds(),
+    };
+  });
+  check(`reading terms with no description records NOTHING (${unresearched.recorded})`,
+    unresearched.recorded === 0);
+  check(`…so the queue is untouched (${unresearched.remainingBefore} → ${unresearched.remainingAfter})`,
+    unresearched.remainingAfter === unresearched.remainingBefore
+      && unresearched.remainingBefore > 0);
+  check("…while a term Wikipedia was asked about and had no page IS remembered",
+    unresearched.missIsRecorded === true && unresearched.afterKnownMiss === 1);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

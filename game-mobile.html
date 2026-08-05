@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.253";
+    const IZZBAH_BUILD = "2026-08-05.254";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17535,17 +17535,23 @@
     // Resolve once and remember. "" is a real answer — the term is unknown or
     // genuinely ambiguous — so it is recorded too, or every device re-asks
     // Wikipedia about the same terms it has already failed to place.
+    //
+    // `researched` is the whole safety of that. A verdict is written down only
+    // for a term this device actually looked up. Recording one for a term that
+    // was never fetched stamps it "unknown" for good and, since
+    // distScanRemaining() then counts it as settled, makes the scan look
+    // finished while those terms have never been asked about at all.
     function distKindsReset() {
       distKindsMem = {};
       try { localStorage.removeItem(DIST_KINDS_KEY); } catch (e) {}
     }
-    function distKindResolved(term, desc) {
+    function distKindResolved(term, desc, researched) {
       const t = String(term == null ? "" : term).trim();
       if (!t) return "";
       const m = distKinds();
       if (t in m) return m[t];
       const k = distKindFor(t, desc || "");
-      m[t] = k;
+      if (researched) m[t] = k;
       return k;
     }
     // term -> one-line description, cached across sessions: the same fort is an
@@ -17654,14 +17660,15 @@
       const done = distDone();
       (items || []).forEach(it => {
         if (!it.uses || !it.d.length) return;
+        const has = t => Object.prototype.hasOwnProperty.call(descByTerm, t);
         const aDesc = descByTerm[it.a] || "";
-        const aKind = distKindResolved(it.a, aDesc);
+        const aKind = distKindResolved(it.a, aDesc, has(it.a));
         // Resolve the options too, even when the answer is unknown and nothing
         // can be reported for this question. The verdicts are what the admin's
         // OTHER devices read, and returning early here left them a queue of
         // terms to re-ask Wikipedia about — 174 of them in the test catalogue,
         // for a report that was otherwise already complete.
-        const dKinds = it.d.map(d => distKindResolved(d, descByTerm[d] || ""));
+        const dKinds = it.d.map(d => distKindResolved(d, descByTerm[d] || "", has(d)));
         if (!aKind) return;                        // unknown answer -> say nothing
         // How the question's own four terms sort themselves. A classifier that
         // puts the answer on one side and EVERY option on the other has almost
@@ -17695,7 +17702,8 @@
     // for the final word on them.
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
-      const want = distKindResolved(it.a, cache[it.a] || "");
+      const want = distKindResolved(it.a, cache[it.a] || "",
+        Object.prototype.hasOwnProperty.call(cache, it.a));
       if (!want) return "";
       const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
       const e = distIndex && distIndex[it.catId];
@@ -17703,7 +17711,8 @@
       const out = [];
       e.pool.forEach((val) => {
         if (used.has(distNorm(val))) return;
-        if (distKindResolved(val, cache[val] || "") === want) out.push(val);
+        if (distKindResolved(val, cache[val] || "",
+              Object.prototype.hasOwnProperty.call(cache, val)) === want) out.push(val);
       });
       return out.length ? out[Math.abs(hashString(it.q + entry.option)) % out.length] : "";
     }
@@ -17963,25 +17972,37 @@
       // the panel redraws with it. Nothing waits on the network: the report is
       // already on screen and this only ever removes work from it.
       distPullSync().then(got => {
-        if (!got.kinds && !got.done) return;
+        // Both directions, on open, without the admin pressing anything.
+        //
+        // Pushing ONLY when a scan finishes was not enough, and it is why the
+        // shared document stayed empty: the laptop that had already fetched
+        // every description under an older build had nothing to publish until
+        // it ran the scan AGAIN — so the phone found nothing to read and
+        // fetched the lot. The verdicts are derived here from whatever
+        // descriptions this device already holds (pure, ~120ms at the live
+        // catalogue size) and published if the shared copy is behind.
+        const before = Object.keys(distKinds()).length;
+        const items = distCollect().filter(it => it.uses && it.d.length);
+        const findings = distSmartFindings(items, distKindCache());
+        const after = Object.keys(distKinds()).length;
+        const grew = after - before;
+        if (grew) distKindsSave();
+
         const live = $("#distSmart");
         if (live && !distSmartBusy) live.textContent = distSmartBtnLabel();
-        // With the verdicts in hand the report is pure computation over a
-        // catalogue this device already has — ~120ms at the live size, no
-        // network. So a device that has never scanned still shows the scan,
-        // rather than an empty tab and a button the admin has to find.
-        if (got.kinds || distSmart.ran) {
-          distSmart = {
-            ran: true, cat: "",
-            findings: distSmartFindings(
-              distCollect().filter(it => it.uses && it.d.length), distKindCache()),
-          };
+        if (after && (got.kinds || got.done || grew || distSmart.ran)) {
+          distSmart = { ran: true, cat: "", findings };
+          renderDistReport();
+        } else if (got.done) {
+          renderDistReport();
         }
-        renderDistReport();
         if (got.kinds && !distSmartBusy) {
           appNotice("وصلت نتائج الفحص من جهازك الآخر",
             `${toArabicDigits(distSmart.findings.length)} ملاحظة — لا حاجة لإعادة الفحص.`);
         }
+        // Seed an absent document, or top up one that is missing verdicts this
+        // device has. Either way the next device to open the panel reads them.
+        if (after && (grew || !got.at)) distPushSync(true);
       });
       if (distSmartBusy) {
         appNotice("الفحص الذكي مستمر", "يعمل في الخلفية — يمكنك إغلاق هذه الشاشة.");
