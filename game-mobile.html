@@ -4632,6 +4632,12 @@
     .dup-tag.dup { background: #fdeaea; color: #9e1322; }
     .dup-tag.conf { background: #fff0cf; color: #9a5a12; }
     .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
+    .dist-tabs { display: flex; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
+    .dist-tab { font: 800 13px 'Cairo', sans-serif; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+      border: 2px solid #e0cfa0; background: #fdf8ec; color: #6b5a33; }
+    .dist-tab.on { background: #1f5237; border-color: #1f5237; color: #fdf8ec; }
+    :root[data-theme="dark"] .dist-tab { background: rgba(255,255,255,.05); border-color: var(--dk-line); color: #d9c39c; }
+    :root[data-theme="dark"] .dist-tab.on { background: #2f7c55; border-color: #2f7c55; color: #f6ead2; }
     .dist-why { font: 700 12.5px 'Cairo', sans-serif; color: #9a3412; margin-top: 4px; }
     .dist-opts { font: 600 12.5px 'Cairo', sans-serif; color: #5a4a2a; margin-top: 3px; opacity: .9; }
     .dist-act { margin-top: 6px; }
@@ -7054,11 +7060,13 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
+      <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
       <div class="dup-list" id="distList"></div>
       <div class="actions">
+        <button class="primary" id="distFixAll" type="button" hidden>🛠 إصلاح الكل</button>
         <button class="secondary" id="distRescan" type="button">↻ إعادة الفحص</button>
         <button class="ghost" id="distCloseBtn" type="button">إغلاق</button>
       </div>
@@ -11471,7 +11479,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.235";
+    const IZZBAH_BUILD = "2026-08-05.236";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16866,18 +16874,26 @@
     // with the same word as the answer — so a حصن question gets another حصن and
     // not a wadi or, as an earlier attempt produced, a TV show in place of a
     // wrestler. Same category is not the same as same kind.
-    function distSuggest(items, item, taken) {
+    function distSuggest(items, item, taken, avoidAnswers) {
       const head = s => distNorm(s).split(" ")[0];
       const used = new Set([distNorm(item.a), ...taken.map(distNorm)]);
       const sameCat = items.filter(x => x.catId === item.catId);
+      const answers = new Set(sameCat.map(x => distNorm(x.a)).filter(Boolean));
       const pool = [];
       sameCat.forEach(x => { pool.push(x.a); x.d.forEach(d => pool.push(d)); });
       const uniq = [...new Map(pool.filter(v => (v || "").trim()).map(v => [distNorm(v), v.trim()])).values()];
+      const free = c => !used.has(distNorm(c));
+      // When the point of the fix is to STOP recycling other questions' answers,
+      // a replacement that is itself an answer elsewhere just moves the problem.
+      const ok = c => free(c) && (!avoidAnswers || !answers.has(distNorm(c)));
       const tiers = [
-        uniq.filter(c => head(c) === head(item.a) && !used.has(distNorm(c))),
-        uniq.filter(c => item.d.some(d => distNorm(d) !== distNorm(item.a) && head(c) === head(d)) && !used.has(distNorm(c))),
-        sameCat.map(x => x.a).filter(c => (c || "").trim() && !used.has(distNorm(c))),
+        uniq.filter(c => ok(c) && head(c) === head(item.a)),
+        uniq.filter(c => ok(c) && item.d.some(d => distNorm(d) !== distNorm(item.a) && head(c) === head(d))),
+        uniq.filter(ok),
       ];
+      // Last resort for the plain defects only: any answer in the category is
+      // still better than leaving the correct answer sitting in its own options.
+      if (!avoidAnswers) tiers.push(sameCat.map(x => x.a).filter(c => (c || "").trim() && free(c)));
       for (const t of tiers) if (t.length) return t[Math.abs(hashString(item.q + item.a)) % t.length];
       return null;
     }
@@ -16891,6 +16907,14 @@
     function distFindIssues() {
       const items = distCollect();
       const found = [];
+      // Every ANSWER in each category, so an option can be recognised as some
+      // other question's answer recycled as a wrong one.
+      const answersByCat = {};
+      items.forEach(it => {
+        const k = distNorm(it.a);
+        if (!k) return;
+        (answersByCat[it.catId] = answersByCat[it.catId] || new Map()).set(k, it.a);
+      });
       items.forEach(it => {
         const nd = it.d.map(distNorm);
         const na = distNorm(it.a);
@@ -16945,6 +16969,25 @@
         if (it.d.length && it.d.length < 3) {
           found.push({ it, kind: "short", sev: 3,
             why: `عدد الخيارات ${toArabicDigits(it.d.length)} بدل ٣`, fix: null });
+          return;
+        }
+        // Options that are simply another question's ANSWER in the same
+        // category. Not malformed — the game works — so this is its own
+        // severity and its own tab: in some categories it is nearly every
+        // question, and mixing it into the defect list would bury the defects.
+        const answers = answersByCat[it.catId];
+        if (answers) {
+          const hits = it.d.map((d, i) => ({ d, i })).filter(x => {
+            const n = distNorm(x.d);
+            return n && n !== distNorm(it.a) && answers.has(n);
+          });
+          if (hits.length) {
+            const rep = distSuggest(items, it, it.d, true);
+            found.push({ it, kind: "recycled", sev: 4,
+              why: `${toArabicDigits(hits.length)} من الخيارات هي إجابات أسئلة أخرى في نفس الفئة`,
+              hits: hits.map(h => h.d),
+              fix: rep ? { type: "replace", idx: hits[0].i, value: rep } : null });
+          }
         }
       });
       found.sort((a, b) => a.sev - b.sev || a.it.catName.localeCompare(b.it.catName, "ar"));
@@ -16953,7 +16996,7 @@
     // Applying a fix reuses the duplicate scanner's write path exactly: change
     // local state so the report updates with no wait, then one debounced publish
     // per category in the background.
-    function distApplyFix(entry) {
+    function distApplyFix(entry, quiet) {
       const it = entry.it, fx = entry.fix;
       if (!fx) return;
       let cat = null, kind = "official";
@@ -16978,29 +17021,84 @@
       } else {
         upsertPublished(clone);
       }
-      renderDistReport();
+      if (!quiet) renderDistReport();
       scheduleDupPersist(kind, clone);   // same debounced publisher as «المتكررات»
     }
     const DIST_TAGS = {
       answer: ["الإجابة نفسها", "conf"], twice: ["مكرّر", "dup"], empty: ["فارغ", "dup"],
-      points: ["نقاط", "dup"], short: ["ناقص", "dup"],
+      points: ["نقاط", "dup"], short: ["ناقص", "dup"], recycled: ["إجابة معادة", "dup"],
     };
+    // Which tab is showing: "bad" = the malformed ones, "recycled" = options that
+    // are another question's answer.
+    let distTab = "bad";
+    function distVisible(found) {
+      return found.filter(f => distTab === "recycled" ? f.sev === 4 : f.sev < 4);
+    }
+    function renderDistTabs(found) {
+      const wrap = $("#distTabs"); if (!wrap) return;
+      const nBad = found.filter(f => f.sev < 4).length;
+      const nRec = found.filter(f => f.sev === 4).length;
+      wrap.innerHTML = "";
+      [["bad", `خلل (${toArabicDigits(nBad)})`], ["recycled", `إجابات معادة (${toArabicDigits(nRec)})`]]
+        .forEach(([id, label]) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "dist-tab" + (distTab === id ? " on" : "");
+          b.textContent = label;
+          b.addEventListener("click", () => { distTab = id; renderDistReport(); });
+          wrap.appendChild(b);
+        });
+    }
+    // «إصلاح الكل» — applies every fixable finding on the CURRENT tab. Each fix
+    // re-reads the category from live state, so applying them in a loop is safe
+    // even though each one rewrites the array the next is indexed into.
+    function distFixAll() {
+      const all = distFindIssues().found;
+      const todo = distVisible(all).filter(f => f.fix);
+      if (!todo.length) { showToast("لا شيء لإصلاحه هنا"); return; }
+      if (!window.confirm(`إصلاح ${toArabicDigits(todo.length)} ملاحظة؟ يمكن التراجع بتعديل السؤال يدوياً.`)) return;
+      let done = 0;
+      // Re-scan between passes rather than trusting the first list: one fix can
+      // resolve or reshape another finding on the same question.
+      for (let pass = 0; pass < 6; pass++) {
+        const round = distVisible(distFindIssues().found).filter(f => f.fix);
+        if (!round.length) break;
+        round.forEach(f => { distApplyFix(f, true); done++; });
+      }
+      renderDistReport();
+      showToast(`تم إصلاح ${toArabicDigits(done)} ملاحظة — جارٍ الحفظ…`);
+    }
     function renderDistReport() {
       const { total, found } = distFindIssues();
       const sum = $("#distSummary"), list = $("#distList");
       if (!sum || !list) return;
+      renderDistTabs(found);
+      const shown = distVisible(found);
+      const fixAll = $("#distFixAll");
+      if (fixAll) fixAll.hidden = !shown.some(f => f.fix);
       list.innerHTML = "";
-      if (!found.length) {
+      if (!shown.length) {
         sum.className = "dup-summary clean";
-        sum.textContent = `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
+        sum.textContent = distTab === "recycled"
+          ? `✓ لا خيار مأخوذ من إجابة سؤال آخر — فُحص ${toArabicDigits(total)} سؤالاً.`
+          : `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
         list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">كل الخيارات سليمة 🎉</div>`;
         return;
       }
-      const bad = found.filter(f => f.sev === 1).length;
+      const bad = shown.filter(f => f.sev === 1).length;
       sum.className = "dup-summary";
-      sum.textContent = `وُجدت ${toArabicDigits(found.length)} ملاحظة من أصل ${toArabicDigits(total)} سؤال`
-        + (bad ? ` — منها ${toArabicDigits(bad)} يراها اللاعب مباشرة.` : ".");
-      found.slice(0, 400).forEach(f => {
+      if (distTab === "recycled") {
+        const byCat = {};
+        shown.forEach(f => { byCat[f.it.catName] = (byCat[f.it.catName] || 0) + 1; });
+        const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4)
+          .map(([c, n]) => `${c} ${toArabicDigits(n)}`).join(" · ");
+        sum.textContent = `${toArabicDigits(shown.length)} سؤالاً فيه خيار مأخوذ من إجابة سؤال آخر`
+          + ` من أصل ${toArabicDigits(total)}. الأكثر: ${top}`;
+      } else {
+        sum.textContent = `وُجدت ${toArabicDigits(shown.length)} ملاحظة من أصل ${toArabicDigits(total)} سؤال`
+          + (bad ? ` — منها ${toArabicDigits(bad)} يراها اللاعب مباشرة.` : ".");
+      }
+      shown.slice(0, 400).forEach(f => {
         const [label, cls] = DIST_TAGS[f.kind] || ["ملاحظة", "dup"];
         const box = document.createElement("div");
         box.className = "dup-group" + (f.sev === 1 ? " conflict" : "");
@@ -17036,11 +17134,11 @@
         box.appendChild(occ);
         list.appendChild(box);
       });
-      if (found.length > 400) {
+      if (shown.length > 400) {
         const more = document.createElement("div");
         more.className = "dup-group";
         more.style.textAlign = "center";
-        more.textContent = `…و${toArabicDigits(found.length - 400)} ملاحظة أخرى. أصلح المعروض ثم أعد الفحص.`;
+        more.textContent = `…و${toArabicDigits(shown.length - 400)} ملاحظة أخرى. أصلح المعروض ثم أعد الفحص.`;
         list.appendChild(more);
       }
     }
@@ -21795,6 +21893,7 @@
     $("#distClose").addEventListener("click", closeDistModal);
     $("#distCloseBtn").addEventListener("click", closeDistModal);
     $("#distRescan").addEventListener("click", renderDistReport);
+    $("#distFixAll").addEventListener("click", distFixAll);
     $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
