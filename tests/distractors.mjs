@@ -299,6 +299,81 @@ try {
   check(`«مملكة» does not read as «ملك» (${collisions.kingdom})`, collisions.kingdom === "مكان");
   check(`an actress is still a person (${collisions.actressPage})`, collisions.actressPage === "شخص");
 
+  // ---- the whole history report was false positives ----
+  //
+  // Reported with screenshots: «معاهدة فرساي» flagged against «مؤتمر فيينا»,
+  // «معاهدة أوترخت» against «صلح وستفاليا», «الدولة القاجارية» against «الدولة
+  // الصفوية». Every one of them is a perfectly good option, and every one was
+  // caused by classifying the DESCRIPTION when the TERM says it plainly:
+  //
+  //   «مؤتمر فيينا هو مؤتمر لسفراء الدول الأوروبية…»  → walks past مؤتمر
+  //   (not in the word list at the time) into «الدول» → PLACE, so all three
+  //   treaties beside it became "the wrong kind".
+  //   «الدولة القاجارية أو القاجاريون أسرة حاكمة…»    → «حاكمة» → PERSON.
+  //
+  // Arabic is head-initial, so the term is the reliable signal and the sentence
+  // is the fallback. The second guard is the tally: an option is only reported
+  // while it is in the minority, because a classifier that puts the answer on
+  // one side and EVERY option on the other has misread the answer.
+  const history = await page.evaluate(() => {
+    const D = {
+      "مؤتمر فيينا": "مؤتمر فيينا هو مؤتمر لسفراء الدول الأوروبية ترأسه رجل الدولة النمساوي كليمنس فون مترنيخ.",
+      "معاهدة فرساي": "معاهدة فرساي هي معاهدة سلام أنهت الحرب العالمية الأولى بين ألمانيا ودول الحلفاء.",
+      "صلح وستفاليا": "صلح وستفاليا أو سلام وستفاليا (بالألمانية: Westfälischer Friede) اسم عام يُطلق على معاهدتي السلام اللتين وقعتا في مدينتي أوسنابروك ومونستر الألمانيتين.",
+      "معاهدة باريس": "معاهدة باريس هي معاهدة وقعت في مدينة باريس.",
+      "معاهدة أوترخت": "معاهدة أوترخت هي سلسلة معاهدات سلام وقعت في مدينة أوترخت الهولندية.",
+      "صلح أوغسبورغ": "صلح أوغسبورغ معاهدة أبرمت في مدينة أوغسبورغ الألمانية.",
+      "معاهدة فيينا": "معاهدة فيينا معاهدة وقعت في مدينة فيينا النمساوية.",
+      "الدولة الصفوية": "الدَّوْلَةُ الصَّفَوِيَّة أو الإِمبَراطُورِيَّةُ الصَّفَوِيَّة (بالفارسية: ايران صفوی) إحدى أهم الدول التي حكمت إيران.",
+      "الدولة القاجارية": "الدولة القاجارية أو القاجاريون أسرة حاكمة فارسية من أصول تركمانية حكمت إيران.",
+      "الدولة العثمانية": "الدولة العثمانية أو الإمبراطورية العثمانية إحدى الدول الإسلامية.",
+      "الدولة التيمورية": "الدولة التيمورية أسرة حاكمة تركية مغولية أسسها تيمورلنك.",
+      "جامعة بولونيا": "جامعة بولونيا هي جامعة إيطالية تعد أقدم جامعة في العالم.",
+      "جامعة الأزهر": "جامعة الأزهر جامعة مصرية إسلامية عريقة مقرها القاهرة.",
+      "جامعة أكسفورد": "جامعة أكسفورد جامعة بحثية في مدينة أكسفورد الإنجليزية.",
+    };
+    const run = (a, d) => distSmartFindings(
+      [{ catId: "c", cat: "تاريخ", q: "س؟", a, d, uses: true, points: 400 }], D);
+    return {
+      kinds: Object.keys(D).map(t => [t, distKindFor(t, D[t])]),
+      vienna: run("مؤتمر فيينا", ["معاهدة فرساي", "صلح وستفاليا", "معاهدة باريس"]).length,
+      westphalia: run("صلح وستفاليا", ["معاهدة أوترخت", "صلح أوغسبورغ", "معاهدة فيينا"]).length,
+      safavid: run("الدولة الصفوية", ["الدولة العثمانية", "الدولة القاجارية", "الدولة التيمورية"]).length,
+      universities: run("جامعة بولونيا", ["جامعة الأزهر", "جامعة أكسفورد"]).length,
+    };
+  });
+  const kindOf = t => (history.kinds.find(k => k[0] === t) || [])[1];
+  check(`«مؤتمر فيينا» is an event, not a place (${kindOf("مؤتمر فيينا")})`,
+    kindOf("مؤتمر فيينا") === "حدث");
+  check(`«الدولة القاجارية» is not a person (${kindOf("الدولة القاجارية")})`,
+    kindOf("الدولة القاجارية") === "مكان");
+  check(`«صلح وستفاليا» is an event (${kindOf("صلح وستفاليا")})`,
+    kindOf("صلح وستفاليا") === "حدث");
+  check(`treaties beside a congress are NOT reported (${history.vienna} findings)`,
+    history.vienna === 0);
+  check(`treaties beside a peace are NOT reported (${history.westphalia})`,
+    history.westphalia === 0);
+  check(`Persian dynasties beside each other are NOT reported (${history.safavid})`,
+    history.safavid === 0);
+  check(`universities beside each other are NOT reported (${history.universities})`,
+    history.universities === 0);
+
+  // The tally guard on its own: even with the answer classified wrongly, three
+  // options that agree with each other outvote it.
+  const tally = await page.evaluate(() => {
+    const D = { "س": "مدينة في العراق", "أ": "معركة وقعت عام 1187",
+                "ب": "معركة فاصلة", "ج": "غزوة من غزوات الرسول" };
+    const one = { "س": "مدينة في العراق", "أ": "معركة وقعت عام 1187",
+                  "ب": "مدينة كبيرة", "ج": "مدينة ساحلية" };
+    const run = (D) => distSmartFindings(
+      [{ catId: "c", cat: "ت", q: "س؟", a: "س", d: ["أ", "ب", "ج"], uses: true, points: 100 }], D);
+    return { allAgree: run(D).length, minority: run(one).length };
+  });
+  check(`three options agreeing against the answer are left alone (${tally.allAgree})`,
+    tally.allAgree === 0);
+  check(`…but a single odd option among matching ones is still reported (${tally.minority})`,
+    tally.minority === 1);
+
   // The matcher, fed descriptions directly — no Wikipedia call in CI.
   const smart = await page.evaluate(() => {
     const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
