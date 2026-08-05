@@ -245,7 +245,91 @@ try {
     closeDistModal();
     return { n, on };
   });
-  check("the report shows both tabs, one selected", tabs.n === 2 && tabs.on === 1);
+  check("the report shows its tabs, one selected", tabs.n === 3 && tabs.on === 1);
+
+  // ---- «فحص ذكي»: is the option even the same KIND of thing? ----
+  // The classifier is a pure function, so it is tested with no network at all.
+  // The reported case is my own earlier mistake: «سماكداون», a TV show, offered
+  // as a wrong answer to a question whose answer is a wrestler.
+  const kinds = await page.evaluate(() => ({
+    fort: distKindOf("حصن تاريخي في محافظة ظفار بسلطنة عمان"),
+    show: distKindOf("برنامج مصارعة تلفزيوني أمريكي"),
+    person: distKindOf("مصارع محترف أمريكي"),
+    brand: distKindOf("شركة أمريكية متعددة الجنسيات"),
+    unknownEmpty: distKindOf(""),
+    unknownVague: distKindOf("شيء ما لا يمكن تصنيفه هنا"),
+  }));
+  check(`a fort reads as a place (${kinds.fort})`, kinds.fort === "مكان");
+  check(`a wrestler reads as a person (${kinds.person})`, kinds.person === "شخص");
+  check(`a TV programme reads as a work (${kinds.show})`, kinds.show === "عمل فني");
+  check(`a company reads as a company (${kinds.brand})`, kinds.brand === "شركة");
+  check("an unknown description classifies as nothing rather than guessing",
+    kinds.unknownEmpty === "" && kinds.unknownVague === "");
+
+  // The substring collisions that forced whole-word matching. Each of these
+  // classified WRONG when the rules were regexes over the raw string.
+  const collisions = await page.evaluate(() => ({
+    wrestling: distKindOf("برنامج مصارعة تلفزيوني"),   // مصارعة contains مصارع
+    kingdom: distKindOf("مملكة في شبه الجزيرة العربية"), // مملكة contains ملك
+    actressPage: distKindOf("ممثلة مصرية"),
+    valley: distKindOf("وادٍ في محافظة شمال الباطنة"),
+  }));
+  check(`«مصارعة» does not read as «مصارع» (${collisions.wrestling})`, collisions.wrestling === "عمل فني");
+  check(`«مملكة» does not read as «ملك» (${collisions.kingdom})`, collisions.kingdom === "مكان");
+  check(`an actress is still a person (${collisions.actressPage})`, collisions.actressPage === "شخص");
+
+  // The matcher, fed descriptions directly — no Wikipedia call in CI.
+  const smart = await page.evaluate(() => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-w", name: "مصارعة حره", image: "", order: 1, questions: [
+      q(100, "من يُلقب بـ The Viper؟", "راندي أورتن", ["سماكداون", "درو ماكنتاير", "رومان رينز"]),
+      q(200, "من هو أقوى مصارع؟", "جون سينا", ["ذا روك", "بروك ليسنر", "أندرتيكر"]),
+    ] }]);
+    state.communityCategories = [];
+    const desc = {
+      "راندي أورتن": "مصارع محترف أمريكي",
+      "سماكداون": "برنامج مصارعة تلفزيوني أمريكي",
+      "درو ماكنتاير": "مصارع محترف اسكتلندي",
+      "رومان رينز": "مصارع محترف أمريكي",
+      "جون سينا": "مصارع محترف وممثل أمريكي",
+      "ذا روك": "مصارع محترف وممثل أمريكي",
+      "بروك ليسنر": "مصارع محترف أمريكي",
+      "أندرتيكر": "مصارع محترف أمريكي",
+    };
+    const items = distCollect().filter(i => i.catId === "pub-w");
+    const f = distSmartFindings(items, desc);
+    return { n: f.length, opts: f.map(x => x.option), why: f[0] && f[0].why, fix: f.map(x => x.fix) };
+  });
+  check(`it flags the option of the wrong kind (${smart.opts.join(", ") || "none"})`,
+    smart.n === 1 && smart.opts[0] === "سماكداون");
+  check(`…and says why in plain Arabic (“${smart.why || ""}”)`,
+    /نوع|عمل فني|شخص/.test(smart.why || "") || (smart.why || "").indexOf("سماكداون") === 0);
+  check("…and offers NO automatic fix — a wrong kind needs a human",
+    smart.fix.every(x => x === null));
+
+  // Silence when Wikipedia knows nothing: the scanner must not invent findings
+  // from missing data, which is how a checker starts crying wolf.
+  const silent = await page.evaluate(() => {
+    const items = distCollect().filter(i => i.catId === "pub-w");
+    return {
+      noData: distSmartFindings(items, {}).length,
+      answerOnly: distSmartFindings(items, { "راندي أورتن": "مصارع محترف أمريكي" }).length,
+    };
+  });
+  check("no descriptions → no findings", silent.noData === 0);
+  check("answer known but options unknown → still no findings", silent.answerOnly === 0);
+
+  // The tab exists and stays empty until the scan is actually run.
+  const smartTab = await page.evaluate(async () => {
+    openDistModal();
+    await new Promise(r => setTimeout(r, 200));
+    const tabs = [...document.querySelectorAll("#distTabs .dist-tab")].map(b => b.textContent);
+    const btn = !!document.getElementById("distSmart");
+    closeDistModal();
+    return { tabs, btn };
+  });
+  check(`the report has three tabs (${smartTab.tabs.join(" | ")})`, smartTab.tabs.length === 3);
+  check("the «فحص ذكي» button is present", smartTab.btn);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
