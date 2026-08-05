@@ -11554,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.240";
+    const IZZBAH_BUILD = "2026-08-05.241";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16949,6 +16949,30 @@
     // with the same word as the answer — so a حصن question gets another حصن and
     // not a wadi or, as an earlier attempt produced, a TV show in place of a
     // wrestler. Same category is not the same as same kind.
+    // The points value leaking into the options is an IMPORT bug, and telling it
+    // apart from a legitimately numeric option list is the whole difficulty.
+    // «كم تبلغ قيمة استخراج هذا الرقم؟» answers «٧٠ ريال» with 60/50/40, and
+    // «كم هدف سجل عماد الحوسني؟» answers «٥٢ هدف» with ٤١/٤٨/٥٩ — both were
+    // reported as errors by an earlier version that only asked "are they all
+    // digits?", which they are.
+    //
+    // An option is only points-noise if it is EXACTLY one of the board's tiers.
+    // 60, 50, 40, ٤١, ٤٨, ٥٩ are not, so those two questions are left alone.
+    // The count guard is belt-and-braces: every real case in the catalogue
+    // stores a single value, so a genuine three-option set that happens to read
+    // 100 / 200 / 300 cannot be caught by this either.
+    const DIST_POINT_TIERS = [100, 200, 300, 400, 500];
+    function distIsDigits(v) { return /^[0-9\u0660-\u0669]+$/.test(String(v == null ? "" : v).trim()); }
+    function distToNumber(v) {
+      return parseInt(String(v).trim().replace(/[\u0660-\u0669]/g,
+        d => String(d.charCodeAt(0) - 0x0660)), 10);
+    }
+    function distIsPointsNoise(list) {
+      if (!list || !list.length) return false;
+      if (!list.every(d => distIsDigits(d) && DIST_POINT_TIERS.indexOf(distToNumber(d)) >= 0)) return false;
+      const distinct = new Set(list.map(distToNumber));
+      return list.length < 3 || distinct.size === 1;
+    }
     // Per-category index, built once per scan. Without it distSuggest filtered
     // the entire catalogue on every call — with 4,560 questions and about as
     // many findings that is ~20M operations, and pressing the button took 25
@@ -17032,10 +17056,9 @@
           // version reported them all as junk to delete, which would have thrown
           // away good authoring on the scanner's say-so.
           // Only genuinely corrupt data is worth reporting here.
-          const onlyDigits = it.d.length && it.d.every(d => /^[0-9٠-٩]+$/.test(String(d).trim()));
-          if (onlyDigits) {
+          if (distIsPointsNoise(it.d)) {
             found.push({ it, kind: "points", sev: 2,
-              why: "الخيار المخزّن هو قيمة النقاط، لا إجابة خاطئة",
+              why: "الخيار المخزّن هو قيمة نقاط (١٠٠/٢٠٠/٣٠٠/٤٠٠/٥٠٠)، لا إجابة خاطئة",
               fix: { type: "clear" } });
           }
           return;
@@ -17061,11 +17084,9 @@
             fix: { type: "drop", idx: emptyIdx } });
           return;
         }
-        // The points value leaking into the options — an import bug, not authoring.
-        const digits = s => /^[0-9٠-٩]+$/.test(String(s).trim());
-        if (it.d.length && it.d.every(digits) && !digits(it.a)) {
+        if (distIsPointsNoise(it.d) && !distIsDigits(it.a)) {
           found.push({ it, kind: "points", sev: 2,
-            why: "الخيار المخزّن هو قيمة النقاط، لا إجابة خاطئة",
+            why: "الخيار المخزّن هو قيمة نقاط (١٠٠/٢٠٠/٣٠٠/٤٠٠/٥٠٠)، لا إجابة خاطئة",
             fix: { type: "clear" } });
           return;
         }
