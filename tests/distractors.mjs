@@ -190,54 +190,35 @@ try {
   check(`a clean catalogue (built-ins included) reports no defects (${clean.rec} recycled, separate tab)`,
     clean.n === 0 && /clean/.test(clean.cls));
 
-  // ---- options recycled from other answers in the same category ----
-  // Reported by the owner: "some of the categories' options are from the other
-  // answers in the same category". Not malformed — the game works — so it gets
-  // its own tab and its own severity, because in some live categories it is
-  // nearly every question and would otherwise bury the real defects.
-  const rec = await page.evaluate(async () => {
+  // ---- recycling another answer is NOT a defect ----
+  // The owner: "some of these are different questions' answers within the same
+  // category but they still fit, as they are countries as well". In «علم أي
+  // دولة؟» the options البحرين / عُمان / الكويت are other questions' answers and
+  // they are exactly right. What goes wrong is an option that does not FIT, and
+  // that is a judgement about KIND — «فحص ذكي» — not about where the string came
+  // from. Recycling is now counted for information and never reported.
+  const recy = await page.evaluate(async () => {
     const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
-    window.IZZBAH.applyPublished([{ id: "pub-s", name: "مواقع في عمان", image: "", order: 1, questions: [
-      q(100, "موقع ١؟", "حصن مرباط", ["حصن مرباط", "حصن سدح", "حصن رخيوت"]),   // answer in its own options
-      q(200, "موقع ٢؟", "حصن سدح", ["حصن نخل", "حصن الخندق", "حصن السليف"]),
-      q(300, "موقع ٣؟", "حصن نخل", ["حصن مرباط", "حصن بهلا", "حصن الرستاق"]),  // recycled
-      q(400, "موقع ٤؟", "حصن بهلا", ["حصن سدح", "حصن الحزم", "حصن جبرين"]),    // recycled
+    window.IZZBAH.applyPublished([{ id: "pub-flags", name: "أعلام", image: "", order: 1, questions: [
+      q(100, "علم أي دولة؟", "قطر", ["البحرين", "عُمان", "الكويت"]),
+      q(200, "علم أي دولة؟", "البحرين", ["قطر", "الكويت", "عُمان"]),
+      q(300, "علم أي دولة؟", "الكويت", ["قطر", "البحرين", "عُمان"]),
     ] }]);
     state.communityCategories = [];
-    const before = distFindIssues().found;
-    const answersOf = () => new Set(state.publishedCategories.find(c => c.id === "pub-s")
-      .questions.map(x => distNorm(x.a)));
-
-    distTab = "bad"; distFixAll(); await new Promise(r => setTimeout(r, 150));
-    const midBad = distFindIssues().found.filter(f => f.sev < 4).length;
-
-    distTab = "recycled"; distFixAll(); await new Promise(r => setTimeout(r, 150));
-    const after = distFindIssues().found;
-    const cat = state.publishedCategories.find(c => c.id === "pub-s");
-    const ans = answersOf();
+    state.noChoiceCategories = [];
+    const r = distFindIssues();
     return {
-      recBefore: before.filter(f => f.kind === "recycled").length,
-      badBefore: before.filter(f => f.sev < 4).length,
-      midBad,
-      recAfter: after.filter(f => f.kind === "recycled").length,
-      anyLeft: after.length,
-      // the real property: no option is any question's answer any more
-      leaks: cat.questions.flatMap(x => x.distractors.filter(d => ans.has(distNorm(d)))),
-      sizes: cat.questions.map(x => x.distractors.length),
+      findings: r.found.filter(f => f.it.catId === "pub-flags").length,
+      recycled: r.recycled,
+      kinds: r.found.map(f => f.kind),
     };
   });
-  check(`recycled answers are detected (${rec.recBefore} found)`, rec.recBefore >= 3);
-  check(`«إصلاح الكل» clears the malformed tab (${rec.badBefore} → ${rec.midBad})`,
-    rec.badBefore > 0 && rec.midBad === 0);
-  check(`«إصلاح الكل» clears the recycled tab (${rec.recAfter} left)`, rec.recAfter === 0);
-  check("…and no option is another question's answer afterwards",
-    rec.leaks.length === 0);
-  check("…without losing any options along the way",
-    rec.sizes.every(n => n === 3));
-
-  // The malformed-tab fix may fall back to using an answer, which the recycled
-  // pass then cleans. Pinning that the two passes compose rather than fight.
-  check("the two passes compose to a fully clean category", rec.anyLeft === 0);
+  check(`a flags category whose options are all other answers reports nothing (${recy.findings})`,
+    recy.findings === 0);
+  check(`…though the recycling is still counted for information (${recy.recycled})`,
+    recy.recycled > 0);
+  check("«إجابة معادة» is no longer a finding kind at all",
+    !recy.kinds.includes("recycled"));
 
   const tabs = await page.evaluate(async () => {
     openDistModal();
@@ -247,7 +228,7 @@ try {
     closeDistModal();
     return { n, on };
   });
-  check("the report shows its tabs, one selected", tabs.n === 3 && tabs.on === 1);
+  check("the report shows its tabs, one selected", tabs.n === 2 && tabs.on === 1);
 
   // ---- «فحص ذكي»: is the option even the same KIND of thing? ----
   // The classifier is a pure function, so it is tested with no network at all.
@@ -330,7 +311,7 @@ try {
     closeDistModal();
     return { tabs, btn };
   });
-  check(`the report has three tabs (${smartTab.tabs.join(" | ")})`, smartTab.tabs.length === 3);
+  check(`the report has two tabs (${smartTab.tabs.join(" | ")})`, smartTab.tabs.length === 2);
   check("the «فحص ذكي» button is present", smartTab.btn);
 
   // ---- it has to be usable at the real catalogue size ----
@@ -348,9 +329,13 @@ try {
     for (let c = 0; c < 40; c++) {
       const qs = [];
       for (let i = 0; i < 114; i++) {
+        // Each question carries a REAL defect (its own answer among the
+        // options), so the scan has findings to build and draw. Recycled
+        // options are no longer findings, so a fixture built from those would
+        // measure an empty report.
         qs.push({ points: 100 + (i % 5) * 100, q: `سؤال ${c}-${i}`, a: `حصن رقم ${c}-${i}`,
           image: "", answerImage: "",
-          distractors: [`حصن رقم ${c}-${(i + 1) % 114}`, `خيار ${c}-${i}-ب`, `خيار ${c}-${i}-ج`] });
+          distractors: [`حصن رقم ${c}-${i}`, `خيار ${c}-${i}-ب`, `خيار ${c}-${i}-ج`] });
       }
       cats.push({ id: "pub-perf-" + c, name: "فئة " + c, image: "", order: c, questions: qs });
     }
