@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.255";
+    const IZZBAH_BUILD = "2026-08-05.256";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17725,21 +17725,90 @@
     // nothing, and the admin types their own — which is always available anyway,
     // because a machine that mis-sorted the options is not the thing to trust
     // for the final word on them.
+    // Same kind is NOT the same as relevant, and picking any same-kind term out
+    // of the category by hash is what produced «اليونان» for "first president of
+    // the United States" and «قونية» for a British prime minister. Both are
+    // places, and at the time the answer had been misread as a place, so the
+    // suggestion was working exactly as written and was still useless.
+    //
+    // The scan already holds a sentence about every term, which is enough to
+    // rank by SUBJECT rather than by type. A candidate is scored on the words
+    // its description shares with this question's own context — the answer's
+    // description, the surviving options' descriptions, and the question text —
+    // and each shared word is worth 1/(1+how many terms in the category use it),
+    // so «أمريكي» counts for something in a mixed history category and for
+    // almost nothing in a category about America. «رئيس» and «كان» sink to zero
+    // on their own, with no stopword list to maintain.
+    //
+    // Nothing clears the floor → no suggestion. An empty box the admin types
+    // into is a better answer than a confident wrong one, which is the whole
+    // complaint here.
+    const DIST_REL_FLOOR = 1;
+    // Proclitics are stripped here as well, so «للولايات» and «الولايات» count
+    // as the same word and «وسياسي» matches «سياسي». It mangles a few innocent
+    // words on the way («بغداد» → «غداد»), which does not matter: both sides of
+    // every comparison are mangled identically, and this is only ever used to
+    // decide whether two sentences are about the same thing.
+    function distRelWords(text) {
+      return distWords(text)
+        .filter(w => w.length >= 3 && !/^\d+$/.test(w))
+        .map(distStrip)
+        .filter(w => w.length >= 3);
+    }
+    // What the question is about, and how much each source is trusted to say so.
+    // The ANSWER decides the subject; the surviving options are only what
+    // somebody happened to pick, and weighting them equally pulled a Lincoln
+    // question towards a British prime minister because one option was British.
+    function distRelContext(it, entry, cache) {
+      const ctx = new Map();
+      const add = (text, weight) => new Set(distRelWords(text))
+        .forEach(w => ctx.set(w, Math.max(ctx.get(w) || 0, weight)));
+      it.d.forEach((d, i) => { if (i !== entry.idx) add((cache[d] || "") + " " + d, 1); });
+      add(it.q, 2);
+      add((cache[it.a] || "") + " " + it.a, 3);
+      return ctx;
+    }
+    // How common each word is among the category's own terms, so that what every
+    // one of them says carries no weight.
+    function distRelFreq(e, cache) {
+      if (e.relFreq) return e.relFreq;
+      const freq = Object.create(null);
+      e.pool.forEach((val) => {
+        new Set(distRelWords(cache[val] || "")).forEach(w => {
+          freq[w] = (freq[w] || 0) + 1;
+        });
+      });
+      e.relFreq = freq;
+      return freq;
+    }
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
-      const want = distKindResolved(it.a, cache[it.a] || "",
-        Object.prototype.hasOwnProperty.call(cache, it.a));
+      const known = t => Object.prototype.hasOwnProperty.call(cache, t);
+      const want = distKindResolved(it.a, cache[it.a] || "", known(it.a));
       if (!want) return "";
       const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
       const e = distIndex && distIndex[it.catId];
       if (!e) return "";
-      const out = [];
+      const freq = distRelFreq(e, cache);
+      // What this question is about: its answer, the options that are staying,
+      // and its own wording.
+      const context = distRelContext(it, entry, cache);
+      let best = "", bestScore = 0;
       e.pool.forEach((val) => {
         if (used.has(distNorm(val))) return;
-        if (distKindResolved(val, cache[val] || "",
-              Object.prototype.hasOwnProperty.call(cache, val)) === want) out.push(val);
+        if (distKindResolved(val, cache[val] || "", known(val)) !== want) return;
+        let score = 0;
+        new Set(distRelWords(cache[val] || "")).forEach(w => {
+          if (context.has(w)) score += context.get(w) / (1 + (freq[w] || 0));
+        });
+        // Deterministic tie-break, so the same question always offers the same
+        // replacement on every device rather than shuffling between them.
+        if (score > bestScore ||
+            (score === bestScore && score > 0 && val < best)) {
+          best = val; bestScore = score;
+        }
       });
-      return out.length ? out[Math.abs(hashString(it.q + entry.option)) % out.length] : "";
+      return bestScore >= DIST_REL_FLOOR ? best : "";
     }
     // Apply an admin-chosen replacement for one option.
     function distApplySmartFix(entry, value) {
