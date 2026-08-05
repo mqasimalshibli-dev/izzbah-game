@@ -11568,7 +11568,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.245";
+    const IZZBAH_BUILD = "2026-08-05.246";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17355,19 +17355,45 @@
     }
     // Findings from the last smart run, keyed so the renderer can merge them in.
     let distSmart = { ran: false, cat: "", findings: [] };
+    // A run in flight is app-level, not panel-level: closing the sheet or walking
+    // off to another screen does not stop it (verified — the chain keeps
+    // fetching and finishes on its own). These two exist so that coming BACK
+    // mid-run behaves: the label shows real progress instead of the idle text,
+    // and pressing the button again cannot start a second run over the same
+    // terms.
+    let distSmartBusy = false;
+    let distSmartProgress = null;
     function distSmartBtnLabel() {
+      if (distSmartBusy) {
+        return distSmartProgress
+          ? `⏳ ${toArabicDigits(distSmartProgress.done)}/${toArabicDigits(distSmartProgress.total)}`
+          : "⏳ يسأل ويكيبيديا…";
+      }
       const left = distScanRemaining();
       return left ? `🧠 فحص ذكي (${toArabicDigits(left)} متبقٍ)` : "🧠 فحص ذكي";
     }
     function distRunSmart() {
+      if (distSmartBusy) {
+        appNotice("الفحص الذكي يعمل الآن",
+          distSmartProgress
+            ? `${toArabicDigits(distSmartProgress.done)} من ${toArabicDigits(distSmartProgress.total)} — يكمل حتى لو أغلقت الشاشة.`
+            : "يكمل حتى لو أغلقت الشاشة.");
+        return;
+      }
       const btn = $("#distSmart");
       const items = distCollect().filter(it => it.uses && it.d.length);
       if (!items.length) { showToast("لا توجد فئات بخيارات لفحصها"); return; }
       const terms = [];
       items.forEach(it => { terms.push(it.a); it.d.forEach(d => terms.push(d)); });
-      if (btn) { btn.disabled = true; btn.textContent = "⏳ يسأل ويكيبيديا…"; }
+      distSmartBusy = true;
+      distSmartProgress = null;
+      if (btn) { btn.disabled = true; btn.textContent = distSmartBtnLabel(); }
       distFetchDescriptions(terms, (done, total) => {
-        if (btn) btn.textContent = `⏳ ${toArabicDigits(done)}/${toArabicDigits(total)}`;
+        distSmartProgress = { done, total };
+        // The button may not be on screen at all — the label is refreshed here
+        // for whenever the panel is reopened.
+        const live = $("#distSmart");
+        if (live) live.textContent = distSmartBtnLabel();
       }).then(cache => {
         distSmart = { ran: true, cat: "", findings: distSmartFindings(items, cache) };
         distTab = "smart";
@@ -17381,7 +17407,12 @@
             : "لم يُعثر على خيار من نوع مختلف عن إجابته.");
       }).catch(() => {
         appNotice("توقّف الفحص الذكي", "تعذّر الاتصال بويكيبيديا — ما جُلب حتى الآن محفوظ، والضغط مرة أخرى يُكمل من حيث توقف.", "warn");
-      }).then(() => { if (btn) { btn.disabled = false; btn.textContent = distSmartBtnLabel(); } });
+      }).then(() => {
+        distSmartBusy = false;
+        distSmartProgress = null;
+        const live = $("#distSmart");
+        if (live) { live.disabled = false; live.textContent = distSmartBtnLabel(); }
+      });
     }
 
     const DIST_TAGS = {
@@ -17510,8 +17541,10 @@
       renderDistReport();
       const m = $("#distModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       const btn = $("#distSmart");
-      if (btn) btn.textContent = distSmartBtnLabel();
-      if (distScanInterrupted()) {
+      if (btn) { btn.textContent = distSmartBtnLabel(); btn.disabled = distSmartBusy; }
+      if (distSmartBusy) {
+        appNotice("الفحص الذكي مستمر", "يعمل في الخلفية — يمكنك إغلاق هذه الشاشة.");
+      } else if (distScanInterrupted()) {
         const left = distScanRemaining();
         appNotice("الفحص الذكي لم يكتمل",
           left ? `بقي ${toArabicDigits(left)} مصطلحاً. اضغط «فحص ذكي» ليُكمل من حيث توقف — ما جُلب سابقاً محفوظ.`

@@ -127,6 +127,56 @@ try {
   check(`descriptions survive a hard refresh (${afterReload.kept} kept)`,
     afterReload.kept === 3 && afterReload.hasOne);
 
+  // ---- the smart scan keeps going after you leave the screen ----
+  // Verified rather than assumed: with Wikipedia stubbed slow, the run is
+  // started, the sheet closed and the app navigated away, and the fetching is
+  // observed to continue and finish on its own.
+  const offscreen = await page.evaluate(async () => {
+    localStorage.removeItem("izzbah-wikikind-v1");
+    localStorage.removeItem("izzbah-wikiscan-v1");
+    const qs = [];
+    for (let i = 0; i < 60; i++) {
+      qs.push({ points: 100, q: "س" + i, a: "جواب" + i, image: "", answerImage: "",
+        distractors: ["خيار" + i + "أ", "خيار" + i + "ب", "خيار" + i + "ج"] });
+    }
+    window.IZZBAH.applyPublished([{ id: "pub-bg", name: "تاريخ", image: "", order: 1, questions: qs }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    let calls = 0;
+    const realWiki = window.wikiApi;
+    window.wikiApi = () => { calls++; return new Promise(r => setTimeout(() => r({ query: { pages: {} } }), 60)); };
+
+    openDistModal();
+    await new Promise(r => setTimeout(r, 80));
+    distRunSmart();
+    await new Promise(r => setTimeout(r, 250));
+    const mid = calls;
+    const busyLabel = document.getElementById("distSmart").textContent;
+    const secondPress = (() => { const before = calls; distRunSmart(); return calls === before; })();
+
+    closeDistModal();
+    showScreen("gameLibrary");          // leave the panel AND the screen
+    await new Promise(r => setTimeout(r, 4000));
+
+    window.wikiApi = realWiki;
+    return {
+      mid, end: calls, ran: distSmart.ran,
+      marker: localStorage.getItem("izzbah-wikiscan-v1"),
+      cached: Object.keys(JSON.parse(localStorage.getItem("izzbah-wikikind-v1") || "{}")).length,
+      busyLabel, secondPress,
+      notice: (document.getElementById("appNotice") || {}).textContent || "",
+    };
+  });
+  check(`it keeps fetching after the sheet is closed (${offscreen.mid} → ${offscreen.end} requests)`,
+    offscreen.end > offscreen.mid);
+  check(`…and finishes on its own off-screen (${offscreen.cached} terms cached)`,
+    offscreen.ran === true && offscreen.cached > 0);
+  check("…clearing the interrupted marker when it does", offscreen.marker === null);
+  check(`…and says so when it lands ("${offscreen.notice.slice(0, 34)}…")`,
+    /الفحص الذكي/.test(offscreen.notice));
+  check(`while running, the button shows progress rather than idle text ("${offscreen.busyLabel}")`,
+    /⏳/.test(offscreen.busyLabel));
+  check("pressing it again mid-run does not start a second run", offscreen.secondPress === true);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
