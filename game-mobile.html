@@ -7089,7 +7089,7 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة، وكذلك أي فئة عُطِّلت فيها «أربعة خيارات».</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
@@ -11554,7 +11554,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.241";
+    const IZZBAH_BUILD = "2026-08-05.242";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16916,18 +16916,29 @@
     // «قول غيرها» stores its BANNED WORDS there — touching them would break the
     // game — so it is excluded from every check rather than merely from fixes.
     function distIsBannedWordCategory(cat) { return isSayAnotherCategory(cat); }
-    // Categories that never show four choices by their own nature. Their
-    // distractors are dead weight, not wrong answers. The admin's per-category
-    // switch is deliberately NOT consulted: it is reversible, so a category
-    // switched off today still needs correct options for when it comes back.
+    // Skipped outright, never reported:
+    //   • «قول غيرها», whose distractors field holds the BANNED WORDS;
+    //   • any category the admin has switched «أربعة خيارات» off for
+    //     («🚫 تعطيل «أربعة خيارات»», config/noChoices).
+    // The switch was originally left out of this on the grounds that it is
+    // reversible, so the options would matter again if it were turned back on.
+    // Owner's call, 2026-08-05: if the helper is off, its option list is not
+    // worth a line in the report. Turning the category back on brings its
+    // findings back with it — the scan reads the switch every time it runs.
+    function distSkipCategory(cat) {
+      return distIsBannedWordCategory(cat) || isCategoryChoiceFree(cat && cat.id);
+    }
+    // Categories that never show four choices by their own NATURE (emoji, word
+    // guess, reactions). Their stored options are unused rather than wrong, so
+    // only outright corrupt data is reported for them.
     function distUsesOptions(cat) {
       return !(isChoiceFreeCategory(cat) || isWordGuessCategory(cat)
-        || isReactionCategory(cat) || isEmojiCategory(cat) || distIsBannedWordCategory(cat));
+        || isReactionCategory(cat) || isEmojiCategory(cat) || distSkipCategory(cat));
     }
     function distCollect() {
       const out = [];
       const push = (cat, community) => {
-        if (distIsBannedWordCategory(cat)) return;
+        if (distSkipCategory(cat)) return;
         (cat.questions || []).forEach((q, qIdx) => {
           if (!(q.q || "").trim()) return;
           out.push({

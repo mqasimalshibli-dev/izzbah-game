@@ -409,6 +409,34 @@ try {
   check("three distinct tier-looking options are left alone",
     !numeric.points.includes("٢٥٠ ألف"));
 
+  // ---- a category with «أربعة خيارات» switched off is not reported ----
+  // The admin's per-category lock (config/noChoices). If the helper is off, its
+  // option list is not worth a line in the report. The switch is read on every
+  // scan, so turning the category back on brings its findings back — the test
+  // asserts both directions, because a scanner that silences a category
+  // permanently is a worse bug than one that reports too much.
+  const locked = await page.evaluate(async () => {
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-lock", name: "تاريخ", image: "", order: 1, questions: [
+      q(100, "سؤال مكسور؟", "بغداد", ["بغداد", "دمشق", "القاهرة"]),   // answer inside its own options
+      q(200, "سؤال آخر؟", "دمشق", ["", "بيروت", "عمّان"]),            // empty option
+    ] }]);
+    state.communityCategories = [];
+    const before = distFindIssues().found.filter(f => f.it.catId === "pub-lock").length;
+
+    state.noChoiceCategories = ["pub-lock"];          // «🚫 تعطيل «أربعة خيارات»»
+    const whileLocked = distFindIssues().found.filter(f => f.it.catId === "pub-lock").length;
+
+    state.noChoiceCategories = [];                    // switched back on
+    const after = distFindIssues().found.filter(f => f.it.catId === "pub-lock").length;
+    return { before, whileLocked, after };
+  });
+  check(`a normal category reports its problems (${locked.before})`, locked.before >= 2);
+  check(`…none of them once «أربعة خيارات» is switched off (${locked.whileLocked})`,
+    locked.whileLocked === 0);
+  check(`…and they come back when it is switched on again (${locked.after})`,
+    locked.after === locked.before);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
