@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.256";
+    const IZZBAH_BUILD = "2026-08-05.257";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17057,6 +17057,28 @@
       try { localStorage.setItem(DIST_DONE_KEY, JSON.stringify(m)); } catch (e) {}
     }
     function distSig(it) { return `${it.catId}|${distNorm(it.q)}|${distNorm(it.a)}`; }
+    // A decision is remembered against the OPTION it was about, not just the
+    // question — a question can have two bad options and often does.
+    //
+    // Per-question was the previous rule, and it was right about the thing it
+    // was written for and wrong about this. Fixing «الإجابة نفسها» by dropping
+    // the option leaves two options, and the question came straight back as
+    // «ناقص»: the report ignoring the fix just made. Suppressing the whole
+    // question stopped that — and also meant the SECOND wrong option in a
+    // question was never shown, and could not be, ever.
+    //
+    // So both are recorded: the options dealt with, and the question-level
+    // kinds. An option-specific finding is quiet only if that option was dealt
+    // with; a question-level one only if that kind was. The «ناقص» case is kept
+    // quiet honestly rather than by accident — dropping an option records
+    // «short» at the same time, because the fix is what created it.
+    function distDoneEntry(map, sig) {
+      const raw = map[sig];
+      if (!raw) return null;
+      // Entries written before this build are a bare array of kinds.
+      if (Array.isArray(raw)) return { kinds: raw.slice(), opts: [] };
+      return { kinds: (raw.kinds || []).slice(), opts: (raw.opts || []).slice() };
+    }
     // ---- keeping the two halves in step across the admin's devices ----------
     //
     // Decisions merge as a UNION: «fixed» and «skipped» both mean "I have dealt
@@ -17070,7 +17092,12 @@
       const out = {};
       [local || {}, remote || {}].forEach(src => {
         Object.keys(src).forEach(sig => {
-          out[sig] = [...new Set((out[sig] || []).concat(src[sig] || []))];
+          const add = distDoneEntry(src, sig) || { kinds: [], opts: [] };
+          const cur = out[sig] || { kinds: [], opts: [] };
+          out[sig] = {
+            kinds: [...new Set(cur.kinds.concat(add.kinds))],
+            opts: [...new Set(cur.opts.concat(add.opts))],
+          };
         });
       });
       return out;
@@ -17115,13 +17142,21 @@
         return got;
       }).catch(() => ({ kinds: 0, done: 0, at: 0 }));
     }
-    function distMarkDone(entry) {
+    function distMarkDone(entry, alsoKinds) {
       if (!entry || !entry.it) return;
       const m = distDone();
       const sig = distSig(entry.it);
-      const kinds = new Set(m[sig] || []);
+      const cur = distDoneEntry(m, sig) || { kinds: [], opts: [] };
+      const kinds = new Set(cur.kinds);
+      const opts = new Set(cur.opts);
       kinds.add(entry.kind);
-      m[sig] = [...kinds];
+      (alsoKinds || []).forEach(k => kinds.add(k));
+      // Findings that name an option are remembered by that option, so the
+      // other options of the same question stay under review.
+      if (entry.option != null && String(entry.option).trim()) {
+        opts.add(distNorm(entry.option));
+      }
+      m[sig] = { kinds: [...kinds], opts: [...opts] };
       distDoneSave(m);
       distPushSync();
     }
@@ -17131,7 +17166,12 @@
     // the admin's side, the report ignoring the fix they just made. The kinds
     // are still recorded, but any recorded fix quiets the question until its
     // text or answer changes.
-    function distIsDone(doneMap, it) { return !!doneMap[distSig(it)]; }
+    function distIsDone(doneMap, it, kind, option) {
+      const e = distDoneEntry(doneMap, distSig(it));
+      if (!e) return false;
+      if (option != null && String(option).trim()) return e.opts.indexOf(distNorm(option)) >= 0;
+      return e.kinds.indexOf(kind) >= 0;
+    }
     // Skipping is the other half of fixing. Not every finding is a mistake —
     // the option may be fine and the rule merely blunt — and without this the
     // only ways to clear one were to change data that did not need changing, or
@@ -17220,7 +17260,7 @@
       distIndex = distBuildIndex(items);
       const found = [];
       const done = distDone();
-      const push = f => { if (!distIsDone(done, f.it)) found.push(f); };
+      const push = f => { if (!distIsDone(done, f.it, f.kind, f.option)) found.push(f); };
       let recycledCount = 0;
       // Every ANSWER in each category, so an option can be recognised as some
       // other question's answer recycled as a wrong one.
@@ -17236,7 +17276,7 @@
         if (!it.uses) return;   // skipped upstream; kept as a guard
         const dupIdx = nd.findIndex((d, i) => d && d === na);
         if (dupIdx >= 0) {
-          push({ it, kind: "answer", sev: 1,
+          push({ it, kind: "answer", sev: 1, option: it.d[dupIdx],
             why: "أحد الخيارات هو الإجابة الصحيحة نفسها — تظهر مرتين",
             fix: { type: "replace", idx: dupIdx } });
           return;
@@ -17245,7 +17285,7 @@
         let dupPair = -1;
         nd.forEach((d, i) => { if (!d) return; if (seen.has(d)) dupPair = i; else seen.set(d, i); });
         if (dupPair >= 0) {
-          push({ it, kind: "twice", sev: 2, why: "خياران متطابقان",
+          push({ it, kind: "twice", sev: 2, option: it.d[dupPair], why: "خياران متطابقان",
             fix: { type: "replace", idx: dupPair } });
           return;
         }
@@ -17296,7 +17336,10 @@
       if (it.community) { cat = (state.communityCategories || []).find(c => c.id === it.catId); kind = "community"; }
       else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === it.catId) || m.extras.find(c => c.id === it.catId); }
       if (!cat) { showToast("تعذّر إيجاد الفئة"); return; }
-      distMarkDone(entry);
+      // A «drop» takes the question to two options, which IS «ناقص». Recording
+      // it here is what keeps the .248 behaviour: the admin is not told off for
+      // the direct consequence of the fix they were just offered.
+      distMarkDone(entry, fx.type === "drop" ? ["short"] : null);
       const clone = JSON.parse(JSON.stringify(cat));
       // The index can move if something else was edited first, so re-find the
       // question by its own text rather than trusting the stored position.
@@ -17707,7 +17750,7 @@
           const dKind = dKinds[i];
           if (!dKind || dKind === aKind) return;   // unknown or matching -> fine
           if (tally[dKind] > tally[aKind]) return; // the answer is the odd one out
-          if (distIsDone(done, it)) return;
+          if (distIsDone(done, it, "kindmix", d)) return;
           out.push({
             it, kind: "kindmix", sev: 2, idx: i, option: d,
             why: `«${d}» ${dKind}، بينما الإجابة ${aKind}`,
@@ -17810,6 +17853,18 @@
       });
       return bestScore >= DIST_REL_FLOOR ? best : "";
     }
+    // Recompute the smart findings against the CURRENT data, using the verdicts
+    // already held — no Wikipedia call. A replaced option is a new term, so its
+    // kind is resolved from the description cache if it is there and left
+    // unknown (never reported) if it is not.
+    function distRecomputeSmart() {
+      if (!distSmart.ran) return;
+      distSmart = {
+        ran: true, cat: "",
+        findings: distSmartFindings(
+          distCollect().filter(it => it.uses && it.d.length), distKindCache()),
+      };
+    }
     // Apply an admin-chosen replacement for one option.
     function distApplySmartFix(entry, value) {
       const v = String(value == null ? "" : value).trim();
@@ -17820,9 +17875,18 @@
       }
       entry.fix = { type: "replace", idx: entry.idx, value: v };
       distApplyFix(entry, true);
+      // Re-examine, rather than just dropping this row. A question can have
+      // more than one wrong option — and until now fixing the first hid the
+      // whole question, so the second could never be reached. The decision is
+      // recorded against the OPTION, so the rest of the question stays under
+      // review and the replacement itself is checked like anything else.
+      distRecomputeSmart();
       distSmart.findings = distSmart.findings.filter(f => f !== entry);
+      const left = distSmart.findings.filter(f => distSig(f.it) === distSig(entry.it)).length;
       renderDistReport();
-      showToast("تم الاستبدال — جارٍ الحفظ…");
+      showToast(left
+        ? `تم الاستبدال — بقي ${toArabicDigits(left)} خيار في هذا السؤال`
+        : "تم الاستبدال — جارٍ الحفظ…");
     }
 
     // Findings from the last smart run, keyed so the renderer can merge them in.
@@ -22918,9 +22982,15 @@
     $("#distCloseBtn").addEventListener("click", closeDistModal);
     $("#distRescan").addEventListener("click", () => {
       const r = distFindIssues();
+      // …and the smart half too. It used to refresh only the mechanical checks,
+      // so after fixing an option the «لا تناسب» tab still showed the state it
+      // was scanned in. This costs no network — the verdicts are already here.
+      distRecomputeSmart();
       renderDistReport();
-      appNotice("انتهى فحص الخيارات",
-        `${toArabicDigits(r.found.filter(f => f.sev < 4).length)} ملاحظة من أصل ${toArabicDigits(r.total)} سؤال.`);
+      const nBad = r.found.filter(f => f.sev < 4).length;
+      appNotice("انتهى فحص الخيارات", distSmart.ran
+        ? `${toArabicDigits(nBad)} خلل و${toArabicDigits(distSmart.findings.length)} «لا تناسب» من أصل ${toArabicDigits(r.total)} سؤال.`
+        : `${toArabicDigits(nBad)} ملاحظة من أصل ${toArabicDigits(r.total)} سؤال.`);
     });
     $("#distFixAll").addEventListener("click", distFixAll);
     $("#distSmart").addEventListener("click", distRunSmart);
