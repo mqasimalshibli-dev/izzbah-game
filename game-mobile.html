@@ -7060,12 +7060,13 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. وتبويب «إجابات معادة» يعرض الخيارات المأخوذة من إجابات أسئلة أخرى في نفس الفئة — ليست خطأً، لكنها تجعل الخيارات تتكرّر عبر اللعبة. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — اقتراح للمراجعة، لا يُعدِّل شيئاً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. «قول غيرها» مستثناة لأن خياراتها هي الكلمات المحظورة.</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
       <div class="dup-list" id="distList"></div>
       <div class="actions">
+        <button class="secondary" id="distSmart" type="button">🧠 فحص ذكي</button>
         <button class="primary" id="distFixAll" type="button" hidden>🛠 إصلاح الكل</button>
         <button class="secondary" id="distRescan" type="button">↻ إعادة الفحص</button>
         <button class="ghost" id="distCloseBtn" type="button">إغلاق</button>
@@ -11479,7 +11480,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.236";
+    const IZZBAH_BUILD = "2026-08-05.237";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17024,14 +17025,172 @@
       if (!quiet) renderDistReport();
       scheduleDupPersist(kind, clone);   // same debounced publisher as «المتكررات»
     }
+    // ============================================================
+    // «فحص ذكي» — is each option even the same KIND of thing as the answer?
+    //
+    // The mechanical checks catch malformed option lists. They cannot catch
+    // «سماكداون» (a TV show) offered as a wrong answer to "which wrestler", or
+    // «محافظة ظفار» offered against a wadi — which is exactly the mistake my own
+    // first auto-replacement made, so it is a real failure mode, not a
+    // hypothetical one.
+    //
+    // Same plumbing as the picture finder: Wikipedia, straight from the browser,
+    // no API key and no backend. For every distinct term in a category it reads
+    // the one-line description Wikipedia gives («حصن في سلطنة عمان»، «مسلسل
+    // تلفزيوني أمريكي») and reduces it to a coarse KIND. An option whose kind
+    // differs from its answer's is flagged.
+    //
+    // It SUGGESTS and never edits. Wikipedia is often silent or ambiguous, and
+    // two things can share a kind and still pair badly — so a wrong kind needs a
+    // human replacement, not another guess from the same machine that produced
+    // the wrong ones in the first place.
+    // Matched as WHOLE WORDS, not substrings. JS regex has no \b for Arabic, and
+    // substring matching is actively wrong here: «مصارعة» (wrestling, the sport)
+    // contains «مصارع» (a wrestler), and «مملكة» (kingdom) contains «ملك» (king),
+    // so a TV programme classified as a person and a country would have
+    // classified as one too. The description is split into words instead, with a
+    // leading ال/و stripped, and rules match a word exactly.
+    const DIST_KIND_RULES = [
+      // Work/company first: «برنامج مصارعة» must read as a programme, and those
+      // opening nouns are decisive in a Wikipedia first sentence.
+      ["عمل فني", "فيلم أفلام مسلسل مسلسلة برنامج برامج أغنية ألبوم رواية كتاب مسرحية film movie series television programme program song album novel book game"],
+      ["شركة", "شركة مؤسسة علامة مطعم مقهى سلسلة مصرف بنك متجر company brand restaurant cafe chain bank retailer corporation"],
+      ["مكان", "حصن قلعة قلاع وادي واد وديان عين جبل مدينة قرية ولاية محافظة منطقة شاطئ كهف جزيرة ميناء متحف مسجد سوق حديقة بحيرة نهر صحراء دولة عاصمة مملكة city town village fort castle valley mountain island museum beach cave region province country capital river lake"],
+      ["شخص", "لاعب لاعبة ممثل ممثلة مغني مغنية شاعر كاتب رئيس ملك سلطان أمير قائد مصارع مدرب صحابي خليفة فنان مخرج سياسي عالم رحالة مهندس طبيب footballer actor actress singer writer poet scientist president king wrestler player coach politician director"],
+      ["طعام", "طبق طعام حلوى مشروب وجبة فاكهة فواكه خضار توابل قهوة شاي عصير dish food dessert drink beverage fruit vegetable snack"],
+      ["حيوان أو نبات", "حيوان طائر سمكة زاحف حشرة ثديي نبات شجرة animal bird fish reptile insect mammal plant tree species"],
+      ["رياضة", "بطولة دوري كأس نادي منتخب مباراة league championship cup club tournament"],
+      ["حدث", "معركة غزوة حرب ثورة معاهدة زلزال battle war revolution treaty earthquake"],
+    ].map(([kind, words]) => [kind, new Set(words.split(/\s+/).filter(Boolean))]);
+    function distWords(text) {
+      return String(text || "")
+        .normalize("NFKC")
+        .replace(/[\u064B-\u0652\u0640]/g, "")
+        .toLowerCase()
+        .split(/[^\u0621-\u064Aa-z0-9]+/i)
+        .filter(Boolean)
+        .map(w => w.replace(/^(?:ال|و)/, "") || w);
+    }
+    function distKindOf(text) {
+      const words = distWords(text);
+      if (!words.length) return "";
+      for (let i = 0; i < DIST_KIND_RULES.length; i++) {
+        const set = DIST_KIND_RULES[i][1];
+        for (let j = 0; j < words.length; j++) if (set.has(words[j])) return DIST_KIND_RULES[i][0];
+      }
+      return "";
+    }
+    // term -> one-line description, cached across sessions: the same fort is an
+    // option on many questions and the catalogue barely moves between runs.
+    const DIST_KIND_CACHE_KEY = "izzbah-wikikind-v1";
+    function distKindCache() {
+      try { return JSON.parse(localStorage.getItem(DIST_KIND_CACHE_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function distKindCacheSave(map) {
+      try { localStorage.setItem(DIST_KIND_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+    // Ask Wikipedia for descriptions, 20 titles per request (exlimit caps it).
+    // Arabic first, English for whatever has no Arabic page — most brands and
+    // foreign shows only exist there.
+    function distFetchDescriptions(terms, onProgress) {
+      const cache = distKindCache();
+      const want = [...new Set(terms.map(t => String(t == null ? "" : t).trim()).filter(Boolean))]
+        .filter(t => !(t in cache));
+      if (!want.length) return Promise.resolve(cache);
+      const chunks = [];
+      for (let i = 0; i < want.length; i += 20) chunks.push(want.slice(i, i + 20));
+      let done = 0;
+      const norm = s => arNorm(String(s || "")).trim();
+      const runLang = (list, lang) => {
+        if (!list.length) return Promise.resolve([]);
+        return wikiApi(lang, {
+          titles: list.join("|"), prop: "extracts", exintro: 1, explaintext: 1,
+          exsentences: 1, exlimit: "max", redirects: 1,
+        }).then(data => {
+          const pages = (data && data.query && data.query.pages) || {};
+          const got = {}, byNorm = {};
+          Object.keys(pages).forEach(k => {
+            const pg = pages[k];
+            if (pg && pg.title && pg.extract && pg.extract.trim()) {
+              got[pg.title] = pg.extract.trim();
+              byNorm[norm(pg.title)] = pg.extract.trim();
+            }
+          });
+          const missing = [];
+          list.forEach(t => {
+            const hit = got[t] || byNorm[norm(t)];
+            if (hit) cache[t] = hit; else missing.push(t);
+          });
+          return missing;
+        }).catch(() => list);
+      };
+      return chunks.reduce((chain, chunk) => chain.then(() =>
+        runLang(chunk, "ar")
+          .then(miss => runLang(miss, "en"))
+          .then(stillMissing => {
+            // Remember the misses as "" too, or every run re-asks Wikipedia
+            // about the same terms it has never heard of.
+            (stillMissing || []).forEach(t => { if (!(t in cache)) cache[t] = ""; });
+            done++;
+            if (onProgress) onProgress(done, chunks.length);
+          })
+      ), Promise.resolve()).then(() => { distKindCacheSave(cache); return cache; });
+    }
+    // Pure, and therefore testable with no network: given descriptions, which
+    // options are a different kind of thing from their answer?
+    function distSmartFindings(items, descByTerm) {
+      const out = [];
+      (items || []).forEach(it => {
+        if (!it.uses || !it.d.length) return;
+        const aDesc = descByTerm[it.a] || "";
+        const aKind = distKindOf(aDesc);
+        if (!aKind) return;                        // unknown answer -> say nothing
+        it.d.forEach((d, i) => {
+          const dDesc = descByTerm[d] || "";
+          const dKind = distKindOf(dDesc);
+          if (!dKind || dKind === aKind) return;   // unknown or matching -> fine
+          out.push({
+            it, kind: "kindmix", sev: 2, idx: i, option: d,
+            why: `«${d}» ${dKind}، بينما الإجابة ${aKind}`,
+            detail: `${it.a}: ${aDesc.slice(0, 80)}`,
+            fix: null,   // a wrong KIND needs a human replacement, not a guess
+          });
+        });
+      });
+      return out;
+    }
+    // Findings from the last smart run, keyed so the renderer can merge them in.
+    let distSmart = { ran: false, cat: "", findings: [] };
+    function distRunSmart() {
+      const btn = $("#distSmart");
+      const items = distCollect().filter(it => it.uses && it.d.length);
+      if (!items.length) { showToast("لا توجد فئات بخيارات لفحصها"); return; }
+      const terms = [];
+      items.forEach(it => { terms.push(it.a); it.d.forEach(d => terms.push(d)); });
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ يسأل ويكيبيديا…"; }
+      distFetchDescriptions(terms, (done, total) => {
+        if (btn) btn.textContent = `⏳ ${toArabicDigits(done)}/${toArabicDigits(total)}`;
+      }).then(cache => {
+        distSmart = { ran: true, cat: "", findings: distSmartFindings(items, cache) };
+        distTab = "smart";
+        renderDistReport();
+        showToast(distSmart.findings.length
+          ? `وُجدت ${toArabicDigits(distSmart.findings.length)} ملاحظة ذكية`
+          : "لم يجد الفحص الذكي خيارات من نوع مختلف");
+      }).catch(() => showToast("تعذّر الاتصال بويكيبيديا — حاول لاحقاً"))
+        .then(() => { if (btn) { btn.disabled = false; btn.textContent = "🧠 فحص ذكي"; } });
+    }
+
     const DIST_TAGS = {
       answer: ["الإجابة نفسها", "conf"], twice: ["مكرّر", "dup"], empty: ["فارغ", "dup"],
-      points: ["نقاط", "dup"], short: ["ناقص", "dup"], recycled: ["إجابة معادة", "dup"],
+      points: ["نقاط", "dup"], short: ["ناقص", "dup"], recycled: ["إجابة معادة", "dup"], kindmix: ["نوع مختلف", "conf"],
     };
     // Which tab is showing: "bad" = the malformed ones, "recycled" = options that
     // are another question's answer.
     let distTab = "bad";
     function distVisible(found) {
+      if (distTab === "smart") return distSmart.findings;
       return found.filter(f => distTab === "recycled" ? f.sev === 4 : f.sev < 4);
     }
     function renderDistTabs(found) {
@@ -17039,7 +17198,8 @@
       const nBad = found.filter(f => f.sev < 4).length;
       const nRec = found.filter(f => f.sev === 4).length;
       wrap.innerHTML = "";
-      [["bad", `خلل (${toArabicDigits(nBad)})`], ["recycled", `إجابات معادة (${toArabicDigits(nRec)})`]]
+      const smartLabel = distSmart.ran ? `نوع مختلف (${toArabicDigits(distSmart.findings.length)})` : "فحص ذكي";
+      [["bad", `خلل (${toArabicDigits(nBad)})`], ["recycled", `إجابات معادة (${toArabicDigits(nRec)})`], ["smart", smartLabel]]
         .forEach(([id, label]) => {
           const b = document.createElement("button");
           b.type = "button";
@@ -17079,15 +17239,20 @@
       list.innerHTML = "";
       if (!shown.length) {
         sum.className = "dup-summary clean";
-        sum.textContent = distTab === "recycled"
-          ? `✓ لا خيار مأخوذ من إجابة سؤال آخر — فُحص ${toArabicDigits(total)} سؤالاً.`
-          : `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
-        list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">كل الخيارات سليمة 🎉</div>`;
+        sum.textContent = distTab === "smart"
+          ? (distSmart.ran ? "✓ لم يجد الفحص الذكي خياراً من نوع مختلف."
+                           : "اضغط «فحص ذكي» ليسأل ويكيبيديا عن نوع كل خيار.")
+          : distTab === "recycled"
+            ? `✓ لا خيار مأخوذ من إجابة سؤال آخر — فُحص ${toArabicDigits(total)} سؤالاً.`
+            : `✓ لا مشاكل في الخيارات — فُحص ${toArabicDigits(total)} سؤالاً.`;
+        list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">${distTab === "smart" && !distSmart.ran ? "لم يُشغَّل الفحص الذكي بعد" : "كل الخيارات سليمة 🎉"}</div>`;
         return;
       }
       const bad = shown.filter(f => f.sev === 1).length;
       sum.className = "dup-summary";
-      if (distTab === "recycled") {
+      if (distTab === "smart") {
+        sum.textContent = `${toArabicDigits(shown.length)} خياراً من نوع مختلف عن إجابته — راجعها واستبدلها يدوياً.`;
+      } else if (distTab === "recycled") {
         const byCat = {};
         shown.forEach(f => { byCat[f.it.catName] = (byCat[f.it.catName] || 0) + 1; });
         const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4)
@@ -17116,6 +17281,12 @@
         why.className = "dist-why";
         why.textContent = f.why;
         occ.appendChild(why);
+        if (f.detail) {
+          const dt = document.createElement("div");
+          dt.className = "dist-opts";
+          dt.textContent = f.detail;
+          occ.appendChild(dt);
+        }
         const opts = document.createElement("div");
         opts.className = "dist-opts";
         opts.textContent = "الخيارات: " + (f.it.d.length ? f.it.d.map(d => d.trim() || "(فارغ)").join("  •  ") : "—");
@@ -21894,6 +22065,7 @@
     $("#distCloseBtn").addEventListener("click", closeDistModal);
     $("#distRescan").addEventListener("click", renderDistReport);
     $("#distFixAll").addEventListener("click", distFixAll);
+    $("#distSmart").addEventListener("click", distRunSmart);
     $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
