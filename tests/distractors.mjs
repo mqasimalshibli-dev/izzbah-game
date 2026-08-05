@@ -400,6 +400,106 @@ try {
   check(`a drama named after a quarter is not typed at all (${kindOfTerm("باب الحارة") || "unknown"})`,
     kindOfTerm("باب الحارة") === "عمل فني");
 
+  // ---- the suggested replacement has to be RELEVANT, not merely same-kind ----
+  //
+  // Reported as "the recommended distractors are irrelevant": a question about
+  // the first president of the United States was offered «اليونان», and a
+  // British prime minister «قونية». The picker took every term in the category
+  // whose KIND matched and chose one by hash — working exactly as written, and
+  // useless, because same-kind is not same-subject. A مصارعة category gets away
+  // with it (everyone in it is a wrestler); a تاريخ category holding American
+  // presidents, British premiers, Abbasid caliphs and a dozen cities does not.
+  //
+  // Ranking now uses the sentences the scan already fetched: a candidate scores
+  // on words it shares with the question's context, each worth
+  // weight/(1+how many terms in the category use it) — so «أمريكي» matters in a
+  // mixed category and almost nothing in an all-American one, while «كان» and
+  // «رئيس» sink on their own with no stopword list. The ANSWER carries the most
+  // weight, because it is what defines the subject; the surviving options carry
+  // the least, since they are only what somebody happened to pick.
+  const relevance = await page.evaluate(() => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن كان رجل دولة أمريكياً وأول رئيس للولايات المتحدة الأمريكية.",
+      "توماس جيفرسون": "توماس جيفرسون كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة الأمريكية.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة الأمريكية.",
+      "أبراهام لينكولن": "أبراهام لينكولن كان سياسياً أمريكياً وسادس عشر رئيس للولايات المتحدة الأمريكية.",
+      "بنجامين فرانكلين": "بنجامين فرانكلين كان أحد الآباء المؤسسين للولايات المتحدة الأمريكية وعالماً.",
+      "ونستون تشرشل": "ونستون تشرشل كان رجل دولة بريطانياً ورئيس وزراء المملكة المتحدة.",
+      "نيفيل تشامبرلين": "نيفيل تشامبرلين سياسي بريطاني شغل منصب رئيس وزراء المملكة المتحدة.",
+      "مارغريت تاتشر": "مارغريت تاتشر سياسية بريطانية وأول امرأة تتولى رئاسة وزراء المملكة المتحدة.",
+      "كلمنت أتلي": "كلمنت أتلي سياسي بريطاني تولى رئاسة وزراء المملكة المتحدة بعد الحرب.",
+      "هارون الرشيد": "هارون الرشيد خامس خلفاء الدولة العباسية في بغداد.",
+      "صلاح الدين الأيوبي": "صلاح الدين الأيوبي أول سلاطين الدولة الأيوبية في مصر والشام.",
+      "عمر بن الخطاب": "عمر بن الخطاب ثاني الخلفاء الراشدين وأحد صحابة النبي محمد.",
+      "اليونان": "اليونان دولة تقع في جنوب شرق أوروبا عاصمتها أثينا.",
+      "قونية": "قونية مدينة تركية تقع في وسط الأناضول.",
+      "قرطبة": "قرطبة مدينة أندلسية تقع في جنوب إسبانيا.",
+      "دمشق": "دمشق عاصمة سوريا وأقدم عاصمة مأهولة في العالم.",
+      "سماكداون": "سماكداون برنامج تلفزيوني للمصارعة المحترفة.",
+    };
+    const q = (pt, t, a, d) => ({ points: pt, q: t, a, image: "", answerImage: "", distractors: d });
+    window.IZZBAH.applyPublished([{ id: "pub-rel", name: "تاريخ", image: "", order: 1, questions: [
+      q(100, "من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن",
+        ["توماس جيفرسون", "سماكداون", "بنجامين فرانكلين"]),
+      q(300, "من كان رئيس وزراء بريطانيا خلال الحرب العالمية الثانية؟", "ونستون تشرشل",
+        ["نيفيل تشامبرلين", "قونية", "مارغريت تاتشر"]),
+      q(200, "من هو خامس الخلفاء العباسيين؟", "هارون الرشيد",
+        ["صلاح الدين الأيوبي", "اليونان", "عمر بن الخطاب"]),
+      q(400, "أي مدينة عاصمة سوريا؟", "دمشق", ["قرطبة", "قونية", "اليونان"]),
+      // These two exist so the pool actually CONTAINS a second American and a
+      // second Briton. Without them the checks below prove nothing: there is
+      // no compatriot to prefer, and offering Churchill for a Washington
+      // question is then the best available answer rather than a bad one.
+      q(500, "من ألقى خطاب غيتيسبيرغ؟", "أبراهام لينكولن",
+        ["جون آدامز", "كلمنت أتلي", "قرطبة"]),
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const items = distCollect().filter(i => i.catId === "pub-rel");
+    distIndex = distBuildIndex(items);
+    const out = {};
+    distSmartFindings(items, D).forEach(f => {
+      out[f.it.a] = { bad: f.option, suggestion: distSmartSuggest(f, D) };
+    });
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return out;
+  });
+  const US = ["جورج واشنطن", "توماس جيفرسون", "جون آدامز", "أبراهام لينكولن", "بنجامين فرانكلين"];
+  const UK = ["نيفيل تشامبرلين", "مارغريت تاتشر", "كلمنت أتلي", "ونستون تشرشل"];
+  const wash = relevance["جورج واشنطن"] || {};
+  const chur = relevance["ونستون تشرشل"] || {};
+  const abb = relevance["هارون الرشيد"] || {};
+  check(`a US-presidents question is offered an American, not «اليونان» ("${wash.suggestion}")`,
+    US.indexOf(wash.suggestion) >= 0);
+  check(`a British-PM question is offered a Briton, not «قونية» ("${chur.suggestion}")`,
+    UK.indexOf(chur.suggestion) >= 0);
+  // The other half of relevance, and the more important one: when the category
+  // holds nothing that fits, offer NOTHING. An empty box the admin types into
+  // beats a confident wrong answer — there is no Abbasid-adjacent figure left
+  // in this pool, and every same-kind candidate is American or British.
+  check(`an Abbasid-caliph question is offered nothing rather than a stranger ("${abb.suggestion}")`,
+    abb.suggestion === "");
+
+  const scoring = await page.evaluate(() => {
+    // frequency weighting: a word every term in the category uses is worthless
+    const e = { pool: new Map([["a", "a"], ["b", "b"], ["c", "c"]]) };
+    const cache = { a: "مصارع محترف أمريكي", b: "مصارع محترف كندي", c: "مصارع محترف ياباني" };
+    const freq = distRelFreq(e, cache);
+    return {
+      everywhere: freq["مصارع"], once: freq["امريكي"],
+      // proclitics are folded, so these count as the same word
+      folded: JSON.stringify(distRelWords("الولايات للولايات وسياسي سياسي")),
+      digitsDropped: distRelWords("1799 عام").indexOf("1799") < 0,
+    };
+  });
+  check(`a word every term uses is counted as common (${scoring.everywhere} of 3)`,
+    scoring.everywhere === 3);
+  check(`a distinguishing word is counted as rare (${scoring.once} of 3)`, scoring.once === 1);
+  check(`proclitics fold together (${scoring.folded})`,
+    JSON.parse(scoring.folded).join("|") === "ولايات|ولايات|سياسي|سياسي");
+  check("years are not treated as subject matter", scoring.digitsDropped);
+
   // ---- statesmen read as places, and the plurals behind it ----
   //
   // Reported with two screenshots: «جون آدامز» flagged against «جورج واشنطن»,
