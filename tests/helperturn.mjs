@@ -76,7 +76,10 @@ try {
       document.body.appendChild(bar);
       renderTeamHelpBar(bar, teamIndex, "board");
       const idx = loadout.indexOf(id);
-      const btn = bar.children[idx];
+      // The BOARD bar wraps each slot in a cell so the lifeline can carry its
+      // name underneath, so the buttons are no longer the bar's direct
+      // children. Select the slots themselves — that is what is under test.
+      const btn = bar.querySelectorAll(".qhelp-slot")[idx];
       const out = btn ? { present: true, disabled: btn.disabled, label: btn.getAttribute("aria-label") } : { present: false };
       bar.remove();
       return out;
@@ -146,7 +149,7 @@ try {
     const bar = document.createElement("div");
     document.body.appendChild(bar);
     renderTeamHelpBar(bar, 0, "board");
-    const out = [...bar.children].map(b => b.disabled);
+    const out = [...bar.querySelectorAll(".qhelp-slot")].map(b => b.disabled);
     bar.remove();
     return out;
   });
