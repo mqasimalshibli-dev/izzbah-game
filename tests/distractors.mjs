@@ -400,6 +400,123 @@ try {
   check(`a drama named after a quarter is not typed at all (${kindOfTerm("باب الحارة") || "unknown"})`,
     kindOfTerm("باب الحارة") === "عمل فني");
 
+  // ---- the second detector: an option about something else entirely --------
+  //
+  // Reported as "I still see wrong distractors but they don't show up on the
+  // scan". Kind mismatch — the only detector there was — catches an option of
+  // the wrong TYPE and nothing else. «من هو أول رئيس للولايات المتحدة؟»
+  // offering «هارون الرشيد» sails through it: a caliph and a president are both
+  // people. Type was never what made that option wrong; SUBJECT is.
+  //
+  // The four terms of a question describe their own subject between them, so
+  // they are compared with each OTHER rather than against any fixed notion of
+  // what the question is about — which also means an answer with no Wikipedia
+  // page no longer blocks the check.
+  //
+  // The peer floor is the interesting part and is calibrated on both kinds of
+  // mistake. Numerically, «صلاح الدين الأيوبي» among Abbasid caliphs (0.2) looks
+  // almost exactly like «هارون الرشيد» among US presidents (0.17); no threshold
+  // on the outlier alone separates them. What does is how strongly the REST
+  // cohere — presidents ~1.2 and forts ~1.3, caliphs only ~0.8 — because a
+  // different dynasty is still Islamic history and a defensible thing for an
+  // author to choose. Recall is given up for that on purpose.
+  const topic = await page.evaluate(() => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن كان رجل دولة أمريكياً وأول رئيس للولايات المتحدة الأمريكية.",
+      "توماس جيفرسون": "توماس جيفرسون كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة الأمريكية.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة الأمريكية.",
+      "أبراهام لينكولن": "أبراهام لينكولن كان سياسياً أمريكياً وسادس عشر رئيس للولايات المتحدة الأمريكية.",
+      "هارون الرشيد": "هارون الرشيد خامس خلفاء الدولة العباسية في بغداد.",
+      "المأمون": "المأمون سابع خلفاء الدولة العباسية وابن هارون الرشيد.",
+      "المنصور": "أبو جعفر المنصور ثاني خلفاء الدولة العباسية وباني بغداد.",
+      "المعتصم": "المعتصم بالله ثامن خلفاء الدولة العباسية.",
+      "صلاح الدين الأيوبي": "صلاح الدين الأيوبي أول سلاطين الدولة الأيوبية في مصر والشام.",
+      "قلعة نزوى": "قلعة نزوى حصن تاريخي في ولاية نزوى بمحافظة الداخلية في سلطنة عمان.",
+      "حصن جبرين": "حصن جبرين قلعة تاريخية في ولاية بهلاء بمحافظة الداخلية في سلطنة عمان.",
+      "قلعة بهلاء": "قلعة بهلاء حصن تاريخي في ولاية بهلاء بمحافظة الداخلية في سلطنة عمان.",
+      "قلعة الجاهلي": "قلعة الجاهلي حصن تاريخي في مدينة العين بدولة الإمارات العربية المتحدة.",
+      "برج خليفة": "برج خليفة ناطحة سحاب في مدينة دبي بدولة الإمارات العربية المتحدة.",
+      "ليونيل ميسي": "ليونيل ميسي لاعب كرة قدم أرجنتيني يلعب كمهاجم.",
+      "كريستيانو رونالدو": "كريستيانو رونالدو لاعب كرة قدم برتغالي يلعب كمهاجم.",
+      "نيمار": "نيمار لاعب كرة قدم برازيلي يلعب كمهاجم.",
+      "كيليان مبابي": "كيليان مبابي لاعب كرة قدم فرنسي يلعب كمهاجم.",
+      "بيليه": "بيليه لاعب كرة قدم برازيلي سابق يعد من أعظم اللاعبين في التاريخ.",
+      "ألف": "ألف شيء ما.", "باء": "باء شيء آخر.", "جيم": "جيم شيء ثالث.", "دال": "دال شيء رابع.",
+    };
+    const run = (q, a, d, n) => distTopicFindings(
+      [{ catId: "t" + n, cat: "ت", qIdx: 0, q, a, d, uses: true, points: 100 }], D, {});
+    const one = (q, a, d, n) => { const f = run(q, a, d, n); return f.length ? f[0].option : ""; };
+    return {
+      caliphAmongPresidents: one("من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن",
+        ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"], 1),
+      towerAmongForts: one("ما أشهر حصن في نزوى؟", "قلعة نزوى",
+        ["حصن جبرين", "قلعة بهلاء", "برج خليفة"], 2),
+      allPresidents: one("من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن",
+        ["توماس جيفرسون", "أبراهام لينكولن", "جون آدامز"], 3),
+      allCaliphs: one("من خامس الخلفاء العباسيين؟", "هارون الرشيد",
+        ["المأمون", "المنصور", "المعتصم"], 4),
+      ayyubidAmongCaliphs: one("من خامس الخلفاء العباسيين؟", "هارون الرشيد",
+        ["المأمون", "صلاح الدين الأيوبي", "المنصور"], 5),
+      allFootballers: one("من أفضل لاعب كرة قدم؟", "ليونيل ميسي",
+        ["كريستيانو رونالدو", "بيليه", "نيمار"], 6),
+      thinDescriptions: one("سؤال بأوصاف قصيرة؟", "ألف", ["باء", "جيم", "دال"], 7),
+      foreignFort: one("ما أشهر حصن في نزوى؟", "قلعة نزوى",
+        ["حصن جبرين", "قلعة بهلاء", "قلعة الجاهلي"], 8),
+      // an undescribed option is obscure, not off-topic
+      undescribed: one("ما أشهر حصن في نزوى؟", "قلعة نزوى",
+        ["حصن جبرين", "قلعة بهلاء", "مصطلح مجهول"], 9),
+      tagged: (() => { const f = run("من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن",
+        ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"], 10); return f.length ? f[0].kind : ""; })(),
+      whyText: (() => { const f = run("من هو أول رئيس للولايات المتحدة؟", "جورج واشنطن",
+        ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"], 11); return f.length ? f[0].why : ""; })(),
+    };
+  });
+  check(`a caliph among US presidents is caught ("${topic.caliphAmongPresidents}")`,
+    topic.caliphAmongPresidents === "هارون الرشيد");
+  check(`a skyscraper among Omani forts is caught ("${topic.towerAmongForts}")`,
+    topic.towerAmongForts === "برج خليفة");
+  check(`…and it is labelled as its own kind of finding ("${topic.tagged}")`,
+    topic.tagged === "offtopic");
+  check(`…and says why in plain Arabic ("${topic.whyText.slice(0, 34)}…")`,
+    /لا علاقة له بموضوع السؤال/.test(topic.whyText));
+  check("four presidents together are left alone", topic.allPresidents === "");
+  check("four caliphs together are left alone", topic.allCaliphs === "");
+  check("five footballers across eras are left alone", topic.allFootballers === "");
+  check("an Ayyubid among Abbasids is a weaker option, not a reported one",
+    topic.ayyubidAmongCaliphs === "");
+  check("a fort in another country is still a fort", topic.foreignFort === "");
+  check("thin descriptions all round report nothing", topic.thinDescriptions === "");
+  check("an option with no description is obscure, not off-topic", topic.undescribed === "");
+
+  // ---- and the scan has to be quick enough to actually run ----
+  // It was a strict chain: one request, wait, the next. At the live catalogue
+  // size that is ~370 round trips end to end.
+  const speed = await page.evaluate(async () => {
+    localStorage.removeItem("izzbah-wikikind-v1");
+    localStorage.removeItem("izzbah-distkinds-v1");
+    distKindsReset();
+    const terms = [];
+    for (let i = 0; i < 400; i++) terms.push("مصطلح" + i);
+    let inFlight = 0, peak = 0, calls = 0;
+    const real = window.wikiApi;
+    window.wikiApi = () => {
+      calls++; inFlight++; peak = Math.max(peak, inFlight);
+      return new Promise(res => setTimeout(() => { inFlight--; res({ query: { pages: {} } }); }, 40));
+    };
+    const t0 = performance.now();
+    await distFetchDescriptions(terms, () => {});
+    const ms = Math.round(performance.now() - t0);
+    window.wikiApi = real;
+    return { calls, peak, ms, cached: Object.keys(distKindCache()).length,
+             serial: 20 * 2 * 40 };
+  });
+  check(`the fetch runs several chunks at once (peak ${speed.peak} in flight)`,
+    speed.peak > 1 && speed.peak <= 4);
+  check(`…so 400 terms take ${speed.ms}ms rather than ${speed.serial}ms+ in a chain`,
+    speed.ms < speed.serial * 0.6);
+  check(`…and every term still ends up cached (${speed.cached})`, speed.cached === 400);
+  check("…including the ones Wikipedia had no page for", speed.cached === 400);
+
   // ---- a question can have MORE THAN ONE wrong option ----
   //
   // Asked for as "have the ability to rescan as some questions have more than
@@ -483,13 +600,14 @@ try {
     const items = distCollect().filter(i => i.catId === "pub-rs");
     distIndex = distBuildIndex(items);
     distSmart = { ran: true, cat: "", findings: distSmartFindings(items, D) };
-    const before = distSmart.findings.length;
+    const mine = () => distSmart.findings.filter(f => f.it.catId === "pub-rs").length;
+    const before = mine();
     // edit the data behind the report's back, the way the category editor would
     const cat = state.publishedCategories.find(c => c.id === "pub-rs");
     cat.questions[0].distractors = ["أندرتيكر", "جون سينا", "ذا روك"];
     document.getElementById("distRescan").click();
     await new Promise(r => setTimeout(r, 250));
-    const after = distSmart.findings.length;
+    const after = mine();
     const notice = (document.getElementById("appNotice") || {}).textContent || "";
     distKindsReset(); Object.assign(distKinds(), keep);
     return { before, after, notice };
@@ -980,8 +1098,12 @@ try {
     distApplySmartFix(entry, "كيفن أوينز");           // a real replacement
     await new Promise(r => setTimeout(r, 120));
     const after = state.publishedCategories.find(c => c.id === "pub-w2").questions[0].distractors.slice();
+    // Counted within this test's own category. Built-in categories are served
+    // a RANDOM board draw per page load and can contribute findings of their
+    // own, which made every global count here a coin toss.
     return { suggested, before, afterAnswer, afterDupe, after,
-             left: distSmart.findings.length, option: entry.option };
+             left: distSmart.findings.filter(f => f.it.catId === "pub-w2").length,
+             option: entry.option };
   });
   check(`the offending option is the show, not a wrestler ("${smartFix.option}")`,
     smartFix.option === "سماكداون");
@@ -997,6 +1119,10 @@ try {
 
   const smartUi = await page.evaluate(async () => {
     distTab = "smart";
+    // What is under test is the ROW, so the list is narrowed to this test's own
+    // findings — a stray built-in one would change the counts without saying
+    // anything about the renderer.
+    distSmart.findings = distSmart.findings.filter(f => f.it.catId === "pub-w2");
     renderDistReport();
     await new Promise(r => setTimeout(r, 120));
     return {

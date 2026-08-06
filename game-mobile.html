@@ -7112,7 +7112,7 @@
         <h3 class="preview-title" id="distTitle">🎯 فحص الخيارات</h3>
         <button class="settings-close" id="distClose" type="button" aria-label="إغلاق">✕</button>
       </div>
-      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. و«فحص ذكي» يسأل ويكيبيديا عن <b>نوع</b> كل خيار ويُبلغ عن خيار من نوع مختلف عن الإجابة (مسلسل مقابل مصارع مثلاً) — وهذا هو المقصود بـ«لا تناسب». وكل ملاحظة فيها زر «تخطٍ» إن كانت مقبولة كما هي. أما أن يكون الخيار إجابةَ سؤال آخر في نفس الفئة فليس خطأً: في «علم أي دولة؟» كل الخيارات دول، وهي مناسبة تماماً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
+      <p class="dup-note">فحص خيارات «أربعة خيارات» في كل الفئات. يكشف أن يكون أحد الخيارات هو <b>الإجابة نفسها</b> (حتى لو اختلف بالهمزة فقط)، أو خيارين متطابقين، أو خياراً فارغاً، أو قيمة النقاط مخزّنة مكان الخيار. و«فحص ذكي» يسأل ويكيبيديا عن كل خيار ويُبلغ عن نوعين من الخلل في تبويب «لا تناسب»: <b>نوع مختلف</b> عن الإجابة (مسلسل مقابل مصارع مثلاً)، و<b>خارج الموضوع</b> — خيار من النوع نفسه لكنه في وادٍ آخر، مثل خليفة عباسي بين رؤساء أمريكا. الثاني لا يُبلَّغ عنه إلا إذا كانت بقية الخيارات مترابطة فعلاً، حتى لا يُلام اختيارٌ مقصود. وكل ملاحظة فيها زر «تخطٍ» إن كانت مقبولة كما هي. أما أن يكون الخيار إجابةَ سؤال آخر في نفس الفئة فليس خطأً: في «علم أي دولة؟» كل الخيارات دول، وهي مناسبة تماماً. <b>لا يحكم على جودة الخيار</b> — ذلك قرارك وحدك. تُستثنى كل فئة لا تعرض «أربعة خيارات» أصلاً — الإيموجي وتخمين الكلمة والتفاعلات و«قول غيرها» — وكذلك أي فئة عُطِّلت فيها الخيارات يدوياً.</p>
       <div class="dist-tabs" id="distTabs"></div>
       <div class="dup-summary" id="distSummary"></div>
       <div class="dup-sync" id="distSync" hidden></div>
@@ -11578,7 +11578,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-05.258";
+    const IZZBAH_BUILD = "2026-08-06.259";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17107,7 +17107,7 @@
       if (distSyncTimer) clearTimeout(distSyncTimer);
       const send = () => {
         distSyncTimer = null;
-        window.IZZBAH.saveDistScan(distKinds(), distDone(), DIST_CLASSIFIER_VERSION)
+        window.IZZBAH.saveDistScan(distKinds(), distDone(), DIST_CLASSIFIER_VERSION, distTopicList())
           .catch(() => {});   // offline or not admin: the local copy still stands
       };
       if (now) send(); else distSyncTimer = setTimeout(send, 1500);
@@ -17119,7 +17119,7 @@
       if (distSyncPulled || !window.IZZBAH || !window.IZZBAH.loadDistScan) return Promise.resolve(false);
       distSyncPulled = true;
       return window.IZZBAH.loadDistScan().then(map => {
-        const got = { kinds: 0, done: 0, at: +(map && map.at) || 0 };
+        const got = { kinds: 0, done: 0, topic: 0, at: +(map && map.at) || 0 };
         if (!map || !Object.keys(map).length) return got;
         if (String(map.v || "") === String(DIST_CLASSIFIER_VERSION)) {
           try {
@@ -17131,6 +17131,15 @@
             if (got.kinds) distKindsSave();
           } catch (e) {}
         }
+        try {
+          const remoteTopic = JSON.parse(map.topic || "[]") || [];
+          if (remoteTopic.length) {
+            const merged = [...new Set(distTopicList().concat(remoteTopic))];
+            if (merged.length !== distTopicList().length) {
+              distTopicListSet(merged); got.topic = merged.length;
+            }
+          }
+        } catch (e) {}
         try {
           const remoteDone = JSON.parse(map.done || "{}") || {};
           const n = Object.keys(remoteDone).length;
@@ -17677,18 +17686,33 @@
       // that was in flight, and pressing the button again resumes: the terms
       // already known are skipped before a single request is made.
       distScanMark(true);
-      return chunks.reduce((chain, chunk) => chain.then(() =>
-        runLang(chunk, "ar")
-          .then(miss => runLang(miss, "en"))
-          .then(stillMissing => {
-            // Remember the misses as "" too, or every run re-asks Wikipedia
-            // about the same terms it has never heard of.
-            (stillMissing || []).forEach(t => { if (!(t in cache)) cache[t] = ""; });
-            done++;
-            distKindCacheSave(cache);
-            if (onProgress) onProgress(done, chunks.length);
-          })
-      ), Promise.resolve()).then(() => { distKindCacheSave(cache); distScanMark(false); return cache; });
+      // Several chunks at once. This was a strict chain — one request, wait,
+      // next — which at the live catalogue size is ~370 round trips end to end
+      // and the reason a full scan took minutes. Wikipedia is being asked for
+      // 20 titles a call and a handful of calls in flight is well within what
+      // it invites; the cap is deliberately low rather than "as many as
+      // possible", because the point is to be a good guest on someone else's
+      // API, and because a 429 would cost more than it saves.
+      const LANES = 4;
+      const runChunk = (chunk) => runLang(chunk, "ar")
+        .then(miss => runLang(miss, "en"))
+        .then(stillMissing => {
+          // Remember the misses as "" too, or every run re-asks Wikipedia
+          // about the same terms it has never heard of.
+          (stillMissing || []).forEach(t => { if (!(t in cache)) cache[t] = ""; });
+          done++;
+          // Still written after EVERY chunk, so an interrupted run keeps what
+          // it fetched — that is why this is not batched up to the end.
+          distKindCacheSave(cache);
+          if (onProgress) onProgress(done, chunks.length);
+        });
+      let next = 0;
+      const lane = () => {
+        if (next >= chunks.length) return Promise.resolve();
+        return runChunk(chunks[next++]).then(lane);
+      };
+      return Promise.all(Array.from({ length: Math.min(LANES, chunks.length) }, lane))
+        .then(() => { distKindCacheSave(cache); distScanMark(false); return cache; });
     }
     // A run that was interrupted leaves this set, so reopening the panel can say
     // so instead of the admin wondering whether the scan ever finished.
@@ -17759,6 +17783,157 @@
           });
         });
       });
+      return out.concat(distTopicFindings(items, descByTerm, done));
+    }
+    // ---- the second detector: an option about something else entirely -------
+    //
+    // Kind mismatch only ever catches a option of the wrong TYPE. «من هو أول
+    // رئيس للولايات المتحدة؟» offering «هارون الرشيد» passes it without a
+    // murmur — a caliph and a president are both people — and that is the class
+    // of wrong option the scan was blind to.
+    //
+    // Type is not what makes an option wrong here; SUBJECT is. And the four
+    // terms of a question describe their own subject between them: three
+    // American presidents have a great deal of vocabulary in common and an
+    // Abbasid caliph has none of it. So the terms are compared with each other
+    // rather than against any fixed idea of what the question is about, which
+    // also means the answer having no Wikipedia page does not stop the check.
+    //
+    // Deliberately hard to trigger, because a checker that cries wolf gets
+    // switched off: every term must be described, the rest of them must
+    // genuinely agree with each other, the odd one out must share almost
+    // nothing with them, and at most ONE is reported per question.
+    // Calibrated against both kinds of mistake, and the peer floor is what
+    // separates them. Three American presidents score ~1.2 against each other
+    // and three Omani forts ~1.3; three Abbasid caliphs only ~0.8, because
+    // their sentences share less. So «صلاح الدين الأيوبي» sitting among caliphs
+    // looks numerically much like «هارون الرشيد» sitting among presidents —
+    // 0.2 against 0.17 — and no threshold on the outlier alone tells them
+    // apart. Requiring the REST to cohere strongly does: a different dynasty is
+    // still Islamic history and a defensible thing for an author to pick, while
+    // a caliph among US presidents is not. The cost is recall, deliberately.
+    const DIST_TOPIC_PEER_MIN = 1;     // the others must really cohere
+    const DIST_TOPIC_RATIO = 0.3;      // the outlier must be far below them
+    const DIST_TOPIC_ABS = 0.35;       // …and low in absolute terms
+    function distTopicFreq(items, descByTerm) {
+      const byCat = {};
+      (items || []).forEach(it => {
+        if (!it.uses) return;
+        const e = byCat[it.catId] || (byCat[it.catId] = { freq: Object.create(null), seen: new Set() });
+        [it.a].concat(it.d).forEach(t => {
+          const v = String(t == null ? "" : t).trim();
+          if (!v || e.seen.has(v)) return;
+          e.seen.add(v);
+          new Set(distRelWords(descByTerm[v] || "")).forEach(w => {
+            e.freq[w] = (e.freq[w] || 0) + 1;
+          });
+        });
+      });
+      return byCat;
+    }
+    function distTopicOverlap(a, b, freq) {
+      let n = 0;
+      a.forEach(w => { if (b.has(w)) n += 1 / (1 + (freq[w] || 0)); });
+      return n;
+    }
+    const distMedian = (xs) => {
+      if (!xs.length) return 0;
+      const v = xs.slice().sort((x, y) => x - y);
+      const m = v.length >> 1;
+      return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+    };
+    // This detector runs on the DESCRIPTIONS, and those stay on the device that
+    // fetched them — 1.5 MB at the live catalogue size, which is why only the
+    // verdicts are shared. So its CONCLUSIONS are shared instead: a short list
+    // of «this question, this option», which the other device shows as findings
+    // even though it cannot recompute them. Without this the second device
+    // would quietly report fewer problems than the first, undoing the
+    // consistency the sync exists for.
+    const DIST_TOPIC_KEY = "izzbah-disttopic-v1";
+    const DIST_TOPIC_SEP = "\u0001";
+    let distTopicMem = null;
+    function distTopicList() {
+      if (distTopicMem) return distTopicMem;
+      let v = null;
+      try { v = JSON.parse(localStorage.getItem(DIST_TOPIC_KEY) || "null"); } catch (e) {}
+      distTopicMem = (v && Array.isArray(v.list)) ? v.list : [];
+      return distTopicMem;
+    }
+    function distTopicListSet(list) {
+      distTopicMem = list;
+      try { localStorage.setItem(DIST_TOPIC_KEY, JSON.stringify({ list })); } catch (e) {}
+    }
+    function distTopicFindings(items, descByTerm, done) {
+      const out = [];
+      const byCat = distTopicFreq(items, descByTerm);
+      const shared = distTopicList();
+      const sharedBySig = {};
+      shared.forEach(row => {
+        const i = row.indexOf(DIST_TOPIC_SEP);
+        if (i < 0) return;
+        const sig = row.slice(0, i);
+        (sharedBySig[sig] || (sharedBySig[sig] = [])).push(row.slice(i + 1));
+      });
+      const judged = new Set();     // questions THIS device could decide
+      const marks = [];             // and what it decided
+      (items || []).forEach(it => {
+        if (!it.uses || it.d.length < 3) return;
+        const sig = distSig(it);
+        const terms = [it.a].concat(it.d);
+        // Every term must be described. A missing sentence is not evidence of
+        // being off-topic, and treating it as such would report the obscure
+        // rather than the wrong.
+        const words = terms.map(t => new Set(distRelWords(descByTerm[t] || "")));
+        if (words.some(w => w.size < 3)) {
+          // Nothing to judge with here — show what the other device concluded.
+          (sharedBySig[sig] || []).forEach(optNorm => {
+            const i = it.d.findIndex(d => distNorm(d) === optNorm);
+            if (i < 0) return;
+            const d = it.d[i];
+            if (distIsDone(done, it, "offtopic", d)) return;
+            out.push({
+              it, kind: "offtopic", sev: 2, idx: i, option: d,
+              why: `«${d}» لا علاقة له بموضوع السؤال، بينما بقية الخيارات مترابطة`,
+              detail: `${it.a}`, fix: null,
+            });
+          });
+          return;
+        }
+        judged.add(sig);
+        const freq = (byCat[it.catId] || {}).freq || {};
+        const avg = words.map((w, i) => {
+          let sum = 0;
+          words.forEach((o, j) => { if (i !== j) sum += distTopicOverlap(w, o, freq); });
+          return sum / (words.length - 1);
+        });
+        // Only an OPTION can be reported. If the answer is the odd one out, the
+        // options agree with each other and the answer is the different thing —
+        // which is a question about the question, not about an option.
+        let worst = 1;
+        for (let i = 2; i < avg.length; i++) if (avg[i] < avg[worst]) worst = i;
+        if (avg[0] <= avg[worst]) return;
+        const peers = avg.filter((_, i) => i !== worst);
+        const peerMid = distMedian(peers);
+        if (peerMid < DIST_TOPIC_PEER_MIN) return;         // nothing coheres — say nothing
+        if (avg[worst] > DIST_TOPIC_ABS) return;
+        if (avg[worst] > DIST_TOPIC_RATIO * peerMid) return;
+        const d = it.d[worst - 1];
+        marks.push(sig + DIST_TOPIC_SEP + distNorm(d));
+        if (distIsDone(done, it, "offtopic", d)) return;
+        out.push({
+          it, kind: "offtopic", sev: 2, idx: worst - 1, option: d,
+          why: `«${d}» لا علاقة له بموضوع السؤال، بينما بقية الخيارات مترابطة`,
+          detail: `${it.a}: ${(descByTerm[it.a] || "").slice(0, 80)}`,
+          fix: null,
+        });
+      });
+      // Replace what this device could judge, keep what it could not — so a
+      // device with no descriptions never erases another device's conclusions.
+      const kept = shared.filter(row => !judged.has(row.slice(0, row.indexOf(DIST_TOPIC_SEP))));
+      const next = kept.concat(marks);
+      if (next.length !== shared.length || next.some((r, i) => r !== shared[i])) {
+        distTopicListSet(next);
+      }
       return out;
     }
     // A replacement for a wrong-KIND option. Unlike the mechanical fixes, this
@@ -17959,6 +18134,7 @@
     const DIST_TAGS = {
       answer: ["الإجابة نفسها", "conf"], twice: ["مكرّر", "dup"], empty: ["فارغ", "dup"],
       points: ["نقاط", "dup"], short: ["ناقص", "dup"], kindmix: ["نوع مختلف", "conf"],
+      offtopic: ["خارج الموضوع", "conf"],
     };
     // Which tab is showing: "bad" = the malformed ones, "recycled" = options that
     // are another question's answer.
@@ -18148,7 +18324,7 @@
 
         const live = $("#distSmart");
         if (live && !distSmartBusy) live.textContent = distSmartBtnLabel();
-        if (after && (got.kinds || got.done || grew || distSmart.ran)) {
+        if (after && (got.kinds || got.done || got.topic || grew || distSmart.ran)) {
           distSmart = { ran: true, cat: "", findings };
           renderDistReport();
         } else if (got.done) {
@@ -24634,7 +24810,7 @@
           // catalogue of verdicts measures ~250 KB, so this is a guard rather
           // than a working limit — but an unbounded write that fails is a scan
           // that silently stops syncing, so the caller is told what landed.
-          window.IZZBAH.saveDistScan = function (kinds, done, version) {
+          window.IZZBAH.saveDistScan = function (kinds, done, version, topic) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             const BUDGET = 700 * 1024;
             const doneJson = JSON.stringify(done || {});
@@ -24655,6 +24831,7 @@
                 v: String(version || 0),
                 kinds: kindsJson,
                 done: doneJson,
+                topic: JSON.stringify(topic || []),
                 at: String(Date.now()),
               },
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),

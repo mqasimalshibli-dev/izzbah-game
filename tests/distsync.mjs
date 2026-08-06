@@ -82,9 +82,9 @@ async function device(label) {
     window.IZZBAH.applyPublished(cats);
     state.communityCategories = []; state.noChoiceCategories = [];
     window.IZZBAH.loadDistScan = () => window.__cloudGet().then(m => m || {});
-    window.IZZBAH.saveDistScan = (kinds, done, version) => window.__cloudSet({
+    window.IZZBAH.saveDistScan = (kinds, done, version, topic) => window.__cloudSet({
       v: String(version), kinds: JSON.stringify(kinds), done: JSON.stringify(done),
-      at: String(1700000000000),
+      topic: JSON.stringify(topic || []), at: String(1700000000000),
     }).then(() => ({ dropped: 0, bytes: 0 }));
     // Wikipedia, stubbed: this test is about what crosses between devices.
     window.wikiApi = (lang, params) => {
@@ -296,6 +296,63 @@ try {
       && unresearched.remainingBefore > 0);
   check("…while a term Wikipedia was asked about and had no page IS remembered",
     unresearched.missIsRecorded === true && unresearched.afterKnownMiss === 1);
+
+  // ---- the off-topic detector's conclusions travel too ----
+  //
+  // That detector runs on the DESCRIPTIONS, which are ~1.5 MB at the live
+  // catalogue size and deliberately not synced. A device holding only the
+  // verdicts therefore cannot recompute it — and would have shown fewer
+  // problems than the device that scanned, quietly undoing the consistency
+  // this whole document exists for. Its conclusions are shared instead.
+  CLOUD = null;
+  const F = await device("F");
+  const wrote = await F.page.evaluate(async () => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن كان رجل دولة أمريكياً وأول رئيس للولايات المتحدة الأمريكية.",
+      "توماس جيفرسون": "توماس جيفرسون كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة الأمريكية.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة الأمريكية.",
+      "هارون الرشيد": "هارون الرشيد خامس خلفاء الدولة العباسية في بغداد.",
+    };
+    localStorage.removeItem("izzbah-disttopic-v1");
+    localStorage.removeItem("izzbah-dist-done-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-sync", name: "تاريخ", image: "", order: 1, questions: [
+      { points: 100, q: "من هو أول رئيس للولايات المتحدة؟", a: "جورج واشنطن", image: "", answerImage: "",
+        distractors: ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const items = distCollect().filter(i => i.catId === "pub-sync");
+    const found = distTopicFindings(items, D, {});
+    distPushSync(true);
+    await new Promise(r => setTimeout(r, 300));
+    return { found: found.map(f => f.option), list: distTopicList().length };
+  });
+  check(`the scanning device finds it (${wrote.found.join("، ") || "none"})`,
+    wrote.found.length === 1 && wrote.found[0] === "هارون الرشيد");
+  check(`…and records it for the others (${wrote.list})`, wrote.list === 1);
+  check("…in the shared document", !!CLOUD && JSON.parse(CLOUD.topic || "[]").length === 1);
+
+  const G = await device("G");
+  const read = await G.page.evaluate(async () => {
+    // this device has NO descriptions at all — only what arrives from the cloud
+    localStorage.removeItem("izzbah-wikikind-v1");
+    localStorage.removeItem("izzbah-disttopic-v1");
+    localStorage.removeItem("izzbah-dist-done-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-sync", name: "تاريخ", image: "", order: 1, questions: [
+      { points: 100, q: "من هو أول رئيس للولايات المتحدة؟", a: "جورج واشنطن", image: "", answerImage: "",
+        distractors: ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const before = distTopicFindings(distCollect().filter(i => i.catId === "pub-sync"), {}, {});
+    await distPullSync();
+    const after = distTopicFindings(distCollect().filter(i => i.catId === "pub-sync"), {}, {});
+    return { before: before.length, after: after.map(f => f.option) };
+  });
+  check(`a device with no descriptions sees nothing on its own (${read.before})`, read.before === 0);
+  check(`…and the same finding once the document arrives (${read.after.join("، ") || "none"})`,
+    read.after.length === 1 && read.after[0] === "هارون الرشيد");
+  // …and must not wipe what it cannot recompute
+  const preserved = await G.page.evaluate(() => distTopicList().length);
+  check(`…without erasing a conclusion it could not reach itself (${preserved})`, preserved === 1);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
