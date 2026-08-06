@@ -400,6 +400,115 @@ try {
   check(`a drama named after a quarter is not typed at all (${kindOfTerm("باب الحارة") || "unknown"})`,
     kindOfTerm("باب الحارة") === "عمل فني");
 
+  // ---- every reported question opens ALL its options for editing ----
+  //
+  // "There is no way to change anything after a smart scan." The report offered
+  // ONE typed replacement, for the single option it had named, and only on a
+  // «نوع مختلف» finding — every other kind, «خارج الموضوع» included, could only
+  // be skipped. But a question the scan has stopped on is exactly the one an
+  // admin wants to put right, and the option it named is not always the one
+  // they want to change.
+  //
+  // The set is validated together rather than field by field: checking each on
+  // its own would happily let two of them be typed into the same value.
+  const editor = await page.evaluate(async () => {
+    const D = {
+      "بروك ليسنر": "بروك ليسنر مصارع محترف أمريكي.",
+      "جون سينا": "جون سينا مصارع محترف أمريكي.",
+      "ذا روك": "دواين جونسون مصارع محترف وممثل أمريكي.",
+      "أندرتيكر": "مارك كالاواي مصارع محترف أمريكي.",
+      "سماكداون": "سماكداون برنامج تلفزيوني للمصارعة المحترفة.",
+    };
+    localStorage.removeItem("izzbah-dist-done-v1");
+    localStorage.removeItem("izzbah-disttopic-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-ed", name: "مصارعة حره", image: "", order: 1, questions: [
+      { points: 100, q: "من هو أقوى مصارع؟", a: "بروك ليسنر", image: "", answerImage: "",
+        distractors: ["سماكداون", "جون سينا", "ذا روك"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const items = distCollect().filter(i => i.catId === "pub-ed");
+    distIndex = distBuildIndex(items);
+    // Scoped to this test's own category. A built-in category with no published
+    // override is served a RANDOM board draw per page load and can contribute
+    // findings of its own, which would make findings[0] somebody else's row.
+    distSmart = { ran: true, cat: "",
+      findings: distSmartFindings(items, D).filter(f => f.it.catId === "pub-ed") };
+    distTab = "smart";
+    openDistModal();
+    await new Promise(r => setTimeout(r, 350));
+    const row = document.querySelector("#distList .dist-editrow");
+    const fields = () => [...document.querySelectorAll("#distList .dist-editrow .dist-input")];
+    const drawn = {
+      rows: document.querySelectorAll("#distList .dist-editrow").length,
+      inputs: fields().length,
+      flagged: row ? row.querySelectorAll(".dist-editcell.flagged").length : 0,
+      save: row ? [...row.querySelectorAll("button")].some(b => /حفظ/.test(b.textContent)) : false,
+      skip: row ? [...row.querySelectorAll("button")].some(b => /تخط/.test(b.textContent)) : false,
+    };
+    const f = distSmart.findings[0];
+    const stored = () => state.publishedCategories.find(c => c.id === "pub-ed").questions[0].distractors.slice();
+    const before = stored();
+    // refusals
+    const blank = distApplyOptions(f, ["", "جون سينا", "ذا روك"]);
+    const dupe = distApplyOptions(f, ["جون سينا", "جون سينا", "ذا روك"]);
+    const isAnswer = distApplyOptions(f, ["بروك ليسنر", "جون سينا", "ذا روك"]);
+    const unchanged = distApplyOptions(f, before.slice());
+    const afterRefusals = stored();
+    // two options changed at once, neither of them the flagged one
+    const ok = distApplyOptions(f, ["سماكداون", "أندرتيكر", "راندي أورتن"]);
+    await new Promise(r => setTimeout(r, 250));
+    const after = stored();
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return { drawn, before, blank, dupe, isAnswer, unchanged, afterRefusals, ok, after };
+  });
+  check(`a reported question offers a field for EVERY option (${editor.drawn.inputs} of 3)`,
+    editor.drawn.rows === 1 && editor.drawn.inputs === 3);
+  check(`…with the objected-to option marked (${editor.drawn.flagged})`, editor.drawn.flagged === 1);
+  check("…and both «حفظ الخيارات» and «تخطٍ»", editor.drawn.save && editor.drawn.skip);
+  check("a blank option is refused", editor.blank === false);
+  check("two options typed the same are refused", editor.dupe === false);
+  check("an option equal to the answer is refused", editor.isAnswer === false);
+  check("saving without changing anything is refused", editor.unchanged === false);
+  check(`…and none of those touched the stored question (${editor.afterRefusals.join("، ")})`,
+    editor.afterRefusals.join("|") === editor.before.join("|"));
+  check(`several options change in one save (${editor.after.join("، ")})`,
+    editor.ok === true && editor.after.join("|") === "سماكداون|أندرتيكر|راندي أورتن");
+
+  // ---- years are not a subject ----
+  //
+  // Reported with a screenshot: «١٥٠٧» flagged as off-topic beside «١٩٧٢», and
+  // «١٦٥٠» beside «١٨٨٨». Wikipedia's article for a year is boilerplate — «1972
+  // was a leap year starting on Saturday of the Gregorian calendar» — so any
+  // three years agree strongly on words that say nothing about what they are,
+  // and the fourth gets reported for having a slightly different template.
+  // Every «في أي عام…» question in the catalogue was being flagged.
+  const years = await page.evaluate(() => {
+    const D = {
+      "1972": "1972 was a leap year starting on Saturday of the Gregorian calendar (MCMLXXII).",
+      "1507": "1507 was a common year starting on Friday of the Julian calendar.",
+      "1624": "1624 was a leap year starting on Monday of the Gregorian calendar.",
+      "1970": "1970 was a common year starting on Thursday of the Gregorian calendar.",
+      "١٨٨٨": "1888 was a leap year starting on Sunday of the Gregorian calendar.",
+      "١٦٥٠": "1650 was a common year starting on Saturday of the Gregorian calendar.",
+      "١٩٩٥": "1995 was a common year starting on Sunday of the Gregorian calendar.",
+      "١٩٧٢": "1972 was a leap year starting on Saturday of the Gregorian calendar.",
+    };
+    const run = (a, d, n) => distTopicFindings(
+      [{ catId: "y" + n, cat: "عمانية", qIdx: 0, q: "في أي عام؟", a, d, uses: true, points: 100 }], D, {});
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const out = {
+      western: run("1972", ["1507", "1624", "1970"], 1).length,
+      arabic: run("١٨٨٨", ["١٩٩٥", "١٩٧٢", "١٦٥٠"], 2).length,
+    };
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return out;
+  });
+  check(`a year question with year options reports nothing (${years.western})`, years.western === 0);
+  check(`…in Arabic digits too (${years.arabic})`, years.arabic === 0);
+
   // ---- the second detector: an option about something else entirely --------
   //
   // Reported as "I still see wrong distractors but they don't show up on the
@@ -561,7 +670,7 @@ try {
     const first = distSmart.findings.map(f => f.option).sort();
 
     distApplySmartFix(distSmart.findings.find(f => f.option === "سماكداون"), "أندرتيكر");
-    const afterFix = distSmart.findings.map(f => f.option);
+    const afterFix = distSmart.findings.filter(f => f.it.catId === "pub-two").map(f => f.option);
 
     // reopening the panel later, or pressing «إعادة الفحص»: computed fresh from
     // the current data, not from the list held in memory
