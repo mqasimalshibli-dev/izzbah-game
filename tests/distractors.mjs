@@ -436,8 +436,11 @@ try {
     distSmart = { ran: true, cat: "",
       findings: distSmartFindings(items, D).filter(f => f.it.catId === "pub-ed") };
     distTab = "smart";
-    openDistModal();
-    await new Promise(r => setTimeout(r, 350));
+    // renderDistReport, not openDistModal: opening the panel also kicks off the
+    // cross-device seed, which recomputes findings over the WHOLE catalogue and
+    // replaced the fixture mid-test. The DOM is what is under test here.
+    renderDistReport();
+    await new Promise(r => setTimeout(r, 120));
     const row = document.querySelector("#distList .dist-editrow");
     const fields = () => [...document.querySelectorAll("#distList .dist-editrow .dist-input")];
     const drawn = {
@@ -475,6 +478,56 @@ try {
     editor.afterRefusals.join("|") === editor.before.join("|"));
   check(`several options change in one save (${editor.after.join("، ")})`,
     editor.ok === true && editor.after.join("|") === "سماكداون|أندرتيكر|راندي أورتن");
+
+  // …and on an «خارج الموضوع» row too, which is the one that was reported.
+  //
+  // The editor check above builds a «نوع مختلف» finding, and that is the only
+  // path it proved — the very kind that ALREADY had a replacement box before
+  // this change. The rows the owner was actually looking at were «خارج
+  // الموضوع», so this pins the case that was reported rather than the case that
+  // was easy to construct.
+  const offtopicEditor = await page.evaluate(async () => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن كان رجل دولة أمريكياً وأول رئيس للولايات المتحدة الأمريكية.",
+      "توماس جيفرسون": "توماس جيفرسون كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة الأمريكية.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة الأمريكية.",
+      "هارون الرشيد": "هارون الرشيد خامس خلفاء الدولة العباسية في بغداد.",
+    };
+    localStorage.removeItem("izzbah-dist-done-v1");
+    localStorage.removeItem("izzbah-disttopic-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-ot", name: "تاريخ", image: "", order: 1, questions: [
+      { points: 100, q: "من هو أول رئيس للولايات المتحدة؟", a: "جورج واشنطن", image: "", answerImage: "",
+        distractors: ["توماس جيفرسون", "هارون الرشيد", "جون آدامز"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const keep = JSON.parse(JSON.stringify(distKinds()));
+    distKindsReset();
+    const items = distCollect().filter(i => i.catId === "pub-ot");
+    distIndex = distBuildIndex(items);
+    distSmart = { ran: true, cat: "",
+      findings: distSmartFindings(items, D).filter(f => f.it.catId === "pub-ot") };
+    distTab = "smart";
+    // renderDistReport, not openDistModal: opening the panel also kicks off the
+    // cross-device seed, which recomputes findings over the WHOLE catalogue and
+    // replaced the fixture mid-test. The DOM is what is under test here.
+    renderDistReport();
+    await new Promise(r => setTimeout(r, 120));
+    const row = document.querySelector("#distList .dist-editrow");
+    const out = {
+      kind: (distSmart.findings[0] || {}).kind,
+      inputs: row ? row.querySelectorAll(".dist-input").length : 0,
+      flagged: row ? row.querySelectorAll(".dist-editcell.flagged").length : 0,
+      save: row ? [...row.querySelectorAll("button")].some(b => /حفظ/.test(b.textContent)) : false,
+    };
+    distKindsReset(); Object.assign(distKinds(), keep);
+    return out;
+  });
+  check(`an «خارج الموضوع» row is the one reported (${offtopicEditor.kind})`,
+    offtopicEditor.kind === "offtopic");
+  check(`…and it opens every option too (${offtopicEditor.inputs} of 3)`,
+    offtopicEditor.inputs === 3);
+  check(`…with the objected-to option marked and a save button`,
+    offtopicEditor.flagged === 1 && offtopicEditor.save);
 
   // ---- years are not a subject ----
   //
