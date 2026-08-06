@@ -100,15 +100,22 @@ async function device(label) {
 }
 function cats0() { return CATS; }
 
+// Findings are counted over the PUBLISHED category only, for the same reason
+// the remaining-terms check below is: a built-in category with no published
+// override is served a RANDOM board draw per page load, so two devices hold
+// different built-in questions and can legitimately produce different findings
+// from them. Comparing the whole catalogue made this suite flaky — one run had
+// device A turn up «مغامرات دون كيخوته» from its own draw and device B not.
 const scanned = (page) => page.evaluate(async () => {
   openDistModal();
   await new Promise(r => setTimeout(r, 120));
   distRunSmart();
   for (let i = 0; i < 60 && distSmartBusy; i++) await new Promise(r => setTimeout(r, 100));
   await new Promise(r => setTimeout(r, 300));
+  const mine = distSmart.findings.filter(f => f.it.catId === "pub-sync");
   return {
-    findings: distSmart.findings.length,
-    which: distSmart.findings.map(f => f.option).sort(),
+    findings: mine.length,
+    which: mine.map(f => f.option).sort(),
     kinds: Object.keys(distKinds()).length,
   };
 });
@@ -136,10 +143,11 @@ try {
     window.wikiApi = (...a) => { calls++; return real(...a); };
     openDistModal();
     await new Promise(r => setTimeout(r, 700));
+    const mine = distSmart.findings.filter(f => f.it.catId === "pub-sync");
     return {
       calls, ran: distSmart.ran,
-      findings: distSmart.findings.length,
-      which: distSmart.findings.map(f => f.option).sort(),
+      findings: mine.length,
+      which: mine.map(f => f.option).sort(),
       // Restricted to the PUBLISHED category on purpose — see the note below.
       remainingPub: (() => {
         const cache = distKindCache(), judged = distKinds(), left = new Set();
@@ -174,10 +182,11 @@ try {
 
   // ---- a decision on B must hold on A ----
   const bSkip = await B.page.evaluate(async () => {
-    const before = distSmart.findings.length;
-    distSkipFinding(distSmart.findings[0]);
+    const mine = () => distSmart.findings.filter(f => f.it.catId === "pub-sync");
+    const before = mine().length;
+    distSkipFinding(mine()[0]);
     await new Promise(r => setTimeout(r, 1900));   // the push is debounced 1.5s
-    return { before, after: distSmart.findings.length, done: Object.keys(distDone()).length };
+    return { before, after: mine().length, done: Object.keys(distDone()).length };
   });
   check(`skipping on device B removes it there (${bSkip.before} → ${bSkip.after})`,
     bSkip.after === bSkip.before - 1);
@@ -189,7 +198,8 @@ try {
   const a2 = await A2.page.evaluate(async () => {
     openDistModal();
     await new Promise(r => setTimeout(r, 700));
-    return { findings: distSmart.findings.length, done: Object.keys(distDone()).length };
+    return { findings: distSmart.findings.filter(f => f.it.catId === "pub-sync").length,
+             done: Object.keys(distDone()).length };
   });
   check(`the laptop no longer lists what the phone skipped (${a2.findings} vs ${a1.findings})`,
     a2.findings === a1.findings - 1);
@@ -203,7 +213,7 @@ try {
   const c1 = await C.page.evaluate(async () => {
     openDistModal();
     await new Promise(r => setTimeout(r, 700));
-    return { findings: distSmart.findings.length };
+    return { findings: distSmart.findings.filter(f => f.it.catId === "pub-sync").length };
   });
   check(`…so a third device sees the full list again (${c1.findings})`, c1.findings === a1.findings);
 
@@ -243,7 +253,8 @@ try {
     window.wikiApi = (...a) => { calls++; return real(...a); };
     openDistModal();
     await new Promise(r => setTimeout(r, 900));
-    return { calls, ran: distSmart.ran, findings: distSmart.findings.length };
+    return { calls, ran: distSmart.ran,
+             findings: distSmart.findings.filter(f => f.it.catId === "pub-sync").length };
   });
   check(`a device with cached descriptions publishes without re-scanning (${seeded.findings} findings, ${seeded.calls} requests)`,
     seeded.ran === true && seeded.calls === 0);
