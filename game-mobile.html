@@ -5215,8 +5215,13 @@
     }
     /* active team: glow + «دورهم الآن» tab now on the whole connected unit */
     #game .score-cell.active-team .score-unit { animation: ezglow 2.6s ease-in-out infinite; }
+    /* The tab used to straddle the box's top edge, which was fine while the name
+       sat centred in a tall card. In a single row the name is AT the top right,
+       and the tab covered it. It sits fully above the box now, and the row
+       reserves the height for it so nothing is clipped. */
+    #game .score-row { padding-top: 14px; }
     #game .score-cell.active-team::before {
-      content: "دورهم الآن"; position: absolute; top: -13px; right: 18px; z-index: 5;
+      content: "دورهم الآن"; position: absolute; top: -24px; right: 18px; z-index: 5;
       background: linear-gradient(180deg, #e0444a, #bb1d27); color: #fff;
       font: 800 12px 'Cairo', sans-serif; padding: 5px 15px; border-radius: 999px;
       border: 1px solid #eac877; box-shadow: 0 6px 12px -5px rgba(0, 0, 0, .5); white-space: nowrap;
@@ -5291,7 +5296,8 @@
       #game .score-unit { border-radius: 12px !important; border-width: 2px !important; box-shadow: 0 2px 0 #fff inset, 0 8px 14px -10px rgba(60, 40, 15, .5) !important; }
       /* Read from across a table, not at arm's length: this is how a room knows
    whose turn it is. 7px could not do that job. */
-#game .score-cell.active-team::before { font-size: 11px !important; font-weight: 900 !important; padding: 2px 9px !important; top: -10px !important; right: 6px !important; }
+#game .score-cell.active-team::before { font-size: 11px !important; font-weight: 900 !important; padding: 2px 9px !important; top: -19px !important; right: 6px !important; }
+      #game .score-row { padding-top: 11px !important; }
       #game .board-category-card { border-radius: 12px !important; }
       #game .board-card-title { top: 6px; right: 6px; padding: 3px 10px !important; font-size: clamp(13px, 2.7vw, 20px) !important; border-radius: 9px !important; }
       #game .board-card-points { padding: clamp(6px, 1.6vh, 11px) !important; gap: clamp(5px, 1.4vh, 9px) !important; }
@@ -5301,7 +5307,13 @@
    takes the space from the cover art above rather than overflowing the board. */
 #game .board-card-points .cell { height: clamp(34px, 9.5vh, 46px) !important; border-radius: 8px !important; font-size: clamp(19px, 2.9vw, 24px) !important; line-height: 1 !important; padding-inline: 0 !important; padding-bottom: clamp(2px, 1vh, 5px) !important; }
       #game .topbar .topbar-right { gap: 8px !important; }
-      #game .qhelp-bar--team { flex-direction: row !important; flex-wrap: wrap !important; gap: 4px !important; padding: 5px 6px !important; border-radius: 0 !important; align-content: center !important; max-width: 46% !important; }
+      /* Sizes only. This rule used to also force flex-wrap, border-radius: 0
+         and max-width: 46%, all of which belonged to the OLD vertical strip
+         glued to the box edge — under the row layout they wrapped the three
+         lifelines into a 2-over-1 square. How the bar is arranged is the
+         container queries' business now; this just makes it smaller when the
+         screen is short. */
+      #game .qhelp-bar--team { gap: 4px !important; padding: 5px 6px !important; }
       #game .qhelp-bar--team .qhelp-slot { width: 24px !important; height: 24px !important; border-width: 1.5px !important; }
       #game .qhelp-bar--team .qhelp-slot svg { width: 13px !important; height: 13px !important; }
       #game .qhelp-bar--team .qhelp-x2 { font-size: 11px !important; }
@@ -5929,16 +5941,106 @@
       background: linear-gradient(180deg, #fffdf7, #f7efdc);
       box-shadow: 0 2px 0 #fff inset, 0 20px 32px -22px rgba(60, 40, 15, .5);
     }
-    #game .score-unit .score-box { flex: 1 1 auto; min-width: 0; }
-    #game .qhelp-bar--team {
-      flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-      padding: 8px 6px; border-radius: 0;
-      background: linear-gradient(180deg, color-mix(in srgb, var(--team) 90%, #fff 8%), color-mix(in srgb, var(--team) 64%, #000 30%));
-      border: 0; border-inline-start: 2px solid color-mix(in srgb, var(--team) 45%, #fff 42%);
+    /* One horizontal row: identity at the start, the manual +/- next, the
+       lifelines filling the rest. The score box no longer grows to fill the
+       unit — it is as wide as the name needs — because the lifelines are the
+       part that wants the room now that they carry captions. */
+    #game .score-unit { align-items: center; padding: 8px 10px; gap: 10px; flex-wrap: wrap; }
+    /* Two teams side by side on a phone leaves each unit ~180px, which cannot
+       hold a name, a score, two buttons and three lifelines on one line. Rather
+       than shrink everything past reading size, the lifelines drop to their own
+       line underneath. */
+    #game .score-unit > .qhelp-bar--team { flex: 1 1 190px; }
+    /* basis 0, not auto. With `auto` the box asks for its content's width, so a
+       team whose NAME is a few characters longer than its neighbours' pushed
+       the +/- pair onto a second line and stood 38px taller than every other
+       box in the row — which looked like the active team being special and was
+       really just «جروب الحارة» being longer than «تيم خلفان». At basis 0 the
+       box grows into whatever room is left and can never cause the wrap. */
+    #game .score-unit .score-box {
+      flex: 1 1 0; min-width: 0; text-align: start;
+      background: none; border: 0; border-radius: 0; padding: 0;
     }
-    #game .qhelp-bar--team .qhelp-slot { width: 36px; height: 36px; border-color: rgba(255, 255, 255, .6); }
-    #game .qhelp-bar--team .qhelp-slot svg { width: 19px; height: 19px; }
-    #game .qhelp-bar--team .qhelp-x2 { font-size: 14px; }
+    #game .score-box.active-team { outline: none; }
+    #game .score-head { justify-content: flex-start; gap: 7px; }
+    #game .score-name { font-size: clamp(14px, 1.5vw, 19px) !important; line-height: 1.2; }
+    #game .score-value { font-size: clamp(20px, 2.2vw, 30px); margin-top: 0; text-align: start; }
+    #game .score-photo { width: 30px; height: 30px; border-width: 2px; }
+    /* The mark is a wide tent: contain it on a tinted disc rather than crop it
+       to a circle, which would cut the guy ropes off on both sides. */
+    #game .score-photo.avatar-logo {
+      object-fit: contain; padding: 3px; background: #fff;
+      box-shadow: inset 0 0 0 99px color-mix(in srgb, var(--team, #9e1322) 12%, #fff 88%);
+    }
+    #game .score-tools { flex: 0 0 auto; margin-top: 0; gap: 7px; }
+    #game .score-tools button {
+      width: 34px; height: 34px; border-radius: 50% !important; border-width: 2px; font-size: 22px;
+    }
+    #game .qhelp-bar--team {
+      flex: 1 1 auto; display: flex; flex-direction: row; align-items: center; justify-content: center;
+      gap: 6px; padding: 6px 8px; border-radius: 14px; min-width: 0;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--team) 90%, #fff 8%), color-mix(in srgb, var(--team) 64%, #000 30%));
+      border: 0;
+    }
+    #game .qhelp-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto;
+    }
+    #game .qhelp-cap {
+      font: 800 9px/1.15 'Cairo', sans-serif; color: rgba(255, 255, 255, .92);
+      text-align: center; max-width: 8ch; overflow-wrap: anywhere;
+    }
+    #game .qhelp-cell:has(.qhelp-slot:disabled) .qhelp-cap { opacity: .5; }
+    #game .qhelp-bar--team .qhelp-slot { width: 32px; height: 32px; border-color: rgba(255, 255, 255, .6); }
+    #game .qhelp-bar--team .qhelp-slot svg { width: 17px; height: 17px; }
+    #game .qhelp-bar--team .qhelp-x2 { font-size: 13px; }
+    /* How much room a team box gets depends on HOW MANY TEAMS there are, not on
+       the size of the screen — five teams share the same row that two do. A
+       viewport media query got this exactly wrong: on a 1000px display five
+       teams get 182px each and still had the roomy treatment, which pushed the
+       board's own row to 203px, and in landscape to 282px of a 390px screen.
+       So the box is a CONTAINER and asks about its own width instead. */
+    #game .score-cell { container-type: inline-size; container-name: teamunit; }
+    /* The compact form is the DEFAULT, and the roomy one is opted into. That
+       way a box that is short of room never has to be rescued by a later rule —
+       it simply never gets the parts that do not fit. */
+    #game .qhelp-cap { display: none; }
+    #game .qhelp-cell { flex-direction: row; }
+    #game .score-unit { padding: 6px 8px; gap: 8px; }
+    #game .score-unit > .qhelp-bar--team { flex: 1 1 auto; }
+    /* Two lines are RESERVED whether the name needs them or not. Otherwise a
+       team called «جروب الحارة» wraps where «تيم خلفان» does not, and its box
+       stands taller than the rest of the row — the ragged look being fixed
+       here. Reserving costs 9px on every box and truncates nobody, which is the
+       better trade: a player has to recognise their own team's name. */
+    #game .score-name {
+      font-size: clamp(13px, 1.4vw, 17px) !important;
+      min-height: 2.4em; max-height: 2.4em; overflow: hidden;
+    }
+    #game .score-value { font-size: clamp(18px, 2vw, 26px); }
+    #game .score-photo { width: 26px; height: 26px; }
+    #game .score-tools button { width: 30px; height: 30px; font-size: 20px; }
+    #game .qhelp-bar--team .qhelp-slot { width: 28px; height: 28px; }
+    #game .qhelp-bar--team .qhelp-slot svg { width: 15px; height: 15px; }
+
+    /* Wide enough for the lifelines to sit beside the name AND carry their
+       captions — measured, not guessed: identity ~130px, the +/- pair ~85px,
+       and three captioned lifelines ~172px. */
+    @container teamunit (min-width: 400px) {
+      #game .qhelp-cap { display: block; }
+      #game .qhelp-cell { flex-direction: column; }
+      #game .score-unit { padding: 8px 10px; gap: 10px; }
+      #game .score-name { font-size: clamp(14px, 1.5vw, 19px) !important; }
+      #game .score-value { font-size: clamp(20px, 2.2vw, 30px); }
+      #game .score-photo { width: 30px; height: 30px; }
+      #game .score-tools button { width: 34px; height: 34px; font-size: 22px; }
+      #game .qhelp-bar--team .qhelp-slot { width: 32px; height: 32px; }
+      #game .qhelp-bar--team .qhelp-slot svg { width: 17px; height: 17px; }
+    }
+    /* Not wide enough for one line at all: the lifelines take their own line
+       under the name rather than squeezing everything to nothing. */
+    @container teamunit (max-width: 300px) {
+      #game .score-unit > .qhelp-bar--team { flex: 1 0 100%; }
+    }
     /* ×2 marker shown on the points badge while the doubler is armed */
     .pts-x2 {
       display: inline-block; margin-inline-start: 4px; padding: 1px 7px; border-radius: 8px;
@@ -11578,7 +11680,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-06.259";
+    const IZZBAH_BUILD = "2026-08-06.260";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12030,6 +12132,14 @@
     // Themed placeholder avatars — a team that hasn't uploaded a photo gets one
     // of these by its slot, so every team shows a distinct illustrated portrait
     // instead of a generic grey silhouette.
+    // A team with no picture of its own shows the عِزبة mark. It used to be one
+    // of five animals by position, which made a team's identity depend on the
+    // order it happened to be created in; the mark is the game's own and each
+    // team is still told apart by its colour, which rings the badge.
+    //
+    // Already on the boot path — it is the top bar's brand mark — so this costs
+    // no extra bytes. The five animal files stay for the setup screen's picker.
+    const TEAM_LOGO_AVATAR = "assets/brand/izzbah-mark.webp";
     const teamPlaceholderAvatars = [
       "assets/img/avatar-camel.webp",
       "assets/img/avatar-horse.webp",
@@ -12039,12 +12149,14 @@
     ];
     function teamAvatarSrc(team, index) {
       if (team && team.image) return team.image;
-      let i = index;
-      if (typeof i !== "number" || i < 0) i = Math.max(0, state.teams ? state.teams.indexOf(team) : 0);
-      return teamPlaceholderAvatars[i % teamPlaceholderAvatars.length];
+      return TEAM_LOGO_AVATAR;
     }
     function teamAvatarHtml(team, index, imgClass) {
-      return `<img class="${imgClass}" src="${escapeHtml(teamAvatarSrc(team, index))}" alt="">`;
+      // The mark is a wide tent, not a square portrait: cropping it to a circle
+      // would cut the poles off, so it is CONTAINED on a tinted disc instead.
+      // A team's own uploaded photo still fills the circle as before.
+      const own = !!(team && team.image);
+      return `<img class="${imgClass}${own ? "" : " avatar-logo"}" src="${escapeHtml(teamAvatarSrc(team, index))}" alt="">`;
     }
 
     function teamDisplayName(team, index) {
@@ -20550,8 +20662,7 @@
         plus.setAttribute("aria-label", "زيادة نقاط " + teamLabel + " ٥٠");
         plus.title = "زيادة ٥٠";
         bindHold(plus, team, 50);
-        tools.append(minus, plus);
-        box.appendChild(tools);
+        tools.append(plus, minus);
 
         const cell = document.createElement("div");
         cell.className = "score-cell" + (i === state.activeTeam ? " active-team" : "");
@@ -20565,7 +20676,11 @@
         // connected panel; the «دورهم الآن» tab hangs off the outer cell.
         const unit = document.createElement("div");
         unit.className = "score-unit";
-        unit.append(box, bar);
+        // One row, reading right to left: who the team is, the manual score
+        // controls, then its lifelines. The score box keeps its place at the
+        // start and the helper strip at the end — tests/teamlayout.mjs pins
+        // that every team puts them on the SAME side as each other.
+        unit.append(box, tools, bar);
         cell.appendChild(unit);
         row.appendChild(cell);
       });
@@ -21790,7 +21905,21 @@
         btn.innerHTML = h.icon;
         btn.disabled = used || !allowed;
         if (!used && allowed) btn.addEventListener("click", () => useHelper(id, teamIndex));
-        container.appendChild(btn);
+        // On the BOARD the lifelines are laid out in a row with their names
+        // underneath, so a player can tell what each one does without pressing
+        // it. On the question card the bar is a narrow strip down the edge of
+        // the card, where a caption has nowhere to go — so it stays icon-only.
+        if (screenPhase === "board") {
+          const cell = document.createElement("span");
+          cell.className = "qhelp-cell";
+          const cap = document.createElement("span");
+          cap.className = "qhelp-cap";
+          cap.textContent = h.label;
+          cell.append(btn, cap);
+          container.appendChild(cell);
+        } else {
+          container.appendChild(btn);
+        }
       });
       // On the question card the bar is absolutely positioned over the right
       // edge; flag the card so it reserves room and long questions don't hide
