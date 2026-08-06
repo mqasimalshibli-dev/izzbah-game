@@ -4685,6 +4685,19 @@
     .dist-opts { font: 600 12.5px 'Cairo', sans-serif; color: #5a4a2a; margin-top: 3px; opacity: .9; }
     .dist-act { margin-top: 6px; }
     .dist-fixrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* One field per option, side by side, so the whole set can be judged and
+       fixed together rather than one at a time. */
+    .dist-editrow { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+    .dist-editcell { display: flex; align-items: center; gap: 5px; flex: 1 1 150px; min-width: 120px; }
+    .dist-editnum {
+      flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+      display: grid; place-items: center; font: 800 10px 'Cairo', sans-serif;
+      background: rgba(0, 0, 0, .12); color: inherit; opacity: .75;
+    }
+    /* The option the scan actually objected to, so the admin can see which one
+       the complaint was about without re-reading the sentence above. */
+    .dist-editcell.flagged .dist-editnum { background: #c9302c; color: #fff; opacity: 1; }
+    .dist-editcell.flagged .dist-input { border-color: #c9302c; }
     .dist-skip { background: transparent !important; border: 1.5px solid #b9a06a !important;
       color: #7a6636 !important; }
     :root[data-theme="dark"] .dist-skip { border-color: var(--dk-line) !important; color: #d9c39c !important; }
@@ -11680,7 +11693,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-06.260";
+    const IZZBAH_BUILD = "2026-08-06.261";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17992,6 +18005,15 @@
         if (!it.uses || it.d.length < 3) return;
         const sig = distSig(it);
         const terms = [it.a].concat(it.d);
+        // Years are not a subject. Wikipedia's article for a year opens with
+        // boilerplate — «1972 was a leap year starting on Saturday of the
+        // Gregorian calendar» — so any three years agree with each other
+        // strongly on words that say nothing about what they are, and the
+        // fourth is reported for having a slightly different template. Every
+        // «في أي عام…» question in the catalogue was being flagged for a
+        // perfectly good option. A number tells this detector nothing, so it
+        // does not judge them.
+        if (terms.every(t => distIsDigits(t))) return;
         // Every term must be described. A missing sentence is not evidence of
         // being off-topic, and treating it as such would report the obscure
         // rather than the wrong.
@@ -18151,6 +18173,96 @@
         findings: distSmartFindings(
           distCollect().filter(it => it.uses && it.d.length), distKindCache()),
       };
+    }
+    // Write a question's WHOLE option list at once.
+    //
+    // The report used to offer one typed replacement, for the single option it
+    // had complained about, and only on a «نوع مختلف» finding — every other
+    // kind could only be skipped. But a question the scan has stopped on is
+    // exactly the question an admin wants to fix properly, and the option it
+    // named is not always the one they want to change. So any reported question
+    // now opens all of its options for editing together.
+    //
+    // Validated as a SET rather than one at a time: the answer must not appear
+    // among the options, no two options may match, and none may be left blank.
+    // Checking each field on its own would let two of them be typed into the
+    // same value.
+    function distApplyOptions(entry, values) {
+      const it = entry.it;
+      const vals = (values || []).map(v => String(v == null ? "" : v).trim());
+      if (vals.some(v => !v)) { showToast("لا تترك خياراً فارغاً"); return false; }
+      if (vals.some(v => distNorm(v) === distNorm(it.a))) { showToast("أحد الخيارات هو الإجابة الصحيحة"); return false; }
+      const seen = new Set();
+      for (const v of vals) {
+        const k = distNorm(v);
+        if (seen.has(k)) { showToast("خياران متطابقان"); return false; }
+        seen.add(k);
+      }
+      const before = it.d.slice();
+      if (vals.length === before.length && vals.every((v, i) => v === before[i])) {
+        showToast("لم تتغيّر الخيارات"); return false;
+      }
+      let cat = null, kind = "official";
+      if (it.community) { cat = (state.communityCategories || []).find(c => c.id === it.catId); kind = "community"; }
+      else { const m = mergedOfficialCategories(); cat = m.builtins.find(c => c.id === it.catId) || m.extras.find(c => c.id === it.catId); }
+      if (!cat) { showToast("تعذّر إيجاد الفئة"); return false; }
+      const clone = JSON.parse(JSON.stringify(cat));
+      let idx = it.qIdx;
+      const matches = q => (q.q || "").trim() === it.q && (q.a || "").trim() === it.a;
+      if (!(idx >= 0 && clone.questions[idx] && matches(clone.questions[idx]))) idx = clone.questions.findIndex(matches);
+      if (idx < 0) { showToast("تعذّر إيجاد السؤال — أعد الفحص"); return false; }
+      clone.questions[idx].distractors = vals;
+      // Every option the admin actually CHANGED counts as dealt with, so the
+      // question does not come straight back naming one of them.
+      vals.forEach((v, i) => {
+        if (v !== before[i]) distMarkDone({ it, kind: entry.kind, option: before[i] });
+      });
+      if (kind === "community") {
+        const i = state.communityCategories.findIndex(c => c.id === clone.id);
+        if (i >= 0) state.communityCategories[i] = clone;
+      } else {
+        upsertPublished(clone);
+      }
+      it.d = vals.slice();
+      distRecomputeSmart();
+      renderDistReport();
+      scheduleDupPersist(kind, clone);
+      showToast("تم حفظ الخيارات — جارٍ النشر…");
+      return true;
+    }
+    // The editor itself: one field per option, the reported one marked.
+    function distOptionsEditor(f) {
+      const wrap = document.createElement("div");
+      wrap.className = "dist-act dist-editrow";
+      const inputs = f.it.d.map((d, i) => {
+        const cell = document.createElement("label");
+        cell.className = "dist-editcell" + (i === f.idx ? " flagged" : "");
+        const tag = document.createElement("span");
+        tag.className = "dist-editnum";
+        tag.textContent = toArabicDigits(i + 1);
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "dist-input";
+        // The flagged option starts on the suggestion when there is one, so the
+        // common case is one press; the others start on what is already there.
+        const suggested = (i === f.idx && (f.kind === "kindmix" || f.kind === "offtopic"))
+          ? distSmartSuggest(f, distKindCache()) : "";
+        input.value = suggested || d;
+        input.setAttribute("aria-label", `الخيار ${toArabicDigits(i + 1)}`);
+        cell.append(tag, input);
+        wrap.appendChild(cell);
+        return input;
+      });
+      const save = document.createElement("button");
+      save.className = "dup-del"; save.type = "button"; save.textContent = "حفظ الخيارات";
+      save.addEventListener("click", () => distApplyOptions(f, inputs.map(i => i.value)));
+      inputs.forEach(i => i.addEventListener("keydown", ev => { if (ev.key === "Enter") save.click(); }));
+      const skip = document.createElement("button");
+      skip.className = "dup-del dist-skip"; skip.type = "button"; skip.textContent = "تخطٍ";
+      skip.title = "مقبول كما هو — لا تُظهره مرة أخرى";
+      skip.addEventListener("click", () => distSkipFinding(f));
+      wrap.append(save, skip);
+      return wrap;
     }
     // Apply an admin-chosen replacement for one option.
     function distApplySmartFix(entry, value) {
@@ -18349,27 +18461,28 @@
         opts.className = "dist-opts";
         opts.textContent = "الخيارات: " + (f.it.d.length ? f.it.d.map(d => d.trim() || "(فارغ)").join("  •  ") : "—");
         occ.appendChild(opts);
-        if (f.kind === "kindmix") {
-          // Typed replacement, prefilled with a same-kind suggestion when the
-          // category has one. Nothing is applied until the admin presses.
-          const act = document.createElement("div");
-          act.className = "dist-act dist-fixrow";
-          const input = document.createElement("input");
-          input.type = "text";
-          input.className = "dist-input";
-          input.value = distSmartSuggest(f, distKindCache());
-          input.placeholder = `بديل لـ «${f.option}»`;
-          input.setAttribute("aria-label", `بديل للخيار ${f.option}`);
-          const go = document.createElement("button");
-          go.className = "dup-del"; go.type = "button"; go.textContent = "استبدال";
-          go.addEventListener("click", () => distApplySmartFix(f, input.value));
-          input.addEventListener("keydown", ev => { if (ev.key === "Enter") go.click(); });
-          const skipS = document.createElement("button");
-          skipS.className = "dup-del dist-skip"; skipS.type = "button"; skipS.textContent = "تخطٍ";
-          skipS.title = "الخيار مناسب — لا تُظهره مرة أخرى";
-          skipS.addEventListener("click", () => distSkipFinding(f));
-          act.append(input, go, skipS);
-          occ.appendChild(act);
+        // Every reported question opens ALL of its options for editing. The
+        // report used to offer a single replacement for the one option it had
+        // named, and only on a «نوع مختلف» finding — everything else could only
+        // be skipped, which is what «there is no way to change anything after a
+        // smart scan» was. The named option is still marked and still starts on
+        // a suggestion; the rest simply start on what they already are.
+        if (f.it.d.length) {
+          occ.appendChild(distOptionsEditor(f));
+          // A mechanical finding keeps its one-press remedy underneath — that
+          // is faster than retyping when the machine already knows the answer.
+          const fxq = distResolveFix(f);
+          if (fxq) {
+            const act = document.createElement("div");
+            act.className = "dist-act";
+            const b = document.createElement("button");
+            b.className = "dup-del"; b.type = "button";
+            b.textContent = fxq.type === "clear" ? "تفريغ الخيارات"
+              : fxq.type === "replace" ? `استبدال بـ «${fxq.value}»` : "حذف الخيار";
+            b.addEventListener("click", () => distApplyFix(f));
+            act.appendChild(b);
+            occ.appendChild(act);
+          }
           box.appendChild(occ);
           list.appendChild(box);
           return;
