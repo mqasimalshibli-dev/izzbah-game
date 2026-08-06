@@ -4698,6 +4698,15 @@
        the complaint was about without re-reading the sentence above. */
     .dist-editcell.flagged .dist-editnum { background: #c9302c; color: #fff; opacity: 1; }
     .dist-editcell.flagged .dist-input { border-color: #c9302c; }
+    /* The recommendation, offered rather than applied. */
+    .dist-editcell { flex-wrap: wrap; }
+    .dist-sugg {
+      flex: 0 0 auto; margin-inline-start: 23px; padding: 2px 9px; border-radius: 999px;
+      border: 1px dashed currentColor; background: none; color: inherit; cursor: pointer;
+      font: 700 11px 'Cairo', sans-serif; opacity: .85;
+    }
+    .dist-sugg:hover { opacity: 1; border-style: solid; }
+    .dist-sugg.none { opacity: .5; cursor: default; border-style: dotted; }
     .dist-skip { background: transparent !important; border: 1.5px solid #b9a06a !important;
       color: #7a6636 !important; }
     :root[data-theme="dark"] .dist-skip { border-color: var(--dk-line) !important; color: #d9c39c !important; }
@@ -5986,8 +5995,16 @@
       box-shadow: inset 0 0 0 99px color-mix(in srgb, var(--team, #9e1322) 12%, #fff 88%);
     }
     #game .score-tools { flex: 0 0 auto; margin-top: 0; gap: 7px; }
+    /* The «+» and «−» take the team's colour EXPLICITLY. They used to sit inside
+       the score box and inherit it; moving them out to build the single-row
+       layout left `color: inherit` resolving against the unit instead, which is
+       cream on the dark board — a cream glyph on a white button, invisible. */
     #game .score-tools button {
       width: 34px; height: 34px; border-radius: 50% !important; border-width: 2px; font-size: 22px;
+      /* Darkened against the white button face: the gold team's own colour
+         manages only 2.6:1 on white, which is not a glyph anyone can see. */
+      color: color-mix(in srgb, var(--team, #9e1322) 72%, #000 28%) !important;
+      border-color: var(--team, #9e1322);
     }
     #game .qhelp-bar--team {
       flex: 1 1 auto; display: flex; flex-direction: row; align-items: center; justify-content: center;
@@ -6934,6 +6951,14 @@
       box-shadow: 0 2px 0 rgba(255,255,255,.05) inset, 0 20px 32px -22px rgba(0,0,0,.7);
     }
     :root[data-theme="dark"] #game .score-value { color: #f6ead2 !important; text-shadow: none; }
+    /* A team's name is painted in that team's own colour, which is chosen to sit
+       on cream. On the dark board the same colour is dark-on-dark: measured
+       against the painted pixel, purple came out at 2.3:1, blue 2.8:1 and teal
+       2.9:1 — only the gold cleared 4.5:1. The hue is what identifies the team,
+       so it is kept and lifted towards the page's cream instead of replaced. */
+    :root[data-theme="dark"] #game .score-name {
+      color: color-mix(in srgb, var(--team, #9e1322) 55%, #f6ead2 45%) !important;
+    }
     :root[data-theme="dark"] #game .qhelp-bar--team { background: rgba(255,255,255,.04); }
 
     /* ── Dark: Settings account box ──────────────────────────────────────── */
@@ -11693,7 +11718,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-06.263";
+    const IZZBAH_BUILD = "2026-08-06.264";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -12145,13 +12170,15 @@
     // Themed placeholder avatars — a team that hasn't uploaded a photo gets one
     // of these by its slot, so every team shows a distinct illustrated portrait
     // instead of a generic grey silhouette.
-    // A team with no picture of its own shows the عِزبة mark. It used to be one
-    // of five animals by position, which made a team's identity depend on the
-    // order it happened to be created in; the mark is the game's own and each
-    // team is still told apart by its colour, which rings the badge.
+    // A team with no picture of its own gets one of the illustrated portraits by
+    // slot — camel, horse, falcon, goat, khanjar.
     //
-    // Already on the boot path — it is the top bar's brand mark — so this costs
-    // no extra bytes. The five animal files stay for the setup screen's picker.
+    // These briefly stopped being used on the board, which showed the عِزبة mark
+    // for every team instead. That left the game contradicting itself: the setup
+    // screen still offered these five as each team's placeholder, so a team you
+    // picked as a falcon turned into a tent the moment the board drew. The
+    // portraits are the default again everywhere, and the mark is the fallback
+    // for a slot past the end of the list.
     const TEAM_LOGO_AVATAR = "assets/brand/izzbah-mark.webp";
     const teamPlaceholderAvatars = [
       "assets/img/avatar-camel.webp",
@@ -12162,14 +12189,18 @@
     ];
     function teamAvatarSrc(team, index) {
       if (team && team.image) return team.image;
-      return TEAM_LOGO_AVATAR;
+      if (!teamPlaceholderAvatars.length) return TEAM_LOGO_AVATAR;
+      let i = index;
+      if (typeof i !== "number" || i < 0) i = Math.max(0, state.teams ? state.teams.indexOf(team) : 0);
+      return teamPlaceholderAvatars[i % teamPlaceholderAvatars.length];
     }
     function teamAvatarHtml(team, index, imgClass) {
-      // The mark is a wide tent, not a square portrait: cropping it to a circle
-      // would cut the poles off, so it is CONTAINED on a tinted disc instead.
-      // A team's own uploaded photo still fills the circle as before.
-      const own = !!(team && team.image);
-      return `<img class="${imgClass}${own ? "" : " avatar-logo"}" src="${escapeHtml(teamAvatarSrc(team, index))}" alt="">`;
+      // Only the MARK needs containing: it is a wide tent, and cropping it to a
+      // circle cuts the poles off both sides. The portraits are square and fill
+      // the circle, as does a team's own uploaded photo.
+      const src = teamAvatarSrc(team, index);
+      const isMark = src === TEAM_LOGO_AVATAR;
+      return `<img class="${imgClass}${isMark ? " avatar-logo" : ""}" src="${escapeHtml(src)}" alt="">`;
     }
 
     function teamDisplayName(team, index) {
@@ -18136,8 +18167,13 @@
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
       const known = t => Object.prototype.hasOwnProperty.call(cache, t);
+      // Kind is a PREFERENCE, not a requirement. Demanding it meant no
+      // suggestion at all whenever the answer's kind was unknown — and that is
+      // the normal state for an «خارج الموضوع» finding, because that detector
+      // works on subject and never needs a kind. So most reported rows silently
+      // offered nothing. Relevance alone is enough to recommend with; a
+      // same-kind candidate simply wins when there is one.
       const want = distKindResolved(it.a, cache[it.a] || "", known(it.a));
-      if (!want) return "";
       const used = new Set([distNorm(it.a), ...it.d.map(distNorm)]);
       const e = distIndex && distIndex[it.catId];
       if (!e) return "";
@@ -18145,22 +18181,23 @@
       // What this question is about: its answer, the options that are staying,
       // and its own wording.
       const context = distRelContext(it, entry, cache);
-      let best = "", bestScore = 0;
+      let same = "", sameScore = 0, any = "", anyScore = 0;
       e.pool.forEach((val) => {
         if (used.has(distNorm(val))) return;
-        if (distKindResolved(val, cache[val] || "", known(val)) !== want) return;
         let score = 0;
         new Set(distRelWords(cache[val] || "")).forEach(w => {
           if (context.has(w)) score += context.get(w) / (1 + (freq[w] || 0));
         });
+        if (score <= 0) return;
         // Deterministic tie-break, so the same question always offers the same
         // replacement on every device rather than shuffling between them.
-        if (score > bestScore ||
-            (score === bestScore && score > 0 && val < best)) {
-          best = val; bestScore = score;
-        }
+        const beats = (s, bs, v, bv) => s > bs || (s === bs && v < bv);
+        if (want && distKindResolved(val, cache[val] || "", known(val)) === want
+            && beats(score, sameScore, val, same)) { same = val; sameScore = score; }
+        if (beats(score, anyScore, val, any)) { any = val; anyScore = score; }
       });
-      return bestScore >= DIST_REL_FLOOR ? best : "";
+      if (sameScore >= DIST_REL_FLOOR) return same;
+      return anyScore >= DIST_REL_FLOOR ? any : "";
     }
     // Recompute the smart findings against the CURRENT data, using the verdicts
     // already held — no Wikipedia call. A replaced option is a new term, so its
@@ -18243,13 +18280,32 @@
         const input = document.createElement("input");
         input.type = "text";
         input.className = "dist-input";
-        // The flagged option starts on the suggestion when there is one, so the
-        // common case is one press; the others start on what is already there.
-        const suggested = (i === f.idx && (f.kind === "kindmix" || f.kind === "offtopic"))
-          ? distSmartSuggest(f, distKindCache()) : "";
-        input.value = suggested || d;
+        // Every field shows what is ACTUALLY stored. The suggestion used to be
+        // written straight into the flagged field, which made it impossible to
+        // tell a recommendation from the value already there — and when there
+        // was no suggestion, nothing said so. It is offered as a button now:
+        // visible, named, and applied only if pressed.
+        input.value = d;
         input.setAttribute("aria-label", `الخيار ${toArabicDigits(i + 1)}`);
         cell.append(tag, input);
+        if (i === f.idx) {
+          const sug = distSmartSuggest(f, distKindCache());
+          const hint = document.createElement("button");
+          hint.type = "button";
+          hint.className = "dist-sugg" + (sug ? "" : " none");
+          if (sug) {
+            hint.textContent = `اقتراح: ${sug}`;
+            hint.title = "اضغط لوضع هذا البديل في الحقل";
+            hint.addEventListener("click", () => { input.value = sug; input.focus(); });
+          } else {
+            // Saying "nothing fits" is information too — it means the category
+            // holds no option close enough to this question to recommend, and
+            // the admin should type their own rather than wait for one.
+            hint.textContent = "لا يوجد اقتراح مناسب — اكتب البديل";
+            hint.disabled = true;
+          }
+          cell.appendChild(hint);
+        }
         wrap.appendChild(cell);
         return input;
       });

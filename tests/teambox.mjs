@@ -12,9 +12,14 @@
 // squeezing the box on a narrow screen — a phone in landscape has a question
 // grid to fit underneath.
 //
-// It also pins the team picture. A team with no photo of its own shows the
-// عِزبة mark, and the mark is a wide tent: CONTAINED on a tinted disc, never
-// cropped to a circle, which would cut the guy ropes off on both sides.
+// It also pins the team picture. A team with no photo of its own gets one of the
+// five illustrated portraits by slot. Those briefly stopped being used on the
+// board, which drew the عِزبة mark for every team — while the SETUP screen still
+// offered the portraits as each team's placeholder, so a team picked as a falcon
+// became a tent as soon as the board rendered. The portraits are the default
+// again; the mark is only the fallback past the end of the list, and only the
+// mark is contained rather than cropped (it is a wide tent, and a circular crop
+// cuts the guy ropes off).
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -96,6 +101,9 @@ try {
         photoSrc: photo.getAttribute("src"),
         photoFit: cs.objectFit,
         photoLogo: photo.classList.contains("avatar-logo"),
+        teamCount: document.querySelectorAll("#scoreRow .score-unit").length,
+        allPhotos: [...new Set([...document.querySelectorAll("#scoreRow .score-photo")]
+          .map(x => x.getAttribute("src")))],
         // the +/- pair: on an RTL row «+» sits to the right of «−»
         plusRight: (() => {
           const bs = [...kid(".score-tools").querySelectorAll("button")];
@@ -132,10 +140,12 @@ try {
     }
 
     // ---- the team picture ----
-    check(`${label}: a team with no photo shows the عِزبة mark (${m.photoSrc})`,
-      /izzbah-mark/.test(m.photoSrc) && m.photoLogo);
-    check(`${label}: …contained rather than cropped, so the tent is whole (${m.photoFit})`,
-      m.photoFit === "contain");
+    check(`${label}: a team with no photo gets an illustrated portrait (${m.photoSrc})`,
+      /assets\/img\/avatar-/.test(m.photoSrc) && m.photoLogo === false);
+    check(`${label}: …filling the circle, as a portrait should (${m.photoFit})`,
+      m.photoFit === "cover");
+    check(`${label}: every team gets a DIFFERENT one (${m.allPhotos.length} distinct of ${m.teamCount})`,
+      m.allPhotos.length === Math.min(m.teamCount, 5));
 
   }
 
@@ -224,6 +234,80 @@ try {
         m.rowH < h * 0.42);
       check(`${label} · ${n} teams: «دورهم الآن» does not cover the team's name`, m.tabClearsName);
     }
+  }
+
+  // ---- dark mode: the team's own colour is not a text colour ----
+  //
+  // A team's name and its +/- glyphs are painted in that team's colour, which is
+  // chosen to sit on cream. On the dark board the same colour is dark-on-dark:
+  // measured against the PAINTED pixel, purple came out at 2.3:1, blue 2.8:1 and
+  // teal 2.9:1. Only the gold cleared 4.5:1.
+  //
+  // The +/- were worse and were a regression from the row layout: they used to
+  // live inside the score box and inherit the team colour, and moving them out
+  // left `color: inherit` resolving against the unit — cream, on a white button.
+  //
+  // Contrast is measured off a screenshot rather than computed from the CSS,
+  // because color-mix() and translucent layers are exactly where hand-stacking
+  // goes wrong. Note color-mix computes to `color(srgb 0.49 …)` — 0..1 floats,
+  // not bytes; parsing those as bytes reports a bright pastel as near-black.
+  {
+    const page = await board(1280, 800, 5);
+    await page.evaluate(() => {
+      state.theme = "dark";
+      document.documentElement.setAttribute("data-theme", "dark");
+      renderGame();
+    });
+    await page.waitForTimeout(400);
+    const targets = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("#scoreRow .score-unit").forEach((u, i) => {
+        const push = (label, el, bgEl) => {
+          if (!el) return;
+          const br = (bgEl || u).getBoundingClientRect();
+          out.push({ i, label, color: getComputedStyle(el).color,
+            at: { x: Math.round(br.left + 6), y: Math.round(br.top + br.height / 2) } });
+        };
+        push("name", u.querySelector(".score-name"));
+        push("score", u.querySelector(".score-value"));
+        u.querySelectorAll(".score-tools button").forEach(btn => {
+          const r = btn.getBoundingClientRect();
+          out.push({ i, label: btn.textContent.trim() === "+" ? "plus" : "minus",
+            color: getComputedStyle(btn).color,
+            at: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 4) } });
+        });
+      });
+      return out;
+    });
+    const shot = (await page.screenshot()).toString("base64");
+    const bgs = await page.evaluate(async ([b64, pts]) => {
+      const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      cv.getContext("2d").drawImage(img, 0, 0);
+      const ctx = cv.getContext("2d");
+      return pts.map(pt => { const d = ctx.getImageData(pt.x, pt.y, 1, 1).data; return [d[0], d[1], d[2]]; });
+    }, [shot, targets.map(t => t.at)]);
+    const lum = ([r, g, bl]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
+    const ratio = (a, c) => { const [x, y] = [lum(a), lum(c)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+    const parse = (str) => {
+      const n = (str.match(/-?\d*\.?\d+/g) || []).map(Number);
+      return /^color\(/.test(str) ? n.slice(-3).map(v => Math.round(v * 255)) : n.slice(0, 3);
+    };
+    const worst = {};
+    targets.forEach((t, k) => {
+      const cr = ratio(parse(t.color), bgs[k]);
+      if (worst[t.label] === undefined || cr < worst[t.label]) worst[t.label] = cr;
+    });
+    Object.keys(worst).forEach(label => {
+      check(`dark mode: the worst «${label}» is readable (${worst[label].toFixed(2)}:1)`,
+        worst[label] >= 4.5);
+    });
+    await page.evaluate(() => {
+      state.theme = "light";
+      document.documentElement.setAttribute("data-theme", "light");
+      renderGame();
+    });
   }
 
   check("no uncaught JS errors", errs.length === 0);
