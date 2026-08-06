@@ -38,14 +38,23 @@ const VIEWPORTS = [
   ["landscape 1024×600", 1024, 600, false],
 ];
 
+// ONE page, resized and re-seated between cases. This used to open a fresh page
+// for every viewport × team-count pair — fourteen loads of a 1.7 MB document,
+// 35 seconds of the CI run for a test that only ever measures geometry.
+let PAGE = null;
 async function board(w, h, n) {
-  const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-  await page.route("**/firebasejs/**", r => r.abort());
-  page.on("pageerror", e => errs.push(e.message));
-  page.on("dialog", d => d.accept().catch(() => {}));
-  await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
-  await page.waitForTimeout(1400);
+  if (!PAGE) {
+    PAGE = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    await PAGE.route("**/firebasejs/**", r => r.abort());
+    PAGE.on("pageerror", e => errs.push(e.message));
+    PAGE.on("dialog", d => d.accept().catch(() => {}));
+    await PAGE.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+    await PAGE.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await PAGE.waitForTimeout(1400);
+  } else {
+    await PAGE.setViewportSize({ width: w, height: h });
+  }
+  const page = PAGE;
   await page.evaluate((n) => {
     coachMarkAll();
     const NAMES = ["جروب الحارة", "تيم خلفان", "أبطال صحار", "شباب نزوى", "فريق ظفار"];
@@ -58,7 +67,9 @@ async function board(w, h, n) {
     showScreen("game");
     renderGame();
   }, n || 2);
-  await page.waitForTimeout(500);
+  // The layout keys off each box's own width via container queries, so give the
+  // resize a frame to settle before anything is measured.
+  await page.waitForTimeout(260);
   return page;
 }
 
@@ -126,7 +137,6 @@ try {
     check(`${label}: …contained rather than cropped, so the tent is whole (${m.photoFit})`,
       m.photoFit === "contain");
 
-    await page.close();
   }
 
   // ---- a team's OWN photo still fills the circle ----
@@ -143,7 +153,6 @@ try {
     });
     check(`a team's own photo is not treated as the mark (${own.src}…)`, own.logo === false);
     check(`…and still fills the circle (${own.fit})`, own.fit === "cover");
-    await page.close();
   }
 
   // ---- narrow: the captions go, the arrangement stays ----
@@ -162,7 +171,6 @@ try {
     check(`below 800px the captions are hidden rather than shrunk (${narrow.shown} of ${narrow.present} shown)`,
       narrow.present === 3 && narrow.shown === 0);
     check("…and the lifelines are still a row", narrow.stillARow);
-    await page.close();
   }
 
   // ---- three, four and five teams have to look organised too ----
@@ -215,7 +223,6 @@ try {
       check(`${label} · ${n} teams: the row leaves the board its room (${m.rowH}px of ${h})`,
         m.rowH < h * 0.42);
       check(`${label} · ${n} teams: «دورهم الآن» does not cover the team's name`, m.tabClearsName);
-      await page.close();
     }
   }
 
@@ -225,6 +232,7 @@ try {
   check("harness completed", false);
   console.log("  harness error:", e.message);
 } finally {
+  if (PAGE) await PAGE.close().catch(() => {});
   await browser.close();
   server.kill();
 }
