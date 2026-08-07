@@ -12,6 +12,15 @@
 // updatedAt changes the key, every cache entry misses, and the pictures are
 // refetched once per device.
 //
+// But bumping updatedAt ALONE is not enough, which is the trap: the client
+// short-circuits the whole catalogue on a single revision doc —
+//
+//   if (freshRev === cachedRev && haveCats) { applyCachedCategories(cache); return; }
+//
+// — and never reads the category documents at all, so it never sees the new
+// updatedAt. meta/catalog.rev has to move too, exactly as the app's own
+// bumpCatalogRev() does on publish. Both, or neither works.
+//
 //   node tools/touch-categories.mjs                # dry run
 //   node tools/touch-categories.mjs --apply
 import { Firestore } from "@google-cloud/firestore";
@@ -46,6 +55,17 @@ const main = async () => {
     } else {
       console.log(`${id.padEnd(26)} ${was}  ->  would bump`);
     }
+  }
+  // The catalogue revision, without which none of the above is ever read.
+  const meta = db.collection("meta").doc("catalog");
+  const cur = await meta.get();
+  const rev = ((cur.data() || {}).rev) || 0;
+  if (APPLY) {
+    await meta.set({ rev: Firestore.FieldValue.increment(1),
+                     updatedAt: Firestore.FieldValue.serverTimestamp() }, { merge: true });
+    console.log(`\nmeta/catalog rev ${rev} -> ${rev + 1}`);
+  } else {
+    console.log(`\nmeta/catalog rev ${rev} -> would bump to ${rev + 1}`);
   }
   console.log(APPLY
     ? "\nDone. Hard-refresh the game; each device refetches that category's media once."
