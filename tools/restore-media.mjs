@@ -53,14 +53,15 @@ if (SOURCE_DB === TARGET_DB) {
 // all 40 category parent docs in one RPC (each carries a cover image plus its
 // inline question array) died with DEADLINE_EXCEEDED after the default 300s.
 // So: a longer deadline, and every read below is kept small and paged.
-// preferRest: gRPC holds a long-lived HTTP/2 stream, and in Cloud Shell that
-// stream connects and then delivers nothing — the first failure was
-// DEADLINE_EXCEEDED after 300s with name resolution and LB pick both landing
-// in single-digit milliseconds, which is the signature of a stalled stream
-// rather than an unreachable database. REST issues an ordinary HTTPS request
-// per read. This script only does get() and update(), so nothing here needs
-// gRPC's streaming. Pass --grpc to go back if it ever matters.
-const opts = { projectId: PROJECT, preferRest: !argv.includes("--grpc") };
+// Transport: gRPC, measured. tools/probe-firestore.js reads one document from
+// each database over both, and on a freshly restored database REST took 15.9s
+// against gRPC's 2.1s. An earlier guess that a stalled gRPC stream was behind
+// the DEADLINE_EXCEEDED was simply wrong — both transports work. Reads are
+// just SLOW on a restored database, which is why every read below is paged:
+// at a couple of seconds a document, one 198-doc get() exceeds the 300s
+// deadline, and that is exactly what the first run hit. --rest to compare.
+const opts = { projectId: PROJECT, preferRest: argv.includes("--rest") };
+
 const src = new Firestore(Object.assign({ databaseId: SOURCE_DB }, opts));
 const dst = new Firestore(Object.assign({ databaseId: TARGET_DB }, opts));
 
@@ -82,7 +83,7 @@ const AFFECTED = [
 
 // Read a questions subcollection in PAGES. One .get() on 198 docs of base64 is
 // ~10 MB in a single RPC, which is what times out; 20 at a time is not.
-async function readQuestions(db, catId, pageSize = 20) {
+async function readQuestions(db, catId, pageSize = 20, tick = null) {
   const col = db.collection("categories").doc(catId).collection("questions");
   const out = [];
   let last = null;
@@ -92,6 +93,7 @@ async function readQuestions(db, catId, pageSize = 20) {
     const snap = await q.get();
     if (snap.empty) break;
     snap.docs.forEach(d => out.push({ id: d.id, data: d.data() || {} }));
+    if (tick) tick(out.length);
     last = snap.docs[snap.docs.length - 1];
     if (snap.size < pageSize) break;
   }
@@ -141,9 +143,14 @@ async function main() {
   for (const catId of ids) {
     process.stdout.write(`[${String(++scanned).padStart(2)}/${ids.length}] ${catId} … `);
 
-    const srcQs = await readQuestions(src, catId);
-    if (!srcQs.length) { console.log("no question docs in backup — skipped"); continue; }
-    const dstQs = await readQuestions(dst, catId);
+    // A restored database serves reads slowly, so show every page landing —
+    // otherwise a category that legitimately takes minutes looks hung, which
+    // is how three separate runs got killed early.
+    const dot = () => process.stdout.write(".");
+    const srcQs = await readQuestions(src, catId, 20, dot);
+    if (!srcQs.length) { console.log(" no question docs in backup — skipped"); continue; }
+    const dstQs = await readQuestions(dst, catId, 20, dot);
+    process.stdout.write(` ${srcQs.length} read — `);
 
     const live = new Map();
     dstQs.forEach(d => live.set(d.id, d.data));
