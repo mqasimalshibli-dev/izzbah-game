@@ -42,7 +42,7 @@ const r = await p.evaluate(()=>({
 console.log("--- table ---\n"+r.text);
 ck("finds the seeded category", /pub-brands/.test(r.text));
 ck("counts 3 images (2 question + 1 answer)", /\b3\b/.test(r.text));
-ck("ignores non-media keys", !/settings:x|unrelated/.test(r.text));
+ck("non-media keys are inventoried, not counted as images", /settings:x/.test(r.text) && !/unrelated/.test(r.text));
 ck("lists an image-less cached category as 0", /pub-empty/.test(r.text));
 ck("totals line present", /المجموع: 3 صورة/.test(r.text));
 ck("offers the download once something was found", r.nextShown);
@@ -65,6 +65,7 @@ await p2.goto(`http://127.0.0.1:${PORT}/recover.html`,{waitUntil:"load"});
 await p2.click("#scan"); await p2.waitForTimeout(500);
 const t2 = await p2.evaluate(()=>document.getElementById("out").innerText);
 ck("a device with no cache reports it cleanly", /لا توجد/.test(t2));
+ck("…and says where images actually come from", /بدء لعبة فعلية/.test(t2) || /لا توجد نسخة محلية/.test(t2));
 
 ck("no JS errors", errs.length===0);
 if(errs.length) console.log(errs.slice(0,3));

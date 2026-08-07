@@ -141,9 +141,29 @@ $("#scan").addEventListener("click", async () => {
   });
   cats.sort((a, b) => b.images - a.images);
 
+  // Everything else in the store, so "nothing here" is demonstrated rather than
+  // asserted: the same cache also holds the text-only category copies, the
+  // catalogue revision and the community fallback, and seeing those present
+  // while media: is absent is what proves the game ran here but never cached
+  // pictures — as opposed to the store simply being empty.
+  const others = rows
+    .filter(([k]) => k && String(k).indexOf("media:") !== 0)
+    .map(([k, v]) => ({ key: String(k), bytes: (() => {
+      try { return JSON.stringify(v).length; } catch (e) { return 0; } })() }));
+  const inventory = !others.length ? "" :
+    '<p class="sub" style="margin-top:14px">مفاتيح أخرى في نفس المخزن (' + others.length + '):</p>'
+    + '<table><tbody>' + others.slice(0, 40).map(o =>
+        '<tr><td>' + o.key.replace(/[<>&]/g, "") + '</td><td class="n">'
+        + (o.bytes > 1024 ? (o.bytes / 1024).toFixed(0) + " KB" : o.bytes + " B")
+        + '</td></tr>').join("") + '</tbody></table>';
+
   $("#status").textContent = "";
   if (!cats.length) {
-    $("#out").innerHTML = '<p class="warn">لا توجد صور محفوظة على هذا الجهاز.</p>';
+    $("#out").innerHTML =
+      '<p class="warn">لا توجد صور محفوظة على هذا الجهاز.</p>'
+      + '<p class="sub">الصور تُحفظ فقط عند بدء لعبة فعلية في الفئة على هذا الجهاز — '
+      + 'فتح لوحة الإدارة وحده لا يحفظ شيئاً. جرّب الجهاز الذي تلعب عليه.</p>'
+      + inventory;
     return;
   }
 
@@ -158,7 +178,8 @@ $("#scan").addEventListener("click", async () => {
         + '<td class="n">' + (c.bytes ? mb(c.bytes) : "—") + '</td>'
         + '<td class="n">' + when(c.ver) + '</td></tr>').join("")
     + '</tbody></table>'
-    + '<p class="totals">المجموع: ' + totalImgs + ' صورة في ' + cats.length + ' فئة</p>';
+    + '<p class="totals">المجموع: ' + totalImgs + ' صورة في ' + cats.length + ' فئة</p>'
+    + inventory;
 
   if (totalImgs > 0) {
     payload = { takenAt: new Date().toISOString(), origin: location.origin,
