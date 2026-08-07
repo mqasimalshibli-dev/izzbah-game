@@ -74,6 +74,73 @@ try {
   const back = await page.evaluate(() => ({ attr: document.documentElement.getAttribute("data-theme"), stored: localStorage.getItem("izzbah-theme-v1") }));
   check("toggling back returns to light", back.attr === "light" && back.stored === "light");
 
+  // ---- «ألعابك» has to switch themes too ----
+  //
+  // The saved-game card is styled by `#gameLibrary .saved-game-card { … }` with
+  // !important and specificity (1,1,0). The theme rule
+  // `:root[data-theme="dark"] .saved-game-card` is (0,3,0) with no !important,
+  // so it could never win: the card stayed cream on the dark page. Meanwhile the
+  // count pill's own dark override DOES carry !important, so its text turned
+  // cream — cream on cream, measured at 1.17:1 and invisible. Fixing the pill
+  // alone would have treated the symptom; the card is what failed to switch.
+  //
+  // Contrast is read off a screenshot, not computed: the card fill is a
+  // gradient and the pills are translucent, which is where stacking by hand
+  // goes wrong. Sample points avoid glyphs and the border — earlier attempts hit
+  // the text itself (1.02:1) and then the border (4.07:1), both false alarms.
+  {
+    const lum = ([r, g, bl]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
+    const ratio = (a, c) => { const [x, y] = [lum(a), lum(c)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+    const parse = (str) => { const n = (str.match(/-?\d*\.?\d+/g) || []).map(Number);
+      return /^color\(/.test(str) ? n.slice(-3).map(v => Math.round(v * 255)) : n.slice(0, 3); };
+
+    for (const mode of ["dark", "light"]) {
+      await page.evaluate((m) => {
+        state.theme = m;
+        document.documentElement.setAttribute("data-theme", m);
+        const cats = activeCategories().slice(0, 4).map(c => c.id);
+        state.savedGames = [{ id: "t1", title: "لعبة ١", categories: cats, charged: true,
+          teams: [{ name: "أ", score: 0 }, { name: "ب", score: 0 }], teamCount: 2,
+          activeTeam: 0, used: {}, frozen: {}, createdAt: 1700000000000 }];
+        showScreen("gameLibrary");
+        if (typeof renderSavedGames === "function") renderSavedGames();
+      }, mode);
+      await page.waitForTimeout(500);
+      const targets = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("#gameLibrary .saved-game-count").forEach(el => {
+          const r = el.getBoundingClientRect();
+          out.push({ label: el.className.includes("free") ? "free pill" : "count pill",
+            color: getComputedStyle(el).color,
+            at: { x: Math.round(r.left + 4), y: Math.round(r.top + r.height / 2) } });
+        });
+        const t = document.querySelector("#gameLibrary .saved-game-title");
+        if (t) { const r = t.getBoundingClientRect();
+          out.push({ label: "card title", color: getComputedStyle(t).color,
+            at: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top - 8) } }); }
+        return out;
+      });
+      if (!targets.length) { check(`${mode}: saved-game card rendered`, false); continue; }
+      const shot = (await page.screenshot()).toString("base64");
+      const bgs = await page.evaluate(async ([b64, pts]) => {
+        const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+        const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+        const ctx = cv.getContext("2d"); ctx.drawImage(img, 0, 0);
+        return pts.map(pt => { const d = ctx.getImageData(pt.x, pt.y, 1, 1).data; return [d[0], d[1], d[2]]; });
+      }, [shot, targets.map(t => t.at)]);
+      targets.forEach((t, k) => {
+        const cr = ratio(parse(t.color), bgs[k]);
+        check(`${mode}: the ${t.label} is readable (${cr.toFixed(2)}:1)`, cr >= 4.5);
+      });
+      // …and the card itself must actually change surface with the theme.
+      const cardLum = lum(bgs[bgs.length - 1]);
+      check(`${mode}: the card surface follows the theme (luminance ${cardLum.toFixed(2)})`,
+        mode === "dark" ? cardLum < 0.2 : cardLum > 0.5);
+    }
+    await page.evaluate(() => { state.theme = "light"; document.documentElement.setAttribute("data-theme", "light"); });
+  }
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {

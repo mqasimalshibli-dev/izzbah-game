@@ -173,6 +173,84 @@ try {
   }
   await page.evaluate(() => { state.theme = "light"; document.documentElement.setAttribute("data-theme", "light"); });
 
+  // ---- the category-editor toolbar has a hierarchy ----
+  //
+  // It was eleven buttons in equal grid cells, all the same bright red:
+  // «حذف كل الأسئلة» shouted exactly as loudly as «ضغط صور الفئات», and the one
+  // action reached for constantly — adding a question — could not be found at a
+  // glance. Rank is carried by weight now: one primary, quiet everyday actions,
+  // outlined-red destructive ones, and the rare maintenance tools last.
+  //
+  // The contrast half of this is worth its own note: the admin panel is a DARK
+  // surface in BOTH themes (measured, its ground sits at rgb(20,17,12) either
+  // way). A light-theme palette was written for it on the assumption it went
+  // light, which put dark brown text on near-black at 1.97:1 — so the check runs
+  // in both themes and the palette is deliberately theme-independent.
+  const toolbarLum = ([r, g, bl]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
+  const toolbarRatio = (a, c) => { const [x, y] = [toolbarLum(a), toolbarLum(c)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  const toolbarParse = (str) => { const n = (str.match(/-?\d*\.?\d+/g) || []).map(Number);
+    return /^color\(/.test(str) ? n.slice(-3).map(v => Math.round(v * 255)) : n.slice(0, 3); };
+
+  for (const mode of ["dark", "light"]) {
+    const shape = await page.evaluate((m) => {
+      state.theme = m; document.documentElement.setAttribute("data-theme", m);
+      document.querySelectorAll(".modal-backdrop.open").forEach(x => x.classList.remove("open"));
+      openAdminPanel();
+      const foot = document.querySelector("#adminPanel .admin-foot");
+      const btns = [...foot.querySelectorAll("button")].filter(x => !x.hidden);
+      const tier = x => (x.className.match(/af-\w+/) || ["none"])[0];
+      const r = x => x.getBoundingClientRect();
+      const visual = btns.slice().sort((a, b) => (r(a).top - r(b).top) || (r(b).left - r(a).left));
+      return {
+        total: btns.length,
+        untiered: btns.filter(x => tier(x) === "none").length,
+        primaries: btns.filter(x => tier(x) === "af-primary").length,
+        // the primary must come FIRST visually, whatever the source order
+        firstTier: tier(visual[0]),
+        // tools must come last
+        lastTier: tier(visual[visual.length - 1]),
+        rows: new Set(btns.map(x => Math.round(r(x).top))).size,
+        // a tool is quieter than an everyday button, which is quieter than the primary
+        sizes: ["af-primary", "af-quiet", "af-tool"].map(t => {
+          const el = btns.find(x => tier(x) === t);
+          return el ? parseFloat(getComputedStyle(el).fontSize) : null;
+        }),
+        targets: btns.map(x => ({ tier: tier(x), color: getComputedStyle(x).color,
+          at: { x: Math.round(r(x).left + 3), y: Math.round(r(x).top + r(x).height / 2) } })),
+      };
+    }, mode);
+
+    if (mode === "dark") {
+      check(`the toolbar puts every button in a tier (${shape.untiered} untiered of ${shape.total})`,
+        shape.untiered === 0 && shape.total >= 8);
+      check(`…with exactly one primary (${shape.primaries})`, shape.primaries === 1);
+      check(`…drawn first (${shape.firstTier})`, shape.firstTier === "af-primary");
+      check(`…and the rare tools last (${shape.lastTier})`, shape.lastTier === "af-tool");
+      check(`…flowing onto a few rows rather than one cell each (${shape.rows} rows)`,
+        shape.rows >= 1 && shape.rows <= 3);
+      check(`…the primary is the largest and a tool the smallest (${shape.sizes.join(" > ")})`,
+        shape.sizes[0] > shape.sizes[2] && shape.sizes[1] >= shape.sizes[2]);
+    }
+
+    const shot = (await page.screenshot()).toString("base64");
+    const bgs = await page.evaluate(async ([b64, pts]) => {
+      const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const ctx = cv.getContext("2d"); ctx.drawImage(img, 0, 0);
+      return pts.map(pt => { const d = ctx.getImageData(pt.x, pt.y, 1, 1).data; return [d[0], d[1], d[2]]; });
+    }, [shot, shape.targets.map(t => t.at)]);
+    const worst = {};
+    shape.targets.forEach((t, k) => {
+      const cr = toolbarRatio(toolbarParse(t.color), bgs[k]);
+      if (worst[t.tier] === undefined || cr < worst[t.tier]) worst[t.tier] = cr;
+    });
+    Object.keys(worst).forEach(t => {
+      check(`${mode}: the worst «${t}» button is readable (${worst[t].toFixed(2)}:1)`, worst[t] >= 4.5);
+    });
+  }
+  await page.evaluate(() => { state.theme = "light"; document.documentElement.setAttribute("data-theme", "light"); });
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
