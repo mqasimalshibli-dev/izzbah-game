@@ -568,6 +568,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node fullgame.mjs
 
+      - name: Run admin-flows test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node adminflows.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |

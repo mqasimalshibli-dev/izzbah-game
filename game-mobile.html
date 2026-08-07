@@ -11837,7 +11837,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.271";
+    const IZZBAH_BUILD = "2026-08-07.272";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15763,8 +15763,23 @@
       // cloning. Without this the editor would show every question as
       // pictureless and a publish would wipe the images from the cloud.
       hydrateOneCategory(id).then(got => {
-        if (!got) return;
-        if (state.adminCat && state.adminCat.id === id) {
+        if (!got) {
+          // Say so. The editor is already usable on the pictureless clone, so a
+          // silent failure looks exactly like "this category has no images" —
+          // and an admin who believes that will not think twice about
+          // publishing. cloudPublish refuses to blank an unhydrated category's
+          // media (see the ⛔ note in CLAUDE.md), so nothing is lost either way,
+          // but the admin still has to know they are not seeing the real thing.
+          // The custom editor already warns in the same words.
+          if (categoryNeedsMedia(categoryById(id))) {
+            showToast("تعذّر تحميل صور الفئة — تحقّق من الاتصال وحاول مجدداً");
+          }
+          return;
+        }
+        // Re-cloning replaces state.adminCat wholesale, so it must not run over
+        // edits made while the media was still downloading — on a big category
+        // that is seconds, and the admin's typing would vanish with no trace.
+        if (state.adminCat && state.adminCat.id === id && !state.adminDirty) {
           state.adminCat = adminCloneCategory(id);
           renderAdminTable();
           renderAdminCatHead();
