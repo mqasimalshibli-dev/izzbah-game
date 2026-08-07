@@ -11837,7 +11837,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.267";
+    const IZZBAH_BUILD = "2026-08-07.268";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17173,9 +17173,12 @@
     function flushDupPersist(catId) {
       const job = dupPersistJobs[catId];
       if (!job) return;
+      // These edits change ONE text field but republish the whole category, so
+      // the writer has to be told whether the pictures in hand are real.
+      const trusted = !job.cat.__lite || hydratedCats.has(catId);
       const run = job.kind === "community"
         ? (window.IZZBAH && window.IZZBAH.adminSetCommunityQuestions
-            ? window.IZZBAH.adminSetCommunityQuestions(catId, job.cat.questions) : Promise.reject(new Error("no bridge")))
+            ? window.IZZBAH.adminSetCommunityQuestions(catId, job.cat.questions, trusted) : Promise.reject(new Error("no bridge")))
         : persistOfficialCategoryEdit(job.cat);
       run.then(() => { delete dupPersistJobs[catId]; setDupSyncStatus(); })
          .catch(() => { delete dupPersistJobs[catId]; setDupSyncStatus("⚠ تعذّر حفظ إحدى الفئات — حدّث الصفحة للتأكد", "err"); });
@@ -24847,18 +24850,35 @@
           // Admin edits a community category's questions in place (used by the
           // duplicate scanner to remove a repeated question). Admin update is
           // allowed by the community rules; the shape mirrors the stored one.
-          window.IZZBAH.adminSetCommunityQuestions = function (catId, questions) {
+          // mediaTrusted: the caller has confirmed this category's pictures are
+          // actually loaded. A community category is media-LITE in state (see
+          // normalizeCommunityCategory), so without this the same write that
+          // saves one distractor blanks every photo in the category — the
+          // official path lost ten categories that way on 5-6 August 2026.
+          // When media is not trusted, the stored images are read back and any
+          // empty incoming one is left exactly as it was.
+          window.IZZBAH.adminSetCommunityQuestions = function (catId, questions, mediaTrusted) {
             if (!catId) return Promise.reject(new Error("no category"));
-            return db.collection("community").doc(catId).update({
-              questions: (questions || []).map(q => ({
+            const ref = db.collection("community").doc(catId);
+            const shape = (list, prev) => (list || []).map((q, i) => {
+              const p = (prev && prev[i]) || {};
+              const keep = (v, o) => (!v && !mediaTrusted) ? (o || "") : (v || "");
+              return {
                 points: q.points || 0, q: q.q || "", a: q.a || "",
-                image: q.image || "", answerImage: q.answerImage || "",
+                image: keep(q.image, p.image), answerImage: keep(q.answerImage, p.answerImage),
                 distractors: Array.isArray(q.distractors) ? q.distractors.slice(0, 3) : [],
                 margin: Number(q.margin) > 0 ? Number(q.margin) : 0,
                 marginUnit: q.marginUnit ? String(q.marginUnit) : ""
-              })),
+              };
+            });
+            const write = prev => ref.update({
+              questions: shape(questions, prev),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            if (mediaTrusted) return write(null);
+            // The read is only worth its cost on the unsafe path, and a failed
+            // read must NOT fall through to a blanking write.
+            return ref.get().then(d => write(((d.data() || {}).questions) || []));
           };
           window.IZZBAH.adminListFeedback = function () {
             return db.collectionGroup("messages").get().then(snap => {
@@ -25823,17 +25843,30 @@
               // category isn't marked "fresh" before its questions are all in;
               // the next publish simply re-diffs and finishes the rest.
               const ops = [];
+              // A category sitting in memory is media-LITE: build .209 replaces
+              // every question image with "" at the state boundary and only
+              // hydrateMediaInto() puts them back. Publishing such a copy wrote
+              // image:"" straight over the stored photo and DESTROYED it — which
+              // is how ten categories lost every picture on 5-6 August 2026, via
+              // the duplicate remover and the smart-scan distractor editor, both
+              // of which republish a whole category to save one text field.
+              // So: unless this category's media was really hydrated, an empty
+              // image means "not loaded", never "delete". A hydrated category
+              // still honours a clear, so removing a picture in the editor works.
+              const mediaTrusted = !cat.__lite || hydratedCats.has(cat.id);
+              const keepImg = (v, p) => (!v && !mediaTrusted) ? (p || "") : (v || "");
               list.forEach((q, i) => {
                 const id = "q" + i; keep.add(id);
+                const prev = prevById.get(id);
                 // Curated distractors live in the META doc's questions array
                 // (which the rules don't field-validate), NOT here — so the
                 // per-question doc keeps its original shape and publishing works
                 // under the deployed rules without a rules change.
                 const data = {
                   points: q.points || 0, q: q.q || "", a: q.a || "",
-                  image: q.image || "", answerImage: q.answerImage || "", idx: i
+                  image: keepImg(q.image, prev && prev.image),
+                  answerImage: keepImg(q.answerImage, prev && prev.answerImage), idx: i
                 };
-                const prev = prevById.get(id);
                 if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
                     || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {
                   ops.push({ ref: qcol.doc(id), data: data, bytes: JSON.stringify(data).length });
