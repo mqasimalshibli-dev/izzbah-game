@@ -33,16 +33,24 @@ try {
   await page.waitForTimeout(1500);
 
   // ---- visibility per screen ----
+  // Owner's call (build .274): the settings button belongs on EVERY screen
+  // except the board of point cells and the two takeovers a cell opens. It
+  // used to be hidden on category-pick, team-setup and results as well, which
+  // put an account, a theme and the announcements out of reach from three
+  // ordinary screens. tests/settingsreach.mjs covers all ten screens and also
+  // checks the button is actually hittable, not merely displayed.
   await page.evaluate(() => showScreen("menu"));
   check("settings button is visible on the welcome screen", await visible("#userSettingsBtn"));
   await page.evaluate(() => showScreen("gameLibrary"));
   check("settings button is visible on the game library", await visible("#userSettingsBtn"));
   await page.evaluate(() => showScreen("categories"));
-  check("settings button is HIDDEN on the category-selection screen", !(await visible("#userSettingsBtn")));
+  check("settings button is visible on the category-selection screen", await visible("#userSettingsBtn"));
   await page.evaluate(() => showScreen("setup"));
-  check("settings button is HIDDEN during team setup", !(await visible("#userSettingsBtn")));
+  check("settings button is visible during team setup", await visible("#userSettingsBtn"));
+  await page.evaluate(() => showScreen("results"));
+  check("settings button is visible on the results screen", await visible("#userSettingsBtn"));
   await page.evaluate(() => showScreen("game"));
-  check("settings button is HIDDEN in game", !(await visible("#userSettingsBtn")));
+  check("settings button is HIDDEN in game (the cells screen)", !(await visible("#userSettingsBtn")));
   await page.evaluate(() => showScreen("menu"));
 
   // ---- sheet opens with the expected sections ----
