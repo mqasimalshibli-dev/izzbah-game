@@ -53,7 +53,14 @@ if (SOURCE_DB === TARGET_DB) {
 // all 40 category parent docs in one RPC (each carries a cover image plus its
 // inline question array) died with DEADLINE_EXCEEDED after the default 300s.
 // So: a longer deadline, and every read below is kept small and paged.
-const opts = { projectId: PROJECT, settings: { maxIdleChannels: 1 } };
+// preferRest: gRPC holds a long-lived HTTP/2 stream, and in Cloud Shell that
+// stream connects and then delivers nothing — the first failure was
+// DEADLINE_EXCEEDED after 300s with name resolution and LB pick both landing
+// in single-digit milliseconds, which is the signature of a stalled stream
+// rather than an unreachable database. REST issues an ordinary HTTPS request
+// per read. This script only does get() and update(), so nothing here needs
+// gRPC's streaming. Pass --grpc to go back if it ever matters.
+const opts = { projectId: PROJECT, preferRest: !argv.includes("--grpc") };
 const src = new Firestore(Object.assign({ databaseId: SOURCE_DB }, opts));
 const dst = new Firestore(Object.assign({ databaseId: TARGET_DB }, opts));
 
