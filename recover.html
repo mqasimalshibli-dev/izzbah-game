@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>استرجاع صور الأسئلة — عِزبة</title>
+<style>
+  :root { --bg:#fdf6e4; --ink:#3a2d17; --muted:#7a6a4a; --line:#e0cfa4;
+          --ok:#1f5237; --okbg:#e7f4ec; --warn:#9e1322; --warnbg:#fbe9e9; --card:#fffdf7; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:18px; background:var(--bg); color:var(--ink);
+         font:16px/1.7 system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 18px; }
+  .box { background:var(--card); border:2px solid var(--line); border-radius:14px;
+         padding:14px 16px; margin:0 0 14px; }
+  .warn { background:var(--warnbg); border-color:#e2b6b6; color:var(--warn); font-weight:700; }
+  button { font:800 16px/1 inherit; padding:14px 22px; border-radius:12px; cursor:pointer;
+           border:2px solid #b8891f; background:linear-gradient(180deg,#f0cd6a,#e0a91d); color:#3a2d17; }
+  button.go { background:linear-gradient(180deg,#cc2531,#9e1322); color:#fff; border-color:#e6c869; }
+  button[disabled] { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+  th, td { text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:700; }
+  td.n { font-variant-numeric:tabular-nums; }
+  .good { color:var(--ok); font-weight:800; }
+  .none { color:var(--muted); }
+  .totals { margin-top:12px; padding-top:10px; border-top:2px solid var(--line); font-weight:800; }
+  code { background:#f0e6cc; padding:1px 5px; border-radius:5px; font-size:13px; direction:ltr;
+         display:inline-block; }
+  ol { margin:6px 0 0; padding-inline-start:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>استرجاع صور الأسئلة</h1>
+  <p class="sub">يقرأ نسخة الصور المحفوظة محلياً في هذا الجهاز. لا يغيّر أي شيء — قراءة فقط.</p>
+
+  <div class="box warn" id="stopNote">
+    ⚠️ لا تفتح أي لعبة في الفئات المتأثرة قبل الضغط على «افحص هذا الجهاز» — بدء لعبة
+    يستبدل النسخة المحفوظة بالنسخة الفارغة.
+  </div>
+
+  <div class="box">
+    <button class="go" id="scan">افحص هذا الجهاز</button>
+    <span id="status" class="sub" style="margin-inline-start:10px"></span>
+    <div id="out"></div>
+  </div>
+
+  <div class="box" id="next" hidden>
+    <b>الخطوة التالية</b>
+    <ol>
+      <li>اضغط «نزّل الملف» — سيحفظ <code>izzbah-media-backup.json</code>.</li>
+      <li>أرسل الملف، ومنه تُعاد الصور إلى الفئات.</li>
+      <li>كرّر هذا على كل جهاز استخدمت فيه حساب المدير — كل جهاز قد يحمل فئات مختلفة.</li>
+    </ol>
+    <p style="margin:10px 0 0"><button id="dl">نزّل الملف</button></p>
+  </div>
+</div>
+
+<script>
+// Read-only harvester for the media cache the game keeps in IndexedDB.
+//
+// Ten categories had every question image blanked on 5-6 August 2026 by a
+// republish that wrote image:"" over the stored photos. The game caches that
+// media per category in `izzbah-cloud-cache` under `media:<catId>`, keyed by the
+// category's updatedAt. After the wipe the key no longer matches, so the entry
+// is IGNORED — but it is not deleted, which means the pre-wipe pictures are
+// still on any device that loaded those categories before the 5th.
+//
+// The catch, and why this page exists: loadCategoryMedia OVERWRITES a stale
+// entry as soon as a game starts on that category, replacing the good copy with
+// the empty one. So this must run before the app is used again on the device.
+//
+// Deliberately does not touch Firestore and does not write to IndexedDB. Its
+// only output is a file.
+const $ = s => document.querySelector(s);
+let payload = null;
+
+function openDb() {
+  return new Promise(resolve => {
+    try {
+      // Same name/version the game uses. Do NOT create it if absent: an empty
+      // store would be indistinguishable from "nothing cached here".
+      const req = indexedDB.open("izzbah-cloud-cache");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+function readAll(idb) {
+  return new Promise(resolve => {
+    if (!idb || !idb.objectStoreNames.contains("cats")) return resolve(null);
+    try {
+      const store = idb.transaction("cats", "readonly").objectStore("cats");
+      const keysReq = store.getAllKeys();
+      keysReq.onsuccess = () => {
+        const keys = keysReq.result || [];
+        const valsReq = store.getAll();
+        valsReq.onsuccess = () => {
+          const vals = valsReq.result || [];
+          resolve(keys.map((k, i) => [k, vals[i]]));
+        };
+        valsReq.onerror = () => resolve(null);
+      };
+      keysReq.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+$("#scan").addEventListener("click", async () => {
+  $("#scan").disabled = true;
+  $("#status").textContent = "جارٍ الفحص…";
+  const idb = await openDb();
+  const rows = await readAll(idb);
+  $("#stopNote").hidden = true;
+
+  if (!rows) {
+    $("#status").textContent = "";
+    $("#out").innerHTML = '<p class="warn">لا توجد نسخة محلية على هذا الجهاز.</p>';
+    return;
+  }
+
+  const cats = [];
+  let totalImgs = 0;
+  rows.forEach(([key, entry]) => {
+    if (!key || String(key).indexOf("media:") !== 0) return;
+    const qs = (entry && Array.isArray(entry.qs)) ? entry.qs : [];
+    let imgs = 0, bytes = 0;
+    qs.forEach(q => {
+      if (!q) return;
+      if (q.image) { imgs++; bytes += q.image.length; }
+      if (q.answerImage) { imgs++; bytes += q.answerImage.length; }
+    });
+    totalImgs += imgs;
+    cats.push({ id: String(key).slice(6), ver: (entry && entry.ver) || 0,
+                questions: qs.length, images: imgs, bytes: bytes, qs: qs });
+  });
+  cats.sort((a, b) => b.images - a.images);
+
+  $("#status").textContent = "";
+  if (!cats.length) {
+    $("#out").innerHTML = '<p class="warn">لا توجد صور محفوظة على هذا الجهاز.</p>';
+    return;
+  }
+
+  const mb = n => (n / 1048576).toFixed(1) + " MB";
+  const when = v => v ? new Date(v).toISOString().slice(0, 16).replace("T", " ") : "—";
+  $("#out").innerHTML =
+    '<table><thead><tr><th>الفئة</th><th>أسئلة</th><th>صور</th><th>الحجم</th>'
+    + '<th>تاريخ النسخة</th></tr></thead><tbody>'
+    + cats.map(c =>
+        '<tr><td>' + c.id + '</td><td class="n">' + c.questions + '</td>'
+        + '<td class="n ' + (c.images ? "good" : "none") + '">' + c.images + '</td>'
+        + '<td class="n">' + (c.bytes ? mb(c.bytes) : "—") + '</td>'
+        + '<td class="n">' + when(c.ver) + '</td></tr>').join("")
+    + '</tbody></table>'
+    + '<p class="totals">المجموع: ' + totalImgs + ' صورة في ' + cats.length + ' فئة</p>';
+
+  if (totalImgs > 0) {
+    payload = { takenAt: new Date().toISOString(), origin: location.origin,
+                userAgent: navigator.userAgent, categories: cats };
+    $("#next").hidden = false;
+  }
+});
+
+$("#dl").addEventListener("click", () => {
+  if (!payload) return;
+  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "izzbah-media-backup.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+</script>
+</body>
+</html>

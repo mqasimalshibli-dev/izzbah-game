@@ -552,6 +552,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node mediawipe.mjs
 
+      - name: Run media-recovery page test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node recover.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |
