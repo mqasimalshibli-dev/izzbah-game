@@ -5155,14 +5155,19 @@
     #userSettingsBtn svg { width: 22px; height: 22px; }
     #userSettingsBtn:hover { background: rgba(231, 195, 115, .2); color: #fbe9a8; }
     #userSettingsBtn:active { transform: scale(.92); }
-    /* Hidden while playing and during game setup (board/question/answer/results/
-       category-pick/team-setup) — visible everywhere else. */
+    /* Visible on EVERY screen except the board of point cells and the two
+       full-screen takeovers that a cell opens (question, then answer). Owner's
+       call: it used to be hidden on category-pick, team-setup and results too,
+       which meant an account or a theme could not be reached from three
+       ordinary screens.
+
+       The question and answer screens stay excluded because they are the inside
+       of a cell, not screens of their own: both run the game timer and are
+       driven by ✕ / «إظهار الإجابة», and a settings sheet over a live question
+       would cover the thing the room is looking at. */
     body[data-screen="game"] #userSettingsBtn,
     body[data-screen="questionPage"] #userSettingsBtn,
-    body[data-screen="answerPage"] #userSettingsBtn,
-    body[data-screen="results"] #userSettingsBtn,
-    body[data-screen="categories"] #userSettingsBtn,
-    body[data-screen="setup"] #userSettingsBtn { display: none; }
+    body[data-screen="answerPage"] #userSettingsBtn { display: none; }
 
     /* Game-count badge — mirror of the settings gear, pinned TOP-LEFT. Shows the
        player's remaining games; only on the game-list and category-pick screens. */
@@ -11899,7 +11904,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.273";
+    const IZZBAH_BUILD = "2026-08-07.274";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16765,6 +16770,31 @@
     // Redeem straight from a reward card (no input field): same outcome
     // messages as redeemCodeFlow, and the button becomes the receipt.
     function redeemRewardCode(code, btn) {
+      // Same auth-restore wait the typed-code path uses. Firebase takes a
+      // moment to restore the session and attach the bridge, and without this
+      // a reward tapped in those first seconds was refused with «سجّل الدخول
+      // أولاً» — to a player who WAS signed in. That bug was fixed for the
+      // settings/paywall inputs and never carried across to the inbox.
+      const ready = () => state.signedIn && window.IZZBAH && window.IZZBAH.redeemCode;
+      if (!ready() && !state.authReady) {
+        if (btn) { btn.disabled = true; btn.textContent = "لحظة…"; }
+        let waited = 0;
+        const tick = () => {
+          if (ready()) {
+            if (btn) { btn.disabled = false; btn.textContent = "تفعيل الكود"; }
+            redeemRewardCode(code, btn); return;
+          }
+          if ((state.authReady && !state.signedIn) || (waited += 250) >= 8000) {
+            if (btn) { btn.disabled = false; btn.textContent = "تفعيل الكود"; }
+            showToast(state.signedIn ? "التفعيل غير متاح الآن — تحقّق من اتصالك"
+                                     : "سجّل الدخول بحساب Google أولاً لتفعيل الكود");
+            return;
+          }
+          setTimeout(tick, 250);
+        };
+        setTimeout(tick, 250);
+        return;
+      }
       if (!state.signedIn) { showToast("سجّل الدخول بحساب Google أولاً لتفعيل الكود"); return; }
       const bridge = window.IZZBAH && window.IZZBAH.redeemCode;
       if (!bridge) { showToast("التفعيل غير متاح الآن — تحقّق من اتصالك"); return; }
@@ -20496,16 +20526,27 @@
           const ok = document.createElement("button");
           ok.className = "primary"; ok.textContent = "موافقة";
           ok.addEventListener("click", () => {
-            window.IZZBAH.communityApprove(cat.id, true).then(res => {
+            // Guard the bridge itself, not just its promise. Offline (or before
+            // the session restores) these are UNDEFINED, and calling them threw
+            // synchronously — outside the .catch — so the button did nothing at
+            // all and the only trace was a console error the admin never sees.
+            const approve = window.IZZBAH && window.IZZBAH.communityApprove;
+            if (!approve) { showToast("الموافقة غير متاحة الآن — تحقّق من اتصالك"); return; }
+            approve(cat.id, true).then(res => {
               if (res && res.rewarded) showToast("تمت الموافقة 🎁 وأُرسل كود ٥ ألعاب لصاحب الفئة");
               else if (res && res.rewardError) showToast("تمت الموافقة — لكن تعذّر إرسال المكافأة، أعد المحاولة");
               else showToast("تمت الموافقة على الفئة");
-            }).catch(() => showToast("تعذّر"));
+            }).catch(e => showToast("تعذّر — " + ((e && (e.code || e.message)) || "حاول مجدداً")));
           });
           const no = document.createElement("button");
           no.className = "danger"; no.textContent = "رفض";
           no.addEventListener("click", () => {
-            if (window.confirm(`رفض وحذف فئة «${cat.name || ""}»؟`)) window.IZZBAH.communityDelete(cat.id).then(() => showToast("تم الرفض")).catch(() => showToast("تعذّر"));
+            const del = window.IZZBAH && window.IZZBAH.communityDelete;
+            if (!del) { showToast("الرفض غير متاح الآن — تحقّق من اتصالك"); return; }
+            if (window.confirm(`رفض وحذف فئة «${cat.name || ""}»؟`)) {
+              del(cat.id).then(() => showToast("تم الرفض"))
+                .catch(e => showToast("تعذّر — " + ((e && (e.code || e.message)) || "حاول مجدداً")));
+            }
           });
           actions.append(preview, ok, no);
           row.appendChild(actions);
