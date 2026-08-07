@@ -4355,6 +4355,68 @@
     .ce-vis button { min-height: 0; padding: 9px 18px; border: none; border-radius: 0; background: transparent; color: #8a6a3a; font-weight: 800; box-shadow: none; font-size: 15px; }
     .ce-vis button.on { background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; }
     .ce-vis-note { font-size: 13px; color: var(--gold-dark); font-weight: 700; }
+
+    /* ── Category-editor button hierarchy ─────────────────────────────────
+       The shared rule near the top of this sheet paints .primary, .secondary,
+       .ghost AND .danger the same red, so on this screen «حذف» looked exactly
+       like «نشر للمجتمع» and «تعديل» — six identical red buttons with no way
+       to tell the destructive one from the safe one. Cream on that red also
+       measures 3.62:1, under the 4.5 AA floor.
+
+       Scoped to #customEditor deliberately: the red button IS the game's look
+       everywhere else, and this is the one screen dense enough in actions to
+       need ranking. Three ranks, plus a distinct destructive style:
+         نشر للمجتمع  filled red   — the one committing action
+         إضافة/استيراد/تعديل  cream + gold — safe, frequent
+         حذف          outlined red — destructive, legible as such at a glance
+         إلغاء        quiet        — retreat                              */
+    #customEditor .primary {
+      color: #fff;                       /* 5.06:1 on --red, vs 3.62 for cream */
+      border-color: #9e1014;
+    }
+    /* Gold face — the ranks separate by HUE as well as lightness. Three
+       near-white variants measured as one rank to a pixel probe, and read as
+       one to a person. */
+    #customEditor .secondary {
+      background: #f2dca9;
+      color: #3a2d17;                    /* 9.9:1 */
+      border-color: #c08e3c;
+      --btn-edge: #bf9445;
+      box-shadow: 0 5px 0 var(--btn-edge), 0 8px 14px rgba(120, 90, 40, .18);
+    }
+    /* Opaque, not alpha: a translucent face blends with whatever sits behind
+       it, which both moves its contrast around and made it measure as a
+       mid-tone nothing in dark mode. */
+    #customEditor .ghost {
+      background: #fdfaf3;
+      color: #5c4626;                    /* 8.9:1 */
+      border-color: #cbb083;
+      --btn-edge: #c3ab84;
+      box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(120, 90, 40, .14);
+    }
+    /* Destructive: outlined rather than filled, so it reads as dangerous
+       without competing with the publish button for attention. */
+    #customEditor .ce-del {
+      background: #f9d9d6;
+      color: #8e1020;                    /* 7.6:1 */
+      border-color: #d1777e;
+      --btn-edge: #d3a2a4;
+      box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(150, 30, 30, .16);
+    }
+    #customEditor .ce-del:hover { background: #fbe4e1; }
+
+    :root[data-theme="dark"] #customEditor .secondary {
+      background: #4a3520; color: #f6ead2; border-color: #8a6a3a;
+      --btn-edge: #2a1c1e; box-shadow: 0 5px 0 var(--btn-edge), 0 8px 14px rgba(0,0,0,.34);
+    }
+    :root[data-theme="dark"] #customEditor .ghost {
+      background: #2f2124; color: #ecdcc0; border-color: #6b543a;
+      --btn-edge: #281a1c; box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(0,0,0,.3);
+    }
+    :root[data-theme="dark"] #customEditor .ce-del {
+      background: #4d1f24; color: #ffb3b3; border-color: #a1565c;
+      --btn-edge: #2e1416; box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(0,0,0,.3);
+    }
     .ce-toolbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 12px 0 2px; }
     .ce-table-wrap { width: 100%; overflow-x: auto; border: 1px solid rgba(140, 106, 46, .25); border-radius: 14px; margin-top: 10px; }
     .ce-table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
@@ -11837,7 +11899,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.272";
+    const IZZBAH_BUILD = "2026-08-07.273";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -20652,7 +20714,7 @@
         edit.className = "secondary"; edit.type = "button"; edit.textContent = "تعديل";
         edit.addEventListener("click", () => openCeQuestion(idx));
         const del = document.createElement("button");
-        del.className = "ghost"; del.type = "button"; del.textContent = "حذف";
+        del.className = "ghost ce-del"; del.type = "button"; del.textContent = "حذف";
         del.addEventListener("click", () => { cat.questions.splice(idx, 1); renderCustomEditor(); });
         act.append(edit, del);
         tr.appendChild(act);

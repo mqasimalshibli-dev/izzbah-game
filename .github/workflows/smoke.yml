@@ -574,6 +574,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node adminflows.mjs
 
+      - name: Run category-editor colour test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node editorcolors.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |
