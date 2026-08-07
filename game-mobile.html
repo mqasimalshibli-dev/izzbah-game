@@ -11837,7 +11837,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.270";
+    const IZZBAH_BUILD = "2026-08-07.271";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -24964,11 +24964,20 @@
               let games = 0, premium = false;
               snap.forEach(doc => { const x = doc.data() || {}; if (x.premium) premium = true; else games += Number(x.gamesAllowed) || 0; });
               return db.collection("usage").doc(u).get().then(d => {
-                const used = d.exists ? Number((d.data() || {}).gamesUsed) || 0 : 0;
-                return db.collection("usage").doc(u).set({
+                const cur = d.exists ? (d.data() || {}) : {};
+                const used = Number(cur.gamesUsed) || 0;
+                const rec = {
                   gamesUsed: used, gamesGranted: games, premium: premium,
                   updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                };
+                // This is a full set(), so anything not carried over is ERASED.
+                // The email is written by the PLAYER and cannot be re-derived
+                // here, so dropping it would blank that row in the admin list
+                // until they next opened the game. rebuildBalances already
+                // carries it; this sibling did not, so revoking one used code
+                // quietly cost that player their name.
+                if (cur.email) rec.email = cur.email;
+                return db.collection("usage").doc(u).set(rec);
               });
             }).then(() => true).catch(e => { console.warn("resync mirror failed", e && (e.code || e)); return false; });
           }

@@ -562,6 +562,12 @@ jobs:
         working-directory: tests
         run: node restoretool.mjs
 
+      - name: Run full-game invariant test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node fullgame.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |
