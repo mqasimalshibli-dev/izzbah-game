@@ -598,6 +598,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commflows.mjs
 
+      - name: Run question-font-cap test (all device shapes)
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node qfontcap.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |
