@@ -4478,8 +4478,89 @@
     .admin-dist-grid input { min-width: 0; }
     .dist-note { font-weight: 600; font-size: 11.5px; opacity: .75; }
     .admin-empty { text-align: center; color: #8a7c5e; padding: 30px; }
-    .admin-foot { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: stretch; flex: 0 0 auto; margin: 6px 0 8px; }
-    #adminAddQuestion { background: linear-gradient(180deg, #2fa15a, #1d7a41); }
+    /* The admin toolbar, in three tiers.
+     *
+     * It was eleven buttons in equal grid cells, every one of them the same
+     * bright red: «حذف كل الأسئلة» shouted exactly as loudly as «ضغط صور
+     * الفئات», and the one action an admin reaches for constantly — adding a
+     * question — was impossible to find at a glance. Rank is now carried by
+     * WEIGHT rather than by colour alone:
+     *
+     *   af-primary  the one thing you came here to do — solid, largest
+     *   af-quiet    everyday actions — a calm surface, no shouting
+     *   af-danger   destructive — outlined red, filling only on hover, so it
+     *               reads as dangerous without dominating the row
+     *   af-tool     rare maintenance — smallest and quietest, last in order
+     *
+     * They flow rather than sit in fixed cells, so a long label takes the room
+     * it needs and a short one stops; `order` keeps the tiers grouped whatever
+     * the source sequence is (some buttons are hidden until relevant).
+     */
+    .admin-foot {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch;
+      flex: 0 0 auto; margin: 6px 0 10px;
+    }
+    .admin-foot > button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      flex: 0 1 auto; min-height: 44px; padding: 9px 15px !important;
+      border-radius: 12px !important; box-shadow: none !important;
+      font: 800 14px 'Cairo', sans-serif !important; line-height: 1.25;
+      text-align: center; white-space: nowrap;
+      transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .admin-foot > button:hover { transform: translateY(-1px); }
+    .admin-foot .af-ico { font-size: 15px; line-height: 1; flex: 0 0 auto; }
+    .admin-foot .af-label { overflow: hidden; text-overflow: ellipsis; }
+
+    .admin-foot .af-primary {
+      order: 1; flex: 0 0 auto;
+      /* Darkened from #2fa15a: near-white on that green measured 4.05:1. */
+      background: linear-gradient(180deg, #1e7c44, #145f31) !important;
+      border: 1px solid #0f4c26 !important; color: #f4fff8 !important;
+      box-shadow: 0 2px 0 #0f4c26, 0 8px 16px -8px rgba(20, 90, 50, .6) !important;
+      font-size: 15px !important; padding-inline: 20px !important;
+    }
+    .admin-foot .af-primary:hover { filter: brightness(1.06); }
+
+    .admin-foot .af-quiet {
+      order: 2;
+      background: rgba(246, 227, 176, .10) !important;
+      border: 1px solid rgba(230, 199, 117, .38) !important;
+      color: #f2e2bb !important;
+    }
+    .admin-foot .af-quiet:hover:not(:disabled) {
+      background: rgba(246, 227, 176, .18) !important; border-color: rgba(230, 199, 117, .7) !important;
+    }
+
+    .admin-foot .af-danger {
+      order: 3;
+      background: transparent !important; border: 1px solid rgba(214, 90, 90, .55) !important;
+      color: #eda3a3 !important;
+    }
+    .admin-foot .af-danger:hover:not(:disabled) {
+      background: #b3202a !important; border-color: #b3202a !important; color: #fff !important;
+    }
+
+    .admin-foot .af-tool {
+      order: 4;
+      background: transparent !important; border: 1px dashed rgba(230, 199, 117, .3) !important;
+      color: #cdb98d !important;
+      font-size: 12.5px !important; min-height: 38px; padding: 7px 12px !important;
+    }
+    .admin-foot .af-tool:hover:not(:disabled) {
+      background: rgba(246, 227, 176, .10) !important; border-style: solid !important; color: #f2e2bb !important;
+    }
+    .admin-foot .af-tool .af-ico { font-size: 13px; }
+
+    /* No light-theme variant on purpose. The admin panel is a DARK surface in
+       BOTH themes — measured, its ground sits at rgb(20,17,12)–rgb(42,38,28)
+       whichever theme is set. A light-mode palette here put dark brown text on
+       near-black at 1.97:1; these colours are correct for both. */
+
+    @media (max-width: 640px) {
+      .admin-foot > button { flex: 1 1 calc(50% - 8px); }
+      .admin-foot .af-primary { flex: 1 1 100%; }
+    }
     .admin-q-modal { max-width: 560px; width: 92%; }
     .admin-q-grid { display: grid; gap: 8px; text-align: right; }
     .admin-q-grid input, .admin-q-grid textarea { width: 100%; }
@@ -5590,7 +5671,9 @@
     #gameLibrary .saved-game-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: 27px !important; color: #a8172a !important; line-height: 1.1; margin: 0 !important; }
     #gameLibrary .saved-game-count {
       flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; background: #f3e6c4; border: 1px solid #e0c97f; border-radius: 999px;
-      padding: 5px 12px; font: 700 13px 'Cairo', sans-serif; color: #8a6a3a; white-space: nowrap;
+      /* #8a6a3a measured 4.03:1 on this pale gold fill — just under the bar.
+         Darkened to clear it without changing the pill's character. */
+      padding: 5px 12px; font: 700 13px 'Cairo', sans-serif; color: #7a5d2f; white-space: nowrap;
     }
     #gameLibrary .saved-game-free { background: #e2efe4; border-color: #9dc3a4; color: #2f6b3d; }
     /* The re-seed button glows only when the published copy is behind the
@@ -7102,6 +7185,36 @@
     :root[data-theme="dark"] .text-edit-pop,
     :root[data-theme="dark"] .turn-pick-btn,
     :root[data-theme="dark"] .cat-filter-chip,
+    /* «ألعابك» in dark mode.
+     *
+     * The card is styled by `#gameLibrary .saved-game-card { … !important }` —
+     * specificity (1,1,0) AND !important — which the theme rule
+     * `:root[data-theme="dark"] .saved-game-card` (0,3,0, no !important) could
+     * never beat. So the card stayed cream on the dark page while the count
+     * pill's own override, which DOES carry !important, switched its text to
+     * cream: measured at 1.17:1, invisible. Fixing the pill alone would have
+     * been treating the symptom — the card is what failed to switch.
+     *
+     * These rules match that specificity and carry !important so the theme can
+     * actually win. The pills are given dark-mode fills of their own rather
+     * than inheriting a translucent white that vanishes on either surface.
+     */
+    :root[data-theme="dark"] #gameLibrary .saved-game-card {
+      background:
+        radial-gradient(circle at 50% 0, rgba(255, 246, 229, .10), transparent 34%),
+        linear-gradient(180deg, #3a1b1e, #26110f) !important;
+      border-color: #8a6a2e !important;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .45) !important;
+    }
+    :root[data-theme="dark"] #gameLibrary .saved-game-title { color: #f6e3b0 !important; }
+    :root[data-theme="dark"] #gameLibrary .saved-game-count {
+      background: rgba(246, 227, 176, .12) !important; border-color: #8a6a2e !important;
+      color: #f0dcae !important;
+    }
+    :root[data-theme="dark"] #gameLibrary .saved-game-free {
+      background: rgba(157, 195, 164, .16) !important; border-color: #6f9b78 !important;
+      color: #b9dcc0 !important;
+    }
     :root[data-theme="dark"] .saved-game-count,
     :root[data-theme="dark"] #gameLibrary .category-tabs {
       background: rgba(255, 255, 255, .05) !important; border-color: var(--dk-line) !important; color: var(--dk-text) !important;
@@ -7523,18 +7636,18 @@
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
         <div class="admin-foot">
-          <button class="secondary" id="adminAddQuestion" type="button">✦ إضافة سؤال جديد</button>
-          <button class="secondary" id="adminImportQuestions" type="button">⬆ استيراد أسئلة</button>
-          <button class="secondary" id="adminSelectAll" type="button">☑ تحديد الكل</button>
-          <button class="secondary admin-clear-btn" id="adminDeleteSelected" type="button" hidden>🗑 حذف المحدد</button>
-          <button class="secondary" id="adminFillDistractors" type="button">✨ توليد الخيارات الناقصة</button>
-          <button class="secondary" id="adminFetchImages" type="button">🖼 جلب صور الإجابات الناقصة</button>
-          <button class="secondary" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم">⟲ إعادة تحميل من الأصل</button>
-          <button class="secondary admin-clear-btn" id="adminClearQuestions" type="button">🗑 حذف كل الأسئلة</button>
-          <button class="secondary admin-undo-btn" id="adminUndo" type="button" disabled>↶ تراجع عن آخر خطوة</button>
-          <button class="secondary" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية">⬇ نسخة احتياطية</button>
-          <button class="secondary" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار.">⚡ ضغط صور الفئات</button>
-          <button class="secondary" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار.">⚡ ضغط صور الأسئلة</button>
+          <button class="secondary af-primary" id="adminAddQuestion" type="button"><span class="af-ico">✦</span><span class="af-label">إضافة سؤال جديد</span></button>
+          <button class="secondary af-quiet" id="adminImportQuestions" type="button"><span class="af-ico">⬆</span><span class="af-label">استيراد أسئلة</span></button>
+          <button class="secondary af-quiet" id="adminSelectAll" type="button"><span class="af-ico">☑</span><span class="af-label">تحديد الكل</span></button>
+          <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><span class="af-ico">🗑</span><span class="af-label">حذف المحدد</span></button>
+          <button class="secondary af-quiet" id="adminFillDistractors" type="button"><span class="af-ico">✨</span><span class="af-label">توليد الخيارات الناقصة</span></button>
+          <button class="secondary af-quiet" id="adminFetchImages" type="button"><span class="af-ico">🖼</span><span class="af-label">جلب صور الإجابات الناقصة</span></button>
+          <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><span class="af-ico">⟲</span><span class="af-label">إعادة تحميل من الأصل</span></button>
+          <button class="secondary admin-clear-btn af-danger" id="adminClearQuestions" type="button"><span class="af-ico">🗑</span><span class="af-label">حذف كل الأسئلة</span></button>
+          <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><span class="af-ico">↶</span><span class="af-label">تراجع عن آخر خطوة</span></button>
+          <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><span class="af-ico">⬇</span><span class="af-label">نسخة احتياطية</span></button>
+          <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الفئات</span></button>
+          <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
         </div>
         <div class="admin-controls">
           <div class="admin-search">
@@ -11718,7 +11831,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-06.264";
+    const IZZBAH_BUILD = "2026-08-07.265";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
