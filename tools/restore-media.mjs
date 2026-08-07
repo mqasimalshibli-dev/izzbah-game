@@ -79,15 +79,21 @@ async function main() {
   const totals = { filled: 0, already: 0, blank: 0, mismatch: 0, missing: 0, bytes: 0 };
   const report = [];
 
+  // Progress is printed for EVERY category, not only the ones needing work.
+  // Reading both databases moves a few hundred MB of base64, and a run that
+  // prints nothing for minutes is indistinguishable from a hung one.
+  let scanned = 0;
+  const t0 = Date.now();
   for (const catDoc of cats.docs) {
     if (ONLY && catDoc.id !== ONLY) continue;
     const name = (catDoc.data() || {}).name || catDoc.id;
+    process.stdout.write(`[${String(++scanned).padStart(2)}/${cats.size}] ${name} … `);
 
     const [srcQs, dstQs] = await Promise.all([
       src.collection("categories").doc(catDoc.id).collection("questions").get(),
       dst.collection("categories").doc(catDoc.id).collection("questions").get(),
     ]);
-    if (srcQs.empty) continue;
+    if (srcQs.empty) { console.log("no question docs in backup — skipped"); continue; }
 
     const live = new Map();
     dstQs.forEach(d => live.set(d.id, d.data() || {}));
@@ -113,9 +119,10 @@ async function main() {
     const bytes = todo.reduce((a, t) => a + t.bytes, 0);
     if (todo.length || mismatch || missing) {
       report.push({ id: catDoc.id, name, fill: todo.length, already, mismatch, missing, bytes });
-      console.log(`${name}`);
-      console.log(`   restore ${todo.length}   already-ok ${already}   no-image ${blank}`
+      console.log(`RESTORE ${todo.length}   already-ok ${already}   no-image ${blank}`
         + `   text-mismatch ${mismatch}   gone ${missing}   ${kb(bytes)}`);
+    } else {
+      console.log(`ok (${already} already have pictures, ${blank} never had one)`);
     }
 
     if (APPLY && todo.length) {
@@ -138,6 +145,7 @@ async function main() {
   console.log(`already present   : ${totals.already}`);
   console.log(`text mismatch     : ${totals.mismatch}   <- skipped on purpose, review these`);
   console.log(`question gone     : ${totals.missing}`);
+  console.log(`elapsed           : ${Math.round((Date.now()-t0)/1000)}s`);
   if (!APPLY) console.log("\nDry run. Re-run with --apply to write.");
   else console.log("\nDone. Re-run WITHOUT --apply to verify: it should report 0 to restore.");
 
