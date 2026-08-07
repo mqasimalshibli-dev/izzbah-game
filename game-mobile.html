@@ -11831,7 +11831,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.265";
+    const IZZBAH_BUILD = "2026-08-07.266";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17376,7 +17376,7 @@
       if (distSyncTimer) clearTimeout(distSyncTimer);
       const send = () => {
         distSyncTimer = null;
-        window.IZZBAH.saveDistScan(distKinds(), distDone(), DIST_CLASSIFIER_VERSION, distTopicList())
+        window.IZZBAH.saveDistScan(distKinds(), distDone(), DIST_CLASSIFIER_VERSION, distTopicList(), distSuggMap())
           .catch(() => {});   // offline or not admin: the local copy still stands
       };
       if (now) send(); else distSyncTimer = setTimeout(send, 1500);
@@ -17388,7 +17388,7 @@
       if (distSyncPulled || !window.IZZBAH || !window.IZZBAH.loadDistScan) return Promise.resolve(false);
       distSyncPulled = true;
       return window.IZZBAH.loadDistScan().then(map => {
-        const got = { kinds: 0, done: 0, topic: 0, at: +(map && map.at) || 0 };
+        const got = { kinds: 0, done: 0, topic: 0, sugg: 0, at: +(map && map.at) || 0 };
         if (!map || !Object.keys(map).length) return got;
         if (String(map.v || "") === String(DIST_CLASSIFIER_VERSION)) {
           try {
@@ -17400,6 +17400,15 @@
             if (got.kinds) distKindsSave();
           } catch (e) {}
         }
+        try {
+          const remoteSugg = JSON.parse(map.sugg || "{}") || {};
+          const mineSugg = distSuggMap();
+          let added = 0;
+          Object.keys(remoteSugg).forEach(k => {
+            if (!(k in mineSugg)) { mineSugg[k] = remoteSugg[k]; added++; }
+          });
+          if (added) { distSuggSave(); got.sugg = added; }
+        } catch (e) {}
         try {
           const remoteTopic = JSON.parse(map.topic || "[]") || [];
           if (remoteTopic.length) {
@@ -18277,6 +18286,25 @@
       e.relFreq = freq;
       return freq;
     }
+    // Recommendations need the DESCRIPTIONS, and those stay on the device that
+    // fetched them — the same reason the off-topic verdicts are shared as
+    // conclusions rather than raw text. Without this a second device shows the
+    // findings but never a suggestion, which is the sync half-working again.
+    const DIST_SUGG_KEY = "izzbah-distsugg-v1";
+    let distSuggMem = null;
+    function distSuggMap() {
+      if (distSuggMem) return distSuggMem;
+      let v = null;
+      try { v = JSON.parse(localStorage.getItem(DIST_SUGG_KEY) || "null"); } catch (e) {}
+      distSuggMem = (v && v.map) ? v.map : {};
+      return distSuggMem;
+    }
+    function distSuggSave() {
+      try { localStorage.setItem(DIST_SUGG_KEY, JSON.stringify({ map: distSuggMap() })); } catch (e) {}
+    }
+    function distSuggKey(entry) {
+      return distSig(entry.it) + DIST_TOPIC_SEP + distNorm(entry.option || "");
+    }
     function distSmartSuggest(entry, cache) {
       const it = entry.it;
       const known = t => Object.prototype.hasOwnProperty.call(cache, t);
@@ -18309,8 +18337,22 @@
             && beats(score, sameScore, val, same)) { same = val; sameScore = score; }
         if (beats(score, anyScore, val, any)) { any = val; anyScore = score; }
       });
-      if (sameScore >= DIST_REL_FLOOR) return same;
-      return anyScore >= DIST_REL_FLOOR ? any : "";
+      const best = sameScore >= DIST_REL_FLOOR ? same
+        : (anyScore >= DIST_REL_FLOOR ? any : "");
+      const key = distSuggKey(entry);
+      const shared = distSuggMap();
+      if (best) {
+        // Remember it for the admin's other devices, which hold the verdicts
+        // but not the sentences these were ranked from.
+        if (shared[key] !== best) { shared[key] = best; distSuggSave(); }
+        return best;
+      }
+      // Nothing to rank with here — show what the other device worked out, as
+      // long as that option is still one of this question's.
+      const inherited = shared[key];
+      if (inherited && !it.d.some(d => distNorm(d) === distNorm(inherited))
+          && distNorm(inherited) !== distNorm(it.a)) return inherited;
+      return "";
     }
     // Recompute the smart findings against the CURRENT data, using the verdicts
     // already held — no Wikipedia call. A replaced option is a new term, so its
@@ -25221,7 +25263,7 @@
           // catalogue of verdicts measures ~250 KB, so this is a guard rather
           // than a working limit — but an unbounded write that fails is a scan
           // that silently stops syncing, so the caller is told what landed.
-          window.IZZBAH.saveDistScan = function (kinds, done, version, topic) {
+          window.IZZBAH.saveDistScan = function (kinds, done, version, topic, sugg) {
             if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
             const BUDGET = 700 * 1024;
             const doneJson = JSON.stringify(done || {});
@@ -25243,6 +25285,7 @@
                 kinds: kindsJson,
                 done: doneJson,
                 topic: JSON.stringify(topic || []),
+                sugg: JSON.stringify(sugg || {}),
                 at: String(Date.now()),
               },
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),

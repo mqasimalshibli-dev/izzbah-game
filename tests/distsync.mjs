@@ -82,9 +82,10 @@ async function device(label) {
     window.IZZBAH.applyPublished(cats);
     state.communityCategories = []; state.noChoiceCategories = [];
     window.IZZBAH.loadDistScan = () => window.__cloudGet().then(m => m || {});
-    window.IZZBAH.saveDistScan = (kinds, done, version, topic) => window.__cloudSet({
+    window.IZZBAH.saveDistScan = (kinds, done, version, topic, sugg) => window.__cloudSet({
       v: String(version), kinds: JSON.stringify(kinds), done: JSON.stringify(done),
-      topic: JSON.stringify(topic || []), at: String(1700000000000),
+      topic: JSON.stringify(topic || []), sugg: JSON.stringify(sugg || {}),
+      at: String(1700000000000),
     }).then(() => ({ dropped: 0, bytes: 0 }));
     // Wikipedia, stubbed: this test is about what crosses between devices.
     window.wikiApi = (lang, params) => {
@@ -353,6 +354,74 @@ try {
   // …and must not wipe what it cannot recompute
   const preserved = await G.page.evaluate(() => distTopicList().length);
   check(`…without erasing a conclusion it could not reach itself (${preserved})`, preserved === 1);
+
+  // ---- the RECOMMENDATIONS travel too ----
+  //
+  // Ranking a replacement needs the DESCRIPTIONS, and those stay on the device
+  // that fetched them — the same constraint that made the off-topic verdicts
+  // travel as conclusions. Without this the second device drew every finding
+  // with «لا يوجد اقتراح مناسب» even though the first had already worked one
+  // out: the sync half-working again.
+  CLOUD = null;
+  const H = await device("H");
+  const wroteSugg = await H.page.evaluate(async () => {
+    const D = {
+      "جورج واشنطن": "جورج واشنطن كان رجل دولة أمريكياً وأول رئيس للولايات المتحدة الأمريكية.",
+      "توماس جيفرسون": "توماس جيفرسون كان رجل دولة أمريكياً وثالث رئيس للولايات المتحدة الأمريكية.",
+      "أبراهام لينكولن": "أبراهام لينكولن كان سياسياً أمريكياً وسادس عشر رئيس للولايات المتحدة الأمريكية.",
+      "جون آدامز": "جون آدامز محامٍ وسياسي أمريكي وثاني رئيس للولايات المتحدة الأمريكية.",
+      "قرطبة": "قرطبة مدينة أندلسية تقع في جنوب إسبانيا.",
+    };
+    localStorage.setItem("izzbah-wikikind-v1", JSON.stringify(D));
+    localStorage.removeItem("izzbah-distsugg-v1");
+    localStorage.removeItem("izzbah-dist-done-v1");
+    // A second question so the category HAS a candidate to recommend — with one
+    // question the pool is just this question's own terms, all of them already
+    // in use, and there is nothing to offer.
+    window.IZZBAH.applyPublished([{ id: "pub-sync", name: "تاريخ", image: "", order: 1, questions: [
+      { points: 100, q: "من ألقى خطاب غيتيسبيرغ؟", a: "أبراهام لينكولن", image: "", answerImage: "",
+        distractors: ["جون آدامز", "قرطبة", "توماس جيفرسون"] },
+      { points: 200, q: "من أول رئيس للولايات المتحدة؟", a: "جورج واشنطن", image: "", answerImage: "",
+        distractors: ["توماس جيفرسون", "جون آدامز", "أبراهام لينكولن"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const items = distCollect().filter(i => i.catId === "pub-sync");
+    distIndex = distBuildIndex(items);
+    const f = distSmartFindings(items, D).filter(x => x.it.catId === "pub-sync")[0];
+    const sug = f ? distSmartSuggest(f, D) : "";
+    distPushSync(true);
+    await new Promise(r => setTimeout(r, 300));
+    return { sug, stored: Object.keys(distSuggMap()).length };
+  });
+  check(`the scanning device recommends something ("${wroteSugg.sug}")`, !!wroteSugg.sug);
+  check(`…and records it for the others (${wroteSugg.stored})`, wroteSugg.stored === 1);
+  check("…in the shared document",
+    !!CLOUD && Object.keys(JSON.parse(CLOUD.sugg || "{}")).length === 1);
+
+  const I = await device("I");
+  const readSugg = await I.page.evaluate(async () => {
+    // no descriptions at all on this device — only what the document carries
+    localStorage.removeItem("izzbah-wikikind-v1");
+    localStorage.removeItem("izzbah-distsugg-v1");
+    window.IZZBAH.applyPublished([{ id: "pub-sync", name: "تاريخ", image: "", order: 1, questions: [
+      { points: 100, q: "من ألقى خطاب غيتيسبيرغ؟", a: "أبراهام لينكولن", image: "", answerImage: "",
+        distractors: ["جون آدامز", "قرطبة", "توماس جيفرسون"] },
+      { points: 200, q: "من أول رئيس للولايات المتحدة؟", a: "جورج واشنطن", image: "", answerImage: "",
+        distractors: ["توماس جيفرسون", "جون آدامز", "أبراهام لينكولن"] },
+    ] }]);
+    state.communityCategories = []; state.noChoiceCategories = [];
+    const items = distCollect().filter(i => i.catId === "pub-sync");
+    distIndex = distBuildIndex(items);
+    const entry = { it: items[0], kind: "kindmix", idx: 1, option: "قرطبة" };
+    const before = distSmartSuggest(entry, {});
+    await distPullSync();
+    const after = distSmartSuggest(entry, {});
+    return { before, after };
+  });
+  check(`a device with no descriptions has nothing of its own ("${readSugg.before}")`,
+    readSugg.before === "");
+  check(`…and offers the shared recommendation once the document arrives ("${readSugg.after}")`,
+    readSugg.after === wroteSugg.sug);
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
