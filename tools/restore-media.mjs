@@ -83,6 +83,23 @@ const AFFECTED = [
   "pub-1784240484235-8039",   // معنـى الايموجي
 ];
 
+const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+const kb = n => (n / 1024).toFixed(0) + " KB";
+
+// Run `jobs` with a small parallel pool. Images are up to ~1 MiB each, so this
+// is deliberately modest — the point is to finish reliably, not fast.
+async function pool(items, n, fn) {
+  const it = items[Symbol.iterator]();
+  const workers = Array.from({ length: Math.max(1, n) }, async () => {
+    for (;;) {
+      const next = it.next();
+      if (next.done) return;
+      await fn(next.value);
+    }
+  });
+  await Promise.all(workers);
+}
+
 // Read a questions subcollection by POINT LOOKUP, never by query.
 //
 // A paged query — orderBy(__name__).limit(20) — took the full 300s deadline on

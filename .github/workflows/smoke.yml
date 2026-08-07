@@ -558,6 +558,10 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node recover.mjs
 
+      - name: Run restore-tool test
+        working-directory: tests
+        run: node restoretool.mjs
+
       - name: Run board-shuffle (no locked sets) test
         working-directory: tests
         run: |
