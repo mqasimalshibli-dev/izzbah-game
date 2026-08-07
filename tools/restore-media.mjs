@@ -39,6 +39,8 @@ const SOURCE_DB = arg("source", null);
 const TARGET_DB = arg("target", "(default)");
 const ONLY = arg("only", null);            // optional: one category id
 const CONCURRENCY = Number(arg("concurrency", 6));
+const BATCH = Number(arg("batch", 5));      // docs per getAll()
+const TIME = argv.includes("--time");       // measure throughput and exit
 
 if (!SOURCE_DB) {
   console.error("Missing --source <restored-database-id>   (e.g. --source restore-aug5)");
@@ -81,40 +83,25 @@ const AFFECTED = [
   "pub-1784240484235-8039",   // معنـى الايموجي
 ];
 
-// Read a questions subcollection in PAGES. One .get() on 198 docs of base64 is
-// ~10 MB in a single RPC, which is what times out; 20 at a time is not.
-async function readQuestions(db, catId, pageSize = 20, tick = null) {
+// Read a questions subcollection by POINT LOOKUP, never by query.
+//
+// A paged query — orderBy(__name__).limit(20) — took the full 300s deadline on
+// the restored database and returned nothing, while a point read of a single
+// document came back in 2.1s. Restored databases serve queries badly until
+// their indexes settle; direct document reads do not touch that path at all.
+//
+// listDocuments() returns references with no bodies, so enumerating is cheap.
+// getAll() then fetches a handful at a time.
+async function readQuestions(db, catId, batch = BATCH, tick = null) {
   const col = db.collection("categories").doc(catId).collection("questions");
+  const refs = await col.listDocuments();
   const out = [];
-  let last = null;
-  for (;;) {
-    let q = col.orderBy("__name__").limit(pageSize);
-    if (last) q = q.startAfter(last);
-    const snap = await q.get();
-    if (snap.empty) break;
-    snap.docs.forEach(d => out.push({ id: d.id, data: d.data() || {} }));
-    if (tick) tick(out.length);
-    last = snap.docs[snap.docs.length - 1];
-    if (snap.size < pageSize) break;
+  for (let i = 0; i < refs.length; i += batch) {
+    const snaps = await db.getAll(...refs.slice(i, i + batch));
+    snaps.forEach(d => { if (d.exists) out.push({ id: d.id, data: d.data() || {} }); });
+    if (tick) tick(out.length, refs.length);
   }
   return out;
-}
-
-const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
-const kb = n => (n / 1024).toFixed(0) + " KB";
-
-// Run `jobs` with a small parallel pool. Images are up to ~1 MiB each, so this
-// is deliberately modest — the point is to finish reliably, not fast.
-async function pool(items, n, fn) {
-  const it = items[Symbol.iterator]();
-  const workers = Array.from({ length: Math.max(1, n) }, async () => {
-    for (;;) {
-      const next = it.next();
-      if (next.done) return;
-      await fn(next.value);
-    }
-  });
-  await Promise.all(workers);
 }
 
 async function main() {
@@ -140,16 +127,32 @@ async function main() {
   // prints nothing for minutes is indistinguishable from a hung one.
   let scanned = 0;
   const t0 = Date.now();
+
+  if (TIME) {
+    // Measure before committing to a long run: enumerate one category and read
+    // a single small batch, so the real per-document cost is known up front.
+    const id = ids[0];
+    let t = Date.now();
+    const refs = await src.collection("categories").doc(id).collection("questions").listDocuments();
+    console.log(`listDocuments(${id}) -> ${refs.length} refs in ${Date.now() - t}ms`);
+    t = Date.now();
+    const snaps = await src.getAll(...refs.slice(0, BATCH));
+    const bytes = snaps.reduce((a, d) => a + JSON.stringify(d.data() || {}).length, 0);
+    const ms = Date.now() - t;
+    console.log(`getAll(${BATCH}) -> ${kb(bytes)} in ${ms}ms  (${Math.round(ms / BATCH)}ms/doc)`);
+    console.log(`\nprojected for ~1900 reads: ${Math.round(ms / BATCH * 1900 / 1000 / 60)} min`);
+    return;
+  }
   for (const catId of ids) {
     process.stdout.write(`[${String(++scanned).padStart(2)}/${ids.length}] ${catId} … `);
 
     // A restored database serves reads slowly, so show every page landing —
     // otherwise a category that legitimately takes minutes looks hung, which
     // is how three separate runs got killed early.
-    const dot = () => process.stdout.write(".");
-    const srcQs = await readQuestions(src, catId, 20, dot);
+    const dot = (n, all) => process.stdout.write(n % (BATCH * 4) === 0 ? `${n}/${all} ` : ".");
+    const srcQs = await readQuestions(src, catId, BATCH, dot);
     if (!srcQs.length) { console.log(" no question docs in backup — skipped"); continue; }
-    const dstQs = await readQuestions(dst, catId, 20, dot);
+    const dstQs = await readQuestions(dst, catId, BATCH, dot);
     process.stdout.write(` ${srcQs.length} read — `);
 
     const live = new Map();
