@@ -1,5 +1,67 @@
 # عِزبة (Izzbah) — notes for future sessions
 
+## ⛔ Publishing a category can DESTROY its pictures — read this first
+
+**823 question images across 8 categories were wiped on 5–6 August 2026 and
+recovered from backup on the 7th.** Everything below is the lesson; the guard is
+in at build .268 but the invariant is easy to break again.
+
+- **The invariant.** A category sitting in memory is media-LITE: build .209
+  replaces every question `image` with `""` at the state boundary and sets
+  `__lite`; only `hydrateMediaInto()` puts pictures back, and only for a
+  category about to be played or opened in the editor. So **an empty image on
+  an unhydrated category means "not loaded", NEVER "delete".**
+- **How it broke.** The duplicate remover and the smart-scan distractor editor
+  save by republishing the WHOLE category from that in-memory copy. `cloudPublish`
+  wrote `image: ""` over each stored photo, and its diff loop read
+  "big base64 → empty" as a change worth committing. One distractor edit
+  destroyed a category's entire media. Nothing warned; nothing was reversible.
+- **The guard (.268).** `cloudPublish` computes
+  `mediaTrusted = !cat.__lite || hydratedCats.has(cat.id)` and routes both
+  images through `keepImg()`, which falls back to the STORED value when an
+  untrusted incoming one is empty — so the diff then writes nothing at all.
+  `adminSetCommunityQuestions` takes a `mediaTrusted` argument and, on the
+  untrusted path, reads the doc first and merges. Fixed at the choke point on
+  purpose, so a future caller cannot reintroduce it. `tests/mediawipe.mjs`
+  pins it, including that a DELIBERATE clear on a hydrated category still
+  works — a fix that made deletion impossible would be its own bug.
+- ⚠️ The hazard was already documented for the community editor (see «COMMUNITY
+  question media is LAZY too» below) and simply was not carried across to a new
+  write path. Any NEW code that publishes a category must state which of the
+  two it is: hydrated-and-authoritative, or lite-and-must-not-blank.
+
+**Recovery runbook, if it ever happens again.** All of it is in `tools/`:
+
+1. **Backups are what saved this — not PITR, which was disabled.** Daily
+   scheduled backups with 98-day retention existed in Cloud console →
+   Firestore → **Disaster Recovery**. Check there BEFORE concluding anything is
+   unrecoverable; the first pass of this incident wrongly wrote the data off.
+2. Restore the chosen backup to a **new** database (`restore-aug5`). Firestore
+   cannot restore over `(default)`, which is what you want: the live database
+   holds legitimate changes made after the snapshot.
+3. `node tools/restore-media.mjs --source <db>` — dry run, then `--apply`.
+   It fills blanks only, never overwrites a live image, and skips any question
+   whose text or answer differs from the backup (doc ids are positional, so id
+   alone could put a photo on the wrong question). `tests/restoretool.mjs`
+   executes it end-to-end against a stubbed Firestore.
+4. `node tools/touch-categories.mjs --apply` — **without this the pictures stay
+   invisible however good the data is.** A restore needs THREE writes to reach
+   a device: the question docs, each category's `updatedAt` (the media cache
+   key in `loadCategoryMedia`), and **`meta/catalog.rev`** — the client
+   short-circuits the entire catalogue on that one number
+   (`if (freshRev === cachedRev && haveCats) return;`) and otherwise never
+   re-reads the category docs at all. This last one cost an hour of "still no
+   pictures" after a fully successful restore.
+5. Delete the restored database afterwards — it is billed as a second database.
+
+**Performance note for any bulk Firestore job from Cloud Shell:** reads cost
+~1.5–2s each in round-trip latency, on the LIVE database as much as a restored
+one. Sequentially that projected 302 minutes for ~1900 reads; at 12 concurrent
+readers it took 12. A job that looks hung is usually just serial — measure with
+`--time` before assuming it is broken, and never use queries where point
+lookups will do (`orderBy(__name__).limit(20)` burned the full 300s deadline
+and returned nothing, while `getAll()` of the same docs worked fine).
+
 ## Pending TODOs (user-requested)
 
 - **Web Push notifications — PARKED until after release (owner's call,
@@ -167,6 +229,9 @@
   repeatedly occurred"). Do NOT reintroduce an eager read of `/questions`.
   A failed media read must resolve to `null` = "unknown" and cache NOTHING —
   returning an empty list would re-create the old "no pictures" bug.
+  ⚠️ This laziness is also what made the 5–6 August wipe possible: it is why a
+  category in memory has empty images that a publish must never write back.
+  See the ⛔ section at the top before touching any code that publishes.
 
 - **«أربعة خيارات» can be switched off per category (build .218).** The admin
   category head has «🚫 تعطيل «أربعة خيارات»» next to «إخفاء الفئة». It is
