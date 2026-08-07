@@ -40,6 +40,7 @@ const TARGET_DB = arg("target", "(default)");
 const ONLY = arg("only", null);            // optional: one category id
 const CONCURRENCY = Number(arg("concurrency", 6));
 const BATCH = Number(arg("batch", 5));      // docs per getAll()
+const READERS = Number(arg("readers", 12)); // getAll() calls in flight
 const TIME = argv.includes("--time");       // measure throughput and exit
 
 if (!SOURCE_DB) {
@@ -112,12 +113,18 @@ async function pool(items, n, fn) {
 async function readQuestions(db, catId, batch = BATCH, tick = null) {
   const col = db.collection("categories").doc(catId).collection("questions");
   const refs = await col.listDocuments();
+  // Batches run CONCURRENTLY. Measured: ~1.5s per document read, on the live
+  // database as much as the restored one — so the cost is per-round-trip
+  // latency, not the data. Sequentially that projected to 267 minutes for the
+  // job; with READERS in flight it divides by READERS.
+  const slices = [];
+  for (let i = 0; i < refs.length; i += batch) slices.push(refs.slice(i, i + batch));
   const out = [];
-  for (let i = 0; i < refs.length; i += batch) {
-    const snaps = await db.getAll(...refs.slice(i, i + batch));
+  await pool(slices, READERS, async sl => {
+    const snaps = await db.getAll(...sl);
     snaps.forEach(d => { if (d.exists) out.push({ id: d.id, data: d.data() || {} }); });
     if (tick) tick(out.length, refs.length);
-  }
+  });
   return out;
 }
 
@@ -157,7 +164,8 @@ async function main() {
     const bytes = snaps.reduce((a, d) => a + JSON.stringify(d.data() || {}).length, 0);
     const ms = Date.now() - t;
     console.log(`getAll(${BATCH}) -> ${kb(bytes)} in ${ms}ms  (${Math.round(ms / BATCH)}ms/doc)`);
-    console.log(`\nprojected for ~1900 reads: ${Math.round(ms / BATCH * 1900 / 1000 / 60)} min`);
+    const serial = ms / BATCH * 1900 / 1000 / 60;
+    console.log(`\nprojected for ~1900 reads: ${Math.round(serial)} min serial` + `, ~${Math.max(1, Math.round(serial / READERS))} min with ${READERS} readers`);
     return;
   }
   for (const catId of ids) {
