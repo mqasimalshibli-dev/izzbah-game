@@ -5938,6 +5938,12 @@
     #questionPage .question-main-card.emoji-q .question-text {
       margin-top: auto !important; margin-bottom: auto !important;
       font-size: clamp(46px, 6.8vw, 88px) !important;
+      /* Same line-height as .text-only. Without it this box used the default,
+         whose ink overran the .26em the box reserves for Cairo's descenders —
+         a few px of permanent scroll, visible as a stray scrollbar under the
+         question. The emoji line overrides this with `normal` below, which is
+         what a colour-emoji font needs. */
+      line-height: 1.38 !important;
     }
     /* Picture-less question: center it vertically and enlarge it so a short
        text question fills the card instead of hugging the top. fitQuestionText
@@ -11831,7 +11837,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.266";
+    const IZZBAH_BUILD = "2026-08-07.267";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13717,9 +13723,15 @@
       // A picture card gets the cap too, at a slightly looser share: the wording
       // above it still has to be readable, but 70% of the card has to be left
       // for the photo, which is the whole point of a picture question.
+      // An emoji-category question that produced NO emoji line is just words,
+      // and it needs the same cap as any other worded question. Keying the cap
+      // on `text-only` alone missed it — an emoji card is never marked
+      // text-only — so it grew unchecked to the 220px ceiling and overflowed
+      // the card. That is «معنـى الايموجي», whose questions carry no emoji.
       const FILL = hasImage ? 0.30 : 0.25;
       const capFill = !!qcard
-        && (hasImage || (qcard.classList.contains("text-only") && !emojiLine));
+        && (hasImage || (!emojiLine && (qcard.classList.contains("text-only")
+          || qcard.classList.contains("emoji-q"))));
       const tooTall = () => {
         if (!capFill) return false;
         const cardH = qcard.getBoundingClientRect().height;
