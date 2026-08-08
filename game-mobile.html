@@ -5171,6 +5171,55 @@
     body[data-screen="questionPage"] #userSettingsBtn,
     body[data-screen="answerPage"] #userSettingsBtn { display: none; }
 
+    /* Floating «رجوع» — bottom-right, the mirror of the settings gear, and
+       deliberately in the same outlined dark/gold language rather than the
+       shared red button skin: it is chrome that sits OVER a screen, not an
+       action within one, and a red gradient down there would compete with
+       whatever the page is actually asking you to do. */
+    #globalBack {
+      position: fixed; right: 14px; bottom: 14px; z-index: 5;
+      display: none; align-items: center; justify-content: center;
+      min-height: 0; padding: 11px 26px; border-radius: 14px;
+      font: 800 16px 'Cairo', sans-serif; cursor: pointer;
+      background: rgba(20, 6, 8, .58); border: 1.5px solid rgba(231, 195, 115, .55);
+      color: #e7c373; backdrop-filter: blur(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+      transition: transform .18s ease, background .18s ease, color .18s ease;
+      padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
+    }
+    #globalBack:hover { background: rgba(231, 195, 115, .2); color: #fbe9a8; transform: translateY(-1px); }
+    #globalBack:active { transform: translateY(1px); }
+    /* An ALLOW-list, not a deny-list. A back button that appears on a screen
+       with nowhere to go back TO is worse than no back button, so a new screen
+       has to opt in here — and opting in means giving it a [data-back] control
+       or a fallback in BACK_FALLBACK. Excluded by omission: menu (the welcome
+       screen, which has nothing behind it), and game / questionPage /
+       answerPage — the board and the inside of a cell, which are driven by
+       their own ✕ and must not offer a second way out mid-question.
+       customEditor is excluded on purpose too: it already has a labelled
+       «إلغاء» beside «حفظ», and a floating back over an unsaved form is a
+       data-loss trap. */
+    body[data-screen="gameLibrary"] #globalBack,
+    body[data-screen="setup"] #globalBack,
+    body[data-screen="categories"] #globalBack,
+    body[data-screen="customManager"] #globalBack,
+    body[data-screen="adminPanel"] #globalBack,
+    body[data-screen="results"] #globalBack { display: inline-flex; }
+
+    /* Reserve the corner so the floating button never sits on top of the last
+       row's controls — the games list ends in «حذف اللعبة» / «الإعدادات», which
+       are exactly what it would cover. */
+    body[data-screen="gameLibrary"] .app,
+    body[data-screen="setup"] .app,
+    body[data-screen="categories"] .app,
+    body[data-screen="customManager"] .app,
+    body[data-screen="adminPanel"] .app,
+    body[data-screen="results"] .app { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+
+    /* The per-screen «رجوع» buttons stay in the DOM as the behaviour carriers
+       the floating button clicks, but are no longer drawn. */
+    [data-back] { display: none !important; }
+
     /* Game-count badge — mirror of the settings gear, pinned TOP-LEFT. Shows the
        player's remaining games; only on the game-list and category-pick screens. */
     #gameCountBadge {
@@ -5728,20 +5777,33 @@
     }
     #gameLibrary #createSavedGame:hover { filter: brightness(1.07); transform: translateY(-1px); }
     /* games grid */
-    #gameLibrary .game-library-list { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)) !important; gap: 26px !important; margin-top: 40px !important; width: 100% !important; }
-    /* game card */
+    /* --tile / --tile-gap come from applyLibraryDensity(): the more games in
+       the collection, the smaller the minimum track, so a growing library packs
+       tighter instead of pushing the page taller. `min(…, 100%)` keeps a wide
+       tile from overflowing a narrow phone. */
+    #gameLibrary .game-library-list {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(min(var(--tile, 330px), 100%), 1fr)) !important;
+      gap: var(--tile-gap, 26px) !important; margin-top: 40px !important; width: 100% !important;
+    }
+    /* game card — a query container, so everything inside is sized from the
+       CARD's width rather than the viewport's. That is what lets the tile
+       shrink without the title spilling out of it: `cqi` is 1% of the card,
+       and each clamp keeps a legible floor and the original size as the cap. */
     #gameLibrary .saved-game-card {
-      background: #fdf8ec !important; border: 2px solid #e6d3a0 !important; border-radius: 24px !important;
-      box-shadow: 0 18px 40px rgba(120, 70, 20, .13) !important; padding: 24px !important; display: block !important; text-align: right !important;
+      background: #fdf8ec !important; border: 2px solid #e6d3a0 !important;
+      border-radius: var(--tile-radius, 24px) !important;
+      box-shadow: 0 18px 40px rgba(120, 70, 20, .13) !important;
+      padding: var(--tile-pad, 24px) !important; display: block !important; text-align: right !important;
     }
     #gameLibrary .saved-game-card:hover, #gameLibrary .saved-game-card:focus-visible { transform: translateY(-2px); outline: none !important; box-shadow: 0 24px 48px rgba(120, 70, 20, .2) !important; filter: none !important; }
-    #gameLibrary .saved-game-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-    #gameLibrary .saved-game-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: 27px !important; color: #a8172a !important; line-height: 1.1; margin: 0 !important; }
+    #gameLibrary .saved-game-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--tile-gap-sm, 10px); margin-bottom: var(--tile-head, 18px); }
+    #gameLibrary .saved-game-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: var(--tile-title, 27px) !important; color: #a8172a !important; line-height: 1.1; margin: 0 !important; }
     #gameLibrary .saved-game-count {
       flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; background: #f3e6c4; border: 1px solid #e0c97f; border-radius: 999px;
       /* #8a6a3a measured 4.03:1 on this pale gold fill — just under the bar.
          Darkened to clear it without changing the pill's character. */
-      padding: 5px 12px; font: 700 13px 'Cairo', sans-serif; color: #7a5d2f; white-space: nowrap;
+      padding: 5px 12px; font: 700 var(--tile-pill, 13px) 'Cairo', sans-serif; color: #7a5d2f; min-width: 0; white-space: normal;
     }
     #gameLibrary .saved-game-free { background: #e2efe4; border-color: #9dc3a4; color: #2f6b3d; }
     /* The re-seed button glows only when the published copy is behind the
@@ -5750,9 +5812,13 @@
       background: #b8862b !important; color: #23150a !important;
       border-color: #8a6118 !important; font-weight: 800;
     }
-    #gameLibrary .saved-game-cats { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+        /* auto-fit, not a hard `repeat(2, 1fr)`: the card is now constrained to the
+       viewport (min(--tile, 100%)), so on a narrow phone two columns left each
+       category name about 120px and long ones wrapped to five lines, swallowing
+       the thumbnail. It drops to one column when there is no room for two. */
+    #gameLibrary .saved-game-cats { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(132px, 100%), 1fr)) !important; gap: var(--tile-gap-sm, 12px) !important; }
     #gameLibrary .saved-game-category {
-      min-height: 112px !important; border: 2px solid #d9b24a !important; border-radius: 14px !important; overflow: hidden;
+      min-height: var(--tile-cat, 112px) !important; border: 2px solid #d9b24a !important; border-radius: 14px !important; overflow: hidden;
       box-shadow: 0 6px 14px rgba(80, 20, 20, .22) !important; text-shadow: none !important;
       background:
         linear-gradient(0deg, rgba(0,0,0,0), rgba(0,0,0,0)),
@@ -5805,12 +5871,12 @@
     #gameLibrary .saved-game-category.span-2, #gameLibrary .saved-game-category:last-child:nth-child(odd) { grid-column: span 2; }
     /* footer actions */
     #gameLibrary .saved-game-actions {
-      display: flex !important; gap: 12px !important; flex-wrap: nowrap !important; margin-top: 22px !important;
-      padding-top: 16px !important; border-top: 1px solid #ecdcb4 !important;
+      display: flex !important; gap: var(--tile-gap-sm, 12px) !important; flex-wrap: wrap !important; margin-top: var(--tile-head, 22px) !important;
+      padding-top: var(--tile-head, 16px) !important; border-top: 1px solid #ecdcb4 !important;
     }
     #gameLibrary .saved-game-actions button {
-      flex: 1; min-height: 0 !important; padding: 11px !important; border-radius: 12px !important; border-width: 2px !important;
-      font: 700 15px 'Cairo', sans-serif !important; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; transition: .18s;
+      flex: 1 1 var(--tile-btn, 110px); min-width: 0; min-height: 0 !important; padding: 11px !important; border-radius: 12px !important; border-width: 2px !important;
+      font: 700 var(--tile-btn-font, 15px) 'Cairo', sans-serif !important; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; transition: .18s;
     }
     #gameLibrary .saved-game-actions .secondary { background: #fff8e8 !important; border: 2px solid #e0c97f !important; color: #8a5a1f !important; box-shadow: none !important; }
     #gameLibrary .saved-game-actions .secondary:hover { background: #fdefcf !important; }
@@ -7349,6 +7415,14 @@
   <button id="gameCountBadge" type="button" aria-label="ألعابك المتبقية والباقات" title="ألعابك المتبقية والباقات">
     <span class="gcb-ico" aria-hidden="true">🎮</span><span class="gcb-num" id="gameCountNum">—</span>
   </button>
+  <!-- ONE back button for the whole app, pinned bottom-right, the mirror of the
+       settings gear at top-right. It replaces the five per-screen «رجوع»
+       buttons, which are hidden rather than deleted: each carries its own
+       target and side-effects (setup returns to wherever it came from, the
+       community one deliberately avoids exposing the category editor), so the
+       floating button DELEGATES to the one on the current screen instead of
+       re-implementing five navigations. See globalBack in the script. -->
+  <button id="globalBack" type="button" aria-label="رجوع" title="رجوع">رجوع</button>
 
   <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
     <div class="question-modal settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
@@ -7626,7 +7700,7 @@
         <p class="play-balance" id="playBalance" style="display:none" title="اضغط لتحديث الرصيد"></p>
         <div class="game-library-list" id="gameLibraryList"></div>
         <div class="actions">
-          <button class="ghost" data-screen="menu">رجوع</button>
+          <button class="ghost" data-back data-screen="menu">رجوع</button>
         </div>
       </div>
     </section>
@@ -7634,7 +7708,7 @@
     <section id="setup" class="screen center">
       <div class="setup-shell">
         <div class="setup-nav">
-          <button class="ghost" id="setupBack">رجوع</button>
+          <button class="ghost" data-back id="setupBack">رجوع</button>
         </div>
         <div class="setup-head">
           <div class="setup-eyebrow"><span></span>إعداد الجولة<span></span></div>
@@ -7676,7 +7750,7 @@
         <div class="cat-filter-row" id="catFilterRow" role="tablist" aria-label="تصفية الفئات" hidden></div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
-          <button class="ghost" data-screen="gameLibrary">رجوع</button>
+          <button class="ghost" data-back data-screen="gameLibrary">رجوع</button>
           <button class="primary" id="goTeams" disabled>اختيار الفرق</button>
         </div>
       </div>
@@ -7688,7 +7762,7 @@
         <p class="hint">أنشئ فئة جديدة بصورتك وأسئلتك وصور كل سؤال.</p>
         <div class="actions">
           <button class="primary" id="newCustomCategory">+ فئة جديدة</button>
-          <button class="ghost" id="customBack">رجوع</button>
+          <button class="ghost" data-back id="customBack">رجوع</button>
         </div>
         <div class="custom-list" id="customList"></div>
       </div>
@@ -7705,7 +7779,7 @@
       <div class="admin-wrap">
         <header class="admin-top">
           <div class="admin-top-title">إدارة المحتوى <span class="admin-top-sub">— لوحة المشرف</span></div>
-          <button class="ghost" id="adminClose" type="button">رجوع</button>
+          <button class="ghost" data-back id="adminClose" type="button">رجوع</button>
         </header>
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
@@ -11905,7 +11979,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-08.275";
+    const IZZBAH_BUILD = "2026-08-08.276";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15313,7 +15387,68 @@
       return card;
     }
 
+    /* The library used to be a fixed `minmax(330px, 1fr)` grid, so every game
+       added made the page taller and pushed the rest off-screen. The tiles now
+       get SMALLER as the collection grows, so more of it stays in view at once.
+
+       This sets only the grid's minimum track size; everything inside the card
+       — padding, corner radius, the title, the count pill, the category
+       thumbnails — is sized in `cqi` off the card's own width (see the
+       container-query block in the stylesheet), so a tile that shrinks takes
+       its typography down with it instead of overflowing.
+
+       There is a floor: below ~150px a card stops being readable, and at the
+       200-game cap no amount of shrinking fits one screen. Past the floor the
+       list scrolls, which is the honest outcome. */
+    function libraryTileFloor(count) {
+      if (count <= 2) return 340;
+      if (count <= 4) return 300;
+      if (count <= 8) return 252;
+      if (count <= 15) return 212;
+      if (count <= 28) return 180;
+      return 152;
+    }
+
+    /* Everything is derived from --tile here rather than from CSS container
+       units, after `cqi` turned out to be the wrong tool twice over:
+         - `container-type: inline-size` on the card does NOT let the CARD's own
+           padding or radius use cqi. An element cannot query itself, so those
+           values silently resolved against the viewport and never shrank.
+         - For descendants, cqi is a percentage of the container's CONTENT box,
+           so the padding got subtracted first and the titles hit their floor
+           several steps earlier than intended.
+       Custom properties inherit, so one set of numbers on the list drives the
+       whole card and each one is directly assertable in a test. */
+    function applyLibraryDensity() {
+      const list = $("#gameLibraryList");
+      if (!list) return;
+      const cards = list.querySelectorAll(".saved-game-card, .resume-card").length;
+      const tile = libraryTileFloor(cards);
+      const clamp = (lo, v, hi) => Math.round(Math.min(hi, Math.max(lo, v)) * 10) / 10;
+      const set = (k, v) => list.style.setProperty(k, v + "px");
+      set("--tile", tile);
+      set("--tile-gap", clamp(9, 8 + (tile - 152) * 0.09, 26));
+      set("--tile-pad", clamp(12, tile * 0.072, 24));
+      set("--tile-radius", clamp(14, tile * 0.07, 24));
+      set("--tile-title", clamp(17, tile * 0.082, 27));
+      set("--tile-pill", clamp(10, tile * 0.039, 13));
+      set("--tile-cat", clamp(58, tile * 0.34, 112));
+      set("--tile-head", clamp(9, tile * 0.053, 18));
+      set("--tile-gap-sm", clamp(6, tile * 0.035, 12));
+      set("--tile-btn", clamp(64, tile * 0.42, 110));
+      set("--tile-btn-font", clamp(11.5, tile * 0.045, 15));
+    }
+
+    /* Wrapped rather than called at the bottom: renderGameLibraryInner has
+       several early returns (loading skeleton, the two empty states), and a
+       density pass that only runs on the happy path would leave a stale
+       --tile behind after the list shrinks back to empty. */
     function renderGameLibrary() {
+      renderGameLibraryInner();
+      applyLibraryDensity();
+    }
+
+    function renderGameLibraryInner() {
       renderPlayBalance();
       const list = $("#gameLibraryList");
       const createButton = $("#createSavedGame");
@@ -23551,6 +23686,31 @@
     // live probe of the codes query — screenshot-able for remote debugging.
     $("#buildTag").textContent = "نسخة " + IZZBAH_BUILD;
     $("#buildTag").addEventListener("click", showDiagnostics);
+    /* ---- Floating «رجوع» ----
+       It does NOT own any navigation. Each screen's own back control still
+       holds the target and the side-effects — setup returns to wherever it was
+       opened from via state.setupReturn, the community one routes to the
+       library rather than exposing the category editor, the admin one closes
+       the panel down. Re-deriving those here would be five chances to drift
+       out of step, so the floating button just clicks whichever [data-back]
+       lives on the screen currently showing.
+
+       BACK_FALLBACK covers a screen that has no such control of its own.
+       #results is the only one: it ends with «لعبة جديدة» / «مراجعة» /
+       «مشاركة» and never had a back, so «رجوع» returns to the games list the
+       game was started from. */
+    const BACK_FALLBACK = { results: "gameLibrary" };
+    function currentBackControl() {
+      const screen = document.getElementById(document.body.dataset.screen || "");
+      return screen ? screen.querySelector("[data-back]") : null;
+    }
+    $("#globalBack").addEventListener("click", () => {
+      const own = currentBackControl();
+      if (own) { own.click(); return; }
+      const fallback = BACK_FALLBACK[document.body.dataset.screen];
+      if (fallback) showScreen(fallback);
+    });
+
     // ---- User settings / account sheet wiring ----
     $("#userSettingsBtn").addEventListener("click", openSettings);
     $("#settingsClose").addEventListener("click", closeSettings);
