@@ -389,18 +389,26 @@
       min-width: 150px;
     }
 
+    /* ONE button skin for the whole app.
+       This used to be a chunky arcade button — 8px radius, a 3px border and a
+       hard `0 6px 0` bottom edge — while the newer screens each re-styled their
+       own buttons to a softer modern face with `!important` (#createSavedGame,
+       the answer-page pair, the category tabs…). The result was two visual
+       languages side by side, and «رجوع» on one page looked nothing like the
+       same button on another. The modern face is now the DEFAULT, so a new
+       button inherits it instead of needing its own override. */
     .primary, .secondary, .ghost, .danger, .gold-btn {
       min-height: 52px;
-      border-radius: 8px;
-      padding: 12px 22px;
-      border: 3px solid transparent;
+      border-radius: 14px;
+      padding: 13px 28px;
+      border: 1px solid transparent;
       font-family: 'Cairo', sans-serif;
       font-weight: 800;
-      font-size: clamp(21px, 2.3vw, 28px);
-      transition: transform .1s ease, filter .12s ease, box-shadow .1s ease;
+      font-size: clamp(17px, 1.9vw, 19px);
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
     }
 
-    button:hover, .image-picker:hover { transform: translateY(-1px); filter: brightness(1.02); }
+    button:hover, .image-picker:hover { transform: translateY(-1px); filter: brightness(1.05); }
     button:active, .image-picker:active { transform: translateY(0); }
     button:disabled { cursor: not-allowed; opacity: .52; transform: none; box-shadow: none; }
 
@@ -409,13 +417,11 @@
     .ghost,
     .danger,
     .gold-btn {
-      background: var(--red);
-      color: var(--cream);
-      border-color: #9e1014;
-      /* Pressable 3D: the face rests on a solid darker "edge", plus a soft
-         ambient shadow. On :active the face sinks into that edge (see below). */
-      --btn-edge: #7c1114;
-      box-shadow: 0 6px 0 var(--btn-edge), 0 9px 16px rgba(140, 20, 20, .3);
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      color: #fff;
+      border-color: #7e0f1e;
+      /* the ambient drop + a hairline top highlight, exactly as «إنشاء لعبة» */
+      box-shadow: 0 10px 22px rgba(150, 20, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .22);
     }
 
     .panel {
@@ -3435,16 +3441,15 @@
       }
     }
 
-    /* Pressable 3D press: the face drops by the same amount the edge shrinks,
-       so the edge's base stays put while the face sinks into it — a real
-       tactile "button push". */
+    /* Press: the face settles toward the surface and its drop shadow tightens,
+       which is the soft-skin equivalent of the old sink-into-the-edge move. */
     .primary:active,
     .secondary:active,
     .ghost:active,
     .danger:active,
     .gold-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 var(--btn-edge, #7c1114), 0 3px 8px rgba(140, 20, 20, .26);
+      transform: translateY(2px);
+      box-shadow: 0 4px 11px rgba(150, 20, 30, .24), inset 0 1px 0 rgba(255, 255, 255, .16);
       filter: brightness(.97);
     }
     .stepper-btn:active { filter: brightness(.96); }
@@ -5576,21 +5581,20 @@
       display: inline-flex; align-items: center; gap: 8px; font: 800 16px 'Cairo', sans-serif !important; color: #9e1620 !important;
       background: linear-gradient(180deg, #fff8ea, #f5e6c6) !important; border: 1px solid rgba(196, 30, 42, .28) !important; border-radius: 14px !important;
       padding: 12px 24px !important; cursor: pointer; min-height: 0 !important;
-      /* Pressable 3D: a tan edge under the cream face; sinks on press. */
-      box-shadow: 0 5px 0 #d6b783, 0 1px 0 #fff inset, 0 8px 16px -10px rgba(120, 40, 20, .38) !important; transition: transform .12s, box-shadow .12s;
+      /* soft skin, matching the shared one — cream face, no hard edge */
+      box-shadow: 0 8px 18px rgba(120, 40, 20, .18), inset 0 1px 0 #fff !important; transition: transform .18s, box-shadow .18s, filter .18s;
     }
-    #setup .setup-nav .ghost:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #d6b783, 0 1px 0 #fff inset, 0 12px 22px -10px rgba(120, 40, 20, .48) !important; }
-    #setup .setup-nav .ghost:active { transform: translateY(4px); box-shadow: 0 1px 0 #d6b783, 0 1px 0 #fff inset, 0 3px 8px -5px rgba(120, 40, 20, .4) !important; }
+    #setup .setup-nav .ghost:hover { transform: translateY(-1px); filter: brightness(1.03); box-shadow: 0 12px 24px rgba(120, 40, 20, .24), inset 0 1px 0 #fff !important; }
+    #setup .setup-nav .ghost:active { transform: translateY(2px); box-shadow: 0 4px 10px rgba(120, 40, 20, .2), inset 0 1px 0 #fff !important; }
     #setup .setup-nav .primary {
       display: inline-flex; align-items: center; gap: 10px; font: 800 17px 'Cairo', sans-serif !important; color: #fff7e6 !important;
-      background: linear-gradient(180deg, #e0444a, #bb1d27 60%, #a3151f) !important; border: 1px solid #eac877 !important; border-radius: 16px !important;
+      background: linear-gradient(180deg, #cc2531, #9e1322) !important; border: 1px solid #7e0f1e !important; border-radius: 14px !important;
       padding: 14px 32px !important; cursor: pointer; min-height: 0 !important;
-      /* Pressable 3D: a dark-red edge (matches the --btn-edge family). */
-      box-shadow: 0 6px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 11px 22px -8px rgba(160, 20, 28, .45) !important;
-      transition: transform .12s, box-shadow .12s;
+      box-shadow: 0 10px 22px rgba(150, 20, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .22) !important;
+      transition: transform .18s, box-shadow .18s, filter .18s;
     }
-    #setup .setup-nav .primary:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .45) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 16px 30px -8px rgba(160, 20, 28, .55) !important; }
-    #setup .setup-nav .primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #7c1114, 0 1px 0 rgba(255, 255, 255, .4) inset, 0 -3px 8px rgba(120, 10, 16, .5) inset, 0 4px 10px -6px rgba(160, 20, 28, .4) !important; }
+    #setup .setup-nav .primary:hover { transform: translateY(-1px); filter: brightness(1.07); box-shadow: 0 14px 28px rgba(150, 20, 30, .32), inset 0 1px 0 rgba(255, 255, 255, .22) !important; }
+    #setup .setup-nav .primary:active { transform: translateY(2px); box-shadow: 0 4px 11px rgba(150, 20, 30, .24), inset 0 1px 0 rgba(255, 255, 255, .16) !important; }
     /* head */
     #setup .setup-head { text-align: center; margin-top: 6px; } /* #8: less top air */
     #setup .setup-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #2f6b54; font: 600 13px 'Cairo', sans-serif; letter-spacing: .14em; }
@@ -11904,7 +11908,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-07.274";
+    const IZZBAH_BUILD = "2026-08-08.275";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
