@@ -365,13 +365,24 @@ Single self-contained page, same palette and type system as the game. Marked
   increase needs either the original artwork or a super-resolution model.
   What the rebuild DID fix (2026-08-08): the old files were re-encodes of
   already-resized WebPs, so every one carried two generations of loss; fourteen
-  were blown up to 819×1024–1000×1250 from a 480px source and left soft (up to
-  202 KB each); five were SMALLER than the source (252×315 from a 349px
-  original), throwing away pixels that existed. They are now built from the
-  original Firestore JPEG bytes, at 2× the source with a scale-matched unsharp
-  mask, WebP q86/q84 — sharper across the board and 5.53 MB → 5.33 MB in total.
-  q92 buys only 1.5–2 dB PSNR for ~25% more bytes, spent re-encoding the source
-  JPEG's own artefacts.
+  were blown up from a 480px source and left soft (up to 202 KB each); five
+  were SMALLER than the source (252×315 from a 349px original), throwing away
+  pixels that existed. They are now built from the original Firestore JPEG
+  bytes with a scale-matched unsharp mask, WebP q95 (`-l`) / q90 (`-t`) — the
+  owner asked for as high as it goes. 8.5 MB of showcase art, 2.1 MB of tiles;
+  q92 would save ~20% for about 1 dB if that ever needs trimming.
+  ⚠️ **Build the file for the BOX it is drawn into, not for its own aspect
+  ratio.** The first rebuild preserved each source's proportions — a 480×480
+  cover became 960×960 — and the covers got visibly WORSE, which the owner
+  caught. The page draws them with `object-fit: cover` in a 4/5 frame, so the
+  browser then had to crop AND stretch 960→1116; the files being replaced were
+  already 4/5 (819×1024, 1000×1250) and needed no browser scaling at all. They
+  are now pre-cropped to 4/5 at 1080×1350, except the wide ones the page shows
+  whole, which keep their shape and are sized so the CONTAINED render is 1:1.
+  ⚠️ And measure the comparison through the REAL render path. The A/B that
+  green-lit the bad version fitted both files with `contain`, which is not how
+  the page draws them, so it showed an improvement that did not exist on
+  screen. Emulate `object-fit: cover` into the true device-pixel box.
 - **The showcase is a PINNED, BOUNDED scroll carousel (2026-08-08).** It was
   scroll-driven with `sec.style.height = CATS.length * 34 + "svh"` — 1360svh at
   40 categories, i.e. fourteen screens of showcase before the rest of the page.
@@ -384,6 +395,11 @@ Single self-contained page, same palette and type system as the game. Marked
   count: 34svh per category is ~3 wheel notches each, forty times over. At
   `STEP = 10` one notch is one category and all forty pass in ~4.9 screens.
   Shorten the budget by lowering `STEP`, never by dropping categories.
+  ⚠️ **A pinned section is a toll gate, so it needs a way out** — the owner's
+  next report was "you can't bypass the scroller without scrolling all the
+  categories". `STEP` is 6 (≈3.4 screens) AND `.sc-skip` («تخطّي الفئات ↓»,
+  under the bar, inside the pinned stage) jumps straight to `#all`. Any future
+  change that keeps the pin must keep an escape.
   The pin then releases and the page carries on; the arrows and ←/→/Home/End
   still work, and the moment the reader touches the track the scroll driver
   steps aside. Traps found the hard way, all pinned by `tests/showcase.mjs`:

@@ -188,6 +188,28 @@ try {
     stepped.home.focus === 0 && stepped.home.prevDis === true, `focus ${stepped.home.focus}`);
   check("the ambient accent tracks the category", stepped.end.accent.length > 0, stepped.end.accent);
 
+  // A pinned section holds the page until its budget is spent, so there has to
+  // be a way out that is not "scroll through all forty categories".
+  const skip = await page.evaluate(() => {
+    const a = document.getElementById("scSkip");
+    if (!a) return null;
+    const sec = document.getElementById("cats");
+    const target = document.querySelector(a.getAttribute("href"));
+    const cs = getComputedStyle(a);
+    return {
+      href: a.getAttribute("href"),
+      visible: cs.display !== "none" && cs.visibility !== "hidden" && parseFloat(cs.opacity) > 0.1,
+      inStage: !!a.closest("#catStage"),
+      // it has to land BELOW the whole pinned section, not inside it
+      pastSection: !!target && (scrollY + target.getBoundingClientRect().top)
+        >= (scrollY + sec.getBoundingClientRect().top + sec.getBoundingClientRect().height) - 2,
+    };
+  });
+  check("there is a way past the showcase without scrolling it", !!skip && skip.visible,
+    skip ? skip.href : "no #scSkip");
+  check("the skip rides along on the pinned stage", !!skip && skip.inStage);
+  check("the skip lands past the whole section", !!skip && skip.pastSection);
+
   // (3)/(4) the scroll drive, and handing control over.
   // Fresh load: the arrow clicks above deliberately hand control to the reader
   // and switch the scroll driver off for the rest of that page's life.

@@ -28,18 +28,20 @@ Four categories have no Firestore artwork at all (foreignMoviesOnly, khareef,
 omaniFootball, whoAmI); for those the bundled assets/img/cat-*.webp is the
 source, which is what the game itself falls back to.
 
-  -l  showcase art.  The stage fits the whole image inside a 4/5 frame (no
-      crop), about 446x558 CSS on a 1440px window = ~892x1116 on a 2x screen.
-      Target: 2x the source, long side capped at 1200.
-  -t  grid tile.     Rendered at most 176 CSS wide in a 3/4 tile = 352 device
-      px, so 384x512 is already generous. Cropped to 3:4, centre-weighted.
+  -l  showcase art.  Built for the 4/5 frame it is DRAWN into, not for the
+      source's own shape — see the note on L_W/L_H below, which is the bug the
+      first version of this script shipped. 1080x1350, or the source's own
+      aspect at the same render width for the wide ones the page shows whole.
+  -t  grid tile.     Cropped to 3:4 at 420x560. The tile renders at most 176
+      CSS wide = 352 device px, so this is a clean downscale.
 
   -s  board headers are NOT touched; they belong to preview/shots/.
 
-Quality: WebP q86 for -l, q84 for -t. Measured against the uncompressed
-upscale, q86 lands at 36-41 dB PSNR across the catalogue and q92 only buys
-1.5-2 dB for ~25% more bytes — bytes spent re-encoding the source JPEG's own
-artefacts, since the source is already lossy.
+Quality: WebP q95 for -l, q90 for -t, method 6 — the owner asked for as high
+as it goes (2026-08-08). Against the uncompressed upscale that is 41-46 dB
+PSNR. q92 would save about 20% of the bytes for roughly 1 dB if the 8.5 MB of
+showcase art ever needs trimming; the grid tiles are downscaled to 352px on
+screen, so anything above q90 there is invisible.
 
 Usage:  python3 tools/covers.py [--dry-run] [--only id,id]
 """
@@ -69,9 +71,31 @@ FALLBACK = {
     "whoAmI": "cat-whoAmI.webp",
 }
 
-L_SCALE, L_CAP = 2.0, 1200         # showcase: 2x the source, capped
-T_W, T_H = 384, 512                # grid tile, 3:4
-L_Q, T_Q = 86, 84
+# The showcase frame is 4/5. Its biggest real render is the ~552 CSS px column
+# at `max-height: 62svh` on a tall desktop = 552x690, which is 1104x1380 device
+# pixels at 2x. Store a shade under that and let the browser DOWNSCALE, which
+# is clean, instead of upscaling, which is not.
+#
+# Getting this wrong is what made the covers worse on 2026-08-08: the rebuild
+# preserved each source's own aspect ratio (a 480x480 cover became 960x960),
+# but the page draws them with `object-fit: cover`, so the browser then had to
+# crop to 4/5 AND stretch 960 -> 1116. The files it replaced were already 4/5
+# (819x1024, 1000x1250) and needed no browser scaling at all. A file must be
+# built for the box it is drawn into, not for its own proportions.
+L_W, L_H = 1080, 1350              # showcase target, 4/5
+L_MAX_SCALE = 3.0                  # never stretch a source further than this
+T_W, T_H = 420, 560                # grid tile, 3:4
+L_Q, T_Q = 95, 90
+
+# Mirrors the CSS in preview/index.html: a wide (or very tall) cover is drawn
+# whole over a blur of itself rather than cropped, so it is NOT pre-cropped to
+# the frame — it is sized so the CONTAINED render is 1:1.
+FRAME = L_W / L_H                  # 0.8
+
+
+def fits_whole(ar):
+    keep = FRAME / ar if ar > FRAME else ar / FRAME
+    return keep < 0.7
 
 
 def fetch_categories():
@@ -121,34 +145,53 @@ def sharpen(im, factor):
         radius=min(1.6, 0.6 * factor), percent=int(min(95, 45 * factor)), threshold=3))
 
 
-def make_large(src):
+def crop_to(src, ar, bias=0.5):
     w, h = src.size
-    scale = min(L_SCALE, L_CAP / max(w, h))
-    scale = max(scale, 1.0)
-    out = src.convert("RGB")
-    if scale > 1.001:
-        out = out.resize((round(w * scale), round(h * scale)), Image.LANCZOS)
-    return sharpen(out, scale)
+    if w / h > ar:
+        nw = round(h * ar)
+        left = round((w - nw) * 0.5)
+        return src.crop((left, 0, left + nw, h))
+    nh = round(w / ar)
+    top = max(0, round((h - nh) * bias))
+    return src.crop((0, top, w, top + nh))
+
+
+def make_large(src):
+    """Sized for how the page actually draws it.
+
+    Covers that fill the frame are pre-cropped to 4/5 and delivered at the
+    frame's device resolution, so the browser scales nothing. Wide ones are
+    drawn whole (`object-fit: contain`) over a blur of themselves, so they keep
+    their own shape and are sized so the CONTAINED render is 1:1 — for those
+    the limiting dimension is width, or height for the very tall ones.
+    """
+    src = src.convert("RGB")
+    w, h = src.size
+    ar = w / h
+    if fits_whole(ar):
+        target = (L_W, round(L_W / ar)) if ar > FRAME else (round(L_H * ar), L_H)
+        cut = src
+    else:
+        target, cut = (L_W, L_H), crop_to(src, FRAME, 0.4)
+
+    scale = min(target[0] / cut.size[0], L_MAX_SCALE)
+    if scale < 1.0:                        # source already bigger: downscale to fit
+        target = (round(cut.size[0] * min(1.0, target[0] / cut.size[0])),
+                  round(cut.size[1] * min(1.0, target[1] / cut.size[1])))
+    elif scale < target[0] / cut.size[0] - 1e-6:
+        target = (round(cut.size[0] * scale), round(cut.size[1] * scale))
+
+    out = cut.resize(target, Image.LANCZOS)
+    return sharpen(out, target[0] / cut.size[0])
 
 
 def make_tile(src):
-    """Centre-crop to 3:4, then scale. Crops toward the TOP third rather than
-    the exact centre — these are portraits and posters, and a centre crop of a
-    480x270 landscape decapitates the subject."""
-    w, h = src.size
-    want = T_W / T_H
-    if w / h > want:                      # too wide -> trim the sides
-        nw = round(h * want)
-        left = (w - nw) // 2
-        box = (left, 0, left + nw, h)
-    else:                                 # too tall -> trim the bottom harder
-        nh = round(w / want)
-        top = max(0, round((h - nh) * 0.35))
-        box = (0, top, w, top + nh)
-    cut = src.convert("RGB").crop(box)
-    scale = T_W / cut.size[0]
+    """Crop to 3:4, then scale. Trims toward the TOP rather than the exact
+    centre — these are portraits and posters, and a centre crop of a 480x270
+    landscape decapitates the subject."""
+    cut = crop_to(src.convert("RGB"), T_W / T_H, 0.35)
     out = cut.resize((T_W, T_H), Image.LANCZOS)
-    return sharpen(out, scale)
+    return sharpen(out, T_W / cut.size[0])
 
 
 def kb(n):
