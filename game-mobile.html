@@ -5797,13 +5797,13 @@
       padding: var(--tile-pad, 24px) !important; display: block !important; text-align: right !important;
     }
     #gameLibrary .saved-game-card:hover, #gameLibrary .saved-game-card:focus-visible { transform: translateY(-2px); outline: none !important; box-shadow: 0 24px 48px rgba(120, 70, 20, .2) !important; filter: none !important; }
-    #gameLibrary .saved-game-head { display: flex; align-items: center; justify-content: space-between; gap: var(--tile-gap-sm, 10px); margin-bottom: var(--tile-head, 18px); }
+    #gameLibrary .saved-game-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--tile-gap-sm, 10px); margin-bottom: var(--tile-head, 18px); }
     #gameLibrary .saved-game-title { font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: var(--tile-title, 27px) !important; color: #a8172a !important; line-height: 1.1; margin: 0 !important; }
     #gameLibrary .saved-game-count {
       flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; background: #f3e6c4; border: 1px solid #e0c97f; border-radius: 999px;
       /* #8a6a3a measured 4.03:1 on this pale gold fill — just under the bar.
          Darkened to clear it without changing the pill's character. */
-      padding: 5px 12px; font: 700 var(--tile-pill, 13px) 'Cairo', sans-serif; color: #7a5d2f; white-space: nowrap;
+      padding: 5px 12px; font: 700 var(--tile-pill, 13px) 'Cairo', sans-serif; color: #7a5d2f; min-width: 0; white-space: normal;
     }
     #gameLibrary .saved-game-free { background: #e2efe4; border-color: #9dc3a4; color: #2f6b3d; }
     /* The re-seed button glows only when the published copy is behind the
@@ -5871,12 +5871,12 @@
     #gameLibrary .saved-game-category.span-2, #gameLibrary .saved-game-category:last-child:nth-child(odd) { grid-column: span 2; }
     /* footer actions */
     #gameLibrary .saved-game-actions {
-      display: flex !important; gap: 12px !important; flex-wrap: nowrap !important; margin-top: 22px !important;
-      padding-top: 16px !important; border-top: 1px solid #ecdcb4 !important;
+      display: flex !important; gap: var(--tile-gap-sm, 12px) !important; flex-wrap: wrap !important; margin-top: var(--tile-head, 22px) !important;
+      padding-top: var(--tile-head, 16px) !important; border-top: 1px solid #ecdcb4 !important;
     }
     #gameLibrary .saved-game-actions button {
-      flex: 1; min-height: 0 !important; padding: 11px !important; border-radius: 12px !important; border-width: 2px !important;
-      font: 700 15px 'Cairo', sans-serif !important; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; transition: .18s;
+      flex: 1 1 var(--tile-btn, 110px); min-width: 0; min-height: 0 !important; padding: 11px !important; border-radius: 12px !important; border-width: 2px !important;
+      font: 700 var(--tile-btn-font, 15px) 'Cairo', sans-serif !important; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; transition: .18s;
     }
     #gameLibrary .saved-game-actions .secondary { background: #fff8e8 !important; border: 2px solid #e0c97f !important; color: #8a5a1f !important; box-shadow: none !important; }
     #gameLibrary .saved-game-actions .secondary:hover { background: #fdefcf !important; }
@@ -15435,6 +15435,8 @@
       set("--tile-cat", clamp(58, tile * 0.34, 112));
       set("--tile-head", clamp(9, tile * 0.053, 18));
       set("--tile-gap-sm", clamp(6, tile * 0.035, 12));
+      set("--tile-btn", clamp(64, tile * 0.42, 110));
+      set("--tile-btn-font", clamp(11.5, tile * 0.045, 15));
     }
 
     /* Wrapped rather than called at the bottom: renderGameLibraryInner has

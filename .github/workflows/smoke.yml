@@ -606,6 +606,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qfontcap.mjs
 
+      - name: Run floating-back + library-density test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node backfloat.mjs
+
       - name: Run shared button-skin test
         working-directory: tests
         run: |
