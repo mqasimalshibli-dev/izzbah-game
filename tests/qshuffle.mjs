@@ -80,20 +80,33 @@ const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 try {
   // ── 1) the round-robin is gone ────────────────────────────────────────────
-  // 4 questions per tier: games 1-4 drain the pool, 5-8 recycle it. Under the
-  // old strict-oldest rule game 5 == game 1, 6 == 2, 7 == 3, 8 == 4, every time.
+  // N questions per tier: the first N games drain the pool, the next N recycle
+  // it. Under the old strict-oldest rule game N+1 == game 1, N+2 == 2, and so
+  // on, EVERY time — the period is exactly N.
+  //
+  // The thresholds are sized so a healthy run effectively cannot fail. With
+  // N = 8 the recycling pick is random across the least-recently-seen half, so
+  // 4 candidates per tier: a board (5 tiers) coincides with its counterpart
+  // with p = 4^-5 = 1/1024, and two coincidences in 8 comparisons has
+  // probability ~3e-5. The bug produces 8 of 8. An earlier form of this check
+  // used N = 4 (2 candidates, p = 1/32) and demanded ZERO repeats, which fails
+  // a healthy build roughly one run in eight — it duly went red in CI on a
+  // commit that did not touch the game at all.
   {
-    const A = await device([mkCat("pub-rot", 4)]);
+    const N = 8;
+    const A = await device([mkCat("pub-rot", N)]);
     const runs = [];
-    for (let i = 0; i < 8; i++) runs.push(await A.page.evaluate(() => window.__newGame()));
-    const repeats = [4, 5, 6, 7].filter(i => same(runs[i], runs[i - 4])).length;
-    check(`after the pool is exhausted the boards do NOT replay in a fixed cycle (${repeats}/4 repeated)`,
-      repeats === 0);
+    for (let i = 0; i < N * 2; i++) runs.push(await A.page.evaluate(() => window.__newGame()));
+    const cmp = Array.from({ length: N }, (_, k) => N + k);
+    const repeats = cmp.filter(i => same(runs[i], runs[i - N])).length;
+    check(`after the pool is exhausted the boards do NOT replay in a fixed cycle (${repeats}/${N} repeated)`,
+      repeats <= 1);
 
-    // …and the recycled boards are not all the same board either.
-    const recycled = runs.slice(4).map(r => r.join("|"));
-    check(`the recycled boards differ from each other (${new Set(recycled).size}/4 distinct)`,
-      new Set(recycled).size >= 3);
+    // Independent signal: the bug has period N, so 2N games yield only N
+    // distinct boards. A healthy run yields ~2N.
+    const distinct = new Set(runs.map(r => r.join("|"))).size;
+    check(`${N * 2} games produce far more than ${N} distinct boards (${distinct})`,
+      distinct >= N + 4);
     await A.ctx.close();
   }
 
@@ -120,8 +133,11 @@ try {
   // blob (saved games + seen history) down on sign-in.
   {
     // Three categories -> a 15-tile board. With 20 questions per tier two
-    // independent devices coincide on 0.75 tiles on average by pure chance, so
-    // a low ceiling here is a real signal rather than a lucky run.
+    // independent devices coincide on 15/20 = 0.75 tiles on average by pure
+    // chance. The ceiling is 6: a board that is genuinely "locked" shares all
+    // 15, while a healthy run needs a 1-in-270,000 draw to reach 7. The
+    // ceiling used to be 4, which a healthy run trips about once in 1,500 —
+    // and did, in CI, on a commit that did not touch the game.
     const cat = ["x", "y", "z"].map(k => mkCat("pub-dev-" + k, 20));
     const A = await device(cat);
     const a = await A.page.evaluate(() => window.__newGame());
@@ -135,9 +151,9 @@ try {
     const overlapB = a.filter((v, i) => v === b[i]).length;
     const overlapC = a.filter((v, i) => v === c[i]).length;
     check(`a new game on a fresh device is not the same board (${overlapB}/${a.length} tiles shared)`,
-      overlapB < a.length && overlapB <= 4);
+      overlapB < a.length && overlapB <= 6);
     check(`a new game on a device synced from the first is not the same board (${overlapC}/${a.length} shared)`,
-      overlapC < a.length && overlapC <= 4);
+      overlapC < a.length && overlapC <= 6);
     check("the synced device really did inherit the other's history (the test means something)",
       await C.page.evaluate(() => state.savedGames.length > 0
         && Object.values(state.seen || {}).some(v => v.length > 0)));

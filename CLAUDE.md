@@ -491,6 +491,18 @@ Single self-contained page, same palette and type system as the game. Marked
   boards differ. `tests/qshuffle.mjs`.
   ⚠️ `tests/savedgamefreeze.mjs` asserted the strict-oldest pick; it now
   asserts the property (from the older half, never the recent half) instead.
+  ⚠️ **`tests/qshuffle.mjs` was FLAKY and went red in CI on 2026-08-08, on a
+  commit that did not touch the game at all.** Once selection is random, an
+  assertion on one draw is a coin toss with extra steps: the cycle check used 4
+  questions per tier (so 2 candidates, p = 1/32 per board) and demanded ZERO
+  repeats in 4 comparisons — about a 12% false-failure rate — and the
+  fresh-device check capped overlap at 4 of 15 when chance alone gives 0.75 on
+  average and reaches 5 once in ~1,500 runs. Both are now sized so a healthy
+  run effectively cannot fail (8 per tier / ≤1 repeat in 8 → ~3e-5; overlap ≤6
+  → ~4e-6) while the bug they exist for still fails them outright — verified by
+  reverting `pickUnseen` to the strict-oldest pick, which scores 8/8 repeats
+  and 8 distinct boards against thresholds of ≤1 and ≥12. When adding an
+  assertion over randomised output, work out the false-failure rate first.
 
 - **Some categories are too thin to shuffle — a CONTENT gap, not a bug.**
   Measured against the live catalogue: «دين» and «ميمز» hold 5 questions each,
