@@ -226,45 +226,45 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   background:rgba(231,195,115,.12); border-color:var(--gold-hi)}
 @media(hover:none),(prefers-reduced-motion:reduce){.ring{display:none}}
 
-/* ── category showcase (scroll-driven, sticky) ────────────── */
-.showcase{position:relative}
-.sticky{position:sticky; top:0; height:100svh; display:grid; align-items:center; overflow:hidden;
-  padding-block-start:clamp(54px,8vh,70px)}
+/* ── category showcase (self-contained carousel) ──────────── */
+/* It used to be scroll-DRIVEN: the section was CATS.length * 34svh tall — at 40
+   categories that is 1360svh — and the page scroll stepped through it. Reading
+   the rest of the page therefore meant scrolling nearly fourteen screens of
+   showcase first. It is now its own horizontal scroller: the section is about
+   one screen tall, the page moves past it normally, and the categories are
+   browsed inside it with a swipe, the arrows, or the arrow keys. */
+/* `clip`, not `hidden`: the ambient ::before below is inset -25% horizontally,
+   which is 360px of overhang on a 1440px window — left unclipped it widened
+   the whole DOCUMENT and knocked every centred `.wrap` off to one side. `clip`
+   is the only value that can leave the other axis `visible`, so the glow still
+   bleeds above and below the section. */
+.showcase{position:relative; padding-block:clamp(28px,6vh,56px); overflow-x:clip}
+.showcase .sc-inner{position:relative; z-index:1}
 /* the ambient light takes on the focused category's own colour */
-.sticky::before{content:""; position:absolute; inset:-25%; pointer-events:none;
+.showcase::before{content:""; position:absolute; inset:-10% -25%; pointer-events:none;
   background:radial-gradient(42% 46% at 68% 42%, var(--accent,rgba(125,22,32,.5)), transparent 68%);
   transition:background 1.2s cubic-bezier(.2,.7,.2,1)}
-.stage{position:relative; z-index:1; width:100%; display:grid; grid-template-columns:.95fr 1.05fr; gap:clamp(26px,5vw,64px); align-items:center}
-@media(max-width:960px){
-  .stage{grid-template-columns:1fr; gap:16px; align-content:center}
-  /* height-driven, so the whole panel always fits above the fold */
-  .cat-art{height:min(44svh,58vw); aspect-ratio:4/5; width:auto; max-height:none; margin-inline:auto}
-  .cat-copy{min-height:154px}
-  .cat-panel h3{font-size:clamp(25px,6.6vw,40px); margin-bottom:10px}
-  .cat-panel p{font-size:14.5px}
-  .cat-index{margin-bottom:9px}
-  .cat-tag{margin-top:13px; padding:6px 13px; font-size:12px}
-  .pips{margin-top:16px}
+
+/* overscroll-behavior is the point of the whole change: without it a swipe that
+   runs off the end of the track keeps going into the PAGE (and, on iOS, into
+   the browser's back gesture). `contain` keeps the gesture inside this box. */
+.cat-track{
+  display:flex; gap:clamp(16px,3vw,40px);
+  overflow-x:auto; overflow-y:hidden;
+  scroll-snap-type:x mandatory; overscroll-behavior-x:contain;
+  scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  padding-block:6px; scroll-behavior:smooth;
 }
-/* short screens (small phones, and any phone held sideways) */
-@media(max-height:720px) and (max-width:960px){
-  .cat-art{height:min(36svh,50vw)}
-  .cat-copy{min-height:118px}
-  .cat-panel p{font-size:13.5px; -webkit-line-clamp:3}
-  .cat-tag{display:none}
+.cat-track::-webkit-scrollbar{display:none}
+@media(prefers-reduced-motion:reduce){.cat-track{scroll-behavior:auto}}
+.cat-slide{
+  flex:0 0 100%; scroll-snap-align:center; scroll-snap-stop:always;
+  display:grid; grid-template-columns:.95fr 1.05fr; gap:clamp(26px,5vw,64px); align-items:center;
 }
-/* landscape: a single column can never fit, so go back to two */
-@media(max-width:960px) and (min-aspect-ratio:1/1){
-  .stage{grid-template-columns:.95fr 1.05fr; gap:22px}
-  .cat-art{height:min(64svh,34vw); max-height:none}
-  .cat-copy{min-height:0}
-}
-.cat-copy{position:relative; min-height:280px}
-.cat-panel{position:absolute; inset:0; opacity:0; transform:translateY(22px); transition:opacity .55s, transform .55s; pointer-events:none}
-.cat-panel.on{opacity:1; transform:none; pointer-events:auto}
+.cat-slide .cat-copy{position:relative}
 .cat-index{font:400 15px var(--num); letter-spacing:2px; color:var(--gold); margin-bottom:14px}
-.cat-panel h3{font-size:clamp(28px,3.9vw,46px); margin-bottom:16px}
-.cat-panel p{color:var(--muted); max-width:46ch}
+.cat-slide h3{font-size:clamp(28px,3.9vw,46px); margin-bottom:16px}
+.cat-slide p{color:var(--muted); max-width:46ch}
 .cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
 .cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
   border:1px solid var(--rule); font:800 12.5px var(--body); color:var(--cream); background:rgba(255,255,255,.04)}
@@ -275,21 +275,46 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   transform:translate3d(var(--mx),var(--my),0); transition:transform .28s, filter .28s;
   box-shadow:0 10px 24px -14px rgba(231,195,115,.9)}
 .cat-play:hover{filter:brightness(1.07)}
-@media(max-width:960px){.cat-play{margin-inline-start:0}}
-.cat-art{position:relative; aspect-ratio:4/5; max-height:66svh; margin-inline:auto; width:100%;
+.cat-art{position:relative; aspect-ratio:4/5; max-height:62svh; margin-inline:auto; width:100%;
   border-radius:26px; overflow:hidden; border:1px solid var(--rule); box-shadow:var(--shadow); background:var(--maroon-lo)}
-.cat-art figure{position:absolute; inset:0; margin:0; opacity:0; transform:scale(1.08); transition:opacity .7s, transform .9s}
-.cat-art figure.on{opacity:1; transform:none}
-.cat-art img{width:100%; height:100%; object-fit:cover}
+.cat-art img{width:100%; height:100%; object-fit:cover; display:block}
 .cat-art .veil{position:absolute; inset:0; background:linear-gradient(0deg, rgba(22,6,10,.86), transparent 58%)}
-.rail{position:absolute; inset-block:0; inset-inline-start:0; width:3px; background:rgba(255,255,255,.07); border-radius:3px}
-.rail i{position:absolute; inset-inline:0; top:0; background:var(--gold); border-radius:3px; transition:height .3s, top .3s}
-/* at 40 categories a pip row would wrap; a single track reads better */
-.pips{position:relative; height:4px; border-radius:3px; margin-top:28px;
-  background:rgba(255,255,255,.14); overflow:hidden; width:100%; max-width:340px}
+
+/* controls */
+.sc-bar{display:flex; align-items:center; gap:14px; margin-top:22px}
+.sc-btn{flex:0 0 auto; width:42px; height:42px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--rule); background:rgba(255,255,255,.05); color:var(--cream);
+  font:700 20px var(--body); display:grid; place-items:center;
+  transition:background .2s, border-color .2s, opacity .2s}
+.sc-btn:hover{background:rgba(255,255,255,.11); border-color:var(--gold)}
+.sc-btn:disabled{opacity:.3; cursor:default}
+.pips{position:relative; flex:1 1 auto; height:4px; border-radius:3px;
+  background:rgba(255,255,255,.14); overflow:hidden}
 .pips i{position:absolute; inset-block:0; inset-inline-start:0; border-radius:3px;
   background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi)); width:0;
-  transition:width .45s cubic-bezier(.2,.8,.2,1)}
+  transition:width .3s cubic-bezier(.2,.8,.2,1)}
+.sc-count{flex:0 0 auto; font:400 14px var(--num); color:var(--gold); min-width:6ch; text-align:center}
+
+@media(max-width:960px){
+  .cat-slide{grid-template-columns:1fr; gap:16px; align-content:center}
+  .cat-art{height:min(42svh,58vw); aspect-ratio:4/5; width:auto; max-height:none; order:-1}
+  .cat-slide h3{font-size:clamp(25px,6.6vw,40px); margin-bottom:10px}
+  .cat-slide p{font-size:14.5px}
+  .cat-index{margin-bottom:9px}
+  .cat-tag{padding:6px 13px; font-size:12px}
+  .cat-play{margin-inline-start:0}
+  .sc-btn{display:none}          /* touch: the swipe is the affordance */
+}
+@media(max-height:720px) and (max-width:960px){
+  .cat-art{height:min(34svh,50vw)}
+  .cat-slide p{font-size:13.5px}
+  .cat-tag{display:none}
+}
+/* landscape phone: a single column can never fit, so go back to two */
+@media(max-width:960px) and (min-aspect-ratio:1/1){
+  .cat-slide{grid-template-columns:.95fr 1.05fr; gap:22px}
+  .cat-art{height:min(62svh,34vw); max-height:none; order:0}
+}
 
 /* ── all-categories grid ──────────────────────────────────── */
 .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(clamp(112px,15vw,176px),100%),1fr)); gap:clamp(9px,1.4vw,16px)}
@@ -557,13 +582,19 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
   <!-- ── CATEGORY SHOWCASE ────────────────────────────────── -->
   <section id="cats" class="showcase" aria-label="الفئات">
-    <div class="sticky">
-      <div class="wrap stage">
-        <div class="cat-copy" id="catCopy"></div>
-        <div>
-          <div class="cat-art" id="catArt"><div class="rail"><i id="rail"></i></div></div>
-          <div class="pips" id="pips"></div>
-        </div>
+    <div class="wrap sc-inner">
+      <div class="cat-track" id="catTrack" tabindex="0" role="region"
+           aria-label="استعراض الفئات — اسحب أو استخدم الأسهم"></div>
+      <div class="sc-bar">
+        <!-- RTL: «previous» sits on the RIGHT and must point right.
+             The obvious ‹ › are bidi-MIRRORED characters — in an RTL run the
+             browser flips them, so both arrows ended up pointing the wrong
+             way. The geometric triangles are not mirrored, so they render as
+             authored. tests/showcase.mjs pins this. -->
+        <button class="sc-btn" id="scPrev" type="button" aria-label="الفئة السابقة">▸</button>
+        <div class="pips" id="pips"><i></i></div>
+        <span class="sc-count" id="scCount"></span>
+        <button class="sc-btn" id="scNext" type="button" aria-label="الفئة التالية">◂</button>
       </div>
     </div>
   </section>
@@ -886,73 +917,111 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   };
   const playLink = id => GAME + "#g=" + b64url(JSON.stringify({ c: [id] }));
-  const copy = document.getElementById("catCopy");
-  const art = document.getElementById("catArt");
+  const track = document.getElementById("catTrack");
   const pips = document.getElementById("pips");
-  const rail = document.getElementById("rail");
 
-  if (copy && art) {
+  if (track) {
     CATS.forEach((c, i) => {
-      const p = document.createElement("div");
-      p.className = "cat-panel" + (i === 0 ? " on" : "");
-      p.innerHTML = '<div class="cat-index">فئة ' + ar(i + 1) + ' / ' + ar(CATS.length) + '</div>'
+      const s = document.createElement("article");
+      s.className = "cat-slide";
+      s.innerHTML = '<div class="cat-copy">'
+        + '<div class="cat-index">فئة ' + ar(i + 1) + ' / ' + ar(CATS.length) + '</div>'
         + '<h3></h3><p></p><div class="cat-foot"><span class="cat-tag"></span>'
-        + '<span class="cat-n"></span><a class="cat-play magnetic" href="#">العب هذي الفئة ▸</a></div>';
-      p.querySelector("h3").textContent = c.n;
-      p.querySelector("p").textContent = c.d;
-      p.querySelector(".cat-tag").textContent = c.t;
-      p.querySelector(".cat-n").textContent = ar(c.count) + " سؤال";
-      p.querySelector(".cat-play").href = playLink(c.id);
-      copy.appendChild(p);
+        + '<span class="cat-n"></span><a class="cat-play magnetic" href="#">العب هذي الفئة ▸</a></div>'
+        + '</div><div class="cat-art"><div class="veil"></div></div>';
+      s.querySelector("h3").textContent = c.n;
+      s.querySelector("p").textContent = c.d;
+      s.querySelector(".cat-tag").textContent = c.t;
+      s.querySelector(".cat-n").textContent = ar(c.count) + " سؤال";
+      s.querySelector(".cat-play").href = playLink(c.id);
 
-      const f = document.createElement("figure");
-      f.className = i === 0 ? "on" : "";
       const im = new Image(); im.alt = c.n; im.decoding = "async";
-      if (i === 0) im.src = c.img; else im.dataset.src = c.img;   // rest attach on focus
-      f.appendChild(im);
-      const v = document.createElement("div"); v.className = "veil"; f.appendChild(v);
-      art.appendChild(f);
-
-      if (i === 0 && pips) pips.appendChild(document.createElement("i"));
+      if (i === 0) im.src = c.img; else im.dataset.src = c.img;   // rest attach on approach
+      s.querySelector(".cat-art").prepend(im);
+      track.appendChild(s);
     });
 
-    // The section is tall; scrolling through it advances the focused category.
     const sec = document.getElementById("cats");
-    sec.style.height = (CATS.length * 34) + "svh";
-    const stick = sec.querySelector(".sticky");
-    const panels = [...copy.children], figs = [...art.querySelectorAll("figure")];
+    const slides = [...track.children];
     const bar = pips && pips.querySelector("i");
+    const countEl = document.getElementById("scCount");
+    const prevBtn = document.getElementById("scPrev");
+    const nextBtn = document.getElementById("scNext");
+    const slow = matchMedia("(prefers-reduced-motion: reduce)");
+
+    // Which slide is under the track's centre. Measured from bounding boxes
+    // rather than scrollLeft, because RTL scrollLeft is negative in some
+    // engines and positive-reversed in others — rects are the same everywhere.
+    const focused = () => {
+      const tr = track.getBoundingClientRect(), mid = tr.left + tr.width / 2;
+      let best = 0, bd = Infinity;
+      slides.forEach((s, i) => {
+        const r = s.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - mid);
+        if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    };
+
     let cur = -1;
-    const paint = i => {
+    const paint = () => {
+      const i = focused();
       if (i === cur) return;
       cur = i;
-      panels.forEach((p, k) => p.classList.toggle("on", k === i));
-      figs.forEach((f, k) => f.classList.toggle("on", k === i));
-      // load the focused cover and the next one, so the transition never waits
-      [i, i + 1].forEach(k => {
-        const im = figs[k] && figs[k].querySelector("img[data-src]");
+      // attach the neighbours' covers so a swipe never lands on a blank box
+      [i - 1, i, i + 1].forEach(k => {
+        const im = slides[k] && slides[k].querySelector("img[data-src]");
         if (im) { im.src = im.dataset.src; delete im.dataset.src; }
       });
       if (bar) bar.style.width = ((i + 1) / CATS.length * 100).toFixed(1) + "%";
-      if (rail) { rail.style.height = (100 / CATS.length) + "%"; rail.style.top = (i * 100 / CATS.length) + "%"; }
-      if (stick && ACCENT[CATS[i].id]) stick.style.setProperty("--accent", ACCENT[CATS[i].id]);
+      if (countEl) countEl.textContent = ar(i + 1) + " / " + ar(CATS.length);
+      if (prevBtn) prevBtn.disabled = i <= 0;
+      if (nextBtn) nextBtn.disabled = i >= CATS.length - 1;
+      if (sec && ACCENT[CATS[i].id]) sec.style.setProperty("--accent", ACCENT[CATS[i].id]);
     };
+
+    // `scroll-snap-stop: always` deliberately refuses to pass a snap point —
+    // right for a swipe (one category per flick, never ten), but it also
+    // clamps a PROGRAMMATIC jump to one slide, so Home/End would crawl. A far
+    // jump therefore turns snapping off for the one instant scroll and puts
+    // it straight back; re-enabling mandatory snap re-snaps to the slide we
+    // just landed on, so nothing drifts.
+    const goTo = (i, far) => {
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      const tr = track.getBoundingClientRect(), r = slides[i].getBoundingClientRect();
+      const dx = (r.left + r.width / 2) - (tr.left + tr.width / 2);
+      if (!far) return track.scrollBy({ left: dx, behavior: slow.matches ? "auto" : "smooth" });
+      const keep = track.style.scrollSnapType;
+      track.style.scrollSnapType = "none";
+      track.scrollBy({ left: dx, behavior: "auto" });
+      void track.offsetWidth;                 // commit the scroll before re-arming snap
+      track.style.scrollSnapType = keep;
+      paint();
+    };
+    const step = d => goTo(focused() + d);
+
+    if (prevBtn) prevBtn.addEventListener("click", () => step(-1));
+    if (nextBtn) nextBtn.addEventListener("click", () => step(1));
+
+    // Arrow keys follow the reading direction: in RTL, ← is forward.
+    track.addEventListener("keydown", e => {
+      const fwd = getComputedStyle(track).direction === "rtl" ? "ArrowLeft" : "ArrowRight";
+      const back = fwd === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
+      if (e.key === fwd) { e.preventDefault(); step(1); }
+      else if (e.key === back) { e.preventDefault(); step(-1); }
+      else if (e.key === "Home") { e.preventDefault(); goTo(0, true); }
+      else if (e.key === "End") { e.preventDefault(); goTo(slides.length - 1, true); }
+    });
+
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const r = sec.getBoundingClientRect();
-        const total = r.height - innerHeight;
-        if (total <= 0) return paint(0);
-        const p = Math.min(1, Math.max(0, -r.top / total));
-        paint(Math.min(CATS.length - 1, Math.floor(p * CATS.length)));
-      });
+      requestAnimationFrame(() => { ticking = false; paint(); });
     };
-    addEventListener("scroll", onScroll, { passive: true });
+    track.addEventListener("scroll", onScroll, { passive: true });
     addEventListener("resize", onScroll);
-    onScroll();
+    paint();
   }
 
   /* ── every category in the game ─────────────────────────── */
@@ -1089,7 +1158,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const mark = (el, key) => { if (!el) return; el.dataset.edit = key; el.dataset.orig = el.textContent.trim(); arm(el); };
     document.querySelectorAll("h1,h2,.lede,.sec-head p,.card h3,.card p,.plan p,.answer p,summary")
       .forEach((el, i) => mark(el, "page." + i));
-    document.querySelectorAll(".cat-panel").forEach((panel, i) => {
+    document.querySelectorAll(".cat-slide").forEach((panel, i) => {
       const c = CATS[i]; if (!c) return;
       mark(panel.querySelector(".cat-tag"), "cat." + c.id + ".tag");
       mark(panel.querySelector("p"), "cat." + c.id + ".desc");
