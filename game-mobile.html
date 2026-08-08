@@ -4386,8 +4386,7 @@
       background: #f2dca9;
       color: #3a2d17;                    /* 9.9:1 */
       border-color: #c08e3c;
-      --btn-edge: #bf9445;
-      box-shadow: 0 5px 0 var(--btn-edge), 0 8px 14px rgba(120, 90, 40, .18);
+      box-shadow: 0 8px 18px rgba(120, 90, 40, .22), inset 0 1px 0 rgba(255, 255, 255, .5);
     }
     /* Opaque, not alpha: a translucent face blends with whatever sits behind
        it, which both moves its contrast around and made it measure as a
@@ -4396,8 +4395,7 @@
       background: #fdfaf3;
       color: #5c4626;                    /* 8.9:1 */
       border-color: #cbb083;
-      --btn-edge: #c3ab84;
-      box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(120, 90, 40, .14);
+      box-shadow: 0 8px 18px rgba(120, 90, 40, .16), inset 0 1px 0 rgba(255, 255, 255, .6);
     }
     /* Destructive: outlined rather than filled, so it reads as dangerous
        without competing with the publish button for attention. */
@@ -4405,22 +4403,21 @@
       background: #f9d9d6;
       color: #8e1020;                    /* 7.6:1 */
       border-color: #d1777e;
-      --btn-edge: #d3a2a4;
-      box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(150, 30, 30, .16);
+      box-shadow: 0 8px 18px rgba(150, 30, 30, .18), inset 0 1px 0 rgba(255, 255, 255, .5);
     }
     #customEditor .ce-del:hover { background: #fbe4e1; }
 
     :root[data-theme="dark"] #customEditor .secondary {
       background: #4a3520; color: #f6ead2; border-color: #8a6a3a;
-      --btn-edge: #2a1c1e; box-shadow: 0 5px 0 var(--btn-edge), 0 8px 14px rgba(0,0,0,.34);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .08);
     }
     :root[data-theme="dark"] #customEditor .ghost {
       background: #2f2124; color: #ecdcc0; border-color: #6b543a;
-      --btn-edge: #281a1c; box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(0,0,0,.3);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .07);
     }
     :root[data-theme="dark"] #customEditor .ce-del {
       background: #4d1f24; color: #ffb3b3; border-color: #a1565c;
-      --btn-edge: #2e1416; box-shadow: 0 4px 0 var(--btn-edge), 0 6px 12px rgba(0,0,0,.3);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .07);
     }
     .ce-toolbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 12px 0 2px; }
     .ce-table-wrap { width: 100%; overflow-x: auto; border: 1px solid rgba(140, 106, 46, .25); border-radius: 14px; margin-top: 10px; }
