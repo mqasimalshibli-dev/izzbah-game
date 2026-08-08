@@ -352,8 +352,60 @@ Single self-contained page, same palette and type system as the game. Marked
   page cannot drift from the game. Only each category's one-line description
   and tag are hand-written (the `COPY` map in index.html, keyed by category
   id); a newly published category still appears with a neutral fallback.
-- Covers live in `preview/cat/` (`-t` grid, `-l` showcase, `-s` board header),
-  resized from the Firestore originals. Regenerate them when artwork changes.
+- **Covers: `python3 tools/covers.py` rebuilds them all** (`-t` grid tile,
+  `-l` showcase; `-s` board headers belong to `preview/shots/` and are left
+  alone). `--dry-run` prints the before/after table without writing.
+  ⚠️ **The resolution ceiling is 480px and no script can lift it.** The masters
+  are gone; a category's artwork now exists ONLY as the `image` field of its
+  Firestore doc, which the publish path caps at a 95 KB JPEG. Measured
+  2026-08-08 over all 40: the largest is **480×480**, nothing exceeds 480px on
+  either side, and 4 categories (foreignMoviesOnly, khareef, omaniFootball,
+  whoAmI) have no cloud artwork at all and fall back to `assets/img/cat-*.webp`.
+  So "export the covers bigger" is not a thing that can be done — a real
+  increase needs either the original artwork or a super-resolution model.
+  What the rebuild DID fix (2026-08-08): the old files were re-encodes of
+  already-resized WebPs, so every one carried two generations of loss; fourteen
+  were blown up to 819×1024–1000×1250 from a 480px source and left soft (up to
+  202 KB each); five were SMALLER than the source (252×315 from a 349px
+  original), throwing away pixels that existed. They are now built from the
+  original Firestore JPEG bytes, at 2× the source with a scale-matched unsharp
+  mask, WebP q86/q84 — sharper across the board and 5.53 MB → 5.33 MB in total.
+  q92 buys only 1.5–2 dB PSNR for ~25% more bytes, spent re-encoding the source
+  JPEG's own artefacts.
+- **The showcase is a PINNED, BOUNDED scroll carousel (2026-08-08).** It was
+  scroll-driven with `sec.style.height = CATS.length * 34 + "svh"` — 1360svh at
+  40 categories, i.e. fourteen screens of showcase before the rest of the page.
+  The scroll drive is wanted; the fourteen screens are not. Now `.sc-stage` is
+  `position: sticky` and the section's extra height is a budget of `SPOT`(8) ×
+  `STEP`(30) svh ≈ 3.1 screens; page scroll walks the carousel through it, then
+  the pin releases. All 40 stay in the track behind a swipe, the arrows, or
+  ←/→/Home/End. Traps found the hard way, all pinned by `tests/showcase.mjs`:
+  - `overscroll-behavior-x: contain` on the track, or a swipe off the end
+    chains into the page and, on iOS, into the browser's back gesture.
+  - RTL `scrollLeft` is negative in some engines and positive-reversed in
+    others: the focused slide is read from bounding rects, and the scroll
+    direction is *measured* once, never assumed.
+  - The driver must set an ABSOLUTE scroll position. A relative `scrollBy` off
+    live rects compounds against the smooth re-snap animation — the carousel
+    settled on slide 4 when the scroll said 7.
+  - `scroll-snap-stop: always` (right for a swipe) also clamps a PROGRAMMATIC
+    jump to one snap point, so Home/End crawled. Far jumps turn snapping off
+    for the one instant scroll.
+  - Once the reader touches the carousel, the scroll driver must step aside for
+    good, or the next scroll event yanks the track back and the two fight.
+  - The ambient `::before` is inset -25% horizontally = 360px of overhang on a
+    1440px window; unclipped it widened the DOCUMENT and knocked every centred
+    `.wrap` sideways. `.showcase{overflow-x:clip}` — `clip` is the only value
+    that leaves the other axis visible.
+  - The stage needs `grid-template-columns: minmax(0,1fr)` and the wrap
+    `min-width:0`: an auto grid track is sized from max-content, so `.wrap`'s
+    1180px max-width kept the track 1140px wide on a 390px phone — and
+    `overflow-x: clip` hid the damage from any page-width assertion.
+  - `‹ ›` are Bidi_Mirrored; in an RTL run the browser flips them and both
+    arrows point the wrong way. Geometric triangles are not mirrored.
+  - Wide covers are shown whole over a blurred copy of themselves (`.cat-art.fit`)
+    rather than cropped: a 480×270 in the 4/5 frame keeps only 45% of its width,
+    and the subject is usually in the part that goes.
 - `preview/shots/` are REAL screenshots of the game. Capturing them has THREE
   silent failure modes, all of which produce a plausible-looking but wrong
   screenshot:

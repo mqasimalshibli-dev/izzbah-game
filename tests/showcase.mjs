@@ -1,20 +1,25 @@
-// The landing page's category showcase is a SELF-CONTAINED horizontal
-// carousel (preview/index.html).
+// The landing page's category showcase (preview/index.html) is a horizontal
+// carousel on a PINNED stage, driven by page scroll for a bounded distance.
 //
-// It used to be scroll-DRIVEN: the section was `CATS.length * 34` svh tall —
-// 1360svh at 40 categories — and the page scroll stepped through it. Reading
-// anything BELOW the showcase meant scrolling nearly fourteen screen-heights
-// of it first. This test pins the properties that stop that regressing:
+// It used to be scroll-driven with no bound: the section was `CATS.length * 34`
+// svh tall — 1360svh at 40 categories — so reading anything BELOW the showcase
+// meant scrolling nearly fourteen screen-heights of it first. The scroll drive
+// is wanted; the fourteen screens are not. This test pins both halves:
 //
 //   1. every category is a slide, and they all render,
-//   2. the section is about ONE screen tall (not N screens),
-//   3. the track is a scroll-snap scroller with `overscroll-behavior-x:
+//   2. the stage is ONE screen and the whole section costs only a few — the
+//      budget is `SPOT` categories, not all forty,
+//   3. page scroll advances the carousel while the stage is pinned, and the
+//      pin releases at the end of the budget,
+//   4. taking hold of the carousel by hand stops the scroll driver, so the
+//      two never fight over the track,
+//   5. the track is a scroll-snap scroller with `overscroll-behavior-x:
 //      contain` — without that, a swipe running off the end of the track
 //      chains into the page and, on iOS, into the browser's back gesture,
-//   4. the arrows and the Home/End keys move the focused slide, and the
+//   6. the arrows and the Home/End keys move the focused slide, and the
 //      counter / progress bar / disabled state follow it,
-//   5. covers attach lazily but the focused one is never blank,
-//   6. the page loads with no JS error and no 4xx.
+//   7. covers attach lazily but the focused one is never blank,
+//   8. the page loads with no JS error and no 4xx.
 //
 // Run:  IZZBAH_CHROMIUM=/path/to/chrome node tests/showcase.mjs
 
@@ -55,6 +60,8 @@ try {
       cats: document.querySelectorAll("#allGrid .gcard").length,
       slides: t.children.length,
       secH: Math.round(sec.getBoundingClientRect().height),
+      stageH: Math.round(document.getElementById("catStage").getBoundingClientRect().height),
+      stagePos: getComputedStyle(document.getElementById("catStage")).position,
       vh: innerHeight,
       pageH: document.documentElement.scrollHeight,
       // the track is 43,000px of content and the ambient glow overhangs the
@@ -90,11 +97,16 @@ try {
     && base.firstPlay.includes("#g="),
     base.firstTitle);
 
-  // (2) the whole point of the change: the section is ~one screen, not N.
-  check("the section is about one screen tall",
-    base.secH < base.vh * 2, `${base.secH}px vs ${base.vh}px viewport`);
+  // (2) the scroll budget is bounded. 40 categories × 34svh was 1360svh; the
+  // stage itself must stay one screen, and the section only a few.
+  check("the stage is pinned", base.stagePos === "sticky", base.stagePos);
+  check("the stage is one screen tall",
+    base.stageH <= base.vh + 2, `${base.stageH}px vs ${base.vh}px viewport`);
+  check("the scroll budget is bounded, not one screen per category",
+    base.secH > base.vh * 1.5 && base.secH < base.vh * 5,
+    `${base.secH}px = ${(base.secH / base.vh).toFixed(1)} screens (was 13.6)`);
   check("the page is not dominated by the showcase",
-    base.pageH < base.vh * 14, `page ${base.pageH}px`);
+    base.pageH < base.vh * 16, `page ${base.pageH}px`);
   check("the showcase does not widen the page",
     base.docScrollW <= base.docClientW + 1, `${base.docScrollW} vs ${base.docClientW}`);
 
@@ -124,7 +136,7 @@ try {
       bar: document.querySelector("#pips i").style.width,
       prevDis: document.getElementById("scPrev").disabled,
       nextDis: document.getElementById("scNext").disabled,
-      accent: document.getElementById("cats").style.getPropertyValue("--accent").trim(),
+      accent: document.getElementById("catStage").style.getPropertyValue("--accent").trim(),
       // which slide sits under the track's centre, measured from rects
       focus: (() => {
         const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
@@ -176,7 +188,116 @@ try {
     stepped.home.focus === 0 && stepped.home.prevDis === true, `focus ${stepped.home.focus}`);
   check("the ambient accent tracks the category", stepped.end.accent.length > 0, stepped.end.accent);
 
-  // (5) lazy covers, but never a blank focused one
+  // (3)/(4) the scroll drive, and handing control over.
+  // Fresh load: the arrow clicks above deliberately hand control to the reader
+  // and switch the scroll driver off for the rest of that page's life.
+  await page.reload({ waitUntil: "load" });
+  await page.waitForTimeout(1000);
+  const driven = await page.evaluate(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const t = document.getElementById("catTrack");
+    const sec = document.getElementById("cats");
+    const stage = document.getElementById("catStage");
+    const focus = () => {
+      const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
+      let best = 0, bd = Infinity;
+      [...t.children].forEach((s, i) => {
+        const r = s.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - mid);
+        if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    };
+    const top = () => scrollY + sec.getBoundingClientRect().top;
+    const out = {};
+    const secTop = top();
+    scrollTo({ top: secTop, behavior: "instant" }); await wait(250);
+    out.atStart = focus();
+    out.pinnedAtStart = Math.abs(stage.getBoundingClientRect().top) < 3;
+
+    // a third of the way through the budget
+    const budget = sec.getBoundingClientRect().height - innerHeight;
+    scrollTo({ top: secTop + budget * 0.5, behavior: "instant" });
+    await wait(250);
+    out.atHalf = focus();
+    out.pinnedAtHalf = Math.abs(stage.getBoundingClientRect().top) < 3;
+
+    scrollTo({ top: secTop + budget, behavior: "instant" }); await wait(250);
+    out.atEnd = focus();
+    out.budgetPx = Math.round(budget);
+
+    // past the budget the pin must let go
+    scrollTo({ top: secTop + budget + innerHeight * 0.8, behavior: "instant" }); await wait(250);
+    out.releasedAfter = stage.getBoundingClientRect().top < -10;
+
+    // now take hold by hand: a touch on the track, then a manual scroll
+    scrollTo({ top: secTop, behavior: "instant" }); await wait(250);
+    t.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    const kids = [...t.children];
+    const tr = t.getBoundingClientRect(), r = kids[5].getBoundingClientRect();
+    t.style.scrollSnapType = "none";
+    t.scrollBy({ left: (r.left + r.width / 2) - (tr.left + tr.width / 2), behavior: "auto" });
+    t.style.scrollSnapType = "";
+    // the re-snap is a SMOOTH animation — read it too early and you catch the
+    // track in flight, which looks exactly like the driver fighting back
+    await wait(900);
+    out.afterHand = focus();
+    // page scroll must NOT drag it back now
+    scrollTo({ top: secTop + budget * 0.5, behavior: "instant" }); await wait(600);
+    out.afterHandThenScroll = focus();
+    return out;
+  });
+
+  check("the stage pins while the budget lasts",
+    driven.pinnedAtStart && driven.pinnedAtHalf);
+  check("page scroll advances the carousel",
+    driven.atHalf > driven.atStart && driven.atEnd > driven.atHalf,
+    `${driven.atStart} → ${driven.atHalf} → ${driven.atEnd} over ${driven.budgetPx}px`);
+  check("the pin releases at the end of the budget", driven.releasedAfter === true);
+  check("a hand on the carousel stops the scroll driver",
+    driven.afterHand === 5 && driven.afterHandThenScroll === 5,
+    `hand→${driven.afterHand}, then page scroll→${driven.afterHandThenScroll}`);
+
+  // Covers: a 4/5 frame filled by `cover` keeps only 0.8/aspect of a wide
+  // image — 45% of a 480x270 — and the subject is usually in the part that
+  // goes. Wide covers must switch to the whole-picture treatment; square and
+  // portrait ones must NOT (they lose little, and letterboxing them all would
+  // fill the page with blur).
+  const crops = await page.evaluate(async () => {
+    const t = document.getElementById("catTrack");
+    t.querySelectorAll("img[data-src]").forEach(i => { i.src = i.dataset.src; delete i.dataset.src; });
+    await new Promise(r => setTimeout(r, 5000));
+    const rows = [...t.children].map(s => {
+      const im = s.querySelector("img"), art = s.querySelector(".cat-art");
+      return {
+        ar: im.naturalWidth ? im.naturalWidth / im.naturalHeight : 0,
+        fit: art.classList.contains("fit"),
+        haze: !!(art.querySelector(".haze") || {}).style?.backgroundImage,
+        w: im.naturalWidth,
+      };
+    });
+    return {
+      loaded: rows.filter(r => r.w).length,
+      total: rows.length,
+      wrongWide: rows.filter(r => r.w && r.ar > 1.2 && !r.fit).length,
+      wrongSquare: rows.filter(r => r.w && r.ar >= 0.75 && r.ar <= 1.05 && r.fit).length,
+      fitted: rows.filter(r => r.fit).length,
+      hazeMissing: rows.filter(r => r.fit && !r.haze).length,
+      tiny: rows.filter(r => r.w && r.w < 500).length,
+    };
+  });
+  check("every cover loads", crops.loaded === crops.total, `${crops.loaded}/${crops.total}`);
+  check("wide covers show the whole picture instead of being cropped",
+    crops.wrongWide === 0 && crops.fitted > 0, `${crops.fitted} fitted, ${crops.wrongWide} still cropped`);
+  check("square and portrait covers still fill the frame",
+    crops.wrongSquare === 0, `${crops.wrongSquare} needlessly letterboxed`);
+  check("every fitted cover has its blurred backdrop", crops.hazeMissing === 0);
+  // the showcase art is ~446 CSS px wide = ~892 device px at 2x; a file under
+  // 500px across is being blown up more than twice by the browser
+  check("no showcase cover is under 500px across",
+    crops.tiny === 0, `${crops.tiny} too small`);
+
+  // (7) lazy covers, but never a blank focused one
   check("covers attach lazily, not all at once", base.pending > 0, `${base.pending} deferred at load`);
   check("the focused cover is never blank", stepped.blankFocused === false);
 
@@ -196,6 +317,7 @@ try {
     return {
       secH: Math.round(sec.getBoundingClientRect().height),
       vh: innerHeight,
+      vw: innerWidth,
       slideW: Math.round(s0.width),
       trackW: Math.round(t.clientWidth),
       arrowsHidden: getComputedStyle(document.getElementById("scNext")).display === "none",
@@ -205,13 +327,20 @@ try {
       docClientW: document.documentElement.clientWidth,
     };
   });
+  // `slideW === trackW` alone passes happily when BOTH are stuck at the
+  // desktop width (a grid item whose min-content refuses to shrink), and the
+  // section's `overflow-x: clip` hides the damage — so pin the track to the
+  // viewport too.
   check("phone: one slide fills the track",
     Math.abs(phone.slideW - phone.trackW) <= 2, `${phone.slideW} vs ${phone.trackW}`);
+  check("phone: the track fits the phone",
+    phone.trackW <= phone.vw, `track ${phone.trackW}px in a ${phone.vw}px window`);
   check("phone: the track still scrolls", phone.scrollable === true);
   check("phone: the gesture is still contained", phone.overX === "contain");
   check("phone: the arrows give way to the swipe", phone.arrowsHidden === true);
-  check("phone: the section is still about one screen",
-    phone.secH < phone.vh * 2, `${phone.secH}px vs ${phone.vh}px`);
+  check("phone: the scroll budget is still bounded",
+    phone.secH > phone.vh * 1.5 && phone.secH < phone.vh * 5,
+    `${phone.secH}px = ${(phone.secH / phone.vh).toFixed(1)} screens`);
   check("phone: the page still does not scroll sideways",
     phone.docScrollW <= phone.docClientW + 1, `${phone.docScrollW} vs ${phone.docClientW}`);
 } finally {
