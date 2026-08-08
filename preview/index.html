@@ -238,10 +238,30 @@ section{padding-block:clamp(66px,7.4vw,108px)}
    the whole DOCUMENT and knocked every centred `.wrap` off to one side. `clip`
    is the only value that can leave the other axis `visible`, so the glow still
    bleeds above and below the section. */
-.showcase{position:relative; padding-block:clamp(28px,6vh,56px); overflow-x:clip}
-.showcase .sc-inner{position:relative; z-index:1}
-/* the ambient light takes on the focused category's own colour */
-.showcase::before{content:""; position:absolute; inset:-10% -25%; pointer-events:none;
+/* The section is TALLER than one screen on purpose: that extra height is the
+   scroll budget that drives the carousel while the stage is pinned. It is set
+   in JS (`SPOT` categories × `STEP` svh) so it is BOUNDED — the original
+   version was `CATS.length * 34svh`, which at 40 categories is 1360svh, i.e.
+   fourteen screens of showcase before the rest of the page. The budget now
+   covers the first few categories only; the pin releases, the page carries on,
+   and the remaining categories are still there behind a swipe or the arrows. */
+/* the shared `section` padding has to go, or the stage starts ~95px down the
+   section and that much scroll budget does nothing before the pin engages */
+.showcase{position:relative; overflow-x:clip; padding-block:0}
+/* `minmax(0,1fr)`, not the implicit `auto` column: an auto track is sized from
+   max-content, and `.wrap`'s 1180px max-width IS its max-content, so on a
+   390px phone the column stayed 1180px wide and every slide with it */
+.sc-stage{position:sticky; top:0; min-height:100svh;
+  display:grid; grid-template-columns:minmax(0,1fr); align-content:center;
+  padding-block:clamp(54px,8vh,72px) clamp(20px,4vh,44px)}
+/* `min-width:0` because a grid item's automatic minimum is min-content, and
+   without it the wrap refused to go below its 1180px max-width — on a 390px
+   phone the track, and every slide in it, stayed 1140px wide */
+.showcase .sc-inner{position:relative; z-index:1; min-width:0; width:100%}
+/* the ambient light takes on the focused category's own colour. It lives on
+   the STAGE, not the section: the section is now several screens tall, and a
+   glow stretched over all of it would drift away as you scroll. */
+.sc-stage::before{content:""; position:absolute; inset:-10% -25%; pointer-events:none;
   background:radial-gradient(42% 46% at 68% 42%, var(--accent,rgba(125,22,32,.5)), transparent 68%);
   transition:background 1.2s cubic-bezier(.2,.7,.2,1)}
 
@@ -277,8 +297,21 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .cat-play:hover{filter:brightness(1.07)}
 .cat-art{position:relative; aspect-ratio:4/5; max-height:62svh; margin-inline:auto; width:100%;
   border-radius:26px; overflow:hidden; border:1px solid var(--rule); box-shadow:var(--shadow); background:var(--maroon-lo)}
-.cat-art img{width:100%; height:100%; object-fit:cover; display:block}
-.cat-art .veil{position:absolute; inset:0; background:linear-gradient(0deg, rgba(22,6,10,.86), transparent 58%)}
+.cat-art img{width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1}
+.cat-art .veil{position:absolute; inset:0; z-index:2; background:linear-gradient(0deg, rgba(22,6,10,.86), transparent 58%)}
+/* A 4/5 frame filled by `cover` throws away everything outside it. That is
+   fine for a square cover (80% of it survives) and ruinous for the landscape
+   ones — a 480x270 keeps 45% of its width, and the subject is usually in the
+   part that goes. Those slides are marked `.fit` from the image's real aspect
+   ratio once it loads: the whole picture is shown, and a blurred, darkened
+   copy of itself fills the frame behind it so the shape stays constant and
+   the carousel never jumps. */
+.cat-art.fit img{object-fit:contain}
+.cat-art .haze{position:absolute; inset:-10%; z-index:0; opacity:0;
+  background-size:cover; background-position:center;
+  filter:blur(30px) saturate(1.3) brightness(.5); transform:scale(1.08);
+  transition:opacity .5s}
+.cat-art.fit .haze{opacity:1}
 
 /* controls */
 .sc-bar{display:flex; align-items:center; gap:14px; margin-top:22px}
@@ -582,6 +615,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
   <!-- ── CATEGORY SHOWCASE ────────────────────────────────── -->
   <section id="cats" class="showcase" aria-label="الفئات">
+   <div class="sc-stage" id="catStage">
     <div class="wrap sc-inner">
       <div class="cat-track" id="catTrack" tabindex="0" role="region"
            aria-label="استعراض الفئات — اسحب أو استخدم الأسهم"></div>
@@ -597,6 +631,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         <button class="sc-btn" id="scNext" type="button" aria-label="الفئة التالية">◂</button>
       </div>
     </div>
+   </div>
   </section>
 
   <!-- ── ALL CATEGORIES ───────────────────────────────────── -->
@@ -928,20 +963,33 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         + '<div class="cat-index">فئة ' + ar(i + 1) + ' / ' + ar(CATS.length) + '</div>'
         + '<h3></h3><p></p><div class="cat-foot"><span class="cat-tag"></span>'
         + '<span class="cat-n"></span><a class="cat-play magnetic" href="#">العب هذي الفئة ▸</a></div>'
-        + '</div><div class="cat-art"><div class="veil"></div></div>';
+        + '</div><div class="cat-art"><div class="haze"></div><div class="veil"></div></div>';
       s.querySelector("h3").textContent = c.n;
       s.querySelector("p").textContent = c.d;
       s.querySelector(".cat-tag").textContent = c.t;
       s.querySelector(".cat-n").textContent = ar(c.count) + " سؤال";
       s.querySelector(".cat-play").href = playLink(c.id);
 
+      const art = s.querySelector(".cat-art");
       const im = new Image(); im.alt = c.n; im.decoding = "async";
+      // `cover` on the 4/5 frame keeps 0.8/aspect of a wide image and
+      // 0.8*aspect of a tall one. Below 70% kept, show the whole picture over
+      // a blur of itself instead of cropping the subject out of the frame.
+      im.addEventListener("load", () => {
+        const a = im.naturalWidth / im.naturalHeight;
+        if (!a) return;
+        if ((a > 0.8 ? 0.8 / a : a / 0.8) < 0.7) {
+          art.classList.add("fit");
+          art.querySelector(".haze").style.backgroundImage = 'url("' + im.currentSrc + '")';
+        }
+      });
       if (i === 0) im.src = c.img; else im.dataset.src = c.img;   // rest attach on approach
-      s.querySelector(".cat-art").prepend(im);
+      art.prepend(im);
       track.appendChild(s);
     });
 
     const sec = document.getElementById("cats");
+    const stage = document.getElementById("catStage");
     const slides = [...track.children];
     const bar = pips && pips.querySelector("i");
     const countEl = document.getElementById("scCount");
@@ -977,7 +1025,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       if (countEl) countEl.textContent = ar(i + 1) + " / " + ar(CATS.length);
       if (prevBtn) prevBtn.disabled = i <= 0;
       if (nextBtn) nextBtn.disabled = i >= CATS.length - 1;
-      if (sec && ACCENT[CATS[i].id]) sec.style.setProperty("--accent", ACCENT[CATS[i].id]);
+      if (stage && ACCENT[CATS[i].id]) stage.style.setProperty("--accent", ACCENT[CATS[i].id]);
     };
 
     // `scroll-snap-stop: always` deliberately refuses to pass a snap point —
@@ -991,14 +1039,10 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       const tr = track.getBoundingClientRect(), r = slides[i].getBoundingClientRect();
       const dx = (r.left + r.width / 2) - (tr.left + tr.width / 2);
       if (!far) return track.scrollBy({ left: dx, behavior: slow.matches ? "auto" : "smooth" });
-      const keep = track.style.scrollSnapType;
-      track.style.scrollSnapType = "none";
-      track.scrollBy({ left: dx, behavior: "auto" });
-      void track.offsetWidth;                 // commit the scroll before re-arming snap
-      track.style.scrollSnapType = keep;
+      snapTo(i);                              // absolute, so a 39-slide jump lands
       paint();
     };
-    const step = d => goTo(focused() + d);
+    const step = d => { manual = true; goTo(focused() + d); };
 
     if (prevBtn) prevBtn.addEventListener("click", () => step(-1));
     if (nextBtn) nextBtn.addEventListener("click", () => step(1));
@@ -1009,9 +1053,73 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       const back = fwd === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
       if (e.key === fwd) { e.preventDefault(); step(1); }
       else if (e.key === back) { e.preventDefault(); step(-1); }
-      else if (e.key === "Home") { e.preventDefault(); goTo(0, true); }
-      else if (e.key === "End") { e.preventDefault(); goTo(slides.length - 1, true); }
+      else if (e.key === "Home") { e.preventDefault(); manual = true; goTo(0, true); }
+      else if (e.key === "End") { e.preventDefault(); manual = true; goTo(slides.length - 1, true); }
     });
+
+    /* ── page scroll drives the carousel, for a BOUNDED distance ──────────
+       The stage is pinned and the extra section height below is the budget:
+       SPOT categories at STEP svh each. Scrolling through it steps the
+       carousel, exactly like the old scroll-driven showcase — but it runs out
+       after a few screens instead of all forty, the pin releases, and the page
+       carries on. Whatever the scroll did not reach is still one swipe away.
+
+       Once the reader takes hold of the carousel themselves — a swipe, a wheel
+       nudge sideways, an arrow, a key — the scroll driver steps aside for good
+       (`manual`). Otherwise the next scroll event would yank the track back to
+       wherever the page happens to be, and the two would fight. */
+    const SPOT = Math.min(CATS.length, 8);   // categories the scroll walks through
+    const STEP = 30;                         // svh of page scroll per category
+    let manual = false;
+
+    const budget = () => (SPOT - 1) * STEP * innerHeight / 100;
+    const sizeSection = () => { sec.style.height = "calc(100svh + " + ((SPOT - 1) * STEP) + "svh)"; };
+
+    /* Jump the track straight to a slide. This runs on every scroll frame, so
+       it must be ABSOLUTE, not a `scrollBy` off the live rects: restoring snap
+       starts a smooth re-snap animation, the next frame measures the track
+       mid-animation, and the relative deltas compound — the carousel ended up
+       at slide 4 when the scroll said 7. An absolute target is idempotent.
+
+       Which way `scrollLeft` runs in RTL is engine-dependent, so the direction
+       is measured once rather than assumed. */
+    const stride = () => (track.scrollWidth - track.clientWidth) / Math.max(1, slides.length - 1);
+    const sign = (() => {
+      const keep = track.style.scrollSnapType, keepB = track.style.scrollBehavior;
+      track.style.scrollSnapType = "none"; track.style.scrollBehavior = "auto";
+      track.scrollTo({ left: 1e7, behavior: "auto" });
+      const s = track.scrollLeft > 0 ? 1 : -1;      // RTL clamps a positive ask to 0
+      track.scrollTo({ left: 0, behavior: "auto" });
+      track.style.scrollSnapType = keep; track.style.scrollBehavior = keepB;
+      return s;
+    })();
+    const snapTo = i => {
+      const keep = track.style.scrollSnapType, keepB = track.style.scrollBehavior;
+      track.style.scrollSnapType = "none"; track.style.scrollBehavior = "auto";
+      track.scrollTo({ left: sign * i * stride(), behavior: "auto" });
+      track.style.scrollSnapType = keep; track.style.scrollBehavior = keepB;
+    };
+
+    let pticking = false;
+    const onPageScroll = () => {
+      if (manual || pticking) return;
+      pticking = true;
+      requestAnimationFrame(() => {
+        pticking = false;
+        if (manual) return;
+        const total = budget();
+        if (total <= 0) return;
+        const p = Math.min(1, Math.max(0, -sec.getBoundingClientRect().top / total));
+        snapTo(Math.min(SPOT - 1, Math.round(p * (SPOT - 1))));
+        paint();
+      });
+    };
+
+    // Anything that means "I am driving now". `wheel` only counts when it is a
+    // sideways gesture — a normal vertical wheel over the stage is page scroll.
+    const takeOver = () => { manual = true; };
+    ["pointerdown", "touchstart"].forEach(t => track.addEventListener(t, takeOver, { passive: true }));
+    track.addEventListener("wheel", e => { if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) takeOver(); }, { passive: true });
 
     let ticking = false;
     const onScroll = () => {
@@ -1020,8 +1128,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       requestAnimationFrame(() => { ticking = false; paint(); });
     };
     track.addEventListener("scroll", onScroll, { passive: true });
-    addEventListener("resize", onScroll);
+    addEventListener("scroll", onPageScroll, { passive: true });
+    addEventListener("resize", () => { sizeSection(); onScroll(); onPageScroll(); });
+    sizeSection();
     paint();
+    onPageScroll();
   }
 
   /* ── every category in the game ─────────────────────────── */

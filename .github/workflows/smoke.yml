@@ -9,6 +9,7 @@ on:
       - "sw.js"
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
+      - "preview/**"
       - ".github/workflows/smoke.yml"
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - "sw.js"
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
+      - "preview/**"
   workflow_dispatch:
 
 jobs:
