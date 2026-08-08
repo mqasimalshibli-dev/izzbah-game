@@ -376,10 +376,17 @@ Single self-contained page, same palette and type system as the game. Marked
   scroll-driven with `sec.style.height = CATS.length * 34 + "svh"` — 1360svh at
   40 categories, i.e. fourteen screens of showcase before the rest of the page.
   The scroll drive is wanted; the fourteen screens are not. Now `.sc-stage` is
-  `position: sticky` and the section's extra height is a budget of `SPOT`(8) ×
-  `STEP`(30) svh ≈ 3.1 screens; page scroll walks the carousel through it, then
-  the pin releases. All 40 stay in the track behind a swipe, the arrows, or
-  ←/→/Home/End. Traps found the hard way, all pinned by `tests/showcase.mjs`:
+  `position: sticky` and the section's extra height is a budget of `SPOT` ×
+  `STEP` svh.
+  ⚠️ **`SPOT` is `CATS.length` — the scroll must reach EVERY category.** The
+  first attempt capped it at 8 and the owner immediately caught it ("it scrolls
+  only to 8"). What made the old showcase interminable was the RATE, not the
+  count: 34svh per category is ~3 wheel notches each, forty times over. At
+  `STEP = 10` one notch is one category and all forty pass in ~4.9 screens.
+  Shorten the budget by lowering `STEP`, never by dropping categories.
+  The pin then releases and the page carries on; the arrows and ←/→/Home/End
+  still work, and the moment the reader touches the track the scroll driver
+  steps aside. Traps found the hard way, all pinned by `tests/showcase.mjs`:
   - `overscroll-behavior-x: contain` on the track, or a swipe off the end
     chains into the page and, on iOS, into the browser's back gesture.
   - RTL `scrollLeft` is negative in some engines and positive-reversed in

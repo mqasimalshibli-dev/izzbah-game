@@ -1068,8 +1068,13 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
        nudge sideways, an arrow, a key — the scroll driver steps aside for good
        (`manual`). Otherwise the next scroll event would yank the track back to
        wherever the page happens to be, and the two would fight. */
-    const SPOT = Math.min(CATS.length, 8);   // categories the scroll walks through
-    const STEP = 30;                         // svh of page scroll per category
+    /* The scroll walks through EVERY category — what was making the old
+       showcase interminable was the RATE, not the count. It spent 34svh of
+       page scroll on each one: roughly three wheel notches per category, forty
+       times over, 1360svh in total. At 10svh one notch is one category, so all
+       forty pass in about five screens instead of fourteen. */
+    const SPOT = CATS.length;
+    const STEP = 10;                         // svh of page scroll per category
     let manual = false;
 
     const budget = () => (SPOT - 1) * STEP * innerHeight / 100;

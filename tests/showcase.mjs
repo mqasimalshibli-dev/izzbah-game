@@ -102,11 +102,11 @@ try {
   check("the stage is pinned", base.stagePos === "sticky", base.stagePos);
   check("the stage is one screen tall",
     base.stageH <= base.vh + 2, `${base.stageH}px vs ${base.vh}px viewport`);
-  check("the scroll budget is bounded, not one screen per category",
-    base.secH > base.vh * 1.5 && base.secH < base.vh * 5,
+  check("the scroll budget is bounded, not a screen-third per category",
+    base.secH > base.vh * 1.5 && base.secH < base.vh * 7,
     `${base.secH}px = ${(base.secH / base.vh).toFixed(1)} screens (was 13.6)`);
   check("the page is not dominated by the showcase",
-    base.pageH < base.vh * 16, `page ${base.pageH}px`);
+    base.pageH < base.vh * 18, `page ${base.pageH}px`);
   check("the showcase does not widen the page",
     base.docScrollW <= base.docClientW + 1, `${base.docScrollW} vs ${base.docClientW}`);
 
@@ -225,6 +225,7 @@ try {
     scrollTo({ top: secTop + budget, behavior: "instant" }); await wait(250);
     out.atEnd = focus();
     out.budgetPx = Math.round(budget);
+    out.last = t.children.length - 1;
 
     // past the budget the pin must let go
     scrollTo({ top: secTop + budget + innerHeight * 0.8, behavior: "instant" }); await wait(250);
@@ -253,6 +254,14 @@ try {
   check("page scroll advances the carousel",
     driven.atHalf > driven.atStart && driven.atEnd > driven.atHalf,
     `${driven.atStart} → ${driven.atHalf} → ${driven.atEnd} over ${driven.budgetPx}px`);
+  // it must walk the WHOLE catalogue, not a spotlight of the first few — the
+  // budget is short because the RATE is fast, not because categories are
+  // dropped from the drive
+  check("the scroll reaches the last category",
+    driven.atEnd === driven.last, `ended on ${driven.atEnd + 1} of ${driven.last + 1}`);
+  check("the scroll passes the halfway category too",
+    Math.abs(driven.atHalf - driven.last / 2) <= 1,
+    `halfway showed ${driven.atHalf + 1}, expected ~${Math.round(driven.last / 2) + 1}`);
   check("the pin releases at the end of the budget", driven.releasedAfter === true);
   check("a hand on the carousel stops the scroll driver",
     driven.afterHand === 5 && driven.afterHandThenScroll === 5,
@@ -339,7 +348,7 @@ try {
   check("phone: the gesture is still contained", phone.overX === "contain");
   check("phone: the arrows give way to the swipe", phone.arrowsHidden === true);
   check("phone: the scroll budget is still bounded",
-    phone.secH > phone.vh * 1.5 && phone.secH < phone.vh * 5,
+    phone.secH > phone.vh * 1.5 && phone.secH < phone.vh * 7,
     `${phone.secH}px = ${(phone.secH / phone.vh).toFixed(1)} screens`);
   check("phone: the page still does not scroll sideways",
     phone.docScrollW <= phone.docClientW + 1, `${phone.docScrollW} vs ${phone.docClientW}`);
