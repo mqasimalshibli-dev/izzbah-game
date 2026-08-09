@@ -501,12 +501,17 @@
       text-align: center;
     }
 
+    /* Oval editable fields (owner, build .278). A single-line field is a pill;
+       a textarea keeps a generous-but-square-ish radius, because 999px on a
+       multi-line box bows the sides in around the text. The 3px gold border
+       drops to 2px — at full round a heavy border reads as a ring rather than
+       an edge. */
     input, textarea {
       width: 100%;
       min-width: 0;
-      padding: 13px 14px;
-      border: 3px solid var(--gold);
-      border-radius: 8px;
+      padding: 13px 20px;
+      border: 2px solid var(--gold);
+      border-radius: 999px;
       background: white;
       color: var(--dark);
       text-align: center;
@@ -518,6 +523,12 @@
     textarea {
       min-height: 86px;
       line-height: 1.45;
+      border-radius: 18px;
+      padding: 13px 16px;
+    }
+    /* checkboxes and radios are not text fields and must keep their own shape */
+    input[type="checkbox"], input[type="range"], input[type="radio"], input[type="color"] {
+      width: auto; min-width: 0; padding: 0; border-radius: 0; border: 0;
     }
 
     input::placeholder, textarea::placeholder {
@@ -1134,57 +1145,56 @@
     }
 
     /* Search categories by name — sits right under the game-name box */
-    .cat-search {
-      width: min(780px, 100%);
-      margin: 12px auto 0;
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    .cat-search-ico {
-      position: absolute;
-      right: 18px;
-      font-size: 20px;
-      opacity: .7;
-      pointer-events: none;
-    }
-    .cat-search input {
-      width: 100%;
-      box-sizing: border-box;
-      font-family: 'Cairo', sans-serif;
-      font-weight: 700;
-      font-size: 18px;
-      color: #3a2c12;
-      background: #fffdf6;
-      border: 2px solid #e6d3a0;
-      border-radius: 14px;
-      padding: 14px 52px 14px 44px;
-      outline: none;
+    /* ── Search bar ──────────────────────────────────────────────────────────
+       The owner's reference: a full-round white pill with the placeholder set
+       in, and a solid circular button on the end carrying a magnifier. Here in
+       the game's palette, so the circle is the same red the primary buttons
+       use rather than the reference's coral.
+
+       In RTL the button sits at the inline-END, which is the LEFT edge — the
+       same relative position as the reference, mirrored. The clear ✕ tucks in
+       just before it rather than fighting it for the corner. */
+    .izz-search { position: relative; display: flex; align-items: center; width: min(780px, 100%); margin: 12px auto 0; }
+    .izz-search input {
+      width: 100%; box-sizing: border-box;
+      font: 700 17px 'Cairo', sans-serif; color: #3a2c12; text-align: start;
+      background: #fffdf7; border: 1px solid #e6d3a0; border-radius: 999px;
+      /* room for the circle at the end, and the ✕ before it */
+      padding-block: 15px; padding-inline: 24px 84px;
+      outline: none; box-shadow: 0 6px 16px rgba(120, 80, 20, .12), inset 0 1px 0 #fff;
       transition: border-color .18s, box-shadow .18s;
     }
-    .cat-search input::-webkit-search-decoration,
-    .cat-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-    .cat-search input:focus {
-      border-color: #cc2531;
-      box-shadow: 0 0 0 3px rgba(204, 37, 49, .14);
+    .izz-search input::placeholder { color: #a8977a; font-weight: 700; }
+    .izz-search input::-webkit-search-decoration,
+    .izz-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+    .izz-search input:focus { border-color: #cc2531; box-shadow: 0 0 0 3px rgba(204, 37, 49, .13), 0 6px 16px rgba(120, 80, 20, .12); }
+    .izz-search-go {
+      position: absolute; inset-inline-end: 5px; top: 50%; transform: translateY(-50%);
+      width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; flex: none;
+      display: grid; place-items: center; cursor: pointer; color: #fff;
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      box-shadow: 0 4px 12px rgba(150, 20, 30, .34), inset 0 1px 0 rgba(255, 255, 255, .25);
+      transition: filter .18s, transform .18s;
     }
-    .cat-search-clear {
-      position: absolute;
-      left: 14px;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: rgba(158, 28, 28, .1);
-      color: #9e1322;
-      font-size: 14px;
-      font-weight: 800;
-      border: none;
-      cursor: pointer;
+    .izz-search-go:hover { filter: brightness(1.07); }
+    .izz-search-go svg { width: 20px; height: 20px; }
+    .izz-search-clear {
+      position: absolute; inset-inline-end: 56px; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0;
+      display: grid; place-items: center; cursor: pointer;
+      background: rgba(158, 28, 28, .1); color: #9e1322; font-size: 13px; font-weight: 800;
     }
-    .cat-search-clear:hover { background: rgba(158, 28, 28, .18); }
-    .cat-search-clear[hidden] { display: none; }
+    .izz-search-clear:hover { background: rgba(158, 28, 28, .18); }
+    :root[data-theme="dark"] .izz-search input {
+      background: rgba(52, 24, 26, .82); border-color: rgba(231, 195, 115, .34); color: #f4e6cb;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .07);
+    }
+    :root[data-theme="dark"] .izz-search input::placeholder { color: #b49a74; }
+
+    /* .cat-search's own box, icon and clear styling are gone — the shared
+       .izz-search component draws all three now. Only the id remains, as a
+       hook for the screen-specific margin above. */
+    .izz-search-clear[hidden] { display: none; }
 
     /* "لعبة جديدة" eyebrow above the categories title */
     .cat-eyebrow {
@@ -4487,17 +4497,7 @@
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       margin: 0 0 12px; padding: 0 2px;
     }
-    .admin-search {
-      display: flex; align-items: center; gap: 8px; flex: 1 1 240px; min-width: 200px;
-      background: rgba(255,255,255,.06); border: 1px solid rgba(230,200,120,.28);
-      border-radius: 12px; padding: 9px 13px; color: #e8d9b3;
-    }
-    .admin-search svg { width: 17px; height: 17px; flex: 0 0 auto; opacity: .8; }
-    .admin-search input {
-      flex: 1; background: transparent; border: none; outline: none; color: #f3e7c8;
-      font: 600 14px 'Cairo', sans-serif; min-width: 0;
-    }
-    .admin-search input::placeholder { color: rgba(230,210,160,.5); }
+    .admin-search { flex: 1 1 240px; min-width: 200px; margin: 0; }
     .admin-ctl { display: inline-flex; align-items: center; gap: 7px; color: #cdb98a; font: 700 13px 'Cairo', sans-serif; }
     .admin-ctl select {
       background: rgba(255,255,255,.06); color: #f3e7c8; border: 1px solid rgba(230,200,120,.28);
@@ -7845,10 +7845,10 @@
           <label for="gameNameInput">اسم اللعبة</label>
           <input id="gameNameInput" type="text" placeholder="اكتب اسم اللعبة">
         </div>
-        <div class="cat-search">
-          <span class="cat-search-ico" aria-hidden="true">🔍</span>
+        <div class="izz-search cat-search">
           <input id="catSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="ابحث عن فئة بالاسم…">
-          <button class="cat-search-clear" id="catSearchClear" type="button" aria-label="مسح البحث" hidden>✕</button>
+          <button class="izz-search-clear" id="catSearchClear" type="button" aria-label="مسح البحث" hidden>✕</button>
+          <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
         </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
@@ -7905,9 +7905,9 @@
           <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
         </div>
         <div class="admin-controls">
-          <div class="admin-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+          <div class="izz-search admin-search">
             <input id="adminSearch" type="search" placeholder="ابحث في الأسئلة أو الإجابات…" autocomplete="off" />
+            <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
           </div>
           <label class="admin-ctl"><span>ترتيب</span>
             <select id="adminSort">
@@ -8254,9 +8254,11 @@
 
         <div class="prem-status" id="premStatus" aria-live="polite"></div>
 
-        <input type="text" id="premSearch" class="redeem-input" autocomplete="off"
-               placeholder="🔎 ابحث بالبريد أو المعرّف أو الكود…"
-               style="width:100%;box-sizing:border-box;margin:8px 0 2px;text-align:right" />
+        <div class="izz-search" style="margin:8px 0 2px">
+          <input type="text" id="premSearch" autocomplete="off"
+                 placeholder="ابحث بالبريد أو المعرّف أو الكود…" />
+          <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
+        </div>
 
         <div class="prem-list-head">
           <span>طلبات شراء الباقات</span>
