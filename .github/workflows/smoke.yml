@@ -606,6 +606,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node codepaths.mjs
 
+      - name: Run activation-code boxes (end-to-end) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node redeemboxes.mjs
+
       - name: Run community-moderation flows test
         working-directory: tests
         run: |
