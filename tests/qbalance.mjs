@@ -87,7 +87,18 @@ try {
           badgeText: pts.textContent.trim(),
         };
       };
+      // What the ANSWER renders at here. Since .289 the question is capped at
+      // it, so "large enough to read" is measured against that rather than an
+      // absolute px value — on a short landscape phone the answer itself is
+      // only ~20px, and holding the question to 22 would fail a render that
+      // matches the answer exactly, which is what was asked for.
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;left:-9999px;font-size:var(--answer-size)";
+      document.body.appendChild(probe);
+      const answerPx = Math.round(parseFloat(getComputedStyle(probe).fontSize) || 0);
+      probe.remove();
       return {
+        answerPx,
         real: await measure(QUESTIONS.real),
         short: await measure(QUESTIONS.short),
         long: await measure(QUESTIONS.long),
@@ -97,8 +108,10 @@ try {
     // ---- the question leaves room in the card ----
     check(`${v.n}: the screenshot question no longer fills the card (${Math.round(m.real.fill * 100)}%, was 62-77%)`,
       m.real.fill <= 0.5);
-    check(`${v.n}: …and is still large enough to read (${Math.round(m.real.font)}px)`,
-      m.real.font >= 22);
+    check(`${v.n}: …and is still large enough to read (${Math.round(m.real.font)}px of ${m.answerPx}px)`,
+      m.real.font >= Math.min(22, m.answerPx));
+    check(`${v.n}: …and never bigger than the answer (${Math.round(m.real.font)}px ≤ ${m.answerPx}px)`,
+      m.answerPx > 0 && m.real.font <= m.answerPx + 1);
     check(`${v.n}: a short question still gets big type (${Math.round(m.short.font)}px)`,
       m.short.font >= m.real.font);
     // The cap must never cost legibility on a long question: below the fitter's

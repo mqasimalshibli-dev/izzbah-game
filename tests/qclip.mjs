@@ -94,7 +94,18 @@ try {
     await page.waitForTimeout(1300);
 
     const sizes = {};
+    // The answer's rendered size on this viewport — the yardstick the question
+    // is capped against. --answer-size is a clamp(), so it needs a probe.
+    sizes.answerPx = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;left:-9999px;font-size:var(--answer-size)";
+      document.body.appendChild(probe);
+      const px = Math.round(parseFloat(getComputedStyle(probe).fontSize) || 0);
+      probe.remove();
+      return px;
+    });
     for (const [qlabel, text] of Object.entries(QS)) {
+      if (qlabel === "answerPx") continue;
       const m = await measure(page, text);
       sizes[qlabel] = m.font;
       check(`${label} · ${qlabel}: no text is cut off (${m.cut}px past the box, ${m.font}px type)`,
@@ -113,10 +124,18 @@ try {
     // EVERY question, three words or thirty, driven to 15px and then clipped —
     // and the relational check on the next line is what proves the fitter is
     // still doing real work.
+    /* The floor canary. 30px was right while the question could grow freely;
+       since .289 it is capped at the ANSWER's size, which on a short landscape
+       phone is ~20px, so a fixed 30 would fail on a perfectly good render.
+       Measured against the cap instead — still catches the .218 bug, where
+       every question sat at 15px. */
     check(`${label}: a 3-word question is NOT driven to the 15px floor (${sizes["3 words"]}px)`,
-      sizes["3 words"] >= 30);
-    check(`${label}: type shrinks as the question grows (${sizes["3 words"]} > ${sizes["long"]} ≥ ${sizes["extreme"]})`,
-      sizes["3 words"] > sizes["long"] && sizes["long"] >= sizes["extreme"]);
+      sizes["3 words"] >= Math.min(30, sizes.answerPx));
+    // Non-strict at the top: two questions that both fit now share the cap.
+    check(`${label}: type shrinks as the question grows (${sizes["3 words"]} ≥ ${sizes["long"]} ≥ ${sizes["extreme"]})`,
+      sizes["3 words"] >= sizes["long"] && sizes["long"] >= sizes["extreme"]);
+    check(`${label}: nothing exceeds the answer's size (${sizes["3 words"]}px ≤ ${sizes.answerPx}px)`,
+      sizes.answerPx > 0 && sizes["3 words"] <= sizes.answerPx + 1);
     await page.close();
   }
 

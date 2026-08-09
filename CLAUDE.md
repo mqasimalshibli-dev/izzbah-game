@@ -233,6 +233,52 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   category in memory has empty images that a publish must never write back.
   See the ⛔ section at the top before touching any code that publishes.
 
+- **The question font is CAPPED AT THE ANSWER's (build .289).** The owner asked
+  for this repeatedly; before .289 the fitter GREW a short clue toward a 220px
+  ceiling, so a three-word question rendered several times the size of the
+  answer and, in landscape, was clipped. `--answer-size` is now published as a
+  variable (one clamp, in `:root`, re-declared in the short-landscape media
+  query) and `fitQuestionText` resolves it through a hidden probe — reading the
+  custom property gives back the clamp TEXT, not the px it computes to.
+  ⚠️ `FILL` (the share of the card the text may occupy) was 0.25, the owner's
+  own value from 2026-08-04, chosen when nothing else bounded the size. With
+  the cap in place 0.25 became the BINDING limit and pulled a short question
+  BELOW the answer — the opposite of the request. It is 0.36 for worded cards
+  (0.30 with a picture, which is reserving room for the photo).
+  ⚠️ Several tests asserted the OLD contract — "a short question is bigger than
+  a long one", "≥ 30px", "≥ 40px". Those are now non-strict / measured against
+  the answer size, because two questions that both fit legitimately share the
+  cap. Do not re-tighten them to absolutes: the answer is only ~20px on a short
+  landscape phone.
+
+- **The board card must be a FLEX COLUMN (build .289).** `#game
+  .board-category-card` is `display: flex; flex-direction: column;
+  justify-content: flex-end`. The points grid is its only in-flow child, so as
+  a BLOCK it sits at the top — directly over the absolutely-positioned
+  `.board-card-title`, which shares its z-index and loses on DOM order. The
+  visible symptom is "the category names are gone and the cells are on top".
+  ⚠️ It shipped broken in .287 because a `sed -i` used to TEMPORARILY revert an
+  unrelated library rule also matched this line, and the restore pattern was
+  anchored (`$`) so it did not match back. Never verify a temporary revert by
+  grepping the rule you meant to change — `git diff` the whole file.
+  `tests/boardpill.mjs` pins it by hit-testing the title, and skips in portrait
+  where the game's own rotate-to-landscape overlay covers the board.
+
+- **The turn pill (build .289).** Maroon lozenge, team PHOTO in a ring, label,
+  swap icon; `renderTurnBoxes` builds it and replays a hand-over animation.
+  ⚠️ Three later rules (`#game .turn-box`, `#questionPage/#answerPage
+  .turn-box`) used to repaint its background translucent-white, silently
+  undoing the design on the board — the one screen it matters on.
+  ⚠️ The short-landscape rule used to place `.turn-photo` and `.turn-switch` at
+  explicit GRID coordinates. Wrapping the photo in `.turn-avatar` left those
+  coordinates addressing nothing and the pieces spilled out of the pill. It is
+  one flex row now, at every size, so markup and layout are not coupled.
+
+- **`#globalBack` clears the safe area with MARGIN, not padding (.289).**
+  `padding-bottom: calc(11px + env(safe-area-inset-bottom))` kept the pill's
+  width but grew its height by the home indicator, so on those phones «رجوع»
+  rendered as a circle rather than an oval.
+
 - **The «من الي سجل؟» sketch filter is TONAL (build .288 — read this before
   touching it).** The owner said "too heavy" TWICE. The first attempt (.286)
   only tuned the knobs of a BINARY filter and did not fix it, because a binary

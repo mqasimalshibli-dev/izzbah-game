@@ -42,6 +42,7 @@ const QS = {
 // is the runaway threshold, well clear of the dial so tuning it does not break
 // the test, but far below the 0.45 that shipped the bug.
 const MAX_SHARE = 0.38;
+let answerPx = 0;
 // …except once the font reaches the readable floor. fitQuestionText stops
 // applying the height cap below FLOOR (22px) on purpose — a long question on a
 // 320px phone genuinely needs the room, and shrinking further "buys nothing but
@@ -89,13 +90,28 @@ for (const [label, w, h] of VIEWPORTS) {
         const hz = Math.min(eb.right, r.right) - Math.max(eb.left, r.left);
         return (v > 1 && hz > 1) ? Math.round(Math.min(v, hz)) : 0;
       };
-      return { font: Math.round(parseFloat(getComputedStyle(el).fontSize)),
+      // The size the ANSWER renders at on this viewport — resolved through a
+      // probe because --answer-size is a clamp(). Since .289 the question is
+      // capped at it, so it is the yardstick, not a magic number.
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;left:-9999px;font-size:var(--answer-size)";
+      document.body.appendChild(probe);
+      const answerPx = Math.round(parseFloat(getComputedStyle(probe).fontSize) || 0);
+      probe.remove();
+      return { answerPx,
+               font: Math.round(parseFloat(getComputedStyle(el).fontSize)),
                share: +(eb.height / cb.height).toFixed(2),
                spill: Math.round(Math.max(0, eb.bottom - cb.bottom)),
                cut: el.scrollHeight - el.clientHeight,
                reveal: hit("questionActions"), badge: hit("modalPoints") };
     }, q);
     sizes[qlabel] = r.font;
+    answerPx = r.answerPx;
+    /* THE requirement, asked for repeatedly: a question is never bigger than
+       the answer it belongs to. Before .289 a short clue grew to several times
+       it. */
+    check(`${label} · ${qlabel}: no bigger than the answer (${r.font}px vs ${r.answerPx}px)`,
+      r.answerPx > 0 && r.font <= r.answerPx + 1);
     check(`${label} · ${qlabel}: font is capped (${r.font}px, ${Math.round(r.share * 100)}% of the card)`,
       r.share <= MAX_SHARE || r.font <= FLOOR,
       r.font <= FLOOR ? "at the readable floor — cap does not apply" : "");
@@ -104,9 +120,15 @@ for (const [label, w, h] of VIEWPORTS) {
     check(`${label} · ${qlabel}: clears the reveal button and the points badge`,
       r.reveal === 0 && r.badge === 0);
   }
-  // The fitter must still be doing real work, not parking everything at one size.
-  check(`${label}: a short question is bigger than a long one (${sizes["3 words"]} > ${sizes["long"]})`,
-    sizes["3 words"] > sizes["long"]);
+  /* Monotonic, not strict. Since the cap landed, a short and a long question
+     that both FIT legitimately render at the same size — that is the point of
+     the cap — so demanding a strict difference would be asserting the old
+     behaviour. What must still hold is that a longer question is never LARGER,
+     and that a short one is nowhere near the 15px floor (the .218 bug). */
+  check(`${label}: a longer question is never larger (${sizes["3 words"]} ≥ ${sizes["long"]})`,
+    sizes["3 words"] >= sizes["long"]);
+  check(`${label}: a short question sits at the cap, not the floor (${sizes["3 words"]}px of ${answerPx}px)`,
+    sizes["3 words"] >= Math.min(answerPx, 20));
   await page.close();
 }
 
