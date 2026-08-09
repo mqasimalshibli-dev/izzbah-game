@@ -57,13 +57,17 @@ try {
     const st = document.getElementById("categoryStatus");
     const go = document.getElementById("goTeams");
     return {
-      frac: !!st.querySelector(".cat-count-frac"),
+      // build .281 replaced the «N / 6 مختارة» text line with the counter RING;
+      // the fraction is now an arc plus a digit, so read the ring's own parts.
+      ring: !!st.querySelector(".ccr"),
+      digit: (document.getElementById("catRingNum") || {}).textContent || "",
       txt: st.textContent.replace(/\s+/g, " ").trim(),
       pill: (go.querySelector(".cat-count-pill") || {}).textContent || "",
       goDisabled: go.disabled
     };
   });
-  check("category status shows a «N / 6» fraction chip", counter.frac && /3 \/ 6 مختارة/.test(counter.txt));
+  check("category status shows the counter ring at «3 من 6»",
+    counter.ring && counter.digit.trim() === "3" && /3 من 6 مختارة/.test(counter.txt), counter.txt);
   check("the proceed button carries a live count pill", /3/.test(counter.pill) && /6/.test(counter.pill));
   check("proceed is enabled once at least one category is picked", counter.goDisabled === false);
 
