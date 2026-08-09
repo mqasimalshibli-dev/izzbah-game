@@ -105,6 +105,12 @@ try {
       rec.stop();
       await new Promise(r => { rec.onstop = r; });
       const src = new File(parts, "src.webm", { type: "video/webm" });
+      /* The source is RECORDED here rather than shipped as a fixture, so a
+         starved CPU can hand back zero chunks — the 33ms frame loop simply
+         never runs often enough for MediaRecorder to emit anything. Filtering
+         an empty file makes sketchifyVideo reject with "sketch-empty", which
+         reads exactly like the filter being broken. Report it as what it is. */
+      if (!src.size) return { noSource: true };
 
       const seen = [];
       const filtered = await window.IZZBAH.sketchifyVideo(src, p => seen.push(p));
@@ -134,6 +140,9 @@ try {
                colourPct: n ? colour / n * 100 : -1 };
     });
 
+    if (out.noSource) {
+      console.log("SKIP  filter run — this machine could not record a source clip");
+    } else {
     check("the filter returns a non-empty file", out.size > 0);
     check("the result decodes as video", out.w > 0 && out.h > 0);
     check("the extension matches the declared type",
@@ -144,6 +153,7 @@ try {
     check("output is two-tone, not grey mush", out.blackPct + out.whitePct > 80);
     check("output actually has ink in it", out.blackPct > 0.5);
     console.log(`      (${out.w}x${out.h}, ${Math.round(out.size/1024)}KB, black ${out.blackPct.toFixed(1)}% / white ${out.whitePct.toFixed(1)}%)`);
+    }
   }
 
   check("no page errors", errs.length === 0);

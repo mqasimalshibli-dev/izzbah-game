@@ -5306,6 +5306,8 @@
        button rather than out of the corner. */
     .cat-peek {
       position: absolute; bottom: calc(100% + 10px); right: 0; z-index: 1;
+      /* max-height is re-set at runtime from the room actually above the dock
+         (see sizeCatPeek). This value is only the cap. */
       width: 200px; max-height: 262px; overflow-y: auto; overscroll-behavior: contain;
       padding: 10px; border-radius: 14px; text-align: start;
       background: rgba(20, 6, 8, .93); border: 1.5px solid rgba(231, 195, 115, .5);
@@ -7715,12 +7717,15 @@
        The dock is positioned from the MEASURED back button rather than a
        hard-coded offset — «رجوع» is one of the strings an admin can reword,
        and a guessed offset would overlap it the moment they did. -->
-  <div id="catDock" aria-hidden="true">
+  <!-- NOT aria-hidden. It holds two real, focusable buttons; hiding the
+       container took the ring and «متابعة» away from screen readers entirely
+       while leaving them in the tab order — the worst of both. -->
+  <div id="catDock">
     <!-- Ring FIRST: in an RTL row the first child is the rightmost, so the ring
          lands against «رجوع» and «متابعة» grows away to its left. Ordered the
          other way round, the ring would shift sideways every time the proceed
          button appeared or disappeared. -->
-    <button class="ccr" id="catRing" type="button">
+    <button class="ccr" id="catRing" type="button" aria-expanded="false" aria-controls="catPeek">
       <span class="ccr-ring">
         <svg width="52" height="52" viewBox="0 0 56 56" aria-hidden="true">
           <circle class="ccr-track" cx="28" cy="28" r="24" fill="none" stroke-width="4"></circle>
@@ -7743,7 +7748,9 @@
     <!-- Slides up from the ring on press: which categories are in, in the order
          they were picked. Anchored to the dock's right edge, which is the
          ring's right edge, so it grows up-and-inward from the button. -->
-    <div class="cat-peek" id="catPeek" role="dialog" aria-labelledby="catPeekTitle" hidden>
+    <!-- A group, not a dialog: it is a non-modal popover that traps nothing, and
+         the ring already announces it through aria-expanded/aria-controls. -->
+    <div class="cat-peek" id="catPeek" role="group" aria-labelledby="catPeekTitle" hidden>
       <p class="cat-peek-title" id="catPeekTitle"></p>
       <p class="cat-peek-sub" id="catPeekSub" hidden>اضغط على الفئة لإزالتها</p>
       <ul class="cat-peek-list" id="catPeekList"></ul>
@@ -12313,7 +12320,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.284";
+    const IZZBAH_BUILD = "2026-08-09.285";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15629,8 +15636,10 @@
       const go = $("#catGoFloat");
       if (go) go.hidden = count === 0;
       layoutCatDock();
-      // «اختيار عشوائي» changes the selection without touching the panel, so an
-      // open list has to follow it rather than showing the previous pick.
+      /* Keeps an OPEN list in step with the selection. In practice that means
+         removals made from inside the panel, which are the only selection
+         change that leaves it open — a tap anywhere else (a card, «اختيار
+         عشوائي») is an outside click and closes it first. */
       if (catPeekIsOpen()) renderCatPeek();
       // the punch has to RESTART on every change, so the class comes off and
       // goes back on rather than simply being left set
@@ -15657,6 +15666,28 @@
       dock.style.right = Math.round(window.innerWidth - r.left + 10) + "px";
       dock.style.bottom = Math.round(window.innerHeight - r.bottom) + "px";
       dock.style.height = Math.round(r.height) + "px";
+      sizeCatPeek();
+    }
+
+    /* Caps the peek at the room ACTUALLY above the dock.
+
+       The panel is anchored to its bottom edge and used to carry a fixed
+       max-height, so on a short screen it simply grew off the top: measured at
+       320px tall (a phone in landscape, or any phone once the browser chrome is
+       counted) the title and the first row sat ABOVE the viewport, unreachable —
+       the list scrolls inside itself, so there was nothing to scroll the page to.
+       The floor keeps it a usable panel rather than a sliver; below that it is
+       better to overflow than to show one clipped row. */
+    const CAT_PEEK_MAX = 262, CAT_PEEK_MIN = 120, CAT_PEEK_MARGIN = 8;
+    function sizeCatPeek() {
+      const peek = document.getElementById("catPeek");
+      const dock = document.getElementById("catDock");
+      if (!peek || !dock) return;
+      const top = dock.getBoundingClientRect().top;
+      if (!top) return;
+      // the panel's own bottom sits 10px above the dock (see `bottom` in the CSS)
+      const room = top - 10 - CAT_PEEK_MARGIN;
+      peek.style.maxHeight = Math.max(CAT_PEEK_MIN, Math.min(CAT_PEEK_MAX, room)) + "px";
     }
     window.addEventListener("resize", layoutCatDock);
 
@@ -15734,6 +15765,7 @@
       renderCatPeek();
       clearTimeout(catPeekHideTimer);
       peek.hidden = false;
+      sizeCatPeek(); // before the slide, so it never animates in at the wrong height
       void peek.offsetWidth; // the panel must be laid out before the class, or it appears with no slide
       peek.classList.add("show");
       const ring = document.getElementById("catRing");
