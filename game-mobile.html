@@ -1124,25 +1124,7 @@
       text-align: right;
     }
 
-    .game-name-box input {
-      width: 100%;
-      box-sizing: border-box;
-      font-family: 'Cairo', sans-serif;
-      font-weight: 700;
-      font-size: 18px;
-      color: #3a2c12;
-      background: #fffdf6;
-      border: 2px solid #e6d3a0;
-      border-radius: 12px;
-      padding: 14px 18px;
-      outline: none;
-      transition: border-color .18s, box-shadow .18s;
-    }
-
-    .game-name-box input:focus {
-      border-color: #cc2531;
-      box-shadow: 0 0 0 3px rgba(204, 37, 49, .14);
-    }
+    /* .game-name-box input is styled with .izz-search input, above. */
 
     /* Search categories by name — sits right under the game-name box */
     /* ── Search bar ──────────────────────────────────────────────────────────
@@ -1155,19 +1137,24 @@
        same relative position as the reference, mirrored. The clear ✕ tucks in
        just before it rather than fighting it for the corner. */
     .izz-search { position: relative; display: flex; align-items: center; width: min(780px, 100%); margin: 12px auto 0; }
-    .izz-search input {
+    /* ONE definition for the pill. The search bar is this plus a circle, and
+       the game-name field is this on its own — the owner asked for the same
+       look without the magnifier, so they share the rule rather than carrying
+       two copies that drift. */
+    .izz-search input, .game-name-box input {
       width: 100%; box-sizing: border-box;
       font: 700 17px 'Cairo', sans-serif; color: #3a2c12; text-align: start;
       background: #fffdf7; border: 1px solid #e6d3a0; border-radius: 999px;
-      /* room for the circle at the end, and the ✕ before it */
-      padding-block: 15px; padding-inline: 24px 84px;
+      padding-block: 15px; padding-inline: 24px;
       outline: none; box-shadow: 0 6px 16px rgba(120, 80, 20, .12), inset 0 1px 0 #fff;
       transition: border-color .18s, box-shadow .18s;
     }
-    .izz-search input::placeholder { color: #a8977a; font-weight: 700; }
+    /* room for the circle at the end, and the ✕ just before it */
+    .izz-search input { padding-inline-end: 84px; }
+    .izz-search input::placeholder, .game-name-box input::placeholder { color: #a8977a; font-weight: 700; }
     .izz-search input::-webkit-search-decoration,
     .izz-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-    .izz-search input:focus { border-color: #cc2531; box-shadow: 0 0 0 3px rgba(204, 37, 49, .13), 0 6px 16px rgba(120, 80, 20, .12); }
+    .izz-search input:focus, .game-name-box input:focus { border-color: #cc2531; box-shadow: 0 0 0 3px rgba(204, 37, 49, .13), 0 6px 16px rgba(120, 80, 20, .12); }
     .izz-search-go {
       position: absolute; inset-inline-end: 5px; top: 50%; transform: translateY(-50%);
       width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; flex: none;
@@ -1185,11 +1172,13 @@
       background: rgba(158, 28, 28, .1); color: #9e1322; font-size: 13px; font-weight: 800;
     }
     .izz-search-clear:hover { background: rgba(158, 28, 28, .18); }
-    :root[data-theme="dark"] .izz-search input {
+    :root[data-theme="dark"] .izz-search input,
+    :root[data-theme="dark"] .game-name-box input {
       background: rgba(52, 24, 26, .82); border-color: rgba(231, 195, 115, .34); color: #f4e6cb;
       box-shadow: 0 6px 16px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .07);
     }
-    :root[data-theme="dark"] .izz-search input::placeholder { color: #b49a74; }
+    :root[data-theme="dark"] .izz-search input::placeholder,
+    :root[data-theme="dark"] .game-name-box input::placeholder { color: #b49a74; }
 
     /* .cat-search's own box, icon and clear styling are gone — the shared
        .izz-search component draws all three now. Only the id remains, as a
@@ -7149,8 +7138,13 @@
     :root[data-theme="dark"] .category-tabs,
     :root[data-theme="dark"] .seg { background: #3a1a1d; border-color: var(--dk-line); }
     :root[data-theme="dark"] .category-tab { color: #d9c39c; }
-    :root[data-theme="dark"] .game-name-box,
-    :root[data-theme="dark"] .cat-search { background: #331619; border-color: var(--dk-line); }
+    /* `.cat-search` used to share this rule and drew its own dark panel; once
+       the search became a pill that panel stayed behind it as a visible
+       rectangle with a stray border, so the wrapper is unstyled now and the
+       pill carries its own dark variant. Removing it from the selector list is
+       what left `.game-name-box` dangling into the LABEL rule below — it lost
+       its dark background and took the muted text colour. Kept standalone. */
+    :root[data-theme="dark"] .game-name-box { background: #331619; border-color: var(--dk-line); }
     :root[data-theme="dark"] .game-name-box label { color: var(--dk-muted); }
     :root[data-theme="dark"] .cat-plays-stat {
       background: linear-gradient(180deg, #3a2118, #2c1712); border-color: #a97f2c; color: #f0d9a8;
@@ -7489,8 +7483,6 @@
     :root[data-theme="dark"] .code-result { color: #f6d98c !important; }
     /* Typed inputs/textageas beat the generic input override on specificity —
        darken them explicitly so no editor field stays a bright white box. */
-    :root[data-theme="dark"] .game-name-box input,
-    :root[data-theme="dark"] .cat-search input,
     :root[data-theme="dark"] .fs-row input[type="text"],
     :root[data-theme="dark"] .coach-tip-row input[type="text"],
     :root[data-theme="dark"] .coach-tip-row textarea,
