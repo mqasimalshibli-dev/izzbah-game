@@ -19,7 +19,7 @@ const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
 // ---- static: the real-time bridge tears down (returns an unsubscribe) ----
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 check("watchOrders is an admin-gated onSnapshot listener that returns an unsubscribe",
   /IZZBAH\.watchOrders = function/.test(html) && /\.onSnapshot\(/.test(html)
   && /if \(!cloudIsAdmin \|\| typeof cb !== "function"\) return function \(\) \{\};/.test(html));
@@ -35,7 +35,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // Seed the panel with codes, usage, and orders through the stubbed bridges,

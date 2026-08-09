@@ -21,7 +21,7 @@ page.on("pageerror", e => errs.push(e.message));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1200);
 
   const r = await page.evaluate(() => {

@@ -627,11 +627,39 @@ Single self-contained page, same palette and type system as the game. Marked
 
 ## Standing conventions in this repo
 
-- Single self-contained game file: `game-mobile.html` (Arabic, RTL). Firebase
+- Single self-contained game file: **`index.html`** (Arabic, RTL) — it is the
+  SITE ROOT since build .291; it was `game-mobile.html` until then, and a great
+  many notes above still say so. Firebase
   compat SDK, project `izzbahgame`, BLAZE plan. One Cloud Function is deployed:
   `mintUploadUrl` (in `functions/`) mints a presigned R2 upload URL so admins
   upload video/voice straight from the game to the `izzbah-media` R2 bucket
   (`VIDEO_UPLOAD_SETUP.md` has the runbook). The rest runs client-side.
+- **The game moved to the site ROOT (build .291, 2026-08-09).** `izzbah.com`
+  used to be a redirect stub that bounced every visitor to
+  `/game-mobile.html` — a wasted round trip on every cold boot, and the reason
+  Google indexed the long URL and filed both "Page with redirect" and
+  "Duplicate, Google chose different canonical". `game-mobile.html` and
+  `game.html` are now the stubs, pointing the other way. Four traps, all
+  pinned by `tests/roothome.mjs`:
+  - ⚠️ **The stubs must forward `location.hash`** — it is the entire payload of
+    a shared `#g=` game. A `<meta http-equiv="refresh">` cannot carry a
+    fragment, so the redirect is a `location.replace` in `<head>` (it runs
+    during parsing and beats the refresh); the refresh stays only as the no-JS
+    fallback. Test the payload END-TO-END, not the URL: the game consumes the
+    hash on load (`history.replaceState`), so `location.hash` is empty by the
+    time you look.
+  - ⚠️ **The manifest `id` must NOT move with `start_url`.** `start_url` is now
+    `../../`, but `id` stays `../../game-mobile.html` verbatim — it is the PWA's
+    identity, and changing it makes every phone that already installed عِزبة
+    treat this as a SECOND app rather than an update. `id` need not resolve to
+    a real page.
+  - Share links are built from `shareBaseUrl()`, which trims a trailing
+    `index.html` over http(s) only — under `file://` (the Electron build) that
+    would leave a bare directory.
+  - The wrappers copy the game by name: `mobile/copy-web.js`,
+    `desktop/electron-main.js` + `desktop/package.json`, and the
+    `cp` in `.github/workflows/build-desktop.yml`. `sitemap.xml` lists the root
+    and nothing else — listing a redirect is what invited the reports.
 - Develop on the designated feature branch, merge `--no-ff` into `root`
   (the GitHub Pages branch), push, and verify the smoke workflow is green.
 - Bump `IZZBAH_BUILD` on every deploy — **and the `CACHE` name in `sw.js`

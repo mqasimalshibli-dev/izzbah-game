@@ -25,7 +25,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 const hintContent = () => page.evaluate(() => getComputedStyle(document.body, "::after").content);
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => typeof showScreen === "function", { timeout: 15000 });
   await page.waitForTimeout(300);
 

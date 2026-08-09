@@ -43,7 +43,7 @@ const bigPhoto = () => page.evaluate(() => {
 });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => window.IZZBAH && window.IZZBAH.applyPublished, { timeout: 15000 });
   await page.waitForTimeout(300);
 

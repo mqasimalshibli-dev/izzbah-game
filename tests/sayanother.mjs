@@ -11,7 +11,7 @@ import { readFileSync as __read } from "fs";
 import { fileURLToPath as __f } from "url";
 import { dirname as __d, join as __j } from "path";
 function __bankChecks(check) {
-  const src = __read(__j(__d(__f(import.meta.url)), "..", "game-mobile.html"), "utf8");
+  const src = __read(__j(__d(__f(import.meta.url)), "..", "index.html"), "utf8");
   const start = src.indexOf("sayAnother:");
   const after = src.slice(start + 11);
   const end = after.search(/\n\s{4,6}[a-zA-Z_]\w*:\s*\{/);
@@ -73,7 +73,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // ---- the category ships live with a full bank ----------------------------

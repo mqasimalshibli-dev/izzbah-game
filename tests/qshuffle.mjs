@@ -48,7 +48,7 @@ async function device(cats, seed) {
   await page.route("**/firebasejs/**", r => r.abort());
   page.on("pageerror", e => errs.push(e.message));
   page.on("dialog", d => d.accept().catch(() => {}));
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1300);
   await page.evaluate((cs) => {
     window.IZZBAH.applyAuth(true, "u"); window.IZZBAH.applyAdmin(true);

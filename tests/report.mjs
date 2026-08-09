@@ -11,7 +11,7 @@ const p=await b.newPage({viewport:{width:460,height:900},deviceScaleFactor:1});
 await p.route("**/firebasejs/**",r=>r.abort());
 await p.addInitScript(()=>{try{localStorage.setItem("izzbah-legal-consent-v1","1");localStorage.setItem("izzbah-coach-v1",JSON.stringify({__all:1}));}catch(e){}});
 const errs=[]; p.on("pageerror",e=>errs.push(e.message));
-await p.goto("http://127.0.0.1:"+PORT+"/game-mobile.html",{waitUntil:"load",timeout:30000});
+await p.goto("http://127.0.0.1:"+PORT+"/index.html",{waitUntil:"load",timeout:30000});
 await p.waitForFunction(()=>typeof state!=="undefined" && typeof openReport==="function",{timeout:15000});
 await p.waitForTimeout(300);
 

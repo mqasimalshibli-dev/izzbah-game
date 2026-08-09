@@ -54,7 +54,7 @@ async function board(w, h, n) {
     PAGE.on("pageerror", e => errs.push(e.message));
     PAGE.on("dialog", d => d.accept().catch(() => {}));
     await PAGE.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-    await PAGE.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await PAGE.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await PAGE.waitForTimeout(1400);
   } else {
     await PAGE.setViewportSize({ width: w, height: h });

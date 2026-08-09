@@ -31,7 +31,7 @@ page.on("console", m => {
   if (m.type() === "error" && !/ERR_FAILED|firebasejs|net::|Failed to load resource/.test(t)) errs.push("console: " + t.slice(0, 140));
 });
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
 await page.waitForTimeout(1500);
 
 await page.evaluate(() => { state.isAdmin = true; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(true); });

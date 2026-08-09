@@ -17,7 +17,7 @@ const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT
 await new Promise(r => setTimeout(r, 1200));
 
 // ---- static checks ----
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 check("the page links a web app manifest", /<link rel="manifest" href="assets\/brand\/manifest\.webmanifest">/.test(html));
 check("the page registers the service worker", /serviceWorker\.register\("sw\.js"/.test(html));
 
@@ -60,7 +60,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   const reg = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(r => !!r.active || !!r.installing || !!r.waiting),
     new Promise(res => setTimeout(() => res(false), 8000)),

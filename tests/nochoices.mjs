@@ -26,7 +26,7 @@ const PORT = 8381;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 const rules = readFileSync(join(ROOT, "firestore.rules"), "utf8");
 
 // ── static: the setting must fit the DEPLOYED rules ─────────────────────────
@@ -55,7 +55,7 @@ try {
   await page.route("**/firebasejs/**", r => r.abort());
   page.on("pageerror", e => errs.push(e.message));
   await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1200);
 
   const CAT = { id: "pub-switch-me", name: "تاريخ" };   // an ordinary category

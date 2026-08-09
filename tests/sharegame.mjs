@@ -28,7 +28,7 @@ page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 const clickText = t => page.evaluate(txt => { const el = [...document.querySelectorAll("button, .btn, a, .wlc-start")].find(x => x.textContent.trim().includes(txt)); if (el) { el.click(); return true; } return false; }, t);
-const url = `http://127.0.0.1:${PORT}/game-mobile.html`;
+const url = `http://127.0.0.1:${PORT}/index.html`;
 
 try {
   await page.goto(url, { waitUntil: "load", timeout: 30000 });

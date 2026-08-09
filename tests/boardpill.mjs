@@ -54,7 +54,7 @@ try {
       } catch (e) {}
     });
     page.on("pageerror", e => jsErrors.push(`${label}: ${e.message}`));
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(2200);
 
     const board = await page.evaluate(async () => {

@@ -20,7 +20,7 @@ const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 const KB = (n) => (n / 1024).toFixed(0) + " KB";
 
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 
 // Every same-origin asset the shell references — src="…", url(…) in CSS, and
 // the handful assigned to .src in JS.
@@ -49,8 +49,8 @@ check(`declared font files total under 340 KB (they are ${KB(fontBytes)})`, font
 
 // The shell itself. It is a single self-contained file by design, so it will
 // always be large — but it should not drift upward unnoticed either.
-const shell = statSync(join(ROOT, "game-mobile.html")).size;
-check(`game-mobile.html is under 1.9 MB (it is ${KB(shell)})`, shell < 1.9 * 1024 * 1024);
+const shell = statSync(join(ROOT, "index.html")).size;
+check(`index.html is under 1.9 MB (it is ${KB(shell)})`, shell < 1.9 * 1024 * 1024);
 
 // Whole-boot budget: shell + everything it references. The catalogue and the
 // Firebase SDK come from the cloud and are not counted here.

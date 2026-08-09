@@ -61,7 +61,7 @@ const waitFix = async () => {
 };
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // ---- 1) generator quality rules on the mini category ----

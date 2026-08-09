@@ -59,7 +59,7 @@ const exitQuestion = async () => {
 };
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(2000);
 
   // (1) boot with no uncaught JS error

@@ -31,7 +31,7 @@ for (const theme of ["light", "dark"]) {
   await page.addInitScript(t => {
     try { localStorage.setItem("izzbah-legal-consent-v1", "1"); localStorage.setItem("izzbah-theme-v1", t); } catch (e) {}
   }, theme);
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1400);
 
   await page.evaluate(t => {

@@ -34,7 +34,7 @@ const errs = [];
 page.on("pageerror", e => errs.push(e.message));
 page.on("dialog", d => d.accept().catch(() => {}));
 
-const url = `http://127.0.0.1:${PORT}/game-mobile.html`;
+const url = `http://127.0.0.1:${PORT}/index.html`;
 try {
   await page.goto(url, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);

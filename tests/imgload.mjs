@@ -31,7 +31,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 
 // Isolate the media loader, so none of the checks below can be satisfied by an
 // unrelated part of this very large file that happens to contain the tokens.

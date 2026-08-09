@@ -25,7 +25,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 const CATID = "pub-1783170059396-601";
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   const result = await page.evaluate((CATID) => {

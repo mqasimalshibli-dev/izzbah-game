@@ -9,10 +9,10 @@
 //   • Same-origin static assets are cache-first with a background refresh.
 //   • Cross-origin requests (Firebase SDK, fonts, R2 video) pass through
 //     untouched so none of the cloud behavior changes.
-// ⚠️ MUST equal "izzbah-" + IZZBAH_BUILD in game-mobile.html. This froze at
+// ⚠️ MUST equal "izzbah-" + IZZBAH_BUILD in index.html (the game). This froze at
 // .203 for four deploys, so phones kept launching the stale cached shell —
 // tests/swsync.mjs now fails CI if the two ever drift again.
-const CACHE = "izzbah-2026-08-09.290";
+const CACHE = "izzbah-2026-08-09.291";
 
 self.addEventListener("install", () => { self.skipWaiting(); });
 
@@ -20,6 +20,15 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      // Warm the ROOT navigation. The game moved to "/" in .291, so a returning
+      // player has the OLD path cached and NOTHING for "/" — and that old path
+      // is now only a stub that redirects here. Launch offline in that
+      // state and the stub loads from cache, bounces to "/", finds no cache and
+      // no network, and the game simply fails to open. One warm fetch closes
+      // that window. Deliberately AFTER the delete, so the build-tied cache name
+      // still does its job, and .catch()-ed because being offline right now is
+      // exactly the case where there is nothing to be done about it.
+      .then(() => caches.open(CACHE).then(c => c.add("./")).catch(() => {}))
       .then(() => self.clients.claim())
   );
 });
