@@ -419,6 +419,71 @@ try {
       elsewhere.categories !== "none" && elsewhere.menu === "none" && elsewhere.gameLibrary === "none",
       JSON.stringify(elsewhere));
 
+    // Accessibility. The dock is a fixed container of two REAL buttons, and it
+    // shipped once with aria-hidden on it — which took the ring and «متابعة»
+    // away from screen readers while leaving both in the tab order.
+    const a11y = await page.evaluate(() => {
+      const ring = document.getElementById("catRing");
+      return {
+        buried: !!ring.closest("[aria-hidden=true]"),
+        controls: ring.getAttribute("aria-controls"),
+        expanded: ring.getAttribute("aria-expanded"),
+        label: (ring.getAttribute("aria-label") || "").trim(),
+        goReachable: !document.getElementById("catGoFloat").closest("[aria-hidden=true]"),
+      };
+    });
+    check(`${theme}: the dock's buttons are reachable by screen readers`,
+      !a11y.buried && a11y.goReachable);
+    check(`${theme}: the ring points at the panel it expands`,
+      a11y.controls === "catPeek" && (a11y.expanded === "true" || a11y.expanded === "false"),
+      `controls=${a11y.controls} expanded=${a11y.expanded}`);
+    check(`${theme}: the ring carries the count as its label`, /من 6 مختارة/.test(a11y.label), a11y.label);
+
+    await page.close();
+  }
+
+  /* Short screens. The panel is anchored to its BOTTOM edge, so a fixed height
+     grows it off the top — and because the list scrolls inside itself there is
+     nothing to scroll the page to. Measured before the fix: at 320px tall the
+     title and first row sat above the viewport. Landscape phones and any phone
+     once browser chrome is counted live here, so this is a real geometry, not a
+     contrived one. */
+  for (const [w, h] of [[667, 320], [812, 300], [390, 480], [320, 568]]) {
+    const page = await browser.newPage({ viewport: { width: w, height: h } });
+    await page.route("**/firebasejs/**", r => r.abort());
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("izzbah-legal-consent-v1", "1");
+        localStorage.setItem("izzbah-coach-v1", JSON.stringify({ __all: 1 }));
+      } catch (e) {}
+    });
+    page.on("pageerror", e => jsErrors.push(e.message));
+    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(2200);
+    const box = await page.evaluate(async () => {
+      window.IZZBAH.applyAuth(true, "u");
+      showScreen("categories");
+      await new Promise(r => setTimeout(r, 500));
+      state.selected = new Set(visibleCategoryGroup().filter(categoryHasQuestions).map(c => c.id).slice(0, 6));
+      renderCategories();
+      await new Promise(r => setTimeout(r, 400));
+      document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 420));
+      const el = document.getElementById("catPeek");
+      const r = el.getBoundingClientRect();
+      return {
+        top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left),
+        height: Math.round(r.height), vh: innerHeight,
+        scrolls: el.scrollHeight > el.clientHeight,
+        rows: el.querySelectorAll(".cat-peek-row").length,
+      };
+    });
+    check(`${w}x${h}: the panel stays inside the screen`,
+      box.top >= 0 && box.left >= 0 && box.bottom <= box.vh,
+      `top=${box.top} left=${box.left} bottom=${box.bottom}/${box.vh}`);
+    // Clipping it is only acceptable if the content is reachable by scrolling.
+    check(`${w}x${h}: all six are still reachable`, box.rows === 6 && (box.height >= 250 || box.scrolls),
+      `${box.rows} rows, ${box.height}px, scrolls=${box.scrolls}`);
     await page.close();
   }
 
