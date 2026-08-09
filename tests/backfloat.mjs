@@ -153,6 +153,56 @@ try {
     `rendered ${rows[1].titlePx} vs --tile-title ${rows[1].titleVar}`);
   check("nothing overflows its card", rows.every(r => r.overflow <= 1),
     rows.map(r => r.overflow).join(" "));
+
+  /* A row of cards is stretched to its tallest member, so a game with fewer
+     categories used to sit in a box with a band of dead space under its tiles —
+     most obvious in landscape, where a one-category game shares a row with a
+     six-category one. The covers now take that slack.
+     Landscape on purpose: in a single column every card is content-sized and
+     there is no slack to give away, so a portrait phone cannot see this at all
+     and would pass whatever the CSS said. */
+  const fill = await page.evaluate(async () => {
+    window.IZZBAH.applyAuth(true, "u");
+    const ids = visibleCategoryGroup().filter(categoryHasQuestions).map(c => c.id);
+    state.savedGames = [6, 1, 3].map((n, i) => ({
+      id: "fill" + i, name: "لعبة " + (i + 1), categoryIds: ids.slice(0, n),
+      teams: [{ name: "A", score: 0 }, { name: "B", score: 0 }],
+      used: [], createdAt: Date.now() - i * 1000, charged: true, frozen: {},
+    }));
+    showScreen("gameLibrary");
+    await new Promise(r => setTimeout(r, 700));
+    const cards = [...document.querySelectorAll(
+      "#gameLibrary .saved-game-card:not(.resume-card):not(.featured-set-card)")];
+    return cards.slice(0, 3).map(c => {
+      const box = c.getBoundingClientRect();
+      const cats = c.querySelector(".saved-game-cats");
+      const last = c.querySelector(".saved-game-actions") || c.lastElementChild;
+      const tiles = [...c.querySelectorAll(".saved-game-category")]
+        .map(t => Math.round(t.getBoundingClientRect().height));
+      return {
+        n: tiles.length,
+        h: Math.round(box.height),
+        tiles,
+        /* Slack BELOW the last row of controls — that is where a stretched card
+           parks its dead space. Measuring the gap between the covers and the
+           buttons instead reports the same margin either way and proves
+           nothing; it passed against the broken layout. */
+        dead: last ? Math.round(box.bottom - last.getBoundingClientRect().bottom) : -1,
+      };
+    });
+  });
+  const sameRow = fill.length === 3 && fill.every(f => Math.abs(f.h - fill[0].h) <= 2);
+  check("cards in a row are the same height", sameRow, fill.map(f => f.h).join(" / "));
+  // The covers grow instead of the card growing a hole: a one-category game's
+  // single tile has to be far taller than the six-category game's.
+  check("a game with one category fills its box",
+    fill[1] && fill[1].n === 1 && fill[1].tiles[0] > fill[0].tiles[0] * 2,
+    `1-cat tile ${fill[1] && fill[1].tiles[0]}px vs 6-cat ${fill[0] && fill[0].tiles[0]}px`);
+  check("a game with three fills it too",
+    fill[2] && fill[2].tiles.every(t => t > fill[0].tiles[0] * 1.2),
+    `3-cat tiles ${fill[2] && fill[2].tiles.join(",")}`);
+  check("no card is left with dead space under its controls",
+    fill.every(f => f.dead >= 0 && f.dead <= 40), fill.map(f => f.dead).join(" / "));
   // the whole point: a big collection must not be a proportionally huge page
   const perGame = rows[rows.length - 1].listH / rows[rows.length - 1].n;
   check("the list grows far slower than one full tile per game",
