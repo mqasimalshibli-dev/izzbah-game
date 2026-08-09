@@ -1,6 +1,6 @@
 # عزبة (Izzbah) — iOS & Android app build (Capacitor)
 
-This folder wraps the existing web game (`../game-mobile.html`) into a native
+This folder wraps the existing web game (`../index.html`) into a native
 app for the **Apple App Store** and **Google Play** using
 [Capacitor](https://capacitorjs.com/). Nothing about the game is rewritten —
 the same HTML/JS runs inside the app's webview.
@@ -24,7 +24,7 @@ the same HTML/JS runs inside the app's webview.
 ```bash
 cd mobile
 npm install                 # install Capacitor
-npm run copy:web            # game-mobile.html -> www/index.html
+npm run copy:web            # ../index.html -> www/index.html
 npx cap init Izzbah com.izzbah.game --web-dir=www   # only if capacitor.config.ts is missing
 npm run add:android         # creates android/   (needs Android Studio SDK)
 npm run add:ios             # creates ios/        (Mac + Xcode only)
@@ -32,7 +32,7 @@ npm run sync                # copy web + sync native projects
 ```
 
 ## Every time you change the game
-The game lives in `../game-mobile.html`. After editing it:
+The game lives in `../index.html`. After editing it:
 ```bash
 cd mobile && npm run sync
 ```
@@ -96,7 +96,7 @@ npm install @capacitor/status-bar @capacitor/splash-screen
 ---
 
 ## Security note
-The XSS fix and the Content-Security-Policy already in `game-mobile.html` carry
+The XSS fix and the Content-Security-Policy already in `index.html` carry
 over — they protect the webview too. The only **new** security work is
 **server-side receipt validation** for in-app purchases (RevenueCat does this
 for you), so a user can't fake "I paid".
