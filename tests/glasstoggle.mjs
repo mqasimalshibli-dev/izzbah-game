@@ -76,7 +76,11 @@ const READ = `(id) => {
     label: el.getAttribute("aria-label") || "",
     word: word.textContent.trim(),
     hasSvg: !!knob.querySelector("svg"),
-    emoji: knob.querySelector("svg") ? "" : knob.textContent.trim(),
+    // the knobs draw SVGs now, so identify the icon by its geometry rather
+    // than by text — comparing textContent silently compared "" with ""
+    emoji: knob.querySelector("svg")
+      ? [...knob.querySelectorAll("svg *")].map(e => e.getAttribute("d") || e.tagName).join("|").slice(0, 60)
+      : knob.textContent.trim(),
     knobOffset: Math.round(rtl ? er.right - kr.right : kr.left - er.left),
     pillW: Math.round(er.width), pillH: Math.round(er.height),
     knobW: Math.round(kr.width),
@@ -113,8 +117,9 @@ try {
     check(`${theme}: ...the knob MOVES (${t0.knobOffset}px → ${t1.knobOffset}px)`,
       Math.abs(t1.knobOffset - t0.knobOffset) > t0.knobW / 2);
     check(`${theme}: ...and stays inside the pill`, t1.inside);
-    check(`${theme}: ...the icon changes too (${t0.emoji} → ${t1.emoji})`,
-      t0.emoji !== t1.emoji && t1.emoji.length > 0);
+    check(`${theme}: ...the knob icon changes too (sun ⇄ moon)`,
+      t0.emoji !== t1.emoji && t1.emoji.length > 0,
+      `${t0.emoji.slice(0, 22)}… → ${t1.emoji.slice(0, 22)}…`);
     check(`${theme}: ...and the real theme followed`,
       await page.evaluate(() => document.documentElement.getAttribute("data-theme")) !== theme);
     check(`${theme}: the pill does not resize as the word swaps`,
@@ -151,6 +156,44 @@ try {
     const d2 = await grab(dark);
     check("dark: the two states are still visually distinct", d.track !== d2.track);
     await light.close(); await dark.close();
+  }
+
+  // ---- the settings sheet carries LINE icons, not emoji ----
+  // Reported after build .279: the tiles had been restyled but still held
+  // 🌙 🔊 🔗 📲 📢 💬 🚩 📖 ✉️ 📄 ℹ️ 🗑️, which render at a different size,
+  // weight and colour on every platform and cannot be tinted at all — so a
+  // row's icon never matched the row's meaning or the sheet's palette.
+  for (const theme of ["light", "dark"]) {
+    const page = await open(theme);
+    const r = await page.evaluate(() => {
+      const sheet = document.getElementById("settingsModal");
+      const tiles = [...sheet.querySelectorAll(".settings-ico")];
+      const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu;
+      const stray = [];
+      sheet.querySelectorAll("*").forEach(n => {
+        [...n.childNodes].filter(c => c.nodeType === 3).forEach(c => {
+          const m = (c.textContent || "").match(EMOJI);
+          // ✕ is a typographic close mark, monochrome and inheriting colour
+          if (m && m.some(ch => ch !== "\u2715")) stray.push(m.join(""));
+        });
+      });
+      return {
+        tiles: tiles.length,
+        withSvg: tiles.filter(t => t.querySelector("svg")).length,
+        knobsWithSvg: [...sheet.querySelectorAll(".izz-knob")].filter(k => k.querySelector("svg")).length,
+        tints: new Set(tiles.map(t => getComputedStyle(t).color)).size,
+        strayEmoji: [...new Set(stray)],
+      };
+    });
+    check(`${theme}: every settings tile draws a line icon`,
+      r.tiles > 10 && r.withSvg === r.tiles, `${r.withSvg}/${r.tiles}`);
+    check(`${theme}: both toggle knobs draw one too`, r.knobsWithSvg === 2, `${r.knobsWithSvg}/2`);
+    check(`${theme}: no coloured emoji left anywhere in the sheet`,
+      r.strayEmoji.length === 0, r.strayEmoji.join(" ") || "clean");
+    // the tint is the point — a single flat colour would be no better than emoji
+    check(`${theme}: the icons are tinted by meaning, not one flat colour`,
+      r.tints >= 4, `${r.tints} distinct`);
+    await page.close();
   }
 
   check("no uncaught JS error", jsErrors.length === 0, jsErrors.slice(0, 2).join(" | "));

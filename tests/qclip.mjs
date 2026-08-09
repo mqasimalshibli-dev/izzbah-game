@@ -171,6 +171,26 @@ try {
     await page.close();
   }
 
+  // ---- the scrollbar must not come back from sub-pixel rounding ----
+  // Reported twice. scrollHeight/clientHeight are integers but the fitter lands
+  // on fractional sizes (30.4px, 29.36px), so they round apart by 1-2px on a box
+  // that is actually exact. A strict `>` read that as overflow and switched the
+  // scrollbar on for ordinary questions. Widest viewports first — that is where
+  // the fractional sizes land.
+  for (const [label, w, h] of [["desktop", 1280, 860], ["tablet landscape", 1112, 834]]) {
+    const page = await browser.newPage({ viewport: { width: w, height: h } });
+    await page.route("**/firebasejs/**", r => r.abort());
+    page.on("pageerror", e => errs.push(e.message));
+    await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(1300);
+    // the real-world maximum: 109 characters, the longest of 3536 published
+    const m = await measure(page, "أنا فيزيائي.\nساهمت في تأسيس ميكانيكا الكم.\nأشتهر بمبدأ يحمل اسمي يمنع تحديد الموقع والزخم بدقة في الوقت نفسه.");
+    check(`${label}: a real catalogue question draws NO scrollbar (overflow-y: ${m.overflowY}, ${m.cut}px over)`,
+      m.overflowY !== "auto" && m.overflowY !== "scroll");
+    await page.close();
+  }
+
   check("no page errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 3));
 } catch (e) {

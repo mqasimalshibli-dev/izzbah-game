@@ -5321,6 +5321,8 @@
     .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #66491a; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .settings-account .sa-btn { margin-top: 9px; width: 100%; }
     .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
+    /* inline line-icons in the account/balance lines, sized to the text */
+    .sa-ico { display: inline-block; vertical-align: -2px; margin-inline-end: 4px; }
     .settings-row {
       width: 100%; display: flex; align-items: center; gap: 12px; text-align: right; cursor: pointer;
       background: #fbf5e6; border: 1px solid rgba(201,151,74,.4); border-radius: 18px;
@@ -5345,6 +5347,16 @@
       border: 1px solid rgba(201, 151, 74, .35);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
     }
+    /* The tiles carry a line icon now, not an emoji. Emoji were a different
+       size, weight and colour on every platform and could not be tinted at
+       all, so a row's icon never matched the row's meaning. These inherit
+       `color`, which is what the si-* tints below set. */
+    .settings-ico svg { width: 20px; height: 20px; display: block; }
+    .settings-ico.si-gold    { color: #a9772a; background: rgba(169, 119, 42, .12);  border-color: rgba(201, 151, 74, .38); }
+    .settings-ico.si-green   { color: #2f6b45; background: rgba(47, 107, 69, .12);   border-color: rgba(60, 130, 85, .34); }
+    .settings-ico.si-amber   { color: #b5691a; background: rgba(181, 105, 26, .13);  border-color: rgba(200, 130, 50, .36); }
+    .settings-ico.si-red     { color: #a8202c; background: rgba(168, 32, 44, .11);   border-color: rgba(190, 60, 70, .36); }
+    .settings-ico.si-neutral { color: #6d5a35; background: rgba(109, 90, 53, .10);   border-color: rgba(160, 135, 90, .34); }
     .settings-row-danger .settings-ico {
       background: rgba(190, 40, 40, .12); border-color: rgba(190, 60, 60, .4);
     }
@@ -7172,6 +7184,13 @@
       background: rgba(255, 255, 255, .06); border-color: rgba(231, 195, 115, .28);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
     }
+    /* Dark needs its own tints: the light ones are mid-tone inks chosen against
+       a cream tile and go muddy on a dark one. */
+    :root[data-theme="dark"] .settings-ico.si-gold    { color: #f0c877; background: rgba(240, 200, 119, .13); border-color: rgba(240, 200, 119, .3); }
+    :root[data-theme="dark"] .settings-ico.si-green   { color: #7fd0a0; background: rgba(127, 208, 160, .12); border-color: rgba(127, 208, 160, .28); }
+    :root[data-theme="dark"] .settings-ico.si-amber   { color: #f0a75e; background: rgba(240, 167, 94, .13);  border-color: rgba(240, 167, 94, .28); }
+    :root[data-theme="dark"] .settings-ico.si-red     { color: #f08a90; background: rgba(240, 138, 144, .13); border-color: rgba(240, 138, 144, .3); }
+    :root[data-theme="dark"] .settings-ico.si-neutral { color: #ddc9a4; background: rgba(255, 255, 255, .07); border-color: rgba(231, 195, 115, .24); }
     :root[data-theme="dark"] .settings-row-danger .settings-ico {
       background: rgba(190, 40, 40, .22); border-color: rgba(226, 100, 100, .4);
     }
@@ -7594,7 +7613,7 @@
       <div class="settings-account" id="settingsAccount"></div>
       <div class="settings-balance" id="settingsBalance"></div>
       <button class="settings-row settings-row-primary" id="settingsBuy" type="button">
-        <span class="settings-ico" aria-hidden="true">🎟️</span>
+        <span class="settings-ico si-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5z"/><path d="M10 9v6"/></svg></span>
         <span class="settings-label"><b>شراء ألعاب / النسخة المميّزة</b><small>باقات لعب واشتراك مفتوح</small></span>
         <span class="settings-chev" aria-hidden="true">‹</span>
       </button>
@@ -7604,19 +7623,19 @@
         <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
       </div>
       <div class="settings-section">إعدادات اللعبة</div>
-      <div class="settings-row settings-row-toggle"><span class="settings-ico" aria-hidden="true">🌙</span><span class="settings-label">المظهر</span><button class="izz-toggle" id="settingsTheme" type="button" role="switch" aria-pressed="false" aria-label="المظهر"><span class="izz-knob" id="settingsThemeIcon" aria-hidden="true">☀️</span><span class="izz-word" id="settingsThemeState"></span></button></div>
-      <div class="settings-row settings-row-toggle"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><button class="izz-toggle" id="settingsSound" type="button" role="switch" aria-pressed="false" aria-label="الصوت"><span class="izz-knob" id="settingsSoundIcon" aria-hidden="true">🔊</span><span class="izz-word" id="settingsSoundState"></span></button></div>
-      <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <div class="settings-row settings-row-toggle"><span class="settings-ico si-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5z"/></svg></span><span class="settings-label">المظهر</span><button class="izz-toggle" id="settingsTheme" type="button" role="switch" aria-pressed="false" aria-label="المظهر"><span class="izz-knob" id="settingsThemeIcon" aria-hidden="true"></span><span class="izz-word" id="settingsThemeState"></span></button></div>
+      <div class="settings-row settings-row-toggle"><span class="settings-ico si-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3L11.5 6v12L7 14.5H4z"/><path d="M15.4 9.2a4.2 4.2 0 0 1 0 5.6"/><path d="M17.9 6.8a7.7 7.7 0 0 1 0 10.4"/></svg></span><span class="settings-label">الصوت</span><button class="izz-toggle" id="settingsSound" type="button" role="switch" aria-pressed="false" aria-label="الصوت"><span class="izz-knob" id="settingsSoundIcon" aria-hidden="true"></span><span class="izz-word" id="settingsSoundState"></span></button></div>
+      <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico si-green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.8a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/><path d="M14 10.2a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.3-1.3"/></svg></span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico si-green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M12 8v6"/><path d="M9.6 11.6 12 14l2.4-2.4"/></svg></span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <div class="settings-section">الأخبار والدعم</div>
-      <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico" aria-hidden="true">📢</span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico" aria-hidden="true">💬</span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsReport" type="button"><span class="settings-ico" aria-hidden="true">🚩</span><span class="settings-label">إبلاغ</span><span class="settings-state" id="settingsReportState"></span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico" aria-hidden="true">📖</span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico" aria-hidden="true">✉️</span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico" aria-hidden="true">📄</span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico" aria-hidden="true">ℹ️</span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
-      <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico" aria-hidden="true">🗑️</span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsAnnounce" type="button"><span class="settings-ico si-amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5v3a1.6 1.6 0 0 0 1.6 1.6H7l1 4h2l-1-4h.4L18 19V5l-8.6 3.9H5.6A1.6 1.6 0 0 0 4 10.5z"/><path d="M20.5 9.6a3.4 3.4 0 0 1 0 4.8"/></svg></span><span class="settings-label">إعلانات المطوّر</span><span class="settings-badge" id="settingsAnnounceBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsFeedback" type="button"><span class="settings-ico si-amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.4c0 3.7-3.6 6.7-8 6.7a9.6 9.6 0 0 1-2.6-.35L4.6 20.2l1.2-3.3A6.3 6.3 0 0 1 4 12.4C4 8.7 7.6 5.7 12 5.7s8 3 8 6.7z"/></svg></span><span class="settings-label">اقتراحاتك وملاحظاتك</span><span class="settings-badge" id="settingsFeedbackBadge" hidden></span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsReport" type="button"><span class="settings-ico si-red" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4"/><path d="M6 4.6h11.4l-2.1 4.2 2.1 4.2H6"/></svg></span><span class="settings-label">إبلاغ</span><span class="settings-state" id="settingsReportState"></span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsHowTo" type="button"><span class="settings-ico si-neutral" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.6h5.2A2.8 2.8 0 0 1 12 7.4v12a2.2 2.2 0 0 0-2.2-2.2H4z"/><path d="M20 4.6h-5.2A2.8 2.8 0 0 0 12 7.4v12a2.2 2.2 0 0 1 2.2-2.2H20z"/></svg></span><span class="settings-label">كيف تلعب؟</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsContact" type="button"><span class="settings-ico si-neutral" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5.4" width="18" height="13.2" rx="2.4"/><path d="m3.9 7 7.2 5.2a1.6 1.6 0 0 0 1.8 0L20.1 7"/></svg></span><span class="settings-label">تواصل معنا / الدعم</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row" id="settingsLegal" type="button"><span class="settings-ico si-neutral" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3.2H7.4A2.4 2.4 0 0 0 5 5.6v12.8a2.4 2.4 0 0 0 2.4 2.4h9.2a2.4 2.4 0 0 0 2.4-2.4V8.2z"/><path d="M14 3.2V8h5"/><path d="M8.8 13h6.4M8.8 16.4h4.4"/></svg></span><span class="settings-label">الخصوصية والشروط</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row settings-row-quiet" id="settingsAbout" type="button"><span class="settings-ico si-neutral" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><path d="M12 8.1h.01"/></svg></span><span class="settings-label">معلومات النسخة والتشخيص</span><span class="settings-chev" aria-hidden="true">‹</span></button>
+      <button class="settings-row settings-row-danger" id="settingsDelete" type="button"><span class="settings-ico si-red" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.6 6.6h14.8"/><path d="M9.2 6.6V5a1.6 1.6 0 0 1 1.6-1.6h2.4A1.6 1.6 0 0 1 14.8 5v1.6"/><path d="M6.6 6.6 7.4 19a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.8-12.4"/><path d="M10.4 10.4v6.2M13.6 10.4v6.2"/></svg></span><span class="settings-label">حذف حسابي وبياناتي</span><span class="settings-chev" aria-hidden="true">‹</span></button>
     </div>
   </div>
 
@@ -12146,7 +12165,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.279";
+    const IZZBAH_BUILD = "2026-08-09.280";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14122,10 +14141,20 @@
          The overhang this pass exists to remove is 3-8px, so it is allowed a
          proportional nudge and no more; anything left over falls through to the
          scrollbar below rather than eating the layout. */
+      /* ROUND is 3px, and it is the difference between "fits" and a scrollbar.
+         scrollHeight and clientHeight are integers, but the fitter lands on
+         FRACTIONAL sizes (30.4px, 29.36px), so the two round apart by 1-2px on
+         a box that is actually exact. A strict `>` comparison reads that as
+         overflow, and the fallback below then switched the scrollbar on — which
+         is the scrollbar the owner kept seeing on ordinary questions after the
+         .277 fix. Real overflow is tens of pixels (the 1500-character case
+         hides 129), so 3px cannot mask anything that matters. */
+      const ROUND = 3;
+      const overflowing = () => el.scrollHeight > el.clientHeight + ROUND;
       const budget = Math.max(3, Math.round(size * 0.12));
       const lowest = Math.max(MIN, size - budget);
       let strict = budget + 2;
-      while (strict-- > 0 && size > lowest && el.scrollHeight > el.clientHeight) {
+      while (strict-- > 0 && size > lowest && overflowing()) {
         size -= 1;
         el.style.setProperty("font-size", size + "px", "important");
       }
@@ -14141,7 +14170,7 @@
          at the floor, the scrollbar comes back for that question alone: unread
          beats unreadable. In practice this needs roughly ten times the longest
          question in the catalogue before it fires. */
-      el.style.overflowY = el.scrollHeight > el.clientHeight ? "auto" : "";
+      el.style.overflowY = overflowing() ? "auto" : "";
     }
     window.addEventListener("resize", () => {
       if (document.body.dataset.screen === "questionPage") fitQuestionText();
@@ -20625,6 +20654,15 @@
        size and colour on every platform, and at 15px inside the knob that was
        visibly inconsistent), while the theme switch keeps ☀️/🌙 because those
        two read better in colour. */
+    const IZZ_SUN =
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.3M12 19.1v2.3M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6' +
+      'M2.6 12h2.3M19.1 12h2.3M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6"/></svg>';
+    const IZZ_MOON =
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5z"/></svg>';
     const IZZ_SPEAKER_ON =
       '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
       '<path fill="currentColor" d="M4 9h3.1L12 5v14l-4.9-4H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"/>' +
@@ -20654,7 +20692,7 @@
       const acc = $("#settingsAccount");
       if (acc) {
         if (state.signedIn) {
-          acc.innerHTML = `<span class="sa-line">✅ مسجّل الدخول</span>
+          acc.innerHTML = `<span class="sa-line"><svg class="sa-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="m8.3 12.2 2.6 2.6 4.8-5.2"/></svg> مسجّل الدخول</span>
             <span class="sa-sub" id="settingsUid" title="اضغط لنسخ معرّف حسابك">معرّف حسابك: ${escapeHtml(shortUid(state.myUid || ""))}</span>
             <button class="secondary sa-btn" id="settingsAuthBtn" type="button">تسجيل الخروج</button>`;
         } else {
@@ -20671,7 +20709,15 @@
         });
       }
       const bal = $("#settingsBalance");
-      if (bal) bal.textContent = "🎟️ " + playBalanceSummary();
+      if (bal) {
+        // a tinted line icon, not 🎟️ — the emoji rendered in its own platform
+        // colours and clashed with the sheet the moment the tiles went line-art
+        bal.innerHTML = '<svg class="sa-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" '
+          + 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" '
+          + 'aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1'
+          + 'a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5z"/><path d="M10 9v6"/></svg> ';
+        bal.append(playBalanceSummary());
+      }
       /* The switch's "on" is its SECOND state — muted, dark — so the knob sits
          at the far end for the thing the row is turned away from. The word and
          the knob icon both change with it; that is the whole point of this
@@ -20679,7 +20725,7 @@
       setToggle("settingsSound", !soundOn, soundOn ? "مفعّل" : "مكتوم",
         soundOn ? IZZ_SPEAKER_ON : IZZ_SPEAKER_OFF);
       const dark = state.theme === "dark";
-      setToggle("settingsTheme", dark, dark ? "داكن" : "فاتح", dark ? "🌙" : "☀️");
+      setToggle("settingsTheme", dark, dark ? "داكن" : "فاتح", dark ? IZZ_MOON : IZZ_SUN);
       // «إبلاغ» row: always available. It carries a quiet count when the player
       // has hidden community categories, because the undo for that now lives
       // inside the report sheet rather than in a row of its own.
