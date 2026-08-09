@@ -293,11 +293,75 @@ try {
       `maxHeight=${peek.maxH} overflowY=${peek.scrolls}`);
     check(`${theme}: the ring reports its expanded state`, peek.expanded === "true", peek.expanded);
 
-    // A panel with no way out is a trap on a phone. Clicking its own list must
-    // NOT close it, or scrolling the list would dismiss it.
+    // Each row REMOVES its category. This is the panel's one destructive
+    // action, so what matters is that it removes exactly the row tapped and
+    // that everything downstream follows — ring, card tick, «متابعة».
+    const removed = await page.evaluate(async () => {
+      const before = [...state.selected];
+      const rows = [...document.querySelectorAll(".cat-peek-row")];
+      const target = rows[1].dataset.id;
+      rows[1].click();
+      await new Promise(r => setTimeout(r, 400));
+      const el = document.getElementById("catPeek");
+      return {
+        target,
+        before,
+        after: [...state.selected],
+        rowsLeft: [...document.querySelectorAll(".cat-peek-row")].map(r => r.dataset.id),
+        stillOpen: !el.hidden && el.classList.contains("show"),
+        digit: document.getElementById("catRingNum").textContent.trim(),
+        ticked: document.querySelectorAll(".category.selected").length,
+        title: document.getElementById("catPeekTitle").textContent.trim(),
+      };
+    });
+    check(`${theme}: tapping a row removes exactly that category`,
+      !removed.after.includes(removed.target) && removed.after.length === removed.before.length - 1 &&
+      removed.before.filter(id => id !== removed.target).every(id => removed.after.includes(id)),
+      `${removed.target} — ${removed.before.join(",")} → ${removed.after.join(",")}`);
+    check(`${theme}: the list drops that row and keeps the rest`,
+      removed.rowsLeft.length === 2 && !removed.rowsLeft.includes(removed.target),
+      removed.rowsLeft.join(","));
+    // The removal has to reach the picker itself, not just the panel.
+    check(`${theme}: the ring, the header and the card ticks all follow`,
+      removed.digit === "2" && /2 من 6 مختارة/.test(removed.title) && removed.ticked === 2,
+      `digit=${removed.digit} ticked=${removed.ticked} title="${removed.title}"`);
+    check(`${theme}: removing does not close the panel`, removed.stillOpen);
+
+    // Emptying it from inside must leave a usable panel, not a blank box, and
+    // «متابعة» must go with the last category.
+    const emptied = await page.evaluate(async () => {
+      for (let i = 0; i < 8; i++) {
+        const row = document.querySelector(".cat-peek-row");
+        if (!row) break;
+        row.click();
+        await new Promise(r => setTimeout(r, 260));
+      }
+      const el = document.getElementById("catPeek");
+      return {
+        selected: state.selected.size,
+        open: !el.hidden && el.classList.contains("show"),
+        empty: !!el.querySelector(".cat-peek-empty"),
+        subHidden: document.getElementById("catPeekSub").hidden,
+        goHidden: document.getElementById("catGoFloat").hidden,
+      };
+    });
+    check(`${theme}: the rows can empty the whole selection`, emptied.selected === 0, `${emptied.selected} left`);
+    check(`${theme}: an emptied panel says so instead of going blank`,
+      emptied.open && emptied.empty && emptied.subHidden,
+      `open=${emptied.open} empty=${emptied.empty} hintHidden=${emptied.subHidden}`);
+    check(`${theme}: «متابعة» leaves with the last category`, emptied.goHidden === true);
+
+    await page.evaluate(SET, 3);
+    await page.evaluate(async () => {
+      if (!document.getElementById("catPeek").classList.contains("show")) document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 350));
+    });
+
+    // A panel with no way out is a trap on a phone. Clicking its own chrome
+    // must NOT close it, or scrolling the list would dismiss it.
     const dismiss = await page.evaluate(async () => {
       const el = document.getElementById("catPeek");
-      el.querySelector(".cat-peek-row").click();
+      el.querySelector(".cat-peek-title").click();
       await new Promise(r => setTimeout(r, 300));
       const survivedOwnClick = !el.hidden && el.classList.contains("show");
       document.getElementById("categoryGrid").click();

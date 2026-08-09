@@ -623,35 +623,6 @@
       margin-bottom: 18px;
     }
 
-    /* «الأكثر لعباً» — a per-device play-history stat pill above the tabs.
-       Tapping it selects that category. Off the cards, so covers stay untouched. */
-    .cat-plays-stat {
-      min-height: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin: -2px auto 12px;
-      padding: 7px 14px;
-      border: 1.5px solid #e7b24a;
-      border-radius: 999px;
-      background: linear-gradient(180deg, #fff7e6, #fdeccb);
-      color: #8a5a12;
-      box-shadow: 0 2px 6px rgba(120, 70, 10, .12);
-      font-family: 'Cairo', sans-serif;
-      font-weight: 800;
-      font-size: clamp(12.5px, 2vw, 14px);
-      line-height: 1.2;
-      white-space: nowrap;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .cat-plays-stat[hidden] { display: none; }
-    .cat-plays-stat .cps-fire { font-size: 1.05em; filter: saturate(1.1); flex: none; }
-    .cat-plays-stat .cps-name { color: #6a3d06; }
-    .cat-plays-stat .cps-count { color: #b07a1c; font-variant-numeric: tabular-nums; }
-    .cat-plays-stat:active { transform: translateY(1px); }
-
     /* ── Grouped form panel — the canonical pattern (owner, .279) ──────────
        A dark inset card that groups a screen's form controls: segmented pill
        track, filled fields recessed into the panel, leading icons inside the
@@ -5350,8 +5321,27 @@
       margin: 0 0 8px; padding-bottom: 7px; font: 800 12.5px 'Cairo', sans-serif;
       color: #e7c373; border-bottom: 1px solid rgba(231, 195, 115, .22);
     }
-    .cat-peek-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-    .cat-peek-row { display: flex; align-items: center; gap: 8px; }
+    .cat-peek-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    /* Each row is a BUTTON that removes its category, so it needs the usual
+       button reset plus a real target height — these sit 4px apart and a
+       mis-tap deselects the wrong one. */
+    .cat-peek-row {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      min-height: 34px; padding: 3px 5px; margin: 0; border: 0; border-radius: 9px;
+      background: transparent; color: inherit; text-align: start; cursor: pointer;
+      font: inherit; transition: background .16s ease;
+    }
+    .cat-peek-row:hover, .cat-peek-row:focus-visible { background: rgba(231, 195, 115, .13); }
+    .cat-peek-row:active { background: rgba(231, 195, 115, .2); }
+    .cat-peek-x {
+      margin-inline-start: auto; flex: none; width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font: 700 12px 'Cairo', sans-serif; line-height: 1; color: #e0a5a9;
+      background: rgba(255, 112, 121, .16); border: 1px solid rgba(255, 112, 121, .3);
+    }
+    .cat-peek-row:hover .cat-peek-x, .cat-peek-row:focus-visible .cat-peek-x {
+      color: #fff; background: rgba(219, 22, 27, .8); border-color: rgba(255, 112, 121, .6);
+    }
     .cat-peek-dot {
       flex: none; width: 22px; height: 22px; border-radius: 7px;
       background-size: cover; background-position: center;
@@ -5362,6 +5352,8 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .cat-peek-empty { margin: 0; font: 700 12.5px 'Cairo', sans-serif; color: #bda97f; }
+    .cat-peek-sub { margin: -3px 0 7px; font: 700 11px 'Cairo', sans-serif; color: #a8916a; }
+    .cat-peek-sub[hidden] { display: none; }
     @media (prefers-reduced-motion: reduce) { .cat-peek { transition: none; } }
     body[data-screen="categories"] #catDock { display: flex; }
     .ccr {
@@ -7342,10 +7334,6 @@
        its dark background and took the muted text colour. Kept standalone. */
     :root[data-theme="dark"] .game-name-box { background: #331619; border-color: var(--dk-line); }
     :root[data-theme="dark"] .game-name-box label { color: var(--dk-muted); }
-    :root[data-theme="dark"] .cat-plays-stat {
-      background: linear-gradient(180deg, #3a2118, #2c1712); border-color: #a97f2c; color: #f0d9a8;
-    }
-    :root[data-theme="dark"] .cat-plays-stat .cps-name { color: #ffe9c4; }
 
     /* Screen headings / hints / eyebrows */
     :root[data-theme="dark"] .screen-title,
@@ -7757,6 +7745,7 @@
          ring's right edge, so it grows up-and-inward from the button. -->
     <div class="cat-peek" id="catPeek" role="dialog" aria-labelledby="catPeekTitle" hidden>
       <p class="cat-peek-title" id="catPeekTitle"></p>
+      <p class="cat-peek-sub" id="catPeekSub" hidden>اضغط على الفئة لإزالتها</p>
       <ul class="cat-peek-list" id="catPeekList"></ul>
     </div>
   </div>
@@ -8068,7 +8057,6 @@
         <!-- The counter ring used to sit here as a header block. It now floats
              beside «رجوع» (see #catDock, just before </body>) so the picker
              starts at the categories themselves. -->
-        <button class="cat-plays-stat" id="catPlaysStat" type="button" hidden></button>
         <!-- The grouped form panel (the owner's reference): tabs, name, search
              and the one CTA live INSIDE one dark inset panel, as filled fields
              rather than separate boxes floating on the page. -->
@@ -12325,7 +12313,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.283";
+    const IZZBAH_BUILD = "2026-08-09.284";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15374,55 +15362,6 @@
       return 0;
     }
     // ---- «الأكثر لعباً»: per-device category play history ------------------
-    // A tiny localStorage tally, +1 per selected category each time a game is
-    // FINISHED. It powers the play-history pill on the category picker and is
-    // purely local (no cloud, no rules change) — a personal "you play this a
-    // lot" nudge, never a leaderboard.
-    const CAT_PLAYS_KEY = "izzbah-cat-plays-v1";
-    function catPlayCounts() {
-      try {
-        const raw = localStorage.getItem(CAT_PLAYS_KEY);
-        const obj = raw ? JSON.parse(raw) : null;
-        return (obj && typeof obj === "object") ? obj : {};
-      } catch (e) { return {}; }
-    }
-    function bumpCategoryPlays(ids) {
-      try {
-        const counts = catPlayCounts();
-        [...(ids || [])].filter(Boolean).forEach(id => {
-          counts[id] = (counts[id] || 0) + 1;
-        });
-        localStorage.setItem(CAT_PLAYS_KEY, JSON.stringify(counts));
-      } catch (e) {}
-    }
-    // The single most-played category that still exists AND has questions.
-    function mostPlayedCategory() {
-      const counts = catPlayCounts();
-      let best = null;
-      Object.keys(counts).forEach(id => {
-        const n = counts[id];
-        if (!n || n <= 0) return;
-        const cat = categoryById(id);
-        if (!cat || !categoryHasQuestions(cat)) return;
-        if (!best || n > best.count) best = { id, count: n, cat };
-      });
-      return best;
-    }
-    function renderCatPlaysStat() {
-      const el = $("#catPlaysStat");
-      if (!el) return;
-      // Only meaningful on the game tab (community cards come and go), and only
-      // once the player actually has a most-played category on this device.
-      const best = state.categoryMode === "community" ? null : mostPlayedCategory();
-      if (!best) { el.hidden = true; el.innerHTML = ""; return; }
-      const name = best.cat.name || "فئة";
-      el.hidden = false;
-      el.innerHTML = `<span class="cps-fire" aria-hidden="true">🔥</span>`
-        + `<span>الأكثر لعباً: <b class="cps-name">«${escapeHtml(name)}»</b></span>`
-        + `<span class="cps-count clean-number">${toArabicDigits(best.count)}</span>`
-        + `<span>مرّة</span>`;
-      el.setAttribute("aria-label", `الأكثر لعباً: ${name}، ${best.count} مرّة. اضغط لاختيارها.`);
-    }
     // Shimmer placeholders shaped like category cards, shown while the cloud
     // pool is still loading so the grid never flashes an empty/blank state.
     function catSkeletonCards(n) {
@@ -15446,7 +15385,6 @@
     }
     function renderCategories() {
       renderPlayBalance(); // keep the top-left game-count badge current
-      renderCatPlaysStat(); // the per-device «الأكثر لعباً» pill
       const grid = $("#categoryGrid");
       const gameNameInput = $("#gameNameInput");
       if (gameNameInput) gameNameInput.value = state.currentGameName;
@@ -15735,6 +15673,8 @@
       if (!list || !title) return;
       const ids = [...state.selected];
       title.textContent = `${toArabicDigits(ids.length)} من ${toArabicDigits(CCR_MAX)} مختارة`;
+      const sub = document.getElementById("catPeekSub");
+      if (sub) sub.hidden = !ids.length; // nothing to remove, nothing to say
       if (!ids.length) {
         list.innerHTML = `<li class="cat-peek-empty">لم تختر أي فئة بعد</li>`;
         return;
@@ -15742,8 +15682,13 @@
       list.innerHTML = "";
       ids.forEach(id => {
         const cat = categoryById(id);
-        const row = document.createElement("li");
+        const label = (cat && cat.name) || id;
+        const item = document.createElement("li");
+        const row = document.createElement("button");
+        row.type = "button";
         row.className = "cat-peek-row";
+        row.dataset.id = id;
+        row.setAttribute("aria-label", `إزالة ${label}`);
         const dot = document.createElement("span");
         dot.className = "cat-peek-dot";
         // The cover is the fastest way to recognise a category, but question
@@ -15753,10 +15698,35 @@
         else dot.style.background = categoryColor(cat || {});
         const name = document.createElement("span");
         name.className = "cat-peek-name";
-        name.textContent = (cat && cat.name) || id;
-        row.append(dot, name);
-        list.appendChild(row);
+        name.textContent = label;
+        const x = document.createElement("span");
+        x.className = "cat-peek-x";
+        x.textContent = "✕";
+        x.setAttribute("aria-hidden", "true");
+        row.append(dot, name, x);
+        row.addEventListener("click", event => {
+          /* MUST stop here. The row re-renders itself away, so by the time the
+             click reached the document's outside-click handler the target would
+             be detached — `closest("#catPeek")` returns null for an orphan, and
+             the panel would close on every removal. */
+          event.stopPropagation();
+          deselectCategory(id);
+        });
+        item.appendChild(row);
+        list.appendChild(item);
       });
+    }
+    /* Removing a pick from the peek is the same operation as un-ticking its
+       card, so it goes through the same three steps — drop it from the
+       randomised set (it is a deliberate choice now, not a roll), persist, and
+       re-render, which refreshes the ring, «متابعة» and this list together. */
+    function deselectCategory(id) {
+      if (!state.selected.has(id)) return;
+      state.selected.delete(id);
+      if (state.randomizedCats) state.randomizedCats.delete(id);
+      state.pendingSharedGame = false; // the host has taken over the selection
+      saveGameSettings();
+      renderCategories();
     }
     function catPeekOpen() {
       const peek = document.getElementById("catPeek");
@@ -23638,7 +23608,6 @@
       if (!state.gameCounted) {
         state.gameCounted = true;
         recordGameStats(state.runCredit || "replay"); // tally this finished game + its categories (global insights)
-        bumpCategoryPlays(state.selected); // per-device «الأكثر لعباً» play history
         saveLiveGame(); // persist the "counted" flag so a resume can't re-record
       }
 
@@ -24452,17 +24421,6 @@
     });
     $("#gameCategoriesTab").addEventListener("click", () => setCategoryMode("game"));
     $("#communityCategoriesTab").addEventListener("click", () => setCategoryMode("community"));
-    // Tapping the «الأكثر لعباً» pill jumps straight to selecting that category.
-    $("#catPlaysStat").addEventListener("click", () => {
-      const best = mostPlayedCategory();
-      if (!best) return;
-      if (state.categoryMode !== "game") { setCategoryMode("game"); }
-      if (!state.selected.has(best.id) && state.selected.size < 6) state.selected.add(best.id);
-      renderCategories();
-      const card = [...document.querySelectorAll("#categoryGrid .category")]
-        .find(c => c.dataset && c.dataset.catId === best.id);
-      if (card) card.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
     $("#manageCustomFromCategories").addEventListener("click", () => openCommunityCategories());
     $("#randomCategories").addEventListener("click", randomizeCategories);
     (() => {
