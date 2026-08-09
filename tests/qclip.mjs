@@ -120,8 +120,19 @@ try {
     await page.close();
   }
 
-  // The last-resort behaviour: a question that cannot fit even at the floor has
-  // to remain reachable, not be silently truncated.
+  // The last-resort case, and the contract CHANGED here (owner, build .277).
+  //
+  // .218 made this box `overflow-y: auto` so a question the fitter could not
+  // shrink far enough would scroll rather than be silently truncated — the
+  // scrollbar was the safety net. The owner then saw that scrollbar in play and
+  // asked for it gone, which is only safe if the fitter genuinely always fits.
+  // It now does: a strict final pass shrinks on the REAL scrollHeight rather
+  // than the 0.6em-tolerant test, so `cut` is 0 by construction.
+  //
+  // So this asserts the property the scrollbar was standing in for — nothing is
+  // hidden — directly, which is strictly stronger than asking whether an escape
+  // hatch exists. A future change that clips text fails here whether or not it
+  // leaves overflow-y alone.
   {
     const page = await browser.newPage({ viewport: { width: 667, height: 375 } });
     await page.route("**/firebasejs/**", r => r.abort());
@@ -130,8 +141,33 @@ try {
     await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(1300);
     const m = await measure(page, "سؤال طويل جداً بلا نهاية ".repeat(60) + "؟");
-    check(`an unfittable question scrolls instead of being hidden (overflow-y: ${m.overflowY})`,
-      m.overflowY === "auto" || m.overflowY === "scroll");
+    // 1500 characters — about fourteen times the longest question in the live
+    // catalogue (109 chars across 3536 published questions, median 33). Nobody
+    // will see this; an admin could still type it.
+    check(`an absurd question is never silently truncated (${m.cut}px hidden, overflow-y: ${m.overflowY})`,
+      m.cut <= 0 || m.overflowY === "auto" || m.overflowY === "scroll");
+    check(`...and it stays readable rather than collapsing (${m.font}px)`, m.font >= 12);
+    await page.close();
+  }
+
+  // The case that actually matters: content LONGER than anything in the
+  // catalogue must fit outright — no scrollbar, nothing hidden. This is the
+  // owner's report (build .277); the fitter used to stop a few real pixels over
+  // because `overlaps()` tolerates 0.6em, and `overflow-y: auto` drew a
+  // scrollbar for those 3-8px.
+  {
+    const page = await browser.newPage({ viewport: { width: 667, height: 375 } });
+    await page.route("**/firebasejs/**", r => r.abort());
+    page.on("pageerror", e => errs.push(e.message));
+    await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(1300);
+    // 150 chars — comfortably past the real-world maximum of 109
+    const m2 = await measure(page, "في أي سنة تأسست الدولة البوسعيدية في عُمان على يد الإمام أحمد بن سعيد، وما المدينة التي اتخذها عاصمةً له بعد أن طرد الغزاة من البلاد كاملةً؟ اذكرهما");
+    check(`a longer-than-real question fits with no scrollbar (overflow-y: ${m2.overflowY})`,
+      m2.overflowY !== "auto" && m2.overflowY !== "scroll");
+    check(`...and nothing is hidden (${m2.cut}px)`, m2.cut <= 0);
+    check(`...at a readable size (${m2.font}px)`, m2.font >= 15);
     await page.close();
   }
 
