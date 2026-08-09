@@ -233,6 +233,32 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   category in memory has empty images that a publish must never write back.
   See the ⛔ section at the top before touching any code that publishes.
 
+- **The category counter is a RING (build .281).** «اختر فئاتك» used to carry a
+  text line reading «N / 6 مختارة». It is now `#catRing` (`.ccr`), driven by
+  the single entry point `setCategoryRing(count, overrideHint)`: an SVG arc
+  around the digit, gold while choosing, GREEN with a tick at six (`is-done`),
+  RED past six (`is-over`). `is-over` is unreachable by tapping — the picker
+  refuses a seventh — but a shared `#g=` link or a restored game can carry one,
+  so it must stay visually distinct from a completed six.
+  ⚠️ The driver holds its OWN copy of the circumference (`CCR_CIRC = 150.8`,
+  = 2πr for the `r="24"` circle) and fills the arc by shortening
+  `stroke-dashoffset` against the `stroke-dasharray` in the markup. Edit the
+  radius or the dash-array alone and the arc still animates smoothly, still
+  looks plausible, and simply fills to the WRONG fraction while the digit keeps
+  reading correctly. `tests/catring.mjs` pins the offset per count, in both
+  themes, and asserts the three agree.
+  ⚠️ `toArabicDigits` is an IDENTITY function (`value => String(value)`, around
+  line 8845) — the game deliberately shows Western digits everywhere. Do not
+  "fix" a counter that returns `0` instead of `٠`; do not hand-write `٦` in a
+  string beside a `toArabicDigits()` call either, or the two disagree the day
+  it stops being an identity.
+  ⚠️ Two traps in testing this, both of which produce a green-looking test that
+  measures nothing: `page.evaluate` given a FUNCTION-AS-STRING with no argument
+  returns the function rather than calling it (every field comes back
+  `undefined`), and `body` is transparent — the page colour is a
+  `radial-gradient`, so `backgroundColor` reads `rgba(0,0,0,0)` and any contrast
+  check against it silently compares with pure black.
+
 - **«أربعة خيارات» can be switched off per category (build .218).** The admin
   category head has «🚫 تعطيل «أربعة خيارات»» next to «إخفاء الفئة». It is
   GLOBAL and reversible, keyed by category id in **`config/noChoices`**
