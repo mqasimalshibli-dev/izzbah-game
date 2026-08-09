@@ -5310,6 +5310,113 @@
     .settings-label small { font-weight: 600; font-size: 11.5px; color: #6a4e1a; }
     .settings-chev { color: #9a6a2e; font-size: 22px; font-weight: 800; flex: none; }
     .settings-state { color: #7a6738; font: 800 13px 'Cairo', sans-serif; flex: none; }
+    /* the toggle rows are no longer buttons themselves — the switch inside is */
+    .settings-row-toggle { cursor: default; }
+    .settings-row-toggle:hover { background: inherit; }
+
+    /* ── Glass toggle ────────────────────────────────────────────────────────
+       A frosted pill with a lens knob that slides, carrying its icon, while the
+       WORD beside it swaps — «فاتح»/«داكن», «مفعّل»/«مكتوم». Reusable: give a
+       <button class="izz-toggle"> a data-on / data-off pair and drive it with
+       setToggle().
+
+       The reference is a grey glass design; this is the same construction in
+       عِزبة's own palette — warm cream and gold on the light side, deep maroon
+       and gold on the dark. Nothing here is a colour the app did not already
+       use, so it reads as part of the game rather than as a pasted-in widget.
+
+       The label sits OPPOSITE the knob and both are absolutely placed, so the
+       pill's width never changes as the words swap — «مفعّل» and «مكتوم» are
+       different widths and a reflowing switch looks broken mid-slide. */
+    .izz-toggle {
+      --tw: 96px; --th: 40px; --knob: 32px;
+      /* the sheet is RTL, so inline-start is the RIGHT edge and the knob has to
+         travel in -x to reach the far end. One flip here keeps every other
+         offset in this block logical. */
+      --izz-dir: -1;
+      position: relative; flex: none; width: var(--tw); height: var(--th);
+      border-radius: 999px; cursor: pointer; padding: 0; overflow: hidden;
+      background: linear-gradient(180deg, rgba(255, 250, 238, .72), rgba(238, 220, 186, .62));
+      border: 1px solid rgba(176, 138, 64, .42);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), inset 0 -2px 6px rgba(140, 106, 46, .16),
+                  0 4px 12px rgba(120, 80, 20, .14);
+      -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2);
+      transition: background .32s ease, border-color .32s ease, box-shadow .32s ease;
+    }
+    .izz-toggle .izz-knob {
+      position: absolute; top: 50%; inset-inline-start: 4px;
+      width: var(--knob); height: var(--knob); margin-top: calc(var(--knob) / -2);
+      border-radius: 50%; display: grid; place-items: center; font-size: 15px; line-height: 1;
+      /* the speaker SVG inherits this; on the pale gold knob the game's own
+         dark brown reads far better than pure black */
+      color: #4a2f10;
+      background: radial-gradient(circle at 32% 28%, #fffdf6, #f2e0bc 60%, #d9bd84 100%);
+      box-shadow: 0 2px 6px rgba(90, 60, 15, .35), inset 0 1px 0 rgba(255, 255, 255, .95),
+                  inset 0 -2px 4px rgba(150, 110, 40, .22);
+      transition: transform .32s cubic-bezier(.4, 1.4, .5, 1), background .32s ease;
+      /* the knob rides the WRITING direction, so it works unchanged in RTL */
+      transform: translateX(0);
+    }
+    .izz-toggle .izz-word {
+      position: absolute; inset-block: 0; inset-inline-end: 0;
+      inset-inline-start: calc(var(--knob) + 8px);
+      display: grid; place-items: center;
+      font: 800 13px 'Cairo', sans-serif; color: #6b5320; letter-spacing: .2px;
+      transition: color .32s ease;
+    }
+    /* ON = the second state (dark / muted): the knob travels to the far end and
+       the word moves to the side it vacated. */
+    .izz-toggle[aria-pressed="true"] {
+      background: linear-gradient(180deg, rgba(58, 22, 26, .82), rgba(34, 12, 15, .88));
+      border-color: rgba(231, 195, 115, .5);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 -2px 6px rgba(0, 0, 0, .45),
+                  0 4px 14px rgba(0, 0, 0, .38);
+    }
+    .izz-toggle[aria-pressed="true"] .izz-knob {
+      color: #3a2410;
+      transform: translateX(calc((var(--tw) - var(--knob) - 8px) * var(--izz-dir, 1)));
+      background: radial-gradient(circle at 32% 28%, #fff6dd, #e7c373 58%, #b8862b 100%);
+    }
+    .izz-toggle[aria-pressed="true"] .izz-word {
+      inset-inline-start: 0; inset-inline-end: calc(var(--knob) + 8px);
+      color: #f3dcae;
+    }
+    .izz-toggle:hover { filter: brightness(1.04); }
+    .izz-toggle:active .izz-knob { scale: .94; }
+    .izz-toggle:focus-visible { outline: 2px solid var(--gold, #e7c373); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      .izz-toggle, .izz-toggle .izz-knob, .izz-toggle .izz-word { transition: none; }
+    }
+    /* Dark sheet, UNPRESSED. Without this the off state kept its cream glass and
+       a sound-is-on switch sat as a pale slab on a dark settings sheet, next to
+       a theme switch that had gone dark — two controls of the same kind looking
+       like different components. The two states still separate clearly: this
+       track is lighter than the pressed one below it. */
+    :root[data-theme="dark"] .izz-toggle {
+      background: linear-gradient(180deg, rgba(104, 62, 54, .58), rgba(74, 42, 38, .64));
+      border-color: rgba(231, 195, 115, .38);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 -2px 6px rgba(0, 0, 0, .34),
+                  0 4px 12px rgba(0, 0, 0, .3);
+    }
+    :root[data-theme="dark"] .izz-toggle .izz-word { color: #f0dcae; }
+    :root[data-theme="dark"] .izz-toggle .izz-knob {
+      background: radial-gradient(circle at 32% 28%, #fff8e6, #f0d9a6 60%, #c9a45c 100%);
+    }
+    /* The dark PRESSED state needs this explicitly. `:root[data-theme="dark"]
+       .izz-toggle` scores (0,3,0) and `.izz-toggle[aria-pressed="true"]` only
+       (0,2,0), so the dark unpressed rule above was overriding the pressed one
+       and both states rendered identically on a dark sheet — the switch looked
+       stuck. aria-pressed was still correct, so only a paint-level check finds
+       this. */
+    :root[data-theme="dark"] .izz-toggle[aria-pressed="true"] {
+      background: linear-gradient(180deg, rgba(46, 16, 20, .92), rgba(24, 8, 11, .95));
+      border-color: rgba(231, 195, 115, .62);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -2px 7px rgba(0, 0, 0, .6),
+                  0 4px 14px rgba(0, 0, 0, .45);
+    }
+    :root[data-theme="dark"] .izz-toggle[aria-pressed="true"] .izz-knob {
+      background: radial-gradient(circle at 32% 28%, #fff6dd, #e7c373 58%, #b8862b 100%);
+    }
     .settings-redeem { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 2px 0 10px; }
     .settings-redeem .redeem-label { color: #6a5a2f; }
     /* ---- Paywall: available plans ---- */
@@ -7444,8 +7551,8 @@
         <button class="secondary redeem-btn" id="redeemBtnSettings" type="button">تفعيل</button>
       </div>
       <div class="settings-section">إعدادات اللعبة</div>
-      <button class="settings-row" id="settingsTheme" type="button"><span class="settings-ico" aria-hidden="true">🌙</span><span class="settings-label">المظهر</span><span class="settings-state" id="settingsThemeState"></span></button>
-      <button class="settings-row" id="settingsSound" type="button"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><span class="settings-state" id="settingsSoundState"></span></button>
+      <div class="settings-row settings-row-toggle"><span class="settings-ico" aria-hidden="true">🌙</span><span class="settings-label">المظهر</span><button class="izz-toggle" id="settingsTheme" type="button" role="switch" aria-pressed="false" aria-label="المظهر"><span class="izz-knob" id="settingsThemeIcon" aria-hidden="true">☀️</span><span class="izz-word" id="settingsThemeState"></span></button></div>
+      <div class="settings-row settings-row-toggle"><span class="settings-ico" aria-hidden="true">🔊</span><span class="settings-label">الصوت</span><button class="izz-toggle" id="settingsSound" type="button" role="switch" aria-pressed="false" aria-label="الصوت"><span class="izz-knob" id="settingsSoundIcon" aria-hidden="true">🔊</span><span class="izz-word" id="settingsSoundState"></span></button></div>
       <button class="settings-row" id="settingsShare" type="button"><span class="settings-ico" aria-hidden="true">🔗</span><span class="settings-label">شارك اللعبة مع أصحابك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <button class="settings-row" id="settingsInstall" type="button"><span class="settings-ico" aria-hidden="true">📲</span><span class="settings-label">أضف اللعبة إلى شاشتك</span><span class="settings-chev" aria-hidden="true">‹</span></button>
       <div class="settings-section">الأخبار والدعم</div>
@@ -11979,7 +12086,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-08.277";
+    const IZZBAH_BUILD = "2026-08-09.278";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -20452,6 +20559,36 @@
     }
 
     // ---- User settings / account sheet (top-right button) ------------------
+    /* Drive a .izz-toggle: the pressed state, the word beside the knob, and the
+       knob's own icon. `icon` may be an emoji or an SVG string — the sound
+       switch uses a real speaker glyph (the emoji 🔇 renders as a different
+       size and colour on every platform, and at 15px inside the knob that was
+       visibly inconsistent), while the theme switch keeps ☀️/🌙 because those
+       two read better in colour. */
+    const IZZ_SPEAKER_ON =
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<path fill="currentColor" d="M4 9h3.1L12 5v14l-4.9-4H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"/>' +
+      '<path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M15.6 8.9a4.4 4.4 0 0 1 0 6.2"/>' +
+      '<path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M18.2 6.4a8 8 0 0 1 0 11.2"/></svg>';
+    const IZZ_SPEAKER_OFF =
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<path fill="currentColor" d="M4 9h3.1L12 5v14l-4.9-4H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"/>' +
+      '<path fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" d="M4 4l16 16"/></svg>';
+
+    function setToggle(id, on, word, icon) {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      const w = btn.querySelector(".izz-word");
+      if (w) w.textContent = word;
+      const k = btn.querySelector(".izz-knob");
+      if (!k) return;
+      // an SVG goes in as markup; anything else is text, so a label can never
+      // be injected as HTML
+      if (typeof icon === "string" && icon.startsWith("<svg")) k.innerHTML = icon;
+      else k.textContent = icon;
+    }
+
     function renderSettingsSheet() {
       // Account block: signed-in shows email/id + sign-out; else a sign-in CTA.
       const acc = $("#settingsAccount");
@@ -20475,10 +20612,14 @@
       }
       const bal = $("#settingsBalance");
       if (bal) bal.textContent = "🎟️ " + playBalanceSummary();
-      const ss = $("#settingsSoundState");
-      if (ss) ss.textContent = soundOn ? "مفعّل" : "مكتوم";
-      const ts = $("#settingsThemeState");
-      if (ts) ts.textContent = (state.theme === "dark") ? "🌙 داكن" : "☀️ فاتح";
+      /* The switch's "on" is its SECOND state — muted, dark — so the knob sits
+         at the far end for the thing the row is turned away from. The word and
+         the knob icon both change with it; that is the whole point of this
+         control over a plain row with a value on the end. */
+      setToggle("settingsSound", !soundOn, soundOn ? "مفعّل" : "مكتوم",
+        soundOn ? IZZ_SPEAKER_ON : IZZ_SPEAKER_OFF);
+      const dark = state.theme === "dark";
+      setToggle("settingsTheme", dark, dark ? "داكن" : "فاتح", dark ? "🌙" : "☀️");
       // «إبلاغ» row: always available. It carries a quiet count when the player
       // has hidden community categories, because the undo for that now lives
       // inside the report sheet rather than in a row of its own.
