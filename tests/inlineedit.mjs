@@ -340,6 +340,27 @@ try {
   const bulkUndoSel = await page.evaluate(async () => { undoAdminStep(); await new Promise(r => setTimeout(r, 150)); return state.adminCat.questions.length; });
   check("undo restores the bulk-deleted questions", bulkUndoSel === 4);
 
+  // A freshly-opened panel has no category, and renderAdminTable (the only
+  // thing that disables the button) has not run yet — so the button LOOKS live.
+  // It must explain itself rather than swallow the tap.
+  const noCat = await page.evaluate(async () => {
+    const keep = state.adminCat;
+    state.adminCat = null; state.adminSelected = new Set();
+    renderAdminTable();
+    const toast = document.getElementById("appToast");
+    toast.classList.remove("show");
+    const btn = document.getElementById("adminSelectAll");
+    const wasDisabled = btn.disabled;
+    btn.disabled = false;   // the fresh-panel state: renderAdminTable has not run
+    btn.click();
+    await new Promise(r => setTimeout(r, 150));
+    const out = { wasDisabled, shown: toast.classList.contains("show"), text: toast.textContent, picked: state.adminSelected.size };
+    state.adminCat = keep; renderAdminTable();
+    return out;
+  });
+  check("select-all with no category chosen says so instead of doing nothing",
+    noCat.wasDisabled && noCat.shown && /اختر فئة/.test(noCat.text) && noCat.picked === 0);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
