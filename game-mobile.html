@@ -1301,51 +1301,106 @@
       box-shadow: 0 8px 18px rgba(140, 106, 46, .18);
     }
 
+    /* The turn pill (owner's design). A deep maroon lozenge carrying the team's
+       PHOTO in a gold ring, the label, and a swap control. The photo replaces
+       the reference's initial letter — the game already gives every team a
+       picture, and a face is read faster across a table than a letter. */
     .turn-box {
+      position: relative;
       justify-self: end;
       min-width: 230px;
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      gap: 10px;
+      gap: 12px;
       direction: rtl;
-      padding: 8px 14px;
-      border: 3px solid rgba(255, 255, 255, .86);
+      padding: 9px 10px 9px 12px;
+      border: 0;
       border-radius: 999px;
       color: white;
-      background: rgba(255, 255, 255, .1);
-      box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .12);
+      overflow: hidden;
+      background: linear-gradient(200deg, #9d2340 0%, #7c1630 46%, #5a0d21 100%);
+      box-shadow:
+        0 10px 24px -10px rgba(90, 13, 33, .65),
+        inset 0 0 0 1px rgba(255, 255, 255, .26),
+        inset 0 1px 0 rgba(255, 255, 255, .18),
+        inset 0 -2px 6px rgba(0, 0, 0, .28);
+    }
+    /* A slow highlight sweep, so the pill reads as the live element on the bar. */
+    .turn-sheen {
+      position: absolute; top: 0; bottom: 0; width: 38%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .16), transparent);
+      animation: turn-sheen 4.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes turn-sheen {
+      0% { transform: translateX(-140%) skewX(-18deg); }
+      55%, 100% { transform: translateX(240%) skewX(-18deg); }
     }
 
     .turn-switch {
-      width: 34px;
-      height: 34px;
+      position: relative;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       display: grid;
       place-items: center;
       flex: 0 0 auto;
-      background: rgba(255, 255, 255, .18);
-      color: white;
-      border: 2px solid rgba(255, 255, 255, .78);
-      box-shadow: none;
+      margin-inline-start: auto;
+      background: rgba(255, 255, 255, .1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, .28);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22);
       padding: 0;
       min-height: 0;
-      font-size: 18px;
-      line-height: 1;
+      transition: transform .12s, background .18s;
     }
+    .turn-switch svg { width: 19px; height: 19px; }
+    .turn-switch:hover { background: rgba(255, 255, 255, .2); }
+    .turn-switch:active { transform: scale(.9); }
 
+    .turn-avatar {
+      position: relative;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+    }
     .turn-photo,
     .turn-box .default-avatar {
-      width: 42px;
-      height: 42px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, .9);
-      background: white;
+      border: 0;
+      background: linear-gradient(160deg, #f0d9a8, #c9a15c);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 4px 10px rgba(0, 0, 0, .35);
       overflow: hidden;
       flex: 0 0 auto;
     }
 
     .turn-photo { object-fit: cover; }
+
+    /* Hand-over. The name slides in from the leading edge while the photo pops,
+       so a change of turn is visible from across the room even if nobody is
+       watching the pill at that moment. */
+    .turn-changed .turn-label strong {
+      animation: turn-name-in .34s cubic-bezier(.16, 1, .3, 1) both;
+    }
+    .turn-changed .turn-avatar {
+      animation: turn-face-in .42s cubic-bezier(.34, 1.56, .64, 1) both;
+    }
+    @keyframes turn-name-in {
+      from { transform: translateX(-26px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+    @keyframes turn-face-in {
+      from { transform: scale(.7) rotate(14deg); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .turn-sheen { animation: none; }
+      .turn-changed .turn-label strong,
+      .turn-changed .turn-avatar { animation: none; }
+    }
 
     .turn-label {
       display: grid;
@@ -1354,13 +1409,25 @@
       line-height: 1.1;
     }
 
+    .turn-label {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
     .turn-label small {
-      font-size: 16px;
-      opacity: .82;
+      font: 500 12px/1 'Cairo', sans-serif;
+      color: rgba(255, 255, 255, .62);
+      letter-spacing: .02em;
+      opacity: 1;
     }
 
     .turn-label strong {
-      font-size: 24px;
+      display: block;
+      font: 800 21px/1.25 'Cairo', sans-serif;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .3);
     }
 
     .game-watermark {
@@ -2654,13 +2721,20 @@
       .turn-switch {
         width: 30px;
         height: 30px;
-        font-size: 16px;
       }
+      .turn-switch svg { width: 15px; height: 15px; }
+      /* Compact pill. The 2px white ring is drawn INSIDE the circle here: as an
+         outer box-shadow it added 4px to the photo's footprint, which pushed a
+         34px avatar to 48px inside a 42px pill and left it straddling the top
+         edge. */
       .turn-photo,
       .turn-box .default-avatar {
-        width: 34px;
-        height: 34px;
+        width: 32px;
+        height: 32px;
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85);
       }
+      .turn-label small { font-size: 10px; }
+      .turn-label strong { font-size: 15px; }
       .turn-label small { font-size: 13px; }
       .turn-label strong { font-size: 20px; }
       .game-screen { overflow: hidden; }
@@ -2837,49 +2911,45 @@
         border-radius: 999px;
         font-size: 15px;
       }
+      /* Short landscape: the SAME pill, scaled down. This used to be a
+         two-row grid that placed .turn-photo and .turn-switch at explicit
+         coordinates — a layout that silently comes apart the moment the markup
+         changes, which is exactly what happened when the photo gained a
+         wrapper. One flex row has no such coupling. */
       .turn-box,
       .turn-pill,
       .question-page .topbar .turn-box {
         grid-column: 3;
         grid-row: 1;
         min-width: 0;
-        max-width: 164px;
+        max-width: 200px;
         height: 42px;
-        padding: 2px 5px;
-        font-size: 9px;
+        padding: 4px 5px 4px 8px;
         line-height: 1;
-        border-width: 1px;
-        gap: 2px 4px;
+        gap: 7px;
         transform: translateY(-5px);
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        grid-template-rows: auto auto;
+        display: flex;
         align-items: center;
-        justify-content: end;
-        direction: ltr;
+        justify-content: flex-start;
+        direction: rtl;
       }
       .turn-switch {
-        grid-column: 3;
-        grid-row: 2;
-        width: 22px;
-        height: 22px;
-        font-size: 11px;
+        width: 24px;
+        height: 24px;
         transform: none;
       }
+      .turn-switch svg { width: 13px; height: 13px; }
       .turn-photo,
+      .turn-box .default-avatar,
       .question-page .topbar .turn-photo,
       .question-page .topbar .default-avatar {
-        grid-column: 2;
-        grid-row: 2;
-        width: 17px;
-        height: 17px;
+        width: 28px;
+        height: 28px;
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85);
       }
       .turn-label {
-        grid-column: 1;
-        grid-row: 1 / 3;
-        display: grid;
-        grid-template-rows: auto auto;
-        justify-items: end;
+        display: block;
+        flex: 1 1 auto;
         padding-left: 0;
         direction: rtl;
         min-width: 0;
@@ -2893,9 +2963,9 @@
         line-height: 1;
       }
       .turn-label strong {
-        font-size: 9px;
-        line-height: 1.05;
-        max-width: 72px;
+        font-size: 13px;
+        line-height: 1.15;
+        max-width: 110px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -5194,7 +5264,11 @@
       color: #e7c373; backdrop-filter: blur(4px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
       transition: transform .18s ease, background .18s ease, color .18s ease;
-      padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
+      /* The safe area is cleared with MARGIN, not padding. Adding it to
+         padding-bottom kept the pill's width but grew its height by the home
+         indicator's ~34px, so on those phones «رجوع» rendered as a circle
+         instead of the oval it is everywhere else. */
+      margin-bottom: env(safe-area-inset-bottom, 0px);
     }
     #globalBack:hover { background: rgba(231, 195, 115, .2); color: #fbe9a8; transform: translateY(-1px); }
     #globalBack:active { transform: translateY(1px); }
@@ -5702,11 +5776,10 @@
     #game .topbar-right .report-btn svg { width: 56%; height: 56%; display: block; }
     #game .topbar-right .report-btn:hover { filter: brightness(1.12); }
     #game .topbar-right .report-btn:active { transform: scale(.94); }
-    #game .turn-box {
-      background: rgba(255, 255, 255, .13) !important;
-      border: 1px solid rgba(255, 255, 255, .36) !important;
-      color: #fff !important; border-radius: 999px !important;
-    }
+    /* The pill keeps its own maroon gradient here. This rule used to repaint it
+       translucent-white, which silently undid the design on the one screen it
+       matters most — the board. */
+    #game .turn-box { color: #fff !important; border-radius: 999px !important; }
     #game .score-box {
       position: relative;
       background: transparent !important;
@@ -5733,7 +5806,7 @@
 
     #game .board-category-card {
       position: relative !important; isolation: isolate;
-      display: block !important; justify-content: flex-end;
+      display: flex !important; flex-direction: column; justify-content: flex-end;
       border-radius: 24px !important; border: 2px solid #c89a4e !important; overflow: hidden !important;
       box-shadow: 0 2px 0 rgba(255, 255, 255, .12) inset, 0 24px 40px -22px rgba(40, 20, 10, .6) !important;
       background-color: var(--cat-bg, #1a0306);
@@ -6247,10 +6320,17 @@
       text-shadow: 0 2px 4px rgba(0, 0, 0, .4);
     }
     /* turn pill */
+    /* Same pill, tighter. Background and border are left to the component so the
+       gradient survives here too; only the metrics are trimmed for the topbar. */
     #questionPage .turn-box, #answerPage .turn-box {
-      min-width: 0 !important; background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .28) !important;
-      border-radius: 999px !important; box-shadow: none !important; padding: 6px 10px !important; gap: 9px !important;
+      min-width: 0 !important; border-radius: 999px !important; padding: 6px 8px 6px 10px !important; gap: 9px !important;
     }
+    #questionPage .turn-photo, #answerPage .turn-photo,
+    #questionPage .turn-box .default-avatar, #answerPage .turn-box .default-avatar {
+      width: 34px; height: 34px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85);
+    }
+    #questionPage .turn-switch, #answerPage .turn-switch { width: 30px; height: 30px; }
+    #questionPage .turn-switch svg, #answerPage .turn-switch svg { width: 15px; height: 15px; }
     #questionPage .turn-label small, #answerPage .turn-label small { font: 600 11px 'Cairo', sans-serif; opacity: .82; }
     #questionPage .turn-label strong, #answerPage .turn-label strong { font: 800 18px 'Cairo', sans-serif; }
 
@@ -6636,8 +6716,13 @@
       padding: 4px 22px; box-shadow: 0 4px 12px rgba(120, 40, 30, .1); min-width: 1.5em; text-align: center;
     }
     /* answer text + eyebrow + underline */
+    /* ONE size for the answer, published as a variable because the question
+       fitter reads it as its ceiling — the owner asked repeatedly for the
+       question to be no bigger than the answer, and two hard-coded clamps in
+       different rules is exactly how that drifts apart again. */
+    :root { --answer-size: clamp(36px, 5.2vw, 58px); }
     #answerPage #modalAnswer {
-      font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: clamp(36px, 5.2vw, 58px) !important;
+      font-family: 'Lalezar', cursive !important; font-weight: 400 !important; font-size: var(--answer-size) !important;
       line-height: 1.15 !important; color: #1f5237 !important; text-align: center;
     }
     #answerPage #modalAnswer::before {
@@ -6754,7 +6839,7 @@
       #questionPage .qhint-frag {
         font-size: clamp(20px, 6vh, 38px) !important; padding: 2px 16px !important; border-radius: 10px !important;
       }
-      #answerPage #modalAnswer { font-size: clamp(20px, 5.4vh, 40px) !important; }
+      :root { --answer-size: clamp(20px, 5.4vh, 40px); }
       #questionPage .question-main-card.has-image .question-text { font-size: clamp(16px, 4.3vh, 32px) !important; }
       #answerPage #modalAnswer::before { font-size: 11px !important; margin-bottom: 6px !important; }
       #answerPage #modalAnswer::after { margin-top: 8px !important; }
@@ -12353,7 +12438,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.288";
+    const IZZBAH_BUILD = "2026-08-09.289";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14214,7 +14299,27 @@
         return false;
       };
       const MIN = 15;
+      /* The question is never bigger than the ANSWER. Asked for repeatedly, and
+         previously only approximated by a fill ratio and a 220px ceiling, which
+         still let a short clue render several times the answer's size.
+         Resolved through a probe because --answer-size is a clamp(): reading
+         the custom property gives back the clamp text, not the px it computes
+         to at this viewport. */
+      const answerCap = (() => {
+        const probe = document.createElement("span");
+        probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;font-size:var(--answer-size)";
+        document.body.appendChild(probe);
+        const px = parseFloat(getComputedStyle(probe).fontSize) || 0;
+        probe.remove();
+        return px > 0 ? px : 58;
+      })();
       let size = parseFloat(getComputedStyle(el).fontSize) || 40;
+      // The stylesheet starts the question ABOVE the answer's size, so come down
+      // to the cap before any fitting — growth and shrink both work from there.
+      if (size > answerCap) {
+        size = answerCap;
+        el.style.setProperty("font-size", size + "px", "important");
+      }
       // GROW a short clue to FILL the card (no picture questions only — an image
       // question shares the card with a flex:1 image and must not crowd it out).
       // The text box is flex:0, so enlarging it only eats the card's own slack;
@@ -14254,7 +14359,13 @@
       // on `text-only` alone missed it — an emoji card is never marked
       // text-only — so it grew unchecked to the 220px ceiling and overflowed
       // the card. That is «معنـى الايموجي», whose questions carry no emoji.
-      const FILL = hasImage ? 0.30 : 0.25;
+      /* 0.25 was the owner's value from 2026-08-04, chosen when nothing else
+         bounded the size and the question could grow to fill the card. The
+         answer cap above now does that job in absolute terms, and at 0.25 this
+         ratio became the binding limit instead — pulling a short question BELOW
+         the answer it belongs to. Raised so it only catches genuine domination;
+         the cap decides the size. */
+      const FILL = hasImage ? 0.30 : 0.36;
       const capFill = !!qcard
         && (hasImage || (!emojiLine && (qcard.classList.contains("text-only")
           || qcard.classList.contains("emoji-q"))));
@@ -14264,7 +14375,7 @@
         return cardH > 0 && el.getBoundingClientRect().height > cardH * FILL;
       };
       if (canGrow && !overlaps()) {
-        const MAXG = 220; // absolute ceiling so a one-word clue can't go absurd
+        const MAXG = answerCap; // never larger than the answer it belongs to
         let grow = 60;
         while (grow-- > 0 && size < MAXG) {
           const next = size + 2;
@@ -21938,11 +22049,25 @@
       const team = activeTeams[state.activeTeam] || activeTeams[0] || {};
       const displayName = teamDisplayName(team, state.activeTeam || 0);
       document.querySelectorAll("[data-turn-box]").forEach(box => {
+        /* Order matters: this is an RTL row, so the AVATAR must come first to
+           sit on the right, with «تبديل الدور» at the far left. The sheen and
+           the swap animation are decoration and are marked aria-hidden. */
         box.innerHTML = `
-          <button class="turn-switch" data-turn-switch title="تبديل الدور" aria-label="تبديل الدور">⇄</button>
-          ${teamAvatarHtml(team, state.activeTeam || 0, "turn-photo")}
+          <span class="turn-sheen" aria-hidden="true"></span>
+          <span class="turn-avatar">${teamAvatarHtml(team, state.activeTeam || 0, "turn-photo")}</span>
           <span class="turn-label"><small>دور الفريق</small><strong>${escapeHtml(displayName)}</strong></span>
+          <button class="turn-switch" data-turn-switch title="تبديل الدور" aria-label="تبديل الدور">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 0 0-4 4"/>
+              <path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 0 0 4-4"/>
+            </svg>
+          </button>
         `;
+        // Replay the hand-over animation on every change of turn.
+        box.classList.remove("turn-changed");
+        void box.offsetWidth;
+        box.classList.add("turn-changed");
       });
     }
 

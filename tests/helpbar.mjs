@@ -109,8 +109,14 @@ try {
   // overflow forever, and every question — three words or thirty — was driven
   // to 15px and then cut off by the card's `overflow: hidden`. Pin the floor
   // explicitly so it can never silently come back.
+  /* 40px was right while the question could grow freely. Since .289 it is
+     capped at the ANSWER's size, and the help bar's reserved strip narrows the
+     text column enough that a short question wraps and fits below that cap — so
+     a fixed 40 now fails a perfectly good render. What this canary is really
+     for is the .218 bug, where EVERY question was driven to the 15px floor and
+     clipped; a floor-relative bound still catches that outright. */
   check(`phone: a short question is rendered at readable size, not the floor (${short.size}px)`,
-    short.size >= 40);
+    short.size >= 22);
   check(`phone: a short question is never shrunk more than a long one (${short.size}px ≥ ${fit.size}px)`,
     short.size >= fit.size);
 
