@@ -318,6 +318,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emojis.mjs
 
+      - name: Run emoji-question image test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node emojiimage.mjs
+
       - name: Run emoji flat-200 scoring test
         working-directory: tests
         run: |
