@@ -6051,7 +6051,7 @@
        NOTE: no `flex` — forcing flex:1 made the text fight a flex:1 question
        IMAGE and vanish. */
     #questionPage .question-main-card .question-text {
-      min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      min-height: 0; overflow: hidden; overscroll-behavior: contain;
       width: 100%;
       /* Room for the ink. Cairo's Arabic descenders (ج ح ع م) reach below the
          line box, so without this the box is shorter than what it draws: the
@@ -11979,7 +11979,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-08.276";
+    const IZZBAH_BUILD = "2026-08-08.277";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13454,9 +13454,15 @@
       if (state.randomizedCats) state.randomizedCats.clear();
       if (typeof saveGameSettings === "function") saveGameSettings();
       state.categoryMode = "game";
-      showScreen("categories");
-      if (typeof renderCategories === "function") renderCategories();
-      if (typeof showToast === "function") showToast(`فئات «${set.name}» جاهزة — عدّلها أو تابع`);
+      /* Straight to the team-name screen (owner, build .277). A ready-made set
+         has already made the only choice the category screen offers, so landing
+         there asked the player to re-approve a decision they made by tapping
+         «ابدأ بهذه المجموعة» — one screen of nothing to do before naming teams.
+         «رجوع» from setup returns to the library the set was picked from, not
+         to the category picker, which was never part of this route. */
+      state.setupReturn = "gameLibrary";
+      showScreen("setup");
+      if (typeof showToast === "function") showToast(`فئات «${set.name}» جاهزة — سمِّ فرقك وابدأ`);
     }
 
     // --- Admin: recommended-set editor («الألعاب المقترحة») ---
@@ -13797,6 +13803,7 @@
       // shrink-only fitter has always relied on.
       const qcard = document.querySelector("#questionPage .question-main-card");
       el.style.removeProperty("font-size");
+      el.style.removeProperty("overflow-y");   // re-measure without last pass's scrollbar
       const emojiLine = el.querySelector(".q-emojis");
       if (emojiLine) emojiLine.style.removeProperty("font-size");
       const overlaps = () => {
@@ -13895,7 +13902,9 @@
       // stops mattering — at that point the question is long, and making it
       // smaller still buys nothing but strain.
       const FLOOR = 22;
-      let guard = 30;
+      // 30 was not enough to reach MIN: at 2px a step, an 80px start bottoms
+      // out at 20px and the loop exits still overflowing.
+      let guard = 60;
       while (guard-- > 0 && size > MIN && (overlaps() || (size > FLOOR && tooTall()))) {
         size = Math.max(MIN, size - 2);
         el.style.setProperty("font-size", size + "px", "important");
@@ -13922,6 +13931,50 @@
           el.style.setProperty("font-size", size + "px", "important");
         }
       }
+
+      /* FINAL STRICT PASS — the one that makes the scrollbar impossible.
+         `overlaps()` above tolerates up to 0.6em, on purpose: Cairo's Arabic
+         descenders (ج ح ع م) used to read as permanent overflow and drove every
+         question to the floor (.218). But the tolerance cuts both ways — the
+         loop happily stops a few real pixels over, and `overflow-y: auto` drew
+         a scrollbar for exactly that. Measured: 3px over on a desktop picture
+         question, 8px on a long emoji clue on a 320px phone.
+
+         The `padding-block: .26em` added in .218 already reserves room for the
+         ink, so with it in place a question that genuinely fits reports
+         scrollHeight === clientHeight exactly (verified across 20
+         viewport/length combinations). That makes a STRICT comparison safe
+         here, where it would not have been before the padding existed: it can
+         only fire on real overflow, so it cannot re-create the everything-at-
+         the-floor bug. 1px steps because the excess is small by definition. */
+      /* BOUNDED. An unbounded version of this loop broke picture questions:
+         the text box and the `flex` image share the card, so every pixel the
+         text gives up the image takes back, the box is squeezed again, and the
+         two chase each other — tablet-landscape wording ran 26px down to 17px
+         and blew the tuned 0.80x question:answer ratio (tests/qimage.mjs).
+         The overhang this pass exists to remove is 3-8px, so it is allowed a
+         proportional nudge and no more; anything left over falls through to the
+         scrollbar below rather than eating the layout. */
+      const budget = Math.max(3, Math.round(size * 0.12));
+      const lowest = Math.max(MIN, size - budget);
+      let strict = budget + 2;
+      while (strict-- > 0 && size > lowest && el.scrollHeight > el.clientHeight) {
+        size -= 1;
+        el.style.setProperty("font-size", size + "px", "important");
+      }
+
+      /* The box is `overflow: hidden` in the stylesheet, which is only safe
+         because of the pass above. For anything a player will ever see it now
+         fits exactly and there is no scrollbar — measured against the live
+         catalogue, where the longest of 3536 published questions is 109
+         characters (median 33, p99 80, none over 200).
+
+         But an admin or a community author can type any length, and silently
+         cutting the tail off is the .218 bug. So if the text STILL does not fit
+         at the floor, the scrollbar comes back for that question alone: unread
+         beats unreadable. In practice this needs roughly ten times the longest
+         question in the catalogue before it fires. */
+      el.style.overflowY = el.scrollHeight > el.clientHeight ? "auto" : "";
     }
     window.addEventListener("resize", () => {
       if (document.body.dataset.screen === "questionPage") fitQuestionText();
