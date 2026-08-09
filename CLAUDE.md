@@ -233,9 +233,14 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   category in memory has empty images that a publish must never write back.
   See the ⛔ section at the top before touching any code that publishes.
 
-- **The category counter is a RING (build .281).** «اختر فئاتك» used to carry a
-  text line reading «N / 6 مختارة». It is now `#catRing` (`.ccr`), driven by
-  the single entry point `setCategoryRing(count, overrideHint)`: an SVG arc
+- **The category counter is a RING, and it FLOATS (builds .281 / .282).**
+  «اختر فئاتك» used to carry a text line reading «N / 6 مختارة». It is now
+  `#catRing` (`.ccr`), and since .282 it lives in **`#catDock`** — a fixed
+  cluster beside the floating «رجوع» holding the ring plus **«متابعة»**
+  (`#catGoFloat`), which appears from the first pick and delegates to
+  `#goTeams`. The in-page proceed button stays where it was, below forty
+  cards; the floating one exists because that is off-screen for the whole pick.
+  It is driven by the single entry point `setCategoryRing(count, overrideHint)`: an SVG arc
   around the digit, gold while choosing, GREEN with a tick at six (`is-done`),
   RED past six (`is-over`). `is-over` is unreachable by tapping — the picker
   refuses a seventh — but a shared `#g=` link or a restored game can carry one,
@@ -252,12 +257,30 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   "fix" a counter that returns `0` instead of `٠`; do not hand-write `٦` in a
   string beside a `toArabicDigits()` call either, or the two disagree the day
   it stops being an identity.
-  ⚠️ Two traps in testing this, both of which produce a green-looking test that
+  ⚠️ **The dock's chrome is DARK IN BOTH THEMES** (it matches `#globalBack`),
+  so every colour inside the ring is chosen against a dark ground and must not
+  be re-themed. The ring's first version inherited the light page's brown
+  (`#a9772a`) and vanished the moment it left the cream header.
+  ⚠️ `#catDock` is positioned from the **measured** `#globalBack` rect
+  (`layoutCatDock`, called from `setCategoryRing`, on resize and on
+  `document.fonts.ready`) — never a hard-coded offset. «رجوع» is one of the
+  strings an admin can reword from the in-game text editor, and it is also
+  wider once Cairo replaces the fallback; either would drop the ring on top of
+  it. The RING is the dock's first child so that in RTL it lands against
+  «رجوع» and «متابعة» grows away to its left — reversed, the ring would shift
+  sideways every time the proceed button appeared.
+  ⚠️ The ring deliberately has **no `title`**. The styled-bubble helper only
+  adopts controls whose visible text is wordless, and the ring carries sr-only
+  text, so a title would escape it and show the raw native tooltip the app was
+  cleaned of. Tapping the ring toasts the same words instead.
+  ⚠️ Traps in testing this, all of which produce a green-looking test that
   measures nothing: `page.evaluate` given a FUNCTION-AS-STRING with no argument
   returns the function rather than calling it (every field comes back
-  `undefined`), and `body` is transparent — the page colour is a
+  `undefined`); `body` is transparent — the page colour is a
   `radial-gradient`, so `backgroundColor` reads `rgba(0,0,0,0)` and any contrast
-  check against it silently compares with pure black.
+  check against it silently compares with pure black; and a chrome colour
+  checked for luminance ALONE passes when it is dark and fully transparent,
+  i.e. when there is no chrome at all — assert the alpha too.
 
 - **«أربعة خيارات» can be switched off per category (build .218).** The admin
   category head has «🚫 تعطيل «أربعة خيارات»» next to «إخفاء الفئة». It is

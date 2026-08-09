@@ -54,19 +54,20 @@ try {
     const all = (typeof visibleCategoryGroup === "function") ? visibleCategoryGroup() : [];
     all.slice(0, 3).forEach(c => state.selected.add(c.id));
     renderCategories();
-    const st = document.getElementById("categoryStatus");
+    // .281 replaced the «N / 6 مختارة» text line with the counter RING, and
+    // .282 floated it into #catDock beside «رجوع» — so the count now lives in
+    // the corner, not in the page header.
+    const dock = document.getElementById("catDock");
     const go = document.getElementById("goTeams");
     return {
-      // build .281 replaced the «N / 6 مختارة» text line with the counter RING;
-      // the fraction is now an arc plus a digit, so read the ring's own parts.
-      ring: !!st.querySelector(".ccr"),
+      ring: !!(dock && dock.querySelector(".ccr")),
       digit: (document.getElementById("catRingNum") || {}).textContent || "",
-      txt: st.textContent.replace(/\s+/g, " ").trim(),
+      txt: (document.getElementById("catRingMain") || {}).textContent || "",
       pill: (go.querySelector(".cat-count-pill") || {}).textContent || "",
       goDisabled: go.disabled
     };
   });
-  check("category status shows the counter ring at «3 من 6»",
+  check("the floating counter ring reads «3 من 6»",
     counter.ring && counter.digit.trim() === "3" && /3 من 6 مختارة/.test(counter.txt), counter.txt);
   check("the proceed button carries a live count pill", /3/.test(counter.pill) && /6/.test(counter.pill));
   check("proceed is enabled once at least one category is picked", counter.goDisabled === false);
