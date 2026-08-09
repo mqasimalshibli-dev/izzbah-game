@@ -240,6 +240,10 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   (`#catGoFloat`), which appears from the first pick and delegates to
   `#goTeams`. The in-page proceed button stays where it was, below forty
   cards; the floating one exists because that is off-screen for the whole pick.
+  Pressing the ring slides up **`#catPeek`** (.283) — a small panel listing the
+  chosen categories by cover + name, in selection order. It closes on an
+  outside click, Escape, a second press, or leaving the screen; clicks INSIDE
+  it are excluded, or scrolling the list would dismiss it.
   It is driven by the single entry point `setCategoryRing(count, overrideHint)`: an SVG arc
   around the digit, gold while choosing, GREEN with a tick at six (`is-done`),
   RED past six (`is-over`). `is-over` is unreachable by tapping — the picker

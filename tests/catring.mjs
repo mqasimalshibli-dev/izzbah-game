@@ -251,20 +251,93 @@ try {
       `left=${Math.round(geo.go.left)} right=${Math.round(geo.back.right)}`);
     check(`${theme}: the ring is finger-sized`, geo.ring.h >= 44 && geo.ring.h <= 72, `${Math.round(geo.ring.h)}px`);
 
-    // Both dock controls are new click paths. «متابعة» must reach the same
-    // place as the picker's own proceed button, and the ring — a digit with no
-    // words, on a phone with no hover — must say the status out loud on tap.
-    const acted = await page.evaluate(async () => {
+    // Pressing the ring slides up the list of what is actually picked. The
+    // number alone stops answering "which ones?" past two or three.
+    const peek = await page.evaluate(async () => {
+      const names = [...state.selected].map(id => (categoryById(id) || {}).name || id);
       document.getElementById("catRing").click();
-      await new Promise(r => setTimeout(r, 250));
-      const toast = [...document.querySelectorAll("body *")]
-        .map(e => (e.textContent || "").trim())
-        .filter(t => /من 6 مختارة/.test(t)).pop() || "";
+      await new Promise(r => setTimeout(r, 420));
+      const el = document.getElementById("catPeek");
+      const r = el.getBoundingClientRect();
+      const ring = document.getElementById("catRing").getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return {
+        open: !el.hidden && el.classList.contains("show"),
+        expanded: document.getElementById("catRing").getAttribute("aria-expanded"),
+        title: document.getElementById("catPeekTitle").textContent.trim(),
+        rows: [...el.querySelectorAll(".cat-peek-row .cat-peek-name")].map(n => n.textContent.trim()),
+        swatches: el.querySelectorAll(".cat-peek-dot").length,
+        wanted: names,
+        // it must rise OUT of the ring: above it, right edges aligned
+        above: r.bottom <= ring.top + 1,
+        aligned: Math.abs(r.right - ring.right) <= 2,
+        onScreen: r.left >= 0 && r.top >= 0,
+        opacity: +cs.opacity,
+        maxH: parseFloat(cs.maxHeight),
+        scrolls: cs.overflowY,
+      };
+    });
+    check(`${theme}: pressing the ring opens the list`, peek.open && peek.opacity > 0.9,
+      `open=${peek.open} opacity=${peek.opacity}`);
+    check(`${theme}: it names every chosen category, in pick order`,
+      peek.rows.length === peek.wanted.length && peek.rows.every((n, i) => n === peek.wanted[i]),
+      peek.rows.join(" ، ") || "empty");
+    check(`${theme}: each row carries its cover swatch`, peek.swatches === peek.rows.length,
+      `${peek.swatches}/${peek.rows.length}`);
+    check(`${theme}: the header repeats the count`, /3 من 6 مختارة/.test(peek.title), peek.title);
+    check(`${theme}: it rises out of the ring and stays on screen`,
+      peek.above && peek.aligned && peek.onScreen,
+      `above=${peek.above} aligned=${peek.aligned} onScreen=${peek.onScreen}`);
+    // A small box, not a takeover — six rows must scroll rather than grow.
+    check(`${theme}: it stays a small box`, peek.maxH > 0 && peek.maxH <= 320 && peek.scrolls === "auto",
+      `maxHeight=${peek.maxH} overflowY=${peek.scrolls}`);
+    check(`${theme}: the ring reports its expanded state`, peek.expanded === "true", peek.expanded);
+
+    // A panel with no way out is a trap on a phone. Clicking its own list must
+    // NOT close it, or scrolling the list would dismiss it.
+    const dismiss = await page.evaluate(async () => {
+      const el = document.getElementById("catPeek");
+      el.querySelector(".cat-peek-row").click();
+      await new Promise(r => setTimeout(r, 300));
+      const survivedOwnClick = !el.hidden && el.classList.contains("show");
+      document.getElementById("categoryGrid").click();
+      await new Promise(r => setTimeout(r, 350));
+      const closedByOutside = !el.classList.contains("show");
+      document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 350));
+      const reopened = el.classList.contains("show");
+      document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 350));
+      return { survivedOwnClick, closedByOutside, reopened, toggledShut: !el.classList.contains("show") };
+    });
+    check(`${theme}: clicking inside the list keeps it open`, dismiss.survivedOwnClick);
+    check(`${theme}: clicking anywhere else closes it`, dismiss.closedByOutside);
+    check(`${theme}: the ring toggles it shut again`, dismiss.reopened && dismiss.toggledShut,
+      `reopened=${dismiss.reopened} shut=${dismiss.toggledShut}`);
+
+    // Leaving the picker must close it: the dock is hidden elsewhere, so an
+    // "open" panel would simply spring back on the next visit.
+    const left = await page.evaluate(async () => {
+      document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 300));
+      showScreen("gameLibrary");
+      await new Promise(r => setTimeout(r, 350));
+      const el = document.getElementById("catPeek");
+      const closedOnLeave = !el.classList.contains("show");
+      showScreen("categories");
+      await new Promise(r => setTimeout(r, 450));
+      return { closedOnLeave, stillClosed: !el.classList.contains("show") };
+    });
+    check(`${theme}: leaving the picker closes it`, left.closedOnLeave && left.stillClosed,
+      `onLeave=${left.closedOnLeave} onReturn=${left.stillClosed}`);
+
+    // «متابعة» must reach the same place as the picker's own proceed button.
+    await page.evaluate(SET, 3);
+    const acted = await page.evaluate(async () => {
       document.getElementById("catGoFloat").click();
       await new Promise(r => setTimeout(r, 500));
-      return { toast, screen: document.body.dataset.screen };
+      return { screen: document.body.dataset.screen };
     });
-    check(`${theme}: tapping the ring speaks the count`, /3 من 6 مختارة/.test(acted.toast), acted.toast);
     check(`${theme}: «متابعة» goes on to team setup`, acted.screen === "setup", acted.screen);
 
     // The dock is chrome for ONE screen; left drawn elsewhere it would float

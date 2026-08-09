@@ -5329,6 +5329,40 @@
       position: fixed; z-index: 5; display: none; align-items: center; gap: 10px;
       right: 14px; bottom: 14px; /* both replaced at runtime, from the back button */
     }
+    /* The peek panel is absolute against the dock (already a positioned
+       ancestor, being fixed). The dock's right edge IS the ring's right edge —
+       the ring is the first child of an RTL row — so the panel rises out of the
+       button rather than out of the corner. */
+    .cat-peek {
+      position: absolute; bottom: calc(100% + 10px); right: 0; z-index: 1;
+      width: 200px; max-height: 262px; overflow-y: auto; overscroll-behavior: contain;
+      padding: 10px; border-radius: 14px; text-align: start;
+      background: rgba(20, 6, 8, .93); border: 1.5px solid rgba(231, 195, 115, .5);
+      backdrop-filter: blur(6px); box-shadow: 0 12px 28px rgba(0, 0, 0, .45);
+      /* Grows out of the RING, which is at the panel's bottom-right — a
+         bottom-left origin would have it unfold from the far corner. */
+      opacity: 0; transform: translateY(10px) scale(.97); transform-origin: bottom right;
+      transition: opacity .2s ease, transform .22s cubic-bezier(.2,1.4,.4,1);
+    }
+    .cat-peek[hidden] { display: none; }
+    .cat-peek.show { opacity: 1; transform: none; }
+    .cat-peek-title {
+      margin: 0 0 8px; padding-bottom: 7px; font: 800 12.5px 'Cairo', sans-serif;
+      color: #e7c373; border-bottom: 1px solid rgba(231, 195, 115, .22);
+    }
+    .cat-peek-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .cat-peek-row { display: flex; align-items: center; gap: 8px; }
+    .cat-peek-dot {
+      flex: none; width: 22px; height: 22px; border-radius: 7px;
+      background-size: cover; background-position: center;
+      border: 1px solid rgba(231, 195, 115, .35);
+    }
+    .cat-peek-name {
+      font: 700 13px 'Cairo', sans-serif; color: #f2e3c4; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cat-peek-empty { margin: 0; font: 700 12.5px 'Cairo', sans-serif; color: #bda97f; }
+    @media (prefers-reduced-motion: reduce) { .cat-peek { transition: none; } }
     body[data-screen="categories"] #catDock { display: flex; }
     .ccr {
       position: relative; flex: none; display: inline-flex;
@@ -7718,6 +7752,13 @@
       <span class="sr-only" id="catRingHint"></span>
     </button>
     <button class="cat-dock-go" id="catGoFloat" type="button" hidden>متابعة</button>
+    <!-- Slides up from the ring on press: which categories are in, in the order
+         they were picked. Anchored to the dock's right edge, which is the
+         ring's right edge, so it grows up-and-inward from the button. -->
+    <div class="cat-peek" id="catPeek" role="dialog" aria-labelledby="catPeekTitle" hidden>
+      <p class="cat-peek-title" id="catPeekTitle"></p>
+      <ul class="cat-peek-list" id="catPeekList"></ul>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
@@ -12284,7 +12325,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.282";
+    const IZZBAH_BUILD = "2026-08-09.283";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14074,6 +14115,9 @@
       document.body.dataset.screen = id;
       applyGameOrientation(id);
       if (id !== "questionPage") stopAnswerTimer();
+      // The dock is hidden off the picker, so an open peek would be invisible
+      // rather than closed — and would spring back on the next visit.
+      if (id !== "categories") catPeekClose();
       if (id === "gameLibrary") renderGameLibrary();
       if (id === "categories") renderCategories();
       if (id === "setup") renderTeamSetup();
@@ -15647,6 +15691,9 @@
       const go = $("#catGoFloat");
       if (go) go.hidden = count === 0;
       layoutCatDock();
+      // «اختيار عشوائي» changes the selection without touching the panel, so an
+      // open list has to follow it rather than showing the previous pick.
+      if (catPeekIsOpen()) renderCatPeek();
       // the punch has to RESTART on every change, so the class comes off and
       // goes back on rather than simply being left set
       ring.classList.remove("is-punch");
@@ -15674,6 +15721,68 @@
       dock.style.height = Math.round(r.height) + "px";
     }
     window.addEventListener("resize", layoutCatDock);
+
+    /* The peek panel: press the ring, see WHICH categories are in.
+
+       The ring shows a number; the number alone stops being enough the moment
+       you have picked four and cannot remember whether one of them was the one
+       you meant. Listed in selection order, which is the order state.selected
+       (a Set) already keeps. */
+    let catPeekHideTimer = null;
+    function renderCatPeek() {
+      const list = document.getElementById("catPeekList");
+      const title = document.getElementById("catPeekTitle");
+      if (!list || !title) return;
+      const ids = [...state.selected];
+      title.textContent = `${toArabicDigits(ids.length)} من ${toArabicDigits(CCR_MAX)} مختارة`;
+      if (!ids.length) {
+        list.innerHTML = `<li class="cat-peek-empty">لم تختر أي فئة بعد</li>`;
+        return;
+      }
+      list.innerHTML = "";
+      ids.forEach(id => {
+        const cat = categoryById(id);
+        const row = document.createElement("li");
+        row.className = "cat-peek-row";
+        const dot = document.createElement("span");
+        dot.className = "cat-peek-dot";
+        // The cover is the fastest way to recognise a category, but question
+        // media is lazy and a category can have no artwork at all — fall back
+        // to its colour rather than an empty square.
+        if (cat && cat.image) dot.style.backgroundImage = `url("${cat.image}")`;
+        else dot.style.background = categoryColor(cat || {});
+        const name = document.createElement("span");
+        name.className = "cat-peek-name";
+        name.textContent = (cat && cat.name) || id;
+        row.append(dot, name);
+        list.appendChild(row);
+      });
+    }
+    function catPeekOpen() {
+      const peek = document.getElementById("catPeek");
+      if (!peek) return;
+      renderCatPeek();
+      clearTimeout(catPeekHideTimer);
+      peek.hidden = false;
+      void peek.offsetWidth; // the panel must be laid out before the class, or it appears with no slide
+      peek.classList.add("show");
+      const ring = document.getElementById("catRing");
+      if (ring) ring.setAttribute("aria-expanded", "true");
+    }
+    function catPeekClose() {
+      const peek = document.getElementById("catPeek");
+      if (!peek || peek.hidden) return;
+      peek.classList.remove("show");
+      const ring = document.getElementById("catRing");
+      if (ring) ring.setAttribute("aria-expanded", "false");
+      // `hidden` only after the slide-down, or the panel vanishes mid-animation
+      clearTimeout(catPeekHideTimer);
+      catPeekHideTimer = setTimeout(() => { peek.hidden = true; }, 240);
+    }
+    function catPeekIsOpen() {
+      const peek = document.getElementById("catPeek");
+      return !!peek && !peek.hidden && peek.classList.contains("show");
+    }
     // Cairo lands after first paint and «رجوع» is wider in it than in the
     // fallback, so a dock parked before the swap would end up overlapping.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutCatDock).catch(() => {});
@@ -24204,12 +24313,22 @@
        «اختيار الفرق» button below the grid, so it delegates rather than
        repeating the navigation — one of them changing must change both. */
     $("#catGoFloat").addEventListener("click", () => $("#goTeams").click());
-    /* The ring is a digit with no words, and on a touch screen there is no
-       hover to reveal the tooltip — so tapping it speaks the status instead. */
-    $("#catRing").addEventListener("click", () => {
-      const main = $("#catRingMain"), hint = $("#catRingHint");
-      showToast(`${main.textContent}${hint.textContent ? " — " + hint.textContent : ""}`);
+    /* The ring is a digit with no words. Pressing it slides up the list of what
+       is actually picked — the count on its own stops answering the question
+       once there is more than a couple. */
+    $("#catRing").addEventListener("click", event => {
+      event.stopPropagation(); // else the document handler below closes it again
+      if (catPeekIsOpen()) catPeekClose(); else catPeekOpen();
     });
+    // A panel that can only be closed by finding the button again is a trap on a
+    // phone, so anywhere-else and Escape both dismiss it. The panel's own clicks
+    // are excluded or scrolling its list would shut it.
+    document.addEventListener("click", event => {
+      if (!catPeekIsOpen()) return;
+      if (event.target.closest && event.target.closest("#catPeek")) return;
+      catPeekClose();
+    });
+    document.addEventListener("keydown", event => { if (event.key === "Escape") catPeekClose(); });
 
     // ---- User settings / account sheet wiring ----
     $("#userSettingsBtn").addEventListener("click", openSettings);
