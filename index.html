@@ -12458,7 +12458,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.292";
+    const IZZBAH_BUILD = "2026-08-09.293";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14696,6 +14696,21 @@
         // the point is to cap the DIMENSIONS, not merely to squeeze a file that
         // happens to be over budget.
         cat.image = await fitCoverImage(cat.image);
+        /* …and SAY SO if it did not work. recompressDataUrl resolves with the
+           ORIGINAL whenever the browser cannot decode the image, so all five
+           passes can return the input unchanged and publishing then ships a
+           full-size cover with nothing said. That is not hypothetical: two live
+           covers reached 521 KB and 511 KB — five times the budget, and between
+           them 1 MB of the catalogue read every cold visitor pays.
+           Warn, don't block: refusing to save an admin's question edits over a
+           picture would be worse than a heavy cover, and «⚡ ضغط صور الفئات»
+           repairs it in one press. */
+        const coverBytes = JSON.stringify({ i: cat.image }).length;
+        if (coverBytes > COVER_BUDGET) {
+          console.warn("cover over budget after every pass", cat.id, coverBytes);
+          showToast("⚠️ صورة الفئة كبيرة (" + toArabicDigits(Math.round(coverBytes / 1024))
+            + " ك.ب) — استخدم «⚡ ضغط صور الفئات» أو اختر صورة أخرى");
+        }
       }
       for (const q of (cat.questions || [])) {
         if (!(await fitQuestionForDoc(q))) return false;
