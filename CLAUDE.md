@@ -233,7 +233,33 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   category in memory has empty images that a publish must never write back.
   See the ⛔ section at the top before touching any code that publishes.
 
-- **The «من الي سجل؟» sketch filter is TUNED LIGHT (build .286).** The first
+- **The «من الي سجل؟» sketch filter is TONAL (build .288 — read this before
+  touching it).** The owner said "too heavy" TWICE. The first attempt (.286)
+  only tuned the knobs of a BINARY filter and did not fix it, because a binary
+  filter cannot draw a crowd lightly: `step()` makes every edge that clears the
+  threshold pure black, and stadium crowd texture clears it everywhere. No
+  threshold or stroke width tunes that out — measured, repeatedly.
+  The shader now maps edge STRENGTH to ink strength (`smoothstep(lo,hi)` then a
+  gamma), so fine crowd texture lands as pale grey while strong large-scale
+  edges stay dark. `SKETCH_INK_START/FULL/GAMMA` are the ramp.
+  ⚠️ **The thickness went UP (0.6 → 1.8), reversing .286.** With binary ink a
+  wider blur merged speckle into fat black blobs, so thin strokes were the only
+  lever; with tonal ink it is the opposite — a wider blur pushes fine texture
+  below the detector's band where it reads as pale grey, and the surviving
+  large edges get STRONGER. Measured on a crowd source: 0.6 → 1.8 lifts crowd
+  luminance 184 → 241 while subject ink RISES 0.7% → 1.5%. The two levers only
+  work together; changing one alone makes it worse.
+  ⚠️ A wide blur also erases genuinely thin features — the pitch lines go with
+  the crowd. That is a real trade, accepted for a category whose job is to show
+  the play without naming the scorer.
+  ⚠️ Tuning needs a source with REAL crowd statistics. A smooth mid-grey texture
+  inks only 5% and would send you tuning against nothing; full-range
+  high-contrast speckle reproduces the reported 35%.
+  `tests/sketchvideo.mjs` no longer asserts "two-tone" — that would pin the very
+  thing that caused this. It asserts mostly-paper, that ink is GRADED (mid-tones
+  exist; collapse the ramp and it fails), and that a hard edge is still drawn.
+
+- **Superseded: the .286 "tuned light" pass.** The first
   version shipped `thickness 1 / detail 1` and the owner's verdict on real
   footage was "too heavy": a stadium crowd came out as a solid black mass with
   the players lost in it — measured at 35% of the frame inked, peaking near 40%.

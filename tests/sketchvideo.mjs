@@ -140,28 +140,38 @@ try {
           n++;
         }
       }
-      // Measure the inked band over the slab's top edge (y=180 of 240), as the
-      // MEDIAN run length across several columns so one noisy column cannot
-      // decide the result.
-      let strokePx = -1;
+      /* Is the slab's top edge (y=180 of 240) drawn at all? Measured as the
+         share of INK in a band straddling it, across the FULL width.
+         Per-column run lengths were tried first and were flaky: the moving
+         shape sits directly on that edge for part of its travel, so which
+         columns carry a visible edge depends on where the seek lands. Summing
+         the whole band does not care.
+         «Ink» is anything darker than paper, at any strength — a tonal ramp
+         draws plenty of real edges that never reach full black, so a <60 test
+         reports a good line as missing. */
+      let edgeInk = -1;
       if (v.videoWidth) {
-        const ctx2 = oc.getContext("2d");
         const edgeY = Math.round(180 / 240 * oc.height);
-        const span = Math.round(30 / 240 * oc.height);
-        const runs = [];
-        for (const fx of [0.2, 0.35, 0.5, 0.65, 0.8]) {
-          const cx = Math.round(oc.width * fx);
-          const col = ctx2.getImageData(cx, Math.max(0, edgeY - span), 1, span * 2).data;
-          let best = 0, run = 0;
-          for (let i = 0; i < col.length; i += 4) {
-            if (col[i] < 60) { run++; if (run > best) best = run; } else run = 0;
-          }
-          runs.push(best);
-        }
-        runs.sort((a, b) => a - b);
-        strokePx = runs[Math.floor(runs.length / 2)];
+        const half = Math.max(3, Math.round(8 / 240 * oc.height));
+        const top = Math.max(0, edgeY - half);
+        const band = oc.getContext("2d").getImageData(0, top, oc.width, Math.min(half * 2, oc.height - top)).data;
+        let dark = 0, tot = 0;
+        for (let i = 0; i < band.length; i += 4) { if (band[i] < 200) dark++; tot++; }
+        edgeInk = tot ? dark / tot * 100 : -1;
       }
-      return { strokePx, name: filtered.name, type: filtered.type, size: filtered.size,
+      // Tonal now, so the interesting statistics are the mean level and how
+      // much of the frame is neither paper nor full ink.
+      let meanLum = -1, midPct = -1;
+      if (v.videoWidth) {
+        const d2 = oc.getContext("2d").getImageData(0, 0, oc.width, oc.height).data;
+        let sum = 0, mid = 0, n2 = 0;
+        for (let i = 0; i < d2.length; i += 4) {
+          sum += d2[i]; n2++;
+          if (d2[i] > 45 && d2[i] < 225) mid++;
+        }
+        meanLum = sum / n2; midPct = mid / n2 * 100;
+      }
+      return { meanLum, midPct, edgeInk, name: filtered.name, type: filtered.type, size: filtered.size,
                w: v.videoWidth, h: v.videoHeight, progress: seen.length,
                blackPct: n ? black / n * 100 : -1, whitePct: n ? white / n * 100 : -1,
                colourPct: n ? colour / n * 100 : -1 };
@@ -177,16 +187,21 @@ try {
       (out.type === "video/mp4" && /\.mp4$/.test(out.name)));
     check("progress is reported while encoding", out.progress > 0);
     check("output is black and white — no colour survives", out.colourPct >= 0 && out.colourPct < 1);
-    check("output is two-tone, not grey mush", out.blackPct + out.whitePct > 80);
-    check("output actually has ink in it", out.blackPct > 0.5);
-    /* Weight guard. The filter shipped once tuned so heavily that a stadium
-       crowd came out as a solid black mass with the players lost inside it —
-       the owner's word was "too heavy". Stroke width is the parameter that
-       caused it, so measure that directly rather than an ink percentage:
-       percentages move by a tenth between the two tunings and are noisy, the
-       band over a known edge roughly halves. */
-    check("strokes stay fine — the sketch is line art, not a black mass",
-      out.strokePx > 0 && out.strokePx <= 5, `${out.strokePx}px band over a hard edge`);
+    /* The filter is TONAL as of .288 — ink strength follows edge strength — so
+       "two-tone" is no longer the goal and asserting it would pin the very
+       thing that made a crowd render as a black mass. What must hold instead is
+       that the result reads as graphite ON PAPER. */
+    check("the result is mostly paper, not a dark mass", out.meanLum > 190,
+      `mean luminance ${out.meanLum.toFixed(0)}/255`);
+    check("output actually has ink in it", out.blackPct > 0.2, `${out.blackPct.toFixed(2)}% full ink`);
+    /* The signature of the tonal ramp: real mid-greys. A revert to the old
+       step() shader makes this collapse towards zero, since every pixel is then
+       either paper or full black. */
+    check("ink is graded, not switched on and off", out.midPct > 1.5,
+      `${out.midPct.toFixed(1)}% mid-tones`);
+    /* An edge still has to be DRAWN — "light" must not have become "blank". The
+       slab's boundary is the one mark guaranteed to be in every frame. */
+    check(`a hard edge is still inked (${out.edgeInk.toFixed(1)}% of the band)`, out.edgeInk > 8);
     console.log(`      (${out.w}x${out.h}, ${Math.round(out.size/1024)}KB, black ${out.blackPct.toFixed(1)}% / white ${out.whitePct.toFixed(1)}%)`);
     }
   }

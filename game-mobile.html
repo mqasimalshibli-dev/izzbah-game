@@ -12353,7 +12353,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.287";
+    const IZZBAH_BUILD = "2026-08-09.288";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14868,14 +14868,27 @@
     // the per-pixel compare, which is a handful of lines. Doing the blurs in
     // WebGL would mean writing four separable passes for no gain.
     const SKETCH_VS = "attribute vec2 p;varying vec2 v;void main(){v=vec2((p.x+1.0)*0.5,(1.0-p.y)*0.5);gl_Position=vec4(p,0.0,1.0);}";
+    /* TONAL, not binary. The first version used step(): every edge that cleared
+       the threshold came out pure black, and a stadium crowd clears it
+       everywhere — which is why the stands rendered as a solid mass no matter
+       how the threshold or the stroke width were tuned. There is no setting of
+       a binary filter that draws a crowd lightly.
+
+       So ink strength now follows edge strength. `lo` is where graphite starts,
+       `hi` is where it reaches full black, and the gamma bends everything
+       between them towards paper — fine crowd texture lands as pale grey while
+       the strong, large-scale edges (players, ball, pitch lines) stay dark. */
     const SKETCH_FS = [
       "precision mediump float;varying vec2 v;",
-      "uniform sampler2D a;uniform sampler2D b;uniform float e;uniform float inv;",
+      "uniform sampler2D a;uniform sampler2D b;uniform float inv;",
+      "uniform float lo;uniform float hi;uniform float gam;",
       "void main(){",
       // both textures are already greyscale, so any channel is the luminance
-      "  float d = texture2D(a,v).r - 0.985*texture2D(b,v).r;",
-      "  float paper = step(e, d);",              // 1 = paper, 0 = ink
-      "  float c = mix(paper, 1.0-paper, inv);",
+      "  float d = 0.985*texture2D(b,v).r - texture2D(a,v).r;",   // >0 where an edge darkens
+      "  float amt = smoothstep(lo, hi, d);",                     // 0 = paper, 1 = full ink
+      "  amt = pow(amt, gam);",                                   // gam>1 pushes weak edges to paper
+      "  float c = 1.0 - amt;",
+      "  c = mix(c, 1.0-c, inv);",
       "  gl_FragColor = vec4(c,c,c,1.0);",
       "}"
     ].join("\n");
@@ -14937,12 +14950,25 @@
        (subject ink 4.1% → 1.6% for a crowd drop of 32% → 19%). It is recorded
        here so nobody spends the afternoon rediscovering it.
        tests/sketchvideo.mjs pins the resulting ink budget. */
-    const SKETCH_THICKNESS = 0.6, SKETCH_DETAIL = 0.4;
+    const SKETCH_THICKNESS = 1.8, SKETCH_DETAIL = 1.0;
+    /* Where graphite starts and where it saturates, in 0–255 of edge strength,
+       plus the bend between them. Swept against a crowd-like source.
+
+       ⚠️ Note the thickness went UP, which is the reverse of the first attempt.
+       With BINARY ink a wider blur merged the crowd into fat black blobs — worse
+       — so thin strokes were the only way to lighten anything. Once ink is
+       tonal that reverses completely: a wider blur pushes fine texture below the
+       detector's band, where it lands as pale grey, while the large-scale edges
+       that survive get STRONGER. Measured on the crowd source, going from 0.6 to
+       1.8 lifts the stands from luminance 184 to 241 and at the same time raises
+       subject ink from 0.7% to 1.5%. The two levers only work together. */
+    const SKETCH_INK_START = 5.0, SKETCH_INK_FULL = 15.0, SKETCH_GAMMA = 1.2;
 
     function sketchifyVideo(file, onProgress, opts) {
       const o = opts || {};
       const thickness = o.thickness > 0 ? o.thickness : SKETCH_THICKNESS;
       const detail = o.detail > 0 ? o.detail : SKETCH_DETAIL;
+      const gamma = o.gamma > 0 ? o.gamma : SKETCH_GAMMA;
       const mute = !!o.mute;
       const invert = o.invert ? 1.0 : 0.0;
 
@@ -14980,7 +15006,10 @@
 
             // line weight scales with frame width, as in the shell script
             const sigma = Math.max(0.6, W * 0.0075 * thickness * SS);
-            const eps = (-1.5 / 255) / detail;
+            // `detail` still means "ink more readily": it lowers where graphite
+            // starts AND where it saturates, so the whole ramp slides darker.
+            const inkLo = (SKETCH_INK_START / 255) / detail;
+            const inkHi = (SKETCH_INK_FULL / 255) / detail;
 
             const blurA = document.createElement("canvas"); blurA.width = RW; blurA.height = RH;
             const blurB = document.createElement("canvas"); blurB.width = RW; blurB.height = RH;
@@ -15025,7 +15054,9 @@
             const texA = mkTex(0), texB = mkTex(1);
             gl.uniform1i(gl.getUniformLocation(prog, "a"), 0);
             gl.uniform1i(gl.getUniformLocation(prog, "b"), 1);
-            gl.uniform1f(gl.getUniformLocation(prog, "e"), eps);
+            gl.uniform1f(gl.getUniformLocation(prog, "lo"), inkLo);
+            gl.uniform1f(gl.getUniformLocation(prog, "hi"), inkHi);
+            gl.uniform1f(gl.getUniformLocation(prog, "gam"), gamma);
             gl.uniform1f(gl.getUniformLocation(prog, "inv"), invert);
             gl.viewport(0, 0, RW, RH);
 
