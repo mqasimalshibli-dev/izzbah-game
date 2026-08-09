@@ -152,13 +152,29 @@ try {
         swapIcon: !!box.querySelector(".turn-switch svg"),
         name: (box.querySelector(".turn-label strong") || {}).textContent || "",
         rtl: cs.direction === "rtl",
+        // The WHOLE pill is the control now, not just the icon.
+        isControl: box.matches("[data-turn-switch][role=button]") && box.tabIndex === 0,
+        ariaLabel: box.getAttribute("aria-label") || "",
+        hasTitle: box.hasAttribute("title"),
+        cursor: cs.cursor,
+        // A nested <button> inside role="button" is invalid and gives the same
+        // action two tab stops; the icon must be inert decoration.
+        innerButtons: box.querySelectorAll("button").length,
       };
     });
     check(`${label}: the pill shows the team PHOTO, not a letter`,
       !!pill.photo && pill.photo.w > 12, pill.photo ? `${Math.round(pill.photo.w)}px` : "missing");
     check(`${label}: it keeps its own gradient`, pill.gradient && pill.radius === "999px",
       `${pill.radius} gradient=${pill.gradient}`);
-    check(`${label}: the swap control is an icon button`, pill.swapIcon);
+    check(`${label}: the swap icon is still drawn`, pill.swapIcon);
+    check(`${label}: the WHOLE pill is the control`,
+      pill.isControl && pill.cursor === "pointer", `${pill.cursor} role/tabindex=${pill.isControl}`);
+    check(`${label}: the icon is inert decoration, not a second tab stop`,
+      pill.innerButtons === 0, `${pill.innerButtons} nested buttons`);
+    // A worded control with a `title` escapes the styled-bubble helper and
+    // shows the raw native tooltip the app was cleaned of.
+    check(`${label}: it is labelled for AT and carries no native tooltip`,
+      /تبديل الدور/.test(pill.ariaLabel) && !pill.hasTitle, pill.ariaLabel);
     check(`${label}: it names the team`, pill.name.trim().length > 0, pill.name);
     // RTL row: photo on the right, swap on the far left, label between them.
     check(`${label}: photo right, swap left, label between`,
@@ -172,6 +188,53 @@ try {
     check(`${label}: nothing spills out of the pill`,
       inside(pill.photo) && inside(pill.swap) && inside(pill.label),
       `pill ${pill.w}x${pill.h}; photo ${Math.round(pill.photo.t)}..${Math.round(pill.photo.b)}`);
+
+    /* The point of the change: tapping the NAME hands the turn over. Reading
+       the attributes above is not enough — a stray `pointer-events: none`, or a
+       child that swallows the event, would leave every one of them true while
+       the tap still did nothing. So drive it through real clicks, on the two
+       places most likely to be tapped instead of the icon, and on the icon
+       itself to prove the original target still works. */
+    const handover = await page.evaluate(async () => {
+      const before = state.activeTeam;
+      const seen = [before];
+      const topAt = sel => {
+        const r = document.querySelector(sel).getBoundingClientRect();
+        return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      };
+      /* Deliberately hit-test rather than dispatch straight at the element: a
+         click that never reaches the pill is exactly the failure this guards.
+         In portrait the game's own rotate-to-landscape overlay covers the
+         board, so the taps land on it — real, expected, and not a regression. */
+      const covered = !(topAt(".turn-label") || {}).closest?.(".turn-box");
+      const tap = sel => {
+        if (covered) return;
+        topAt(sel).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        seen.push(state.activeTeam);
+      };
+      tap(".turn-label");                       // the name
+      tap(".turn-avatar");                      // the photo
+      tap(".turn-switch");                      // the icon, as before
+      // …and the keyboard, which a role=button div does not get for free.
+      const box = document.querySelector(".turn-box");
+      box.focus();
+      box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      seen.push(state.activeTeam);
+      const spaceEv = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+      box.dispatchEvent(spaceEv);
+      seen.push(state.activeTeam);
+      return { seen, covered, teams: state.teamCount, focused: document.activeElement === box,
+               spaceScrollPrevented: spaceEv.defaultPrevented };
+    });
+    // Every press must move the turn on by one, wrapping at the team count.
+    const wantSteps = handover.seen.every((v, i) =>
+      i === 0 || v === (handover.seen[i - 1] + 1) % handover.teams);
+    const expected = handover.covered ? 3 : 6;   // taps skipped when overlaid
+    check(`${label}: ${handover.covered ? "Enter and Space hand" : "name, photo, icon, Enter and Space each hand"} the turn over`,
+      wantSteps && handover.seen.length === expected,
+      `teams=${handover.teams} sequence=${handover.seen.join("→")}${handover.covered ? " (taps skipped: rotate overlay)" : ""}`);
+    check(`${label}: the pill takes keyboard focus, and Space does not scroll`,
+      handover.focused && handover.spaceScrollPrevented);
 
     await page.close();
   }
