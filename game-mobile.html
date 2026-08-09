@@ -4667,6 +4667,15 @@
     }
     .trim-set:hover { background: rgba(27, 58, 47, 1); }
     .trim-hint { font: 600 12px 'Cairo', sans-serif; color: #c9b183; text-align: center; max-width: 460px; }
+    .trim-mute {
+      display: flex; align-items: center; gap: 9px; cursor: pointer;
+      padding: 9px 14px; border-radius: 12px;
+      border: 1px solid rgba(231, 195, 115, .35); background: rgba(231, 195, 115, .07);
+      font: 800 13px 'Cairo', sans-serif; color: #f0d9a8;
+    }
+    .trim-mute[hidden] { display: none; }
+    .trim-mute input { width: 17px; height: 17px; accent-color: #cc2531; flex: none; cursor: pointer; }
+    .trim-mute-sub { font-weight: 700; font-size: 11.5px; color: #c9b183; margin-inline-start: auto; }
     .trim-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .trim-btn {
       border: none; border-radius: 999px; font: 800 14px 'Cairo', sans-serif;
@@ -8606,6 +8615,14 @@
           <button class="trim-set" id="trimSetEnd" type="button">⏱️ تعيين النهاية هنا</button>
         </div>
         <div class="trim-hint">شغّل المقطع وأوقفه عند اللحظة المطلوبة، ثم اضغط «تعيين البداية/النهاية». أو ارفعه كاملاً.</div>
+        <!-- Applies to BOTH buttons below (trim or full), so it sits above them
+             rather than inside either action. Hidden for a voice clip, where
+             muting would leave nothing at all. -->
+        <label class="trim-mute" id="trimMuteRow" hidden>
+          <input type="checkbox" id="trimMute">
+          <span class="trim-mute-txt">🔇 كتم صوت المقطع</span>
+          <span class="trim-mute-sub" id="trimMuteSub">يُشغَّل بدون صوت</span>
+        </label>
         <div class="trim-actions">
           <button class="trim-btn ghost" id="trimPreview" type="button">▶︎ معاينة الاختيار</button>
           <button class="trim-btn primary" id="trimConfirm" type="button">✂️ قص وارفع</button>
@@ -12320,7 +12337,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.285";
+    const IZZBAH_BUILD = "2026-08-09.286";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -14583,11 +14600,31 @@
     // Parse it, and enforce the range on a <video>/<audio> element so playback
     // stays within the admin's chosen in/out points (start seek + stop at end).
     function mediaFragment(src) {
-      const m = /#t=([\d.]*)(?:,([\d.]+))?$/.exec(String(src || ""));
+      // «#t=» stays LAST so this keeps matching at the end; a mute flag is
+      // written ahead of it as «#mute&t=…», hence [#&].
+      const m = /[#&]t=([\d.]*)(?:,([\d.]+))?$/.exec(String(src || ""));
       if (!m || (!m[1] && !m[2])) return null;
       const start = m[1] ? parseFloat(m[1]) : 0;
       const end = m[2] ? parseFloat(m[2]) : Infinity;
       return { start: isFinite(start) ? start : 0, end };
+    }
+    /* «#mute» on a stored clip: play it silently.
+       Written as a fragment rather than re-encoded, for the same reason the trim
+       range is — re-encoding in the browser is slow and unreliable across
+       formats, while a fragment is instant and lossless.
+       ⚠️ It is a PRESENTATION flag, not a secret: the audio is still in the
+       file. Where the sound would give the answer away — «من الي سجل؟», whose
+       commentary names the scorer — the track is dropped during the sketch
+       encode instead, so it never reaches the server at all. */
+    function mediaMuted(src) {
+      return /[#&]mute(?:[&]|$)/.test(String(src || ""));
+    }
+    // One place that decides how a stored clip should play, so a new player
+    // cannot honour the trim but forget the mute.
+    function applyClipPlayback(el, src) {
+      if (!el) return;
+      applyClipRange(el, src);
+      if (mediaMuted(src)) { el.muted = true; el.defaultMuted = true; }
     }
     function applyClipRange(el, src) {
       const f = mediaFragment(src);
@@ -14630,7 +14667,7 @@
       el.setAttribute("data-media-alt", imgEl.id);
       el.src = src; el.controls = true; el.preload = "metadata"; el.playsInline = true;
       el.className = (variant === "answer" ? "a-media" : "q-media") + " media-" + kind + " visible";
-      applyClipRange(el, src);
+      applyClipPlayback(el, src);
       imgEl.insertAdjacentElement("afterend", el);
     }
     function stopQuestionMedia() {
@@ -14657,7 +14694,7 @@
           ? `<audio src="${escapeHtml(src)}" controls autoplay></audio>`
           : `<img src="${escapeHtml(src)}" alt="">`;
       if (cap) cap.textContent = caption || (kind === "video" ? "فيديو" : kind === "audio" ? "صوت" : "صورة");
-      if (kind === "video" || kind === "audio") applyClipRange(stage.querySelector("video, audio"), src);
+      if (kind === "video" || kind === "audio") applyClipPlayback(stage.querySelector("video, audio"), src);
       const m = $("#mediaPreviewModal");
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
@@ -14689,7 +14726,7 @@
       if (from) from.textContent = fmtClock(trimCtx.start);
       if (to) to.textContent = fmtClock(isFinite(trimCtx.end) ? trimCtx.end : trimCtx.dur);
     }
-    function openMediaTrim(file, onConfirm) {
+    function openMediaTrim(file, onConfirm, opts) {
       const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
       if (!modal || !stage) { onConfirm(null); return; } // no UI → just upload whole
       const isVideo = /^video\//.test(file.type || "");
@@ -14697,7 +14734,14 @@
       const el = document.createElement(isVideo ? "video" : "audio");
       el.src = url; el.controls = true; el.playsInline = true; el.preload = "metadata";
       stage.innerHTML = ""; stage.appendChild(el);
-      trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null };
+      trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null, isVideo };
+      // Muting a voice note would leave nothing to play, so the row is for
+      // video only. `sketch` clips are muted at the source instead (see below),
+      // and the copy says so rather than silently meaning something different.
+      const muteRow = $("#trimMuteRow"), muteBox = $("#trimMute"), muteSub = $("#trimMuteSub");
+      if (muteRow) muteRow.hidden = !isVideo;
+      if (muteBox) muteBox.checked = false;
+      if (muteSub) muteSub.textContent = (opts && opts.sketch) ? "الصوت يُحذف نهائياً" : "يُشغَّل بدون صوت";
       el.addEventListener("loadedmetadata", () => {
         trimCtx.dur = el.duration || 0; trimCtx.end = trimCtx.dur; trimReadout();
       });
@@ -14735,7 +14779,9 @@
     }
     function trimFinish(useTrim) {
       if (!trimCtx) return;
-      const { start, end, dur, onConfirm } = trimCtx;
+      const { start, end, dur, onConfirm, isVideo } = trimCtx;
+      const muteBox = $("#trimMute");
+      const mute = !!(isVideo && muteBox && muteBox.checked);
       let frag = null;
       if (useTrim) {
         const s = Math.max(0, start), e = Math.min(dur || Infinity, isFinite(end) ? end : dur);
@@ -14746,7 +14792,9 @@
         }
       }
       closeMediaTrim();
-      onConfirm(frag);
+      // «#mute» goes BEFORE «#t=», which has to stay last for mediaFragment.
+      if (mute) frag = frag ? "#mute&" + frag.slice(1) : "#mute";
+      onConfirm(frag, { mute });
     }
 
     // Admin-only direct upload: ask the Cloud Function for a one-time presigned
@@ -14855,10 +14903,31 @@
     // Returns a NEW File with the filter baked in. onProgress gets 0..1.
     // Encoding is realtime (MediaRecorder has no faster mode), so a 12s clip
     // takes ~12s — the caller shows a progress bar rather than a spinner.
+    /* How heavy the sketch is. The first version shipped 1 / 1 / 1 and the
+       owner's verdict on real footage was "too heavy": a stadium crowd came out
+       as a solid black mass with the players lost inside it — measured at 35%
+       of the frame inked, peaking near 40%.
+
+       Three levers, and only these combined actually help:
+         THICKNESS  stroke weight. Going UP is what made it worse — a wider
+                    difference-of-Gaussians merges speckle into fat blobs. Thin
+                    strokes turn filled shapes into OUTLINES, which is both
+                    lighter and more like a real sketch.
+         DETAIL     divides the ink threshold, so lower = only strong edges ink.
+                    On its own it removes the players faster than the crowd.
+       A third lever — decimating the frame before detection, to drop the crowd
+       below the detector's scale — was built and MEASURED, then removed: it
+       only bites at extreme decimation, where it takes the players with it
+       (subject ink 4.1% → 1.6% for a crowd drop of 32% → 19%). It is recorded
+       here so nobody spends the afternoon rediscovering it.
+       tests/sketchvideo.mjs pins the resulting ink budget. */
+    const SKETCH_THICKNESS = 0.6, SKETCH_DETAIL = 0.4;
+
     function sketchifyVideo(file, onProgress, opts) {
       const o = opts || {};
-      const thickness = o.thickness > 0 ? o.thickness : 1.0;
-      const detail = o.detail > 0 ? o.detail : 1.0;
+      const thickness = o.thickness > 0 ? o.thickness : SKETCH_THICKNESS;
+      const detail = o.detail > 0 ? o.detail : SKETCH_DETAIL;
+      const mute = !!o.mute;
       const invert = o.invert ? 1.0 : 0.0;
 
       return new Promise((resolve, reject) => {
@@ -14957,7 +15026,11 @@
             // and leaving the destination unconnected keeps it silent here.
             try {
               const AC = window.AudioContext || window.webkitAudioContext;
-              if (AC) {
+              // `mute` here DELETES the sound rather than hiding it: the track
+              // is never attached, so the encoded clip that goes to R2 has no
+              // audio at all. In «من الي سجل؟» the commentary names the scorer,
+              // which is exactly what the picture is being filtered to hide.
+              if (AC && !mute) {
                 audioCtx = new AC();
                 const srcNode = audioCtx.createMediaElementSource(video);
                 const dest = audioCtx.createMediaStreamDestination();
@@ -15088,7 +15161,7 @@
       let uploading = false;
       // Upload `file` to R2 and attach the URL; `frag` is an optional «#t=a,b»
       // clip range chosen in the trim modal. Progress shows as an overlay on box.
-      const performUpload = async (file, frag) => {
+      const performUpload = async (file, frag, choice) => {
         if (uploading) return;
         uploading = true;
         picker.style.position = "relative";
@@ -15105,9 +15178,13 @@
           if (opts && opts.sketch && /^video\//.test(file.type || "")) {
             if (!sketchSupported()) throw new Error("sketch-unsupported");
             prog.textContent = "🎨 " + toArabicDigits(0) + "٪";
+            // On this path muting is not a playback flag: the clip is being
+            // re-encoded anyway, so the audio track is simply never attached and
+            // the sound leaves the device with the original. That matters here —
+            // the commentary names the scorer.
             toSend = await sketchifyVideo(file, (p) => {
               prog.textContent = "🎨 " + toArabicDigits(Math.round(p * 100)) + "٪";
-            });
+            }, { mute: !!(choice && choice.mute) });
           }
           const url = await uploadMediaToCloud(toSend, (p) => {
             prog.textContent = "⏳ " + toArabicDigits(Math.round(p * 100)) + "٪";
@@ -15131,7 +15208,7 @@
       };
       // Admin audio/video: open the trim modal first, then upload with the chosen
       // clip range (or the whole thing).
-      const cloudUpload = (file) => openMediaTrim(file, (frag) => performUpload(file, frag));
+      const cloudUpload = (file) => openMediaTrim(file, (frag, choice) => performUpload(file, frag, choice), opts);
 
       // take a File/Blob → attach it. Images compress to a data URL. For audio/
       // video: admins trim + upload to R2 (no cap, plays back as a normal URL);
@@ -17386,6 +17463,9 @@
     window.IZZBAH_TEST.uploadMediaToCloud = uploadMediaToCloud;
     window.IZZBAH_TEST.cloudSafeFilename = cloudSafeFilename;
     window.IZZBAH_TEST.mediaFragment = mediaFragment;
+    window.IZZBAH_TEST.mediaMuted = mediaMuted;
+    window.IZZBAH_TEST.openMediaTrim = openMediaTrim;
+    window.IZZBAH_TEST.applyClipPlayback = applyClipPlayback;
     window.IZZBAH_TEST.mediaKind = mediaKind;
     window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
 

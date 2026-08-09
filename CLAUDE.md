@@ -233,6 +233,40 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   category in memory has empty images that a publish must never write back.
   See the ⛔ section at the top before touching any code that publishes.
 
+- **The «من الي سجل؟» sketch filter is TUNED LIGHT (build .286).** The first
+  version shipped `thickness 1 / detail 1` and the owner's verdict on real
+  footage was "too heavy": a stadium crowd came out as a solid black mass with
+  the players lost in it — measured at 35% of the frame inked, peaking near 40%.
+  Now `SKETCH_THICKNESS = 0.6, SKETCH_DETAIL = 0.4`.
+  ⚠️ **Thicker is not the way to remove crowd noise** — raising thickness merges
+  the speckle into fat blobs, which measures lower but LOOKS heavier. Thin
+  strokes are what turn filled shapes into outlines. Lowering the threshold
+  alone is no good either: it deletes the players faster than the crowd.
+  ⚠️ A third lever — decimating the frame before edge detection so fine texture
+  falls below the detector's scale — was built, measured and REMOVED. It only
+  bites at extreme decimation, where it takes the subject with it (subject ink
+  4.1% → 1.6% for a crowd drop of 32% → 19%). Don't rediscover it.
+  `tests/sketchvideo.mjs` guards the weight by measuring the STROKE WIDTH over a
+  known hard edge, not an ink percentage — percentages move by a tenth between
+  the two tunings and are noisy, the band roughly halves. Two earlier probes
+  (interior of a big block, then of a player-sized bar) passed against the old
+  heavy defaults, i.e. measured nothing; always revert the constants and confirm
+  the guard goes red.
+
+- **Video mute is TWO different things behind one checkbox (build .286).**
+  «كتم صوت المقطع» in the admin trim modal. For an ordinary video nothing is
+  re-encoded (same reason trimming is a fragment): it writes **`#mute`** on the
+  URL and `applyClipPlayback` honours it — the audio is still in the file, so
+  this is PRESENTATION, not a secret. For a «من الي سجل؟» clip the sketch filter
+  is already re-encoding, so the audio track is simply never attached and the
+  sound never leaves the device — which matters, because the commentary names
+  the scorer. The modal's sub-label says which one you are getting.
+  ⚠️ `mediaFragment` matches `#t=start,end` at the END of the string, so the
+  mute flag is written AHEAD of it (`#mute&t=1.5,4.0`) and the parser accepts
+  `[#&]t=`. Append mute after the trim and every clipped question silently
+  stops being clipped. `tests/mutevideo.mjs` pins the grammar, both mechanisms,
+  and that the checkbox resets between clips.
+
 - **The category counter is a RING, and it FLOATS (builds .281 / .282).**
   «اختر فئاتك» used to carry a text line reading «N / 6 مختارة». It is now
   `#catRing` (`.ccr`), and since .282 it lives in **`#catDock`** — a fixed

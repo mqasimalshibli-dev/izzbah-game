@@ -100,6 +100,12 @@ try {
         x.fillStyle = "#2b7"; x.fillRect(0, 0, 320, 240);
         x.fillStyle = "#111"; x.fillRect(40 + i * 4, 60, 90, 120);   // a moving dark shape
         x.fillStyle = "#fff"; x.font = "28px sans-serif"; x.fillText("9", 70 + i * 4, 130);
+        // A STATIC dark slab with one long, clean horizontal edge at y=180.
+        // The filter inks that edge; how THICK the inked band is measures the
+        // stroke weight directly — which is the parameter that made the output
+        // "too heavy" — and it is a far steadier signal than any ink
+        // percentage. Kept clear of the moving shape and the text.
+        x.fillStyle = "#151515"; x.fillRect(0, 180, 320, 60);
         await new Promise(r => setTimeout(r, 33));
       }
       rec.stop();
@@ -134,7 +140,28 @@ try {
           n++;
         }
       }
-      return { name: filtered.name, type: filtered.type, size: filtered.size,
+      // Measure the inked band over the slab's top edge (y=180 of 240), as the
+      // MEDIAN run length across several columns so one noisy column cannot
+      // decide the result.
+      let strokePx = -1;
+      if (v.videoWidth) {
+        const ctx2 = oc.getContext("2d");
+        const edgeY = Math.round(180 / 240 * oc.height);
+        const span = Math.round(30 / 240 * oc.height);
+        const runs = [];
+        for (const fx of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+          const cx = Math.round(oc.width * fx);
+          const col = ctx2.getImageData(cx, Math.max(0, edgeY - span), 1, span * 2).data;
+          let best = 0, run = 0;
+          for (let i = 0; i < col.length; i += 4) {
+            if (col[i] < 60) { run++; if (run > best) best = run; } else run = 0;
+          }
+          runs.push(best);
+        }
+        runs.sort((a, b) => a - b);
+        strokePx = runs[Math.floor(runs.length / 2)];
+      }
+      return { strokePx, name: filtered.name, type: filtered.type, size: filtered.size,
                w: v.videoWidth, h: v.videoHeight, progress: seen.length,
                blackPct: n ? black / n * 100 : -1, whitePct: n ? white / n * 100 : -1,
                colourPct: n ? colour / n * 100 : -1 };
@@ -152,6 +179,14 @@ try {
     check("output is black and white — no colour survives", out.colourPct >= 0 && out.colourPct < 1);
     check("output is two-tone, not grey mush", out.blackPct + out.whitePct > 80);
     check("output actually has ink in it", out.blackPct > 0.5);
+    /* Weight guard. The filter shipped once tuned so heavily that a stadium
+       crowd came out as a solid black mass with the players lost inside it —
+       the owner's word was "too heavy". Stroke width is the parameter that
+       caused it, so measure that directly rather than an ink percentage:
+       percentages move by a tenth between the two tunings and are noisy, the
+       band over a known edge roughly halves. */
+    check("strokes stay fine — the sketch is line art, not a black mass",
+      out.strokePx > 0 && out.strokePx <= 5, `${out.strokePx}px band over a hard edge`);
     console.log(`      (${out.w}x${out.h}, ${Math.round(out.size/1024)}KB, black ${out.blackPct.toFixed(1)}% / white ${out.whitePct.toFixed(1)}%)`);
     }
   }
