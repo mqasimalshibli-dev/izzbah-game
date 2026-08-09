@@ -5244,6 +5244,9 @@
     body[data-screen="customManager"] .app,
     body[data-screen="adminPanel"] .app,
     body[data-screen="results"] .app { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+    /* The picker's corner carries a taller cluster (the 56px ring sits above
+       the back button's line), so it needs more room than the others. */
+    body[data-screen="categories"] .app { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
     /* The per-screen «رجوع» buttons stay in the DOM as the behaviour carriers
        the floating button clicks, but are no longer drawn. */
@@ -5309,49 +5312,85 @@
     /* ── Category counter ring ───────────────────────────────────────────────
        Replaces the plain «٥ / ٦ مختارة» line. The ring fills as categories are
        picked, the number punches on every change, and at six it swaps for a
-       tick and pulses once. The owner's reference is orange on cream; this is
-       the same construction in عِزبة's gold/green, so «اكتمل» reads as the
-       success colour the rest of the app already uses.
+       tick and pulses once.
+
+       It is a floating BUTTON in #catDock beside «رجوع», so it wears that
+       button's outlined dark/gold chrome rather than the red action skin — the
+       corner is chrome that sits over a screen, not an action within one.
+
+       ⚠️ That chrome is dark in BOTH themes, so every colour here is picked
+       against a dark ground and must NOT be re-themed. The first version
+       inherited the page's light-theme brown (#a9772a) and vanished into the
+       translucent black the moment the ring left the cream header.
 
        CIRC below must match the stroke-dasharray in the markup: 2*pi*r with
        r=24 is 150.8. Change one and the ring fills to the wrong fraction. */
-    .ccr { display: inline-flex; align-items: center; gap: 12px; justify-content: center; }
-    .ccr-ring { position: relative; width: 52px; height: 52px; flex: none; border-radius: 50%; }
+    #catDock {
+      position: fixed; z-index: 5; display: none; align-items: center; gap: 10px;
+      right: 14px; bottom: 14px; /* both replaced at runtime, from the back button */
+    }
+    body[data-screen="categories"] #catDock { display: flex; }
+    .ccr {
+      position: relative; flex: none; display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 56px; height: 56px; min-height: 0; padding: 0;
+      border-radius: 50%; cursor: pointer;
+      /* Denser than «رجوع»'s .58: that button has solid text to read, while the
+         ring has a thin arc and a single digit, and category artwork showing
+         through was enough to lose both. */
+      background: rgba(20, 6, 8, .76); border: 1.5px solid rgba(231, 195, 115, .55);
+      backdrop-filter: blur(4px); box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+    }
+    .ccr:hover { background: rgba(231, 195, 115, .18); transform: translateY(-1px); }
+    .ccr:active { transform: translateY(1px); }
+    .ccr-ring { position: relative; display: block; width: 52px; height: 52px; flex: none; border-radius: 50%; }
     .ccr-ring > svg:first-child { display: block; transform: rotate(-90deg); }
-    .ccr-track { stroke: rgba(147, 100, 40, .18); }
-    .ccr-prog { stroke: var(--gold-dark, #b8862b); transition: stroke-dashoffset .55s cubic-bezier(.3,.9,.25,1), stroke .3s ease; }
+    .ccr-track { stroke: rgba(231, 195, 115, .20); }
+    .ccr-prog { stroke: #e7c373; transition: stroke-dashoffset .55s cubic-bezier(.3,.9,.25,1), stroke .3s ease; }
     .ccr-num {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      font: 400 22px 'Lalezar', 'Cairo', sans-serif; color: #a9772a;
+      font: 400 22px 'Lalezar', 'Cairo', sans-serif; color: #f0c877;
       transition: transform .26s cubic-bezier(.2,1.8,.35,1), opacity .25s ease, color .3s ease;
     }
     .ccr-check { position: absolute; inset: 0; opacity: 0; transition: opacity .25s ease; }
-    .ccr-text { display: flex; flex-direction: column; gap: 1px; text-align: start; line-height: 1.25; }
-    .ccr-main { font: 800 15px 'Cairo', sans-serif; color: #7a5c22; }
-    .ccr-hint { font: 700 12.5px 'Cairo', sans-serif; color: #9a8256; }
+    .ccr-check path { stroke: #4fd18c; }
 
     .ccr.is-punch .ccr-num { transform: scale(1.22); }
     .ccr.is-done .ccr-num { opacity: 0; }
     .ccr.is-done .ccr-check { opacity: 1; }
     .ccr.is-done .ccr-check path { animation: ccr-tick .4s .12s cubic-bezier(.3,.9,.25,1) forwards; }
-    .ccr.is-done .ccr-ring { animation: ccr-pulse .7s ease-out; }
-    .ccr.is-done .ccr-prog { stroke: #1f9d57; }
-    .ccr.is-done .ccr-main { color: #1f7a48; }
-    .ccr.is-over .ccr-prog { stroke: var(--red, #cc2531); }
-    .ccr.is-over .ccr-main, .ccr.is-over .ccr-num { color: #a8202c; }
+    .ccr.is-done { animation: ccr-pulse .7s ease-out; border-color: rgba(79, 209, 140, .7); }
+    .ccr.is-done .ccr-prog { stroke: #4fd18c; }
+    .ccr.is-over .ccr-prog { stroke: #ff7079; }
+    .ccr.is-over .ccr-num { color: #ff9aa0; }
+    .ccr.is-over { border-color: rgba(255, 112, 121, .7); }
 
-    @keyframes ccr-pulse { 0% { box-shadow: 0 0 0 0 rgba(31, 157, 87, .45); } 100% { box-shadow: 0 0 0 20px rgba(31, 157, 87, 0); } }
+    /* «متابعة» — the one thing in the dock that IS an action, so it keeps the
+       app's red button skin. It only exists once a category is picked, which is
+       why the picker's own proceed button (below forty cards) can stay put. */
+    .cat-dock-go {
+      flex: none; min-height: 0; padding: 12px 20px; border-radius: 999px;
+      font: 800 15px 'Cairo', sans-serif; cursor: pointer; color: #fff;
+      background: linear-gradient(180deg, #cc2531, #9e1322);
+      border: 1.5px solid #7e0f1e;
+      box-shadow: 0 6px 16px rgba(150, 20, 30, .34), inset 0 1px 0 rgba(255, 255, 255, .22);
+      transition: transform .18s ease, filter .18s ease;
+      animation: cat-go-in .24s cubic-bezier(.2,1.5,.4,1);
+    }
+    .cat-dock-go[hidden] { display: none; }
+    .cat-dock-go:hover { filter: brightness(1.07); transform: translateY(-1px); }
+    .cat-dock-go:active { transform: translateY(1px); }
+
+    @keyframes ccr-pulse { 0% { box-shadow: 0 0 0 0 rgba(79, 209, 140, .45); } 100% { box-shadow: 0 0 0 20px rgba(79, 209, 140, 0); } }
     @keyframes ccr-tick  { 0% { stroke-dashoffset: 26; } 100% { stroke-dashoffset: 0; } }
+    @keyframes cat-go-in { 0% { opacity: 0; transform: translateX(12px) scale(.9); } 100% { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) {
       .ccr-prog, .ccr-num, .ccr-check { transition: none; }
-      .ccr.is-done .ccr-ring { animation: none; }
+      .ccr.is-done { animation: none; }
       .ccr.is-done .ccr-check path { animation: none; stroke-dashoffset: 0; }
+      .cat-dock-go { animation: none; }
     }
-    :root[data-theme="dark"] .ccr-track { stroke: rgba(231, 195, 115, .18); }
-    :root[data-theme="dark"] .ccr-num { color: #f0c877; }
-    :root[data-theme="dark"] .ccr-main { color: #f2e3c4; }
-    :root[data-theme="dark"] .ccr-hint { color: #bda97f; }
-    :root[data-theme="dark"] .ccr.is-done .ccr-main { color: #7fd0a0; }
     .cat-count-pill { display: inline-flex; align-items: center; gap: 2px; background: rgba(255,255,255,.24); border-radius: 999px;
       padding: 1px 10px; margin-inline-start: 8px; font-weight: 800; font-size: .86em; font-variant-numeric: tabular-nums; }
     .cat-count-pill .ccp-sep { opacity: .7; margin: 0 1px; }
@@ -7646,6 +7685,41 @@
        re-implementing five navigations. See globalBack in the script. -->
   <button id="globalBack" type="button" aria-label="رجوع" title="رجوع">رجوع</button>
 
+  <!-- Categories-only floating dock, sitting immediately beside «رجوع». It
+       carries the counter ring and, once at least one category is picked, a
+       short «متابعة». Both are fixed rather than in the page because the
+       proceed button in `.actions` sits BELOW forty category cards: on a phone
+       you had to scroll the whole grid to reach it.
+       The dock is positioned from the MEASURED back button rather than a
+       hard-coded offset — «رجوع» is one of the strings an admin can reword,
+       and a guessed offset would overlap it the moment they did. -->
+  <div id="catDock" aria-hidden="true">
+    <!-- Ring FIRST: in an RTL row the first child is the rightmost, so the ring
+         lands against «رجوع» and «متابعة» grows away to its left. Ordered the
+         other way round, the ring would shift sideways every time the proceed
+         button appeared or disappeared. -->
+    <button class="ccr" id="catRing" type="button">
+      <span class="ccr-ring">
+        <svg width="52" height="52" viewBox="0 0 56 56" aria-hidden="true">
+          <circle class="ccr-track" cx="28" cy="28" r="24" fill="none" stroke-width="4"></circle>
+          <circle class="ccr-prog" cx="28" cy="28" r="24" fill="none" stroke-width="4"
+                  stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"></circle>
+        </svg>
+        <span class="ccr-num" id="catRingNum">0</span>
+        <svg class="ccr-check" width="52" height="52" viewBox="0 0 56 56" aria-hidden="true">
+          <path d="M19 29 L25.5 35.5 L38 22" fill="none" stroke="#1f9d57" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="26"></path>
+        </svg>
+      </span>
+      <!-- Kept in the DOM, not drawn: the ring shows a digit, so the count and
+           the "how many left" wording still have to reach a screen reader, and
+           tapping the ring speaks the same two lines back as a toast. -->
+      <span class="sr-only" id="catRingMain"></span>
+      <span class="sr-only" id="catRingHint"></span>
+    </button>
+    <button class="cat-dock-go" id="catGoFloat" type="button" hidden>متابعة</button>
+  </div>
+
   <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
     <div class="question-modal settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-head">
@@ -7950,26 +8024,9 @@
       <div class="stack wide-stack">
         <div class="cat-eyebrow"><i></i>لعبة جديدة<i></i></div>
         <h2 class="screen-title">اختر فئاتك</h2>
-        <div class="hint" id="categoryStatus">
-          <div class="ccr" id="catRing">
-            <div class="ccr-ring">
-              <svg width="52" height="52" viewBox="0 0 56 56" aria-hidden="true">
-                <circle class="ccr-track" cx="28" cy="28" r="24" fill="none" stroke-width="4"></circle>
-                <circle class="ccr-prog" cx="28" cy="28" r="24" fill="none" stroke-width="4"
-                        stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"></circle>
-              </svg>
-              <div class="ccr-num" id="catRingNum">0</div>
-              <svg class="ccr-check" width="52" height="52" viewBox="0 0 56 56" aria-hidden="true">
-                <path d="M19 29 L25.5 35.5 L38 22" fill="none" stroke="#1f9d57" stroke-width="4"
-                      stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="26"></path>
-              </svg>
-            </div>
-            <div class="ccr-text">
-              <span class="ccr-main" id="catRingMain"></span>
-              <span class="ccr-hint" id="catRingHint"></span>
-            </div>
-          </div>
-        </div>
+        <!-- The counter ring used to sit here as a header block. It now floats
+             beside «رجوع» (see #catDock, just before </body>) so the picker
+             starts at the categories themselves. -->
         <button class="cat-plays-stat" id="catPlaysStat" type="button" hidden></button>
         <!-- The grouped form panel (the owner's reference): tabs, name, search
              and the one CTA live INSIDE one dark inset panel, as filled fields
@@ -12227,7 +12284,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.281";
+    const IZZBAH_BUILD = "2026-08-09.282";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15577,6 +15634,19 @@
       }
       ring.classList.toggle("is-done", count === CCR_MAX);
       ring.classList.toggle("is-over", count > CCR_MAX);
+      // The ring draws a digit and nothing else, so the whole status has to
+      // reach a screen reader (and the tooltip) through the label.
+      const spoken = `${main ? main.textContent : ""}${hint ? " — " + hint.textContent : ""}`;
+      ring.setAttribute("aria-label", spoken);
+      /* Deliberately NO `title`. The styled-bubble helper only adopts controls
+         whose visible text is wordless, and the ring carries screen-reader
+         text — so a title here would escape it and surface as the slow, unstyled
+         native tooltip the rest of the app was cleaned of. Tapping gives the
+         same words as a toast, which is what a phone needs anyway. */
+      // «متابعة» exists only once there is something to proceed WITH.
+      const go = $("#catGoFloat");
+      if (go) go.hidden = count === 0;
+      layoutCatDock();
       // the punch has to RESTART on every change, so the class comes off and
       // goes back on rather than simply being left set
       ring.classList.remove("is-punch");
@@ -15585,6 +15655,28 @@
       clearTimeout(ccrPunchTimer);
       ccrPunchTimer = setTimeout(() => ring.classList.remove("is-punch"), 220);
     }
+
+    /* Parks the dock immediately beside the floating «رجوع».
+
+       Measured, not hard-coded: «رجوع» is one of the strings an admin can
+       reword from the in-game text editor, and its width also moves with the
+       font. A fixed offset would sit the ring on top of it the first time
+       either changed. Matching its vertical centre rather than its `bottom`
+       keeps the two aligned through the safe-area padding it carries. */
+    function layoutCatDock() {
+      const dock = document.getElementById("catDock");
+      const back = document.getElementById("globalBack");
+      if (!dock || !back) return;
+      const r = back.getBoundingClientRect();
+      if (!r.width) return; // back button not drawn on this screen — leave as-is
+      dock.style.right = Math.round(window.innerWidth - r.left + 10) + "px";
+      dock.style.bottom = Math.round(window.innerHeight - r.bottom) + "px";
+      dock.style.height = Math.round(r.height) + "px";
+    }
+    window.addEventListener("resize", layoutCatDock);
+    // Cairo lands after first paint and «رجوع» is wider in it than in the
+    // fallback, so a dock parked before the swap would end up overlapping.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutCatDock).catch(() => {});
 
     // ---- Shareable custom-game links ---------------------------------------
     // A host picks categories, then shares a link that encodes the selection +
@@ -24106,6 +24198,17 @@
       if (own) { own.click(); return; }
       const fallback = BACK_FALLBACK[document.body.dataset.screen];
       if (fallback) showScreen(fallback);
+    });
+
+    /* The floating dock on the picker. «متابعة» is the same step as the
+       «اختيار الفرق» button below the grid, so it delegates rather than
+       repeating the navigation — one of them changing must change both. */
+    $("#catGoFloat").addEventListener("click", () => $("#goTeams").click());
+    /* The ring is a digit with no words, and on a touch screen there is no
+       hover to reveal the tooltip — so tapping it speaks the status instead. */
+    $("#catRing").addEventListener("click", () => {
+      const main = $("#catRingMain"), hint = $("#catRingHint");
+      showToast(`${main.textContent}${hint.textContent ? " — " + hint.textContent : ""}`);
     });
 
     // ---- User settings / account sheet wiring ----

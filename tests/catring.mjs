@@ -1,5 +1,12 @@
-// The category counter ring (build .281) — the owner's replacement for the
-// plain «N / 6 مختارة» text line on «اختر فئاتك».
+// The category counter ring (build .281, floated in .282) — the owner's
+// replacement for the plain «N / 6 مختارة» text line on «اختر فئاتك».
+//
+// It now lives in #catDock, a fixed cluster beside the floating «رجوع», with a
+// «متابعة» that appears once at least one category is picked. That move brings
+// its own failure modes, all pinned below: the dock is positioned from the
+// MEASURED back button, so a layout that never runs leaves it stacked on top of
+// «رجوع»; and the dock's chrome is dark in BOTH themes, so a colour that gets
+// re-themed for the light page disappears into it.
 //
 // The number is now drawn twice: as a digit in the middle of the ring and as a
 // filled arc around it. Those two can disagree silently, which is the whole
@@ -85,9 +92,9 @@ const READ = () => {
     done: ring.classList.contains("is-done"),
     over: ring.classList.contains("is-over"),
     stroke: cs.stroke,
-    mainColor: getComputedStyle(document.getElementById("catRingMain")).color,
-    hintColor: getComputedStyle(document.getElementById("catRingHint")).color,
+    digitColor: getComputedStyle(num).color,
     visible: ring.getBoundingClientRect().width > 0,
+    goShown: !document.getElementById("catGoFloat").hidden,
   };
 };
 
@@ -175,7 +182,7 @@ try {
       seen[6].numOpacity < 0.1 && seen[6].checkOpacity > 0.9,
       `num=${seen[6].numOpacity} tick=${seen[6].checkOpacity}`);
     check(`${theme}: the ring goes green when it is full`,
-      seen[6].stroke !== seen[3].stroke && /rgb\(31, ?157, ?87\)/.test(seen[6].stroke),
+      seen[6].stroke !== seen[3].stroke && /rgb\(79, ?209, ?140\)/.test(seen[6].stroke),
       `${seen[3].stroke} → ${seen[6].stroke}`);
 
     // Refusing a seventh tap is fed back ONLY through this component.
@@ -198,36 +205,82 @@ try {
 
     // The ring paints its own colours, so neither theme may inherit an
     // unreadable one. Sheet luminance differs wildly between the two.
-    // Every ancestor of the ring is transparent and the page colour comes from a
-    // radial-gradient on `body`, so `backgroundColor` reports rgba(0,0,0,0) — it
-    // scores as pure black and would let LIGHT theme pass on a colour the text is
-    // actually invisible against. Average the gradient's stops instead.
-    const bg = await page.evaluate(() => {
-      const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const opaque = c => c && c !== "transparent" && !/rgba\([^)]*,\s*0\s*\)/.test(c);
-      for (let el = document.getElementById("catRingMain"); el; el = el.parentElement) {
-        const cs = getComputedStyle(el);
-        if (opaque(cs.backgroundColor)) {
-          const [r, g, b] = /\(([^)]+)\)/.exec(cs.backgroundColor)[1].split(",").map(Number);
-          return lum(r, g, b);
-        }
-        const stops = [...cs.backgroundImage.matchAll(/rgba?\(([^)]+)\)/g)]
-          .map(m => m[1].split(",").map(Number))
-          .filter(p => p.length < 4 || p[3] > 0.15);
-        if (stops.length) return stops.reduce((a, p) => a + lum(p[0], p[1], p[2]), 0) / stops.length;
-      }
-      return null;
+    // The ring sits on the dock's own dark chrome, not on the page, so the
+    // reference is that chrome — and it must be dark in BOTH themes. Checking
+    // against the page here would pass a light-theme ring that is invisible.
+    const chrome = await page.evaluate(() => {
+      const cs = getComputedStyle(document.getElementById("catRing"));
+      const parts = /\(([^)]+)\)/.exec(cs.backgroundColor)[1].split(",").map(Number);
+      const [r, g, b] = parts;
+      return { lum: 0.2126 * r + 0.7152 * g + 0.0722 * b, alpha: parts.length > 3 ? parts[3] : 1, bg: cs.backgroundColor };
     });
-    const mainL = luminance(seen[3].mainColor), hintL = luminance(seen[3].hintColor);
-    check(`${theme}: the counter text contrasts with the page`,
-      mainL !== null && bg !== null && Math.abs(mainL - bg) > 40 && Math.abs(hintL - bg) > 30,
-      `bg=${Math.round(bg)} main=${Math.round(mainL)} hint=${Math.round(hintL)}`);
+    // Luminance alone would pass a chrome that is dark AND fully transparent —
+    // i.e. no chrome at all, with the digit floating over category artwork.
+    check(`${theme}: the ring's chrome stays dark and actually opaque`,
+      chrome.lum < 90 && chrome.alpha >= 0.5, `${chrome.bg} (a=${chrome.alpha})`);
+    const digitL = luminance(seen[3].digitColor);
+    check(`${theme}: the digit is legible on that chrome`,
+      digitL !== null && digitL - chrome.lum > 90, `chrome=${Math.round(chrome.lum)} digit=${Math.round(digitL)}`);
 
-    // The old text line was one row; the ring is a two-line block beside a
-    // 52px circle. It must not push the picker off a phone.
-    const height = await page.evaluate(() =>
-      Math.round(document.getElementById("catRing").getBoundingClientRect().height));
-    check(`${theme}: the ring stays compact`, height > 40 && height <= 72, `${height}px`);
+    // «متابعة» is the whole point of the dock: the picker's own proceed button
+    // is below forty cards, so on a phone it is off-screen for the entire pick.
+    check(`${theme}: «متابعة» is absent with nothing picked`, seen[0].goShown === false);
+    check(`${theme}: it appears from the first category on`,
+      seen.slice(1).every(s => s.goShown === true), seen.map(s => +s.goShown).join(""));
+
+    // Geometry. The dock is parked from the MEASURED back button, so the failure
+    // to guard is the layout never running and the two landing on top of each
+    // other — which looks like a missing ring rather than a positioning bug.
+    await page.evaluate(SET, 3);
+    const geo = await page.evaluate(() => {
+      const R = id => {
+        const el = document.getElementById(id);
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height };
+      };
+      return { back: R("globalBack"), ring: R("catRing"), go: R("catGoFloat"), vw: innerWidth, vh: innerHeight };
+    });
+    const gap = geo.back.left - geo.ring.right;
+    check(`${theme}: the ring sits beside «رجوع», not over it`,
+      gap >= 4 && gap <= 24, `${Math.round(gap)}px gap`);
+    check(`${theme}: «متابعة» sits beyond the ring, same row`,
+      geo.go.right <= geo.ring.left + 1 && Math.abs(geo.go.bottom - geo.back.bottom) <= 6,
+      `go.right=${Math.round(geo.go.right)} ring.left=${Math.round(geo.ring.left)}`);
+    check(`${theme}: the whole cluster stays on screen`,
+      geo.go.left >= 0 && geo.back.right <= geo.vw && geo.ring.bottom <= geo.vh,
+      `left=${Math.round(geo.go.left)} right=${Math.round(geo.back.right)}`);
+    check(`${theme}: the ring is finger-sized`, geo.ring.h >= 44 && geo.ring.h <= 72, `${Math.round(geo.ring.h)}px`);
+
+    // Both dock controls are new click paths. «متابعة» must reach the same
+    // place as the picker's own proceed button, and the ring — a digit with no
+    // words, on a phone with no hover — must say the status out loud on tap.
+    const acted = await page.evaluate(async () => {
+      document.getElementById("catRing").click();
+      await new Promise(r => setTimeout(r, 250));
+      const toast = [...document.querySelectorAll("body *")]
+        .map(e => (e.textContent || "").trim())
+        .filter(t => /من 6 مختارة/.test(t)).pop() || "";
+      document.getElementById("catGoFloat").click();
+      await new Promise(r => setTimeout(r, 500));
+      return { toast, screen: document.body.dataset.screen };
+    });
+    check(`${theme}: tapping the ring speaks the count`, /3 من 6 مختارة/.test(acted.toast), acted.toast);
+    check(`${theme}: «متابعة» goes on to team setup`, acted.screen === "setup", acted.screen);
+
+    // The dock is chrome for ONE screen; left drawn elsewhere it would float
+    // over the board and the results.
+    const elsewhere = await page.evaluate(async () => {
+      const out = {};
+      for (const id of ["menu", "gameLibrary", "categories"]) {
+        showScreen(id);
+        await new Promise(r => setTimeout(r, 250));
+        out[id] = getComputedStyle(document.getElementById("catDock")).display;
+      }
+      return out;
+    });
+    check(`${theme}: the dock shows on the picker only`,
+      elsewhere.categories !== "none" && elsewhere.menu === "none" && elsewhere.gameLibrary === "none",
+      JSON.stringify(elsewhere));
 
     await page.close();
   }
