@@ -53,15 +53,32 @@ try {
   check("an inactive set is hidden from players", !grid.names.some(n => /مطفأة/.test(n)));
   check("a partially-valid set still shows (bad category dropped)", grid.names.some(n => /ناقصة/.test(n)));
 
-  // ---- tapping a set pre-selects its categories and opens the category screen ----
-  const tapped = await page.evaluate(() => {
+  // ---- tapping a set pre-selects its categories and goes to the team page ----
+  // Route CHANGED in build .277 (owner). It used to land on the category
+  // picker, but a ready-made set has already made the only choice that screen
+  // offers, so it was a screen with nothing to do between «ابدأ بهذه المجموعة»
+  // and naming the teams.
+  const tapped = await page.evaluate(async () => {
     startFeaturedSet("a");
-    return { selected: [...(state.selected || [])], name: state.currentGameName,
-             onCategories: document.getElementById("categories").classList.contains("active") };
+    await new Promise(r => setTimeout(r, 500));
+    return {
+      selected: [...(state.selected || [])], name: state.currentGameName,
+      screen: document.body.dataset.screen,
+      onCategories: document.getElementById("categories").classList.contains("active"),
+      teamNameInputs: [...document.querySelectorAll("#setup input")]
+        .filter(i => !i.type || i.type === "text").length,
+      setupReturn: state.setupReturn,
+    };
   });
   check("tapping a set pre-selects exactly its categories", tapped.selected.length === 4 && tapped.selected.every(id => ids.includes(id)));
   check("tapping a set pre-fills the game name", tapped.name === "سهرة العيلة");
-  check("tapping a set lands on the category screen to tweak/continue", tapped.onCategories);
+  check(`tapping a set goes straight to the team-name page (${tapped.screen})`,
+    tapped.screen === "setup" && !tapped.onCategories);
+  check(`...with the team name fields ready (${tapped.teamNameInputs})`, tapped.teamNameInputs >= 2);
+  // the set came from the library, so «رجوع» must return there rather than to
+  // a category picker that was never part of this route
+  check(`...and «رجوع» goes back to the library (${tapped.setupReturn})`,
+    tapped.setupReturn === "gameLibrary");
 
   // ---- admin authoring panel writes a shape-clamped map ----
   const saved = await page.evaluate(() => {

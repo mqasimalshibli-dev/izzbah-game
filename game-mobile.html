@@ -13454,9 +13454,15 @@
       if (state.randomizedCats) state.randomizedCats.clear();
       if (typeof saveGameSettings === "function") saveGameSettings();
       state.categoryMode = "game";
-      showScreen("categories");
-      if (typeof renderCategories === "function") renderCategories();
-      if (typeof showToast === "function") showToast(`فئات «${set.name}» جاهزة — عدّلها أو تابع`);
+      /* Straight to the team-name screen (owner, build .277). A ready-made set
+         has already made the only choice the category screen offers, so landing
+         there asked the player to re-approve a decision they made by tapping
+         «ابدأ بهذه المجموعة» — one screen of nothing to do before naming teams.
+         «رجوع» from setup returns to the library the set was picked from, not
+         to the category picker, which was never part of this route. */
+      state.setupReturn = "gameLibrary";
+      showScreen("setup");
+      if (typeof showToast === "function") showToast(`فئات «${set.name}» جاهزة — سمِّ فرقك وابدأ`);
     }
 
     // --- Admin: recommended-set editor («الألعاب المقترحة») ---
@@ -13941,8 +13947,18 @@
          here, where it would not have been before the padding existed: it can
          only fire on real overflow, so it cannot re-create the everything-at-
          the-floor bug. 1px steps because the excess is small by definition. */
-      let strict = 40;
-      while (strict-- > 0 && size > MIN && el.scrollHeight > el.clientHeight) {
+      /* BOUNDED. An unbounded version of this loop broke picture questions:
+         the text box and the `flex` image share the card, so every pixel the
+         text gives up the image takes back, the box is squeezed again, and the
+         two chase each other — tablet-landscape wording ran 26px down to 17px
+         and blew the tuned 0.80x question:answer ratio (tests/qimage.mjs).
+         The overhang this pass exists to remove is 3-8px, so it is allowed a
+         proportional nudge and no more; anything left over falls through to the
+         scrollbar below rather than eating the layout. */
+      const budget = Math.max(3, Math.round(size * 0.12));
+      const lowest = Math.max(MIN, size - budget);
+      let strict = budget + 2;
+      while (strict-- > 0 && size > lowest && el.scrollHeight > el.clientHeight) {
         size -= 1;
         el.style.setProperty("font-size", size + "px", "important");
       }
