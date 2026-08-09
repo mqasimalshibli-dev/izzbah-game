@@ -5733,7 +5733,7 @@
 
     #game .board-category-card {
       position: relative !important; isolation: isolate;
-      display: flex !important; flex-direction: column; justify-content: flex-end;
+      display: block !important; justify-content: flex-end;
       border-radius: 24px !important; border: 2px solid #c89a4e !important; overflow: hidden !important;
       box-shadow: 0 2px 0 rgba(255, 255, 255, .12) inset, 0 24px 40px -22px rgba(40, 20, 10, .6) !important;
       background-color: var(--cat-bg, #1a0306);
@@ -6076,6 +6076,22 @@
       border-radius: var(--tile-radius, 24px) !important;
       box-shadow: 0 18px 40px rgba(120, 70, 20, .13) !important;
       padding: var(--tile-pad, 24px) !important; display: block !important; text-align: right !important;
+    }
+    /* A row of cards is stretched to its TALLEST member, so a game with one
+       category used to sit in a box with a wide band of dead space under its
+       single tile. The card becomes a column and the category grid takes the
+       slack, so the covers grow to fill whatever height the row hands out and
+       the buttons stay pinned at the bottom.
+       Excludes the resume and featured-set cards — different contents, and they
+       have no category grid to give the space to. */
+    #gameLibrary .saved-game-card:not(.resume-card):not(.featured-set-card) {
+      display: flex !important; flex-direction: column;
+    }
+    #gameLibrary .saved-game-card:not(.resume-card):not(.featured-set-card) .saved-game-cats {
+      flex: 1 1 auto;
+      /* 1fr rows share the leftover height between however many rows there are;
+         the min keeps a single tile from collapsing when there IS no leftover. */
+      grid-auto-rows: minmax(var(--tile-cat, 112px), 1fr) !important;
     }
     #gameLibrary .saved-game-card:hover, #gameLibrary .saved-game-card:focus-visible { transform: translateY(-2px); outline: none !important; box-shadow: 0 24px 48px rgba(120, 70, 20, .2) !important; filter: none !important; }
     #gameLibrary .saved-game-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--tile-gap-sm, 10px); margin-bottom: var(--tile-head, 18px); }
@@ -12337,7 +12353,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.286";
+    const IZZBAH_BUILD = "2026-08-09.287";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
