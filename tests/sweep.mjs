@@ -8,7 +8,7 @@ for(const reserve of [250,290,320]){
     const p=await b.newPage({viewport:{width:vw,height:vh}});
     await p.route("**/firebasejs/**",r=>r.abort());
     await p.addInitScript(()=>{try{localStorage.setItem("izzbah-legal-consent-v1","1");}catch(e){}});
-    await p.goto("http://127.0.0.1:8398/game-mobile.html",{waitUntil:"load"});
+    await p.goto("http://127.0.0.1:8398/index.html",{waitUntil:"load"});
     await p.waitForTimeout(1300);
     const res=await p.evaluate((reserve)=>{
       // override the cap live

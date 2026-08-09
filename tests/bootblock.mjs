@@ -27,7 +27,7 @@ await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
 
 // Static guard first: no stylesheet may block render on a third-party host.
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 // <noscript> content is exempt: it only applies when JS is off, and the game
 // does not run at all without JS — so a blocking link there costs nothing.
 const head = html.slice(0, html.indexOf("</head>")).replace(/<noscript>[\s\S]*?<\/noscript>/gi, "");
@@ -57,7 +57,7 @@ const boot = async (label, fontBehaviour) => {
   await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
   await page.route("**/firebasejs/**", r => r.abort());
   await fontBehaviour(page);
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "commit" });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "commit" });
   // Wait for the app to actually be alive, not merely for bytes to arrive.
   const alive = await page.waitForFunction(
     () => typeof window.IZZBAH === "object" && !!document.querySelector(".wlc-start"),
@@ -103,7 +103,7 @@ check("the page never even asks a font CDN (fonts are self-hosted)",
 const page = await browser.newPage({ viewport: { width: 844, height: 390 } });
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 await page.route("**/firebasejs/**", r => r.abort());
-await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load" });
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load" });
 const probe = await page.evaluate(async () => {
   // A face only downloads when something needs it, so ask explicitly.
   await Promise.all([

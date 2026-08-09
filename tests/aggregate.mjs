@@ -23,7 +23,7 @@ const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
 // ---- static: the bridge + rules carry the mirror ----
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 const rules = readFileSync(join(ROOT, "firestore.rules"), "utf8");
 check("pushUsage mirrors granted+premium and preserves them when absent",
   /pushUsage = function \(n, grant\)/.test(html) && /gamesGranted:/.test(html)
@@ -52,7 +52,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // ---- client: applying the code balance mirrors granted+premium ----

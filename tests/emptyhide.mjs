@@ -20,7 +20,7 @@ const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
 // ---- static: the remote-image builders carry loading="lazy" decoding="async" ----
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 check("CMS question thumbnails are lazy + async-decoded",
   /<img class="q-thumb"[^>]*loading="lazy" decoding="async"/.test(html));
 check("category thumbnails are lazy + async-decoded",
@@ -39,7 +39,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // ---- an empty official category is hidden; a filled one still shows ----

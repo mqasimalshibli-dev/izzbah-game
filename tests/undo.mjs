@@ -25,7 +25,7 @@ const qCount = () => page.evaluate(() => (state.adminCat && state.adminCat.quest
 const undoDisabled = () => page.evaluate(() => document.getElementById("adminUndo").disabled);
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1600);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);

@@ -8,8 +8,8 @@ const outDir = path.join(__dirname, 'www');
 
 fs.mkdirSync(outDir, { recursive: true });
 
-// 1) the self-contained game -> index.html (the app's entry point)
-fs.copyFileSync(path.join(root, 'game-mobile.html'), path.join(outDir, 'index.html'));
+// 1) the self-contained game (index.html at the repo root) -> the app's entry point
+fs.copyFileSync(path.join(root, 'index.html'), path.join(outDir, 'index.html'));
 
 // 2) copy the assets/ folder too (harmless; covers any future local references)
 const assetsSrc = path.join(root, 'assets');
@@ -18,4 +18,4 @@ if (fs.existsSync(assetsSrc)) {
   fs.cpSync(assetsSrc, path.join(outDir, 'assets'), { recursive: true });
 }
 
-console.log('Copied game-mobile.html -> mobile/www/index.html (+ assets/)');
+console.log('Copied index.html -> mobile/www/index.html (+ assets/)');

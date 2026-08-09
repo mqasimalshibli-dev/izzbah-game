@@ -17,7 +17,7 @@ const checks = []; const check = (n, ok) => { checks.push(!!ok); console.log(`${
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const MP4 = "https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev/sample.mp4";
 try {
-  await page.goto("http://127.0.0.1:8304/game-mobile.html", { waitUntil: "load", timeout: 30000 });
+  await page.goto("http://127.0.0.1:8304/index.html", { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); window.IZZBAH.applyAdmin(true); });
   await page.waitForTimeout(150);

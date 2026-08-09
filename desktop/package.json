@@ -22,7 +22,7 @@
     },
     "files": [
       "electron-main.js",
-      "game-mobile.html",
+      "index.html",
       "package.json",
       "assets/**/*"
     ],

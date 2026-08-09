@@ -39,7 +39,7 @@ const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
 await page.route("**/firebasejs/**", r => r.abort());
 page.on("pageerror", e => errs.push(e.message));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
 await page.waitForTimeout(1300);
 
 // Firebase is blocked in this harness, so cloudPublish does not exist. Rebuild
@@ -104,7 +104,7 @@ check("a HYDRATED category can still CLEAR a picture on purpose",
 // The guard is only as good as the flag it reads, so pin the real wiring too:
 // the source must consult __lite / hydratedCats at both writers, and the
 // debounced saver must pass the trust flag through.
-const src = await page.evaluate(() => fetch("game-mobile.html").then(r => r.text()));
+const src = await page.evaluate(() => fetch("index.html").then(r => r.text()));
 check("cloudPublish computes mediaTrusted from __lite + hydratedCats",
   /const mediaTrusted = !cat\.__lite \|\| hydratedCats\.has\(cat\.id\)/.test(src));
 check("cloudPublish routes both images through keepImg",

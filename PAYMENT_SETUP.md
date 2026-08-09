@@ -39,7 +39,7 @@ Properties the tests pin down:
 - **The client cannot say what it bought.** It sends only a pack id; games,
   premium and amount are resolved server-side.
 - **Client and server prices can't drift** — a test compares `PLAY_PLANS` in
-  `game-mobile.html` against the server table and fails on any mismatch.
+  `index.html` (the game) against the server table and fails on any mismatch.
 - **Money converts by rounding**, so 3.5 OMR is 3500 baisa, not 3499.
 
 ## Still to do — needs the merchant account

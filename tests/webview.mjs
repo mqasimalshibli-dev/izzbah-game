@@ -26,7 +26,7 @@ const errs = [];
 p1.on("pageerror", e => errs.push(e.message));
 p1.on("dialog", d => d.accept().catch(() => {}));
 try {
-  await p1.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await p1.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await p1.waitForTimeout(1500);
   const r = await p1.evaluate(() => ({
     detected: isInAppBrowser(),
@@ -56,7 +56,7 @@ const p2 = await ctx2.newPage();
 await p2.route("**/firebasejs/**", r => r.abort());
 await p2.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 try {
-  await p2.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await p2.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await p2.waitForTimeout(1200);
   const r = await p2.evaluate(() => ({
     detected: isInAppBrowser(),

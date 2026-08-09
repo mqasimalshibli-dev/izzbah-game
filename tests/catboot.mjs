@@ -68,7 +68,7 @@ try {
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
     await page.route("**/firebasejs/**", r => r.fulfill({ status: 200, contentType: "application/javascript", body: HANGING_SDK }));
     await page.route("**/firestore.googleapis.com/**", r => r.abort());
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(400);
     await openPicker(page);
     await page.waitForTimeout(300);
@@ -96,7 +96,7 @@ try {
     const page = await browser.newPage({ viewport: { width: 420, height: 860 } });
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
     await page.route("**/firebasejs/**", r => r.abort());
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(400);
     await openPicker(page);
     await page.waitForTimeout(500);
@@ -113,7 +113,7 @@ try {
     const page = await browser.newPage({ viewport: { width: 420, height: 860 } });
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
     await page.route("**/firebasejs/**", r => r.abort());
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForFunction(() => window.IZZBAH && window.IZZBAH.markCatalogReady, { timeout: 15000 });
     const ok = await page.evaluate(() => {
       try {

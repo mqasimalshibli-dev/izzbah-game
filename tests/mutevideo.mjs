@@ -42,7 +42,7 @@ try {
   await page.route("**/firebasejs/**", r => r.abort());
   await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
   page.on("pageerror", e => jsErrors.push(e.message));
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => window.IZZBAH_TEST && window.IZZBAH_TEST.mediaMuted, { timeout: 15000 });
 
   // ── the grammar ─────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ function createWindow() {
     }
   });
 
-  win.loadFile(path.join(__dirname, "game-mobile.html"));
+  win.loadFile(path.join(__dirname, "index.html"));
 
   // Open external http(s) links (e.g. Share) in the system browser.
   win.webContents.setWindowOpenHandler(({ url }) => {

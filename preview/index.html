@@ -55,7 +55,7 @@
   --muted:#c6a98c;                     /* neutral biased warm, not grey */
   --rule:rgba(231,195,115,.16);
   --shadow:0 30px 80px -40px rgba(0,0,0,.9);
-  /* Same type system as the game (see game-mobile.html):
+  /* Same type system as the game (see index.html at the repo root):
      Cairo for all text, Lalezar for display numbers, Aref Ruqaa for the
      عِزبة wordmark and nothing else. */
   --body:'Cairo', 'Tahoma', system-ui, sans-serif;
@@ -556,7 +556,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <a href="#social">تابعونا</a>
       <a href="#faq">أسئلة شائعة</a>
     </nav>
-    <a class="btn magnetic" href="../game-mobile.html">العب الآن</a>
+    <a class="btn magnetic" href="../">العب الآن</a>
   </div>
 </header>
 
@@ -582,7 +582,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
           وتقدرون تسوّون فئاتكم بأسئلتكم أنتم.
         </p>
         <div class="cta-row rv" data-d="3">
-          <a class="btn magnetic" href="../game-mobile.html">العب الآن — مجاناً</a>
+          <a class="btn magnetic" href="../">العب الآن — مجاناً</a>
           <a class="btn ghost magnetic" href="#cats">شوف الفئات</a>
         </div>
         <div class="store-row rv" data-d="4">
@@ -811,7 +811,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="inner">
         <h2>جمّع الربع… وابدأ</h2>
         <p class="lede" style="margin:20px auto 0; text-align:center">أول لعبة مجانية — افتحها من المتصفح وابدأ على طول.</p>
-        <div class="cta-row"><a class="btn magnetic" href="../game-mobile.html">افتح اللعبة الحين</a></div>
+        <div class="cta-row"><a class="btn magnetic" href="../">افتح اللعبة الحين</a></div>
         <div class="store-row">
           <span class="store" aria-disabled="true"><span class="t"><b>App Store</b><span>قريباً</span></span></span>
           <span class="store" aria-disabled="true"><span class="t"><b>Google Play</b><span>قريباً</span></span></span>
@@ -825,15 +825,15 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   <div class="foot">
     <a class="brand" href="#top"><img src="../assets/brand/png/app-icon/icon-192.png" alt=""> عِزبة</a>
     <nav class="foot-links" aria-label="روابط">
-      <a href="../game-mobile.html">اللعبة</a>
+      <a href="../">اللعبة</a>
       <a href="#cats">الفئات</a>
       <a href="#price">الباقات</a>
       <a href="#faq">أسئلة شائعة</a>
       <a href="mailto:izzbahgame@gmail.com">تواصل معنا</a>
       <a href="https://instagram.com/izzbahgame" rel="noopener" target="_blank">إنستقرام</a>
       <a href="https://tiktok.com/@izzbahgame" rel="noopener" target="_blank">تيك توك</a>
-      <a href="../game-mobile.html" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">سياسة الخصوصية</a>
-      <a href="../game-mobile.html" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">شروط الاستخدام</a>
+      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">سياسة الخصوصية</a>
+      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">شروط الاستخدام</a>
     </nav>
   </div>
   <p class="copy">© <span id="yr">٢٠٢٦</span> عِزبة — جميع الحقوق محفوظة.</p>
@@ -898,7 +898,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
   /* ── category showcase, driven by scroll ────────────────── */
   const ar = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
-  const GAME = "../game-mobile.html";
+  const GAME = "../";
   // Accent per category, sampled from its own artwork by preview/sync notes —
   // so the ambient light always matches the cover on screen.
   const ACCENT = {"arabicTerms": "rgba(102,71,38,.60)", "cafesRestaurants": "rgba(102,73,41,.60)", "cars": "rgba(54,29,102,.60)", "charades": "rgba(102,62,42,.60)", "charadesArabic": "rgba(102,65,33,.60)", "charadesMovies": "rgba(102,62,29,.60)", "charadesSeries": "rgba(102,57,29,.60)", "culture": "rgba(102,64,29,.60)", "emojis": "rgba(102,81,29,.60)", "footballMix": "rgba(102,31,33,.60)", "foreignMoviesOnly": "rgba(102,32,29,.60)", "foreignSeries": "rgba(102,37,51,.60)", "geo": "rgba(102,100,40,.60)", "history": "rgba(102,55,29,.60)", "khareef": "rgba(64,102,35,.60)", "omaniFootball": "rgba(102,32,29,.60)", "pub-1783170059396-601": "rgba(102,74,36,.60)", "pub-1783170084646-5700": "rgba(102,66,39,.60)", "pub-1783170306877-1440": "rgba(102,61,29,.60)", "pub-1783170356019-2501": "rgba(102,63,29,.60)", "pub-1783189569201-313": "rgba(102,74,51,.60)", "pub-1783189666048-7547": "rgba(102,74,46,.60)", "pub-1783189684453-7350": "rgba(102,37,29,.60)", "pub-1783425758108-102": "rgba(29,102,93,.60)", "pub-1783453062866-1028": "rgba(102,57,37,.60)", "pub-1783510423551-6465": "rgba(102,47,43,.60)", "pub-1783684233589-5608": "rgba(29,47,102,.60)", "pub-1784043823835-6035": "rgba(29,55,102,.60)", "pub-1784240484235-8039": "rgba(102,79,29,.60)", "pub-1784486305049-7855": "rgba(102,53,29,.60)", "pub-1784503983714-3987": "rgba(29,33,102,.60)", "pub-1784571861226-6942": "rgba(29,45,102,.60)", "pub-1784798503561-5271": "rgba(102,56,29,.60)", "pub-1785323313470-2876": "rgba(102,61,29,.60)", "pub-1785819195566-4471": "rgba(51,72,102,.60)", "sayAnother": "rgba(102,66,29,.60)", "science": "rgba(49,57,102,.60)", "seerah": "rgba(102,67,29,.60)", "sports": "rgba(102,32,29,.60)", "whoAmI": "rgba(102,29,30,.60)"};

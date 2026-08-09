@@ -55,7 +55,7 @@ const probe = (idx, longDesc) => page.evaluate(({ idx, longDesc }) => {
 }, { idx, longDesc });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
   // show the category selection screen so the cards have real layout (the
   // .category height only resolves when the screen isn't display:none)

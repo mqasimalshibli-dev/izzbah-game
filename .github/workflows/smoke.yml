@@ -5,7 +5,10 @@ name: Smoke test
 on:
   push:
     paths:
+      - "index.html"
       - "game-mobile.html"
+      - "game.html"
+      - "sitemap.xml"
       - "sw.js"
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
@@ -13,7 +16,10 @@ on:
       - ".github/workflows/smoke.yml"
   pull_request:
     paths:
+      - "index.html"
       - "game-mobile.html"
+      - "game.html"
+      - "sitemap.xml"
       - "sw.js"
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
@@ -731,3 +737,9 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node teambox.mjs
+
+      - name: Run root-home (game served at /) test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node roothome.mjs

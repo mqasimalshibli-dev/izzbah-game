@@ -29,7 +29,7 @@ await page.addInitScript(() => { try {
 const dot = () => page.evaluate(() => document.getElementById("userSettingsBtn").classList.contains("has-unread"));
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // ── Player side: dev announcement + dev reply light the dot ──

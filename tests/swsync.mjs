@@ -19,13 +19,13 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
-const game = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const game = readFileSync(join(ROOT, "index.html"), "utf8");
 const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
 
 const buildM = game.match(/const IZZBAH_BUILD = "([^"]+)";/);
 const cacheM = sw.match(/const CACHE = "izzbah-([^"]+)";/);
 
-check("game-mobile.html declares IZZBAH_BUILD", !!buildM);
+check("index.html declares IZZBAH_BUILD", !!buildM);
 check("sw.js declares an izzbah-<build> cache name", !!cacheM);
 if (buildM && cacheM) {
   check(`sw.js cache tracks the build (build ${buildM[1]}, cache izzbah-${cacheM[1]})`,

@@ -23,7 +23,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
   localStorage.setItem("izzbah-coach-v1", JSON.stringify({ __all: 1 })); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => window.IZZBAH && typeof window.IZZBAH.applyFeaturedSets === "function", { timeout: 15000 });
   await page.waitForTimeout(300);
 

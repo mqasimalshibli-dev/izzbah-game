@@ -60,7 +60,7 @@ try {
   await phone.route("**/firebasejs/**", r => r.abort());
   phone.on("pageerror", e => errs.push(e.message));
   await phone.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await phone.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await phone.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await phone.waitForTimeout(1400);
 
   const p = await probe(phone, ["fourChoices", "firstLetter", "doublePoints"], 55); // very long → must shrink even in the now-full-height card
@@ -139,7 +139,7 @@ try {
   await ipad.route("**/firebasejs/**", r => r.abort());
   ipad.on("pageerror", e => errs.push(e.message));
   await ipad.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await ipad.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await ipad.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await ipad.waitForTimeout(1400);
 
   const i = await probe(ipad, ["fourChoices", "firstLetter", "doublePoints"], 60); // extreme length

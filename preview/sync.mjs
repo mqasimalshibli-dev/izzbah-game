@@ -23,7 +23,7 @@ const KEY = "AIzaSyDRcH7DlI-CDRTKh0_a5svL9UutNRmIH2I"; // public web key, same o
 const ROOT = "https://firestore.googleapis.com/v1/projects/izzbahgame/databases/(default)/documents";
 
 // Categories with no cloud cover fall back to a bundled asset, exactly as the
-// game does (see publishedCoverFallbacks in game-mobile.html).
+// game does (see publishedCoverFallbacks in index.html).
 const BUNDLED = {
   foreignMoviesOnly: "../assets/img/cat-foreignMoviesOnly.webp",
   khareef:           "../assets/img/cat-khareef.webp",

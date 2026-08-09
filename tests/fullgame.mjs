@@ -36,7 +36,7 @@ await page.addInitScript(() => {
     localStorage.setItem("izzbah-coach-v1", JSON.stringify({ __all: 1 }));
   } catch (e) {}
 });
-await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
 await page.waitForTimeout(1500);
 
 const res = await page.evaluate(async () => {

@@ -25,7 +25,7 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 const clickText = t => page.evaluate(txt => { const el = [...document.querySelectorAll("button, .btn, a, .wlc-start")].find(x => x.textContent.trim().includes(txt)); if (el) { el.click(); return true; } return false; }, t);
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1600);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); });
   await clickText("ابدأ"); await page.waitForTimeout(300);
@@ -95,7 +95,7 @@ try {
   const phone = await browser.newPage({ viewport: { width: 820, height: 400 } });
   await phone.route("**/firebasejs/**", route => route.abort());
   await phone.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await phone.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await phone.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await phone.waitForTimeout(1500);
   await phone.evaluate(() => {
     state.teamCount = 2;

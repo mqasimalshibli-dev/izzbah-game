@@ -90,7 +90,7 @@ try {
     await page.route("**/firebasejs/**", r => r.abort());
     page.on("pageerror", e => errs.push(e.message));
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(1300);
 
     const sizes = {};
@@ -157,7 +157,7 @@ try {
     await page.route("**/firebasejs/**", r => r.abort());
     page.on("pageerror", e => errs.push(e.message));
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(1300);
     const m = await measure(page, "سؤال طويل جداً بلا نهاية ".repeat(60) + "؟");
     // 1500 characters — about fourteen times the longest question in the live
@@ -179,7 +179,7 @@ try {
     await page.route("**/firebasejs/**", r => r.abort());
     page.on("pageerror", e => errs.push(e.message));
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(1300);
     // 150 chars — comfortably past the real-world maximum of 109
     const m2 = await measure(page, "في أي سنة تأسست الدولة البوسعيدية في عُمان على يد الإمام أحمد بن سعيد، وما المدينة التي اتخذها عاصمةً له بعد أن طرد الغزاة من البلاد كاملةً؟ اذكرهما");
@@ -201,7 +201,7 @@ try {
     await page.route("**/firebasejs/**", r => r.abort());
     page.on("pageerror", e => errs.push(e.message));
     await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-    await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(1300);
     // the real-world maximum: 109 characters, the longest of 3536 published
     const m = await measure(page, "أنا فيزيائي.\nساهمت في تأسيس ميكانيكا الكم.\nأشتهر بمبدأ يحمل اسمي يمنع تحديد الموقع والزخم بدقة في الوقت نفسه.");

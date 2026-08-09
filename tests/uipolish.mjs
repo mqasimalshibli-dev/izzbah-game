@@ -15,7 +15,7 @@ const PORT = 8321;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 
 // ---- static: the flag, helpers and CSS exist ----
 check("single reversible UI_POLISH flag is declared",
@@ -78,7 +78,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1600);
 
   check("the <html> element carries the ui-polish class",
@@ -161,7 +161,7 @@ try {
   const shortPage = await browser.newPage({ viewport: { width: 1100, height: 420 } });
   await shortPage.route("**/firebasejs/**", route => route.abort());
   await shortPage.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await shortPage.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await shortPage.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await shortPage.waitForTimeout(1600);
   const wlc = await shortPage.evaluate(() => {
     const box = document.querySelector(".wlc");

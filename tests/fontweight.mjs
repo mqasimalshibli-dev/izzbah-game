@@ -24,7 +24,7 @@ const PORT = 8379;
 const checks = [];
 const check = (n, ok) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}`); };
 
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 
 // ── static: one Cairo face per unicode-range, spanning the whole axis ────────
 const cairoFaces = (html.match(/@font-face \{ font-family: 'Cairo';[\s\S]*?\n    \}/g) || []);
@@ -62,7 +62,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 420, height: 860 } });
   await page.route("**/firebasejs/**", r => r.abort());
   await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
 
   const probe = await page.evaluate(async () => {
     const S = "عِزبة لعبة المعرفة والتحدي";

@@ -13,7 +13,7 @@ await p.route("**/firebasejs/**",r=>r.abort());
 await p.addInitScript(()=>{try{localStorage.setItem("izzbah-legal-consent-v1","1");localStorage.setItem("izzbah-coach-v1",JSON.stringify({__all:1}));}catch(e){}});
 const errs=[]; p.on("pageerror",e=>errs.push(e.message));
 p.on("dialog", d=> d.accept("سبب تجريبي"));
-await p.goto("http://127.0.0.1:"+PORT+"/game-mobile.html",{waitUntil:"load",timeout:30000});
+await p.goto("http://127.0.0.1:"+PORT+"/index.html",{waitUntil:"load",timeout:30000});
 await p.waitForFunction(()=>typeof state!=="undefined" && typeof renderCategories==="function" && typeof blockCommunityCategory==="function" && window.IZZBAH && typeof window.IZZBAH.applyAuth==="function",{timeout:15000});
 await p.waitForTimeout(400);
 

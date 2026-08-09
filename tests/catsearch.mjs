@@ -26,7 +26,7 @@ const names = () => page.evaluate(() =>
   [...document.querySelectorAll("#categoryGrid .cat-name-pill")].map(n => n.textContent));
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => { window.IZZBAH.applyAuth(true); openNewGameCategories(); });
   await page.waitForTimeout(300);

@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   appId: 'com.izzbah.game',
   appName: 'Izzbah',
   webDir: 'www',
-  // The game ships fully inside the app bundle (game-mobile.html is self-contained);
+  // The game ships fully inside the app bundle (index.html is self-contained);
   // it only reaches out to Google Fonts + Firebase over HTTPS at runtime.
   ios: {
     contentInset: 'always',

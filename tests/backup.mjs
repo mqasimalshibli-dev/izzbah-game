@@ -17,7 +17,7 @@ const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT
 await new Promise(r => setTimeout(r, 1200));
 
 // ---- static: App Check is wired with a real key (not a placeholder) ----
-const html = readFileSync(join(ROOT, "game-mobile.html"), "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 const keyMatch = html.match(/IZZBAH_APPCHECK_SITE_KEY = "([^"]*)"/);
 check("App Check has a real reCAPTCHA site key wired",
   !!keyMatch && keyMatch[1].length > 20 && keyMatch[1].indexOf("PASTE_") !== 0);
@@ -33,7 +33,7 @@ page.on("dialog", d => d.accept().catch(() => {}));
 await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/game-mobile.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
   // seed a known catalog, then build the backup object
