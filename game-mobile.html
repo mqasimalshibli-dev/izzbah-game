@@ -399,8 +399,11 @@
        button inherits it instead of needing its own override. */
     .primary, .secondary, .ghost, .danger, .gold-btn {
       min-height: 52px;
-      border-radius: 14px;
-      padding: 13px 28px;
+      /* fully round (owner, build .279) — the reference for the library
+         buttons is a pill, and this is the one place that decides it for
+         every button in the app. */
+      border-radius: 999px;
+      padding: 13px 30px;
       border: 1px solid transparent;
       font-family: 'Cairo', sans-serif;
       font-weight: 800;
@@ -506,13 +509,18 @@
        multi-line box bows the sides in around the text. The 3px gold border
        drops to 2px — at full round a heavy border reads as a ring rather than
        an edge. */
+    /* FILLED fields (owner, .279): the recessed soft-fill pattern — the field
+       reads as pressed INTO its panel (tinted fill + inset shadow + subtle
+       border) rather than as a white box sitting on top of it. One rule, so
+       every screen including the admin editors inherits it. */
     input, textarea {
       width: 100%;
       min-width: 0;
       padding: 13px 20px;
-      border: 2px solid var(--gold);
+      border: 1px solid rgba(176, 138, 64, .4);
       border-radius: 999px;
-      background: white;
+      background: #f7efdd;
+      box-shadow: inset 0 2px 5px rgba(120, 80, 20, .1);
       color: var(--dark);
       text-align: center;
       caret-color: var(--red);
@@ -644,6 +652,38 @@
     .cat-plays-stat .cps-count { color: #b07a1c; font-variant-numeric: tabular-nums; }
     .cat-plays-stat:active { transform: translateY(1px); }
 
+    /* ── Grouped form panel — the canonical pattern (owner, .279) ──────────
+       A dark inset card that groups a screen's form controls: segmented pill
+       track, filled fields recessed into the panel, leading icons inside the
+       fields, one solid CTA. The panel is DARK in both themes — that is the
+       reference — so the fields inside always use the dark filled variant. */
+    .form-panel {
+      width: min(780px, 100%); margin: 10px auto 4px;
+      padding: clamp(14px, 2.6vw, 24px);
+      background: linear-gradient(180deg, #33141a, #24090d);
+      border: 1px solid rgba(231, 195, 115, .28);
+      border-radius: 28px;
+      box-shadow: 0 18px 40px rgba(40, 8, 12, .35), inset 0 1px 0 rgba(255, 255, 255, .06);
+      display: grid; gap: 14px;
+    }
+    .form-panel .category-tabs { margin: 0 auto; background: rgba(0, 0, 0, .32); border: 1px solid rgba(231, 195, 115, .2); border-radius: 999px; box-shadow: none; }
+    .form-panel .category-tab { color: #d9bd8a; border-radius: 999px; }
+    .form-panel .category-tab.active { background: linear-gradient(180deg, #cc2531, #9e1322); color: #fff; }
+    /* the name box loses its own card — the PANEL is the card now */
+    .form-panel .game-name-box { background: none; border: 0; box-shadow: none; padding: 0; margin: 0; width: 100%; gap: 8px; }
+    .form-panel .game-name-box label { color: #e7c98f; font-size: 13.5px; }
+    .form-panel .game-name-box input,
+    .form-panel .izz-search input {
+      background: rgba(0, 0, 0, .3); border-color: rgba(231, 195, 115, .26); color: #f4e6cb;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, .4);
+    }
+    .form-panel .game-name-box input { border-radius: 22px; }  /* the reference: rounded, not a full pill */
+    .form-panel .game-name-box input::placeholder,
+    .form-panel .izz-search input::placeholder { color: #b49a74; }
+    .form-panel .izz-search { margin: 0; width: 100%; }
+    .form-panel .izz-search-lead { color: #cfa95f; }
+    .form-panel .category-toolbar { margin: 2px 0 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
     .category-tabs {
       width: min(440px, 100%);
       max-width: 100%;
@@ -652,7 +692,7 @@
       gap: 6px;
       padding: 6px;
       border: 2px solid #e0c97f;
-      border-radius: 16px;
+      border-radius: 999px;
       background: #f1e2bd;
       box-shadow: inset 0 1px 3px rgba(120, 80, 20, .12);
     }
@@ -663,7 +703,7 @@
       min-width: 0;
       padding: 12px 20px;
       border: none;
-      border-radius: 12px;
+      border-radius: 999px;
       background: transparent;
       color: #8a6a3a;
       box-shadow: none;
@@ -1149,24 +1189,21 @@
       outline: none; box-shadow: 0 6px 16px rgba(120, 80, 20, .12), inset 0 1px 0 #fff;
       transition: border-color .18s, box-shadow .18s;
     }
-    /* room for the circle at the end, and the ✕ just before it */
-    .izz-search input { padding-inline-end: 84px; }
+    /* leading magnifier INSIDE the field (the canonical pattern) — room for it
+       at the start, and for the ✕ at the end */
+    .izz-search input { padding-inline-start: 52px; padding-inline-end: 44px; }
+    .izz-search-lead {
+      position: absolute; inset-inline-start: 20px; top: 50%; transform: translateY(-50%);
+      color: #a8814a; pointer-events: none; display: grid; place-items: center;
+    }
+    .izz-search-lead svg { width: 19px; height: 19px; }
+    :root[data-theme="dark"] .izz-search-lead { color: #cfa95f; }
     .izz-search input::placeholder, .game-name-box input::placeholder { color: #a8977a; font-weight: 700; }
     .izz-search input::-webkit-search-decoration,
     .izz-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
     .izz-search input:focus, .game-name-box input:focus { border-color: #cc2531; box-shadow: 0 0 0 3px rgba(204, 37, 49, .13), 0 6px 16px rgba(120, 80, 20, .12); }
-    .izz-search-go {
-      position: absolute; inset-inline-end: 5px; top: 50%; transform: translateY(-50%);
-      width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; flex: none;
-      display: grid; place-items: center; cursor: pointer; color: #fff;
-      background: linear-gradient(180deg, #cc2531, #9e1322);
-      box-shadow: 0 4px 12px rgba(150, 20, 30, .34), inset 0 1px 0 rgba(255, 255, 255, .25);
-      transition: filter .18s, transform .18s;
-    }
-    .izz-search-go:hover { filter: brightness(1.07); }
-    .izz-search-go svg { width: 20px; height: 20px; }
     .izz-search-clear {
-      position: absolute; inset-inline-end: 56px; top: 50%; transform: translateY(-50%);
+      position: absolute; inset-inline-end: 14px; top: 50%; transform: translateY(-50%);
       width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0;
       display: grid; place-items: center; cursor: pointer;
       background: rgba(158, 28, 28, .1); color: #9e1322; font-size: 13px; font-weight: 800;
@@ -4982,7 +5019,10 @@
       color: #fff !important; opacity: .95; cursor: default;
     }
     /* unread markers */
-    .settings-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #cc2531; color: #fff;
+    /* the reference marks unread with a plain dot, not a numbered pill */
+    .settings-badge { min-width: 11px; height: 11px; padding: 0; border-radius: 999px; background: #e2484f; color: transparent; font-size: 0;
+      box-shadow: 0 0 0 3px rgba(226, 72, 79, .22); }
+    .settings-badge-legacy { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #cc2531; color: #fff;
       font: 800 12px 'Cairo', sans-serif; display: inline-grid; place-items: center; margin-inline-start: 6px; }
     #userSettingsBtn.has-unread::after { content: ""; position: absolute; top: 6px; inset-inline-end: 6px; width: 11px; height: 11px;
       border-radius: 50%; background: #cc2531; border: 2px solid #200608; }
@@ -5168,7 +5208,7 @@
     #globalBack {
       position: fixed; right: 14px; bottom: 14px; z-index: 5;
       display: none; align-items: center; justify-content: center;
-      min-height: 0; padding: 11px 26px; border-radius: 14px;
+      min-height: 0; padding: 11px 26px; border-radius: 999px;
       font: 800 16px 'Cairo', sans-serif; cursor: pointer;
       background: rgba(20, 6, 8, .58); border: 1.5px solid rgba(231, 195, 115, .55);
       color: #e7c373; backdrop-filter: blur(4px);
@@ -5282,9 +5322,9 @@
     .settings-account .sa-btn { margin-top: 9px; width: 100%; }
     .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
     .settings-row {
-      width: 100%; display: flex; align-items: center; gap: 11px; text-align: right; cursor: pointer;
-      background: #fbf5e6; border: 1px solid rgba(201,151,74,.4); border-radius: 11px;
-      padding: 11px 13px; margin-bottom: 8px; font-family: 'Cairo', sans-serif; color: var(--dark);
+      width: 100%; display: flex; align-items: center; gap: 12px; text-align: right; cursor: pointer;
+      background: #fbf5e6; border: 1px solid rgba(201,151,74,.4); border-radius: 18px;
+      padding: 11px 13px; margin-bottom: 9px; font-family: 'Cairo', sans-serif; color: var(--dark);
       transition: background .12s, transform .1s;
     }
     .settings-row:hover { background: #f3e7c8; }
@@ -5294,10 +5334,23 @@
     .settings-row-danger { background: #fbe9e9; border-color: #e6b3b3; color: #9a1c1c; }
     .settings-row-danger .settings-label { color: #9a1c1c; }
     .settings-row-danger:hover { background: #f6d6d6; }
-    .settings-ico { font-size: 20px; line-height: 1; flex: none; width: 24px; text-align: center; }
+    /* Icon TILE (owner's reference, build .279): the emoji sits in a rounded-
+       square chip at the row's start instead of floating bare — it is what
+       makes the rows read as a settings list rather than a stack of buttons. */
+    .settings-ico {
+      font-size: 18px; line-height: 1; flex: none;
+      width: 40px; height: 40px; border-radius: 13px;
+      display: grid; place-items: center;
+      background: rgba(120, 80, 20, .1);
+      border: 1px solid rgba(201, 151, 74, .35);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+    }
+    .settings-row-danger .settings-ico {
+      background: rgba(190, 40, 40, .12); border-color: rgba(190, 60, 60, .4);
+    }
     .settings-label { flex: 1; min-width: 0; font-weight: 800; font-size: 14.5px; display: flex; flex-direction: column; gap: 2px; }
     .settings-label small { font-weight: 600; font-size: 11.5px; color: #6a4e1a; }
-    .settings-chev { color: #9a6a2e; font-size: 22px; font-weight: 800; flex: none; }
+    .settings-chev { color: #9a6a2e; font-size: 20px; font-weight: 800; flex: none; opacity: .55; }
     .settings-state { color: #7a6738; font: 800 13px 'Cairo', sans-serif; flex: none; }
     /* the toggle rows are no longer buttons themselves — the switch inside is */
     .settings-row-toggle { cursor: default; }
@@ -5721,7 +5774,7 @@
     #setup .setup-nav button { min-width: 0 !important; }
     #setup .setup-nav .ghost {
       display: inline-flex; align-items: center; gap: 8px; font: 800 16px 'Cairo', sans-serif !important; color: #9e1620 !important;
-      background: linear-gradient(180deg, #fff8ea, #f5e6c6) !important; border: 1px solid rgba(196, 30, 42, .28) !important; border-radius: 14px !important;
+      background: linear-gradient(180deg, #fff8ea, #f5e6c6) !important; border: 1px solid rgba(196, 30, 42, .28) !important; border-radius: 999px !important;
       padding: 12px 24px !important; cursor: pointer; min-height: 0 !important;
       /* soft skin, matching the shared one — cream face, no hard edge */
       box-shadow: 0 8px 18px rgba(120, 40, 20, .18), inset 0 1px 0 #fff !important; transition: transform .18s, box-shadow .18s, filter .18s;
@@ -5730,8 +5783,8 @@
     #setup .setup-nav .ghost:active { transform: translateY(2px); box-shadow: 0 4px 10px rgba(120, 40, 20, .2), inset 0 1px 0 #fff !important; }
     #setup .setup-nav .primary {
       display: inline-flex; align-items: center; gap: 10px; font: 800 17px 'Cairo', sans-serif !important; color: #fff7e6 !important;
-      background: linear-gradient(180deg, #cc2531, #9e1322) !important; border: 1px solid #7e0f1e !important; border-radius: 14px !important;
-      padding: 14px 32px !important; cursor: pointer; min-height: 0 !important;
+      background: linear-gradient(180deg, #cc2531, #9e1322) !important; border: 1px solid #7e0f1e !important; border-radius: 999px !important;
+      padding: 14px 34px !important; cursor: pointer; min-height: 0 !important;
       box-shadow: 0 10px 22px rgba(150, 20, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .22) !important;
       transition: transform .18s, box-shadow .18s, filter .18s;
     }
@@ -5846,10 +5899,10 @@
     #gameLibrary .category-tabs {
       width: auto !important; display: inline-flex !important; grid-template-columns: none !important; gap: 6px !important;
       margin: 34px auto 0 !important; padding: 6px !important; background: #f1e2bd !important; border: 2px solid #e0c97f !important;
-      border-radius: 16px !important; box-shadow: inset 0 1px 3px rgba(120, 80, 20, .12) !important;
+      border-radius: 999px !important; box-shadow: inset 0 1px 3px rgba(120, 80, 20, .12) !important;
     }
     #gameLibrary .category-tab {
-      min-height: 0 !important; padding: 12px 32px !important; border: none !important; border-radius: 12px !important;
+      min-height: 0 !important; padding: 12px 34px !important; border: none !important; border-radius: 999px !important;
       background: transparent !important; color: #8a6a3a !important; box-shadow: none !important;
       font: 800 17px 'Cairo', sans-serif !important; cursor: pointer; transition: .18s;
     }
@@ -5860,8 +5913,9 @@
     /* create button */
     #gameLibrary .category-toolbar { display: flex; justify-content: center; margin: 22px 0 0 !important; }
     #gameLibrary #createSavedGame {
-      min-height: 0 !important; font: 800 18px 'Cairo', sans-serif !important; color: #fff !important; padding: 15px 38px !important;
-      border: 1px solid #7e0f1e !important; border-radius: 14px !important; background: linear-gradient(180deg, #cc2531, #9e1322) !important;
+      min-height: 0 !important; font: 800 18px 'Cairo', sans-serif !important; color: #fff !important; padding: 16px 44px !important;
+      min-width: min(420px, 92%); justify-content: center;
+      border: 1px solid #7e0f1e !important; border-radius: 999px !important; background: linear-gradient(180deg, #cc2531, #9e1322) !important;
       box-shadow: 0 10px 22px rgba(150, 20, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .22) !important;
       display: inline-flex; align-items: center; gap: 10px; cursor: pointer; transition: .18s;
     }
@@ -7114,6 +7168,13 @@
       border-color: var(--dk-line) !important;
     }
     :root[data-theme="dark"] .settings-section { color: var(--dk-muted); }
+    :root[data-theme="dark"] .settings-ico {
+      background: rgba(255, 255, 255, .06); border-color: rgba(231, 195, 115, .28);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+    :root[data-theme="dark"] .settings-row-danger .settings-ico {
+      background: rgba(190, 40, 40, .22); border-color: rgba(226, 100, 100, .4);
+    }
     :root[data-theme="dark"] .settings-row {
       background: rgba(255, 255, 255, .05); border-color: var(--dk-line); color: var(--dk-text);
     }
@@ -7829,6 +7890,10 @@
         <h2 class="screen-title">اختر فئاتك</h2>
         <p class="hint" id="categoryStatus">اختر فئة واحدة على الأقل للبدء.</p>
         <button class="cat-plays-stat" id="catPlaysStat" type="button" hidden></button>
+        <!-- The grouped form panel (the owner's reference): tabs, name, search
+             and the one CTA live INSIDE one dark inset panel, as filled fields
+             rather than separate boxes floating on the page. -->
+        <div class="form-panel">
         <div class="category-tabs" role="tablist" aria-label="Category type">
           <button class="category-tab active" id="gameCategoriesTab" type="button">فئات اللعبة</button>
           <button class="category-tab" id="communityCategoriesTab" type="button">فئات المجتمع</button>
@@ -7840,12 +7905,13 @@
         <div class="izz-search cat-search">
           <input id="catSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="ابحث عن فئة بالاسم…">
           <button class="izz-search-clear" id="catSearchClear" type="button" aria-label="مسح البحث" hidden>✕</button>
-          <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
+          <span class="izz-search-lead" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
         </div>
         <div class="category-toolbar">
           <button class="secondary community-tools" id="manageCustomFromCategories">إنشاء / تعديل فئات المجتمع</button>
           <button class="secondary rand-btn rand-btn--pill" id="randomCategories" type="button" aria-label="اختيار عشوائي" title="اختيار عشوائي"><span class="rand-die" aria-hidden="true">🎲</span><span>اختيار عشوائي</span></button>
         </div>
+        </div><!-- /form-panel -->
         <div class="cat-filter-row" id="catFilterRow" role="tablist" aria-label="تصفية الفئات" hidden></div>
         <div class="category-grid" id="categoryGrid"></div>
         <div class="actions">
@@ -7899,7 +7965,7 @@
         <div class="admin-controls">
           <div class="izz-search admin-search">
             <input id="adminSearch" type="search" placeholder="ابحث في الأسئلة أو الإجابات…" autocomplete="off" />
-            <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
+            <span class="izz-search-lead" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
           </div>
           <label class="admin-ctl"><span>ترتيب</span>
             <select id="adminSort">
@@ -8249,7 +8315,7 @@
         <div class="izz-search" style="margin:8px 0 2px">
           <input type="text" id="premSearch" autocomplete="off"
                  placeholder="ابحث بالبريد أو المعرّف أو الكود…" />
-          <span class="izz-search-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
+          <span class="izz-search-lead" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
         </div>
 
         <div class="prem-list-head">
@@ -12080,7 +12146,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.278";
+    const IZZBAH_BUILD = "2026-08-09.279";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
