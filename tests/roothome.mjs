@@ -10,7 +10,7 @@
 //      already installed the PWA gets a SECOND icon instead of an update,
 //   3. nothing may point at game-mobile.html as if it were still the game.
 import { chromium } from "playwright-core";
-import { spawn } from "child_process";
+import { spawn, execFileSync } from "child_process";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -66,18 +66,28 @@ const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 check("the sitemap lists the root and nothing else",
   locs.length === 1 && locs[0] === "https://izzbah.com/", locs.join(", "));
 
-// Nothing may still treat game-mobile.html as the game. The stub itself, the
-// manifest id and this test are the only legitimate mentions.
-const strays = [];
-for (const [file, body] of [
-  ["preview/index.html", read("preview/index.html")],
-  ["desktop/electron-main.js", read("desktop/electron-main.js")],
-  ["desktop/package.json", read("desktop/package.json")],
-  ["mobile/copy-web.js", read("mobile/copy-web.js")],
-  ["sw.js", read("sw.js")],
-  ["index.html", game],
-]) if (body.includes("game-mobile.html")) strays.push(file);
-check("no wrapper or page still loads game-mobile.html", strays.length === 0, strays.join(", "));
+// Nothing may still READ or LOAD game-mobile.html as if it were the game.
+// Swept across every tracked file rather than a hand-written list: the first
+// pass of this move missed `functions/test/fulfilment.test.mjs`, which opens
+// the game to compare pack prices, and CI went red on the deploy commit.
+// Comments and history notes may name the old path; code and links may not.
+const ALLOWED = new Set([
+  "game-mobile.html",                    // the stub itself
+  "game.html",                           // its twin, whose comment cites it
+  "sitemap.xml",                         // comment explaining the removal
+  "assets/brand/manifest.webmanifest",   // `id` — deliberately frozen, see above
+  "CLAUDE.md",                           // the notes, most of which predate the move
+  "mobile/MOBILE_SETUP.md",
+  "tests/roothome.mjs",                  // this file
+  ".github/workflows/smoke.yml",         // path filter, so a stub edit still runs CI
+  "functions/test/fulfilment.test.mjs",  // comment recording what it used to read
+]);
+const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).trim().split("\n");
+const strays = tracked.filter(f => !ALLOWED.has(f) && (() => {
+  try { return readFileSync(join(ROOT, f), "utf8").includes("game-mobile.html"); } catch (e) { return false; }
+})());
+check("nothing in the repo still points at game-mobile.html as the game",
+  strays.length === 0, strays.join(", "));
 
 // ---------- the redirects, in a real browser ----------
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });

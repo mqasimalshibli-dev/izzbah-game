@@ -68,7 +68,9 @@ check("a premium pack with no games doesn't write gamesAllowed",
 // gateway bills another — the kind of bug you find out about from a customer.
 {
   const fs = require("fs");
-  const path = new URL("../../game-mobile.html", import.meta.url);
+  // The game is index.html at the repo root (it was game-mobile.html until
+  // build .291, which is now only a redirect stub with no PLAY_PLANS in it).
+  const path = new URL("../../index.html", import.meta.url);
   const html = fs.readFileSync(path, "utf8");
   const block = (html.match(/const PLAY_PLANS = \[([\s\S]*?)\n    \];/) || [, ""])[1];
   const client = [...block.matchAll(/id: "([^"]+)"[\s\S]*?priceOMR: ([\d.]+), games: (\d+), premium: (true|false)/g)]

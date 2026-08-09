@@ -5,7 +5,7 @@
 // matters — how many games, whether it's premium, and the amount charged — is
 // looked up HERE.
 //
-// Keep in sync with PLAY_PLANS in game-mobile.html (same ids, same numbers).
+// Keep in sync with PLAY_PLANS in index.html, the game (same ids, same numbers).
 // The unit test asserts the shape so a typo can't ship a free 15-game pack.
 const PACKS = {
   g2:  { id: "g2",  name: "باقة لعبتين",   games: 2,  premium: false, amountOMR: 0.9 },
