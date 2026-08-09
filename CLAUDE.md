@@ -264,8 +264,26 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   `tests/boardpill.mjs` pins it by hit-testing the title, and skips in portrait
   where the game's own rotate-to-landscape overlay covers the board.
 
-- **The turn pill (build .289).** Maroon lozenge, team PHOTO in a ring, label,
-  swap icon; `renderTurnBoxes` builds it and replays a hand-over animation.
+- **The turn pill (build .289; WHOLE-PILL press in .292).** Maroon lozenge, team
+  PHOTO in a ring, label, swap icon; `renderTurnBoxes` builds it and replays a
+  hand-over animation.
+  **The whole pill hands over the turn, not just the arrows** (owner, .292): a
+  40px circle at the end of a 230px lozenge is a poor target on a phone being
+  passed round a room, and people tapped the name and got nothing. So
+  `data-turn-switch` sits on the CONTAINER — the delegated handler finds it with
+  `closest()` from wherever you tapped — and the icon is a decorative `<span>`.
+  ⚠️ It must NOT stay a `<button>`: a button inside a `role="button"` is invalid,
+  gives one action two tab stops, and browsers may reparent it out of the pill.
+  ⚠️ A `role="button"` DIV gets NO Enter/Space for free, so there is an explicit
+  `keydown` handler; Space must `preventDefault()` or the page scrolls.
+  ⚠️ `aria-label` but deliberately **no `title`** — the styled-bubble helper only
+  adopts controls whose visible text is wordless, and this pill has words, so a
+  title escapes it and shows the raw native tooltip the app was cleaned of.
+  ⚠️ Testing it: hit-test with `elementFromPoint` rather than dispatching
+  straight at the node — "the click never reaches the pill" is the whole failure
+  mode. In PORTRAIT the game's own rotate-to-landscape overlay legitimately
+  covers the board, so `tests/boardpill.mjs` detects that and checks only the
+  keyboard path there.
   ⚠️ Three later rules (`#game .turn-box`, `#questionPage/#answerPage
   .turn-box`) used to repaint its background translucent-white, silently
   undoing the design on the board — the one screen it matters on.
