@@ -642,6 +642,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node glasstoggle.mjs
 
+      - name: Run score-buttons + turn-pulse + coach-sync test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node scorepulse.mjs
+
       - name: Run board-card + turn-pill test
         working-directory: tests
         run: |
