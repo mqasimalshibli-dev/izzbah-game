@@ -4552,18 +4552,58 @@
     .admin-tab.active { background: linear-gradient(180deg, #c8232f, #9e1322); border-color: #e6c869; color: #fff; }
     .admin-tab .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, #e6c869); flex: 0 0 auto; }
     .admin-tab.add { color: #6fd08b; border-color: rgba(111,208,139,.4); }
-    .admin-cathead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; flex: 0 0 auto;
-      background: rgba(255,255,255,.03); border: 1px solid rgba(231,195,115,.16); border-radius: 14px; padding: 12px 16px; }
-    .admin-cathead .ac-name { flex: 1 1 200px; min-width: 160px; font: 700 16px 'Cairo', sans-serif; padding: 9px 12px;
-      background: rgba(0,0,0,.3); border: 1px solid rgba(231,195,115,.25); border-radius: 10px; color: #fff; }
-    .admin-cathead label.field-label { color: #b6a47e; margin: 0; display: inline-flex; align-items: center; gap: 8px; }
-    .admin-cathead input[type=color] { width: 46px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
-    .admin-cathead .ac-count { color: #9a8a66; font-size: 14px; }
+    /* ── Category toolbar (owner's mock, .296) ────────────────────────────
+       One dark panel, four tiers, everything a pill: identity + publish,
+       then the category-state switches, then the question actions, then a
+       muted maintenance strip. Grouping is the point — the old toolbar was
+       eleven equal-weight buttons in one wrapped row, so «حذف كل الأسئلة»
+       could land beside «إضافة سؤال جديد» at some window widths. */
+    .admin-cathead { display: flex; flex-direction: column; gap: 14px; flex: 0 0 auto;
+      background: #1d1113; border: 1px solid rgba(230,199,142,.14); border-radius: 20px; padding: 18px 20px; }
+    .admin-cathead .ac-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .admin-cathead .ac-spacer { flex: 1 1 auto; }
+    /* The state row reads as a separate band, not a second line of the first. */
+    .admin-cathead .ac-row-state { padding-top: 12px; border-top: 1px solid rgba(230,199,142,.14); }
+    .admin-cathead .ac-name { flex: 0 1 260px; min-width: 130px; font: 600 14.5px 'Cairo', sans-serif; padding: 11px 18px;
+      background: rgba(230,199,142,.05); border: 1px solid rgba(230,199,142,.22); border-radius: 999px; color: rgba(247,236,221,.9); }
+    .admin-cathead .ac-name:focus { border-color: #e6c78e; outline: none; }
+    .admin-cathead label.field-label { color: #f7ecdd; font-weight: 700; font-size: 14px; margin: 0; display: inline-flex; align-items: center; gap: 10px; }
+    .admin-cathead input[type=color] { width: 40px; height: 40px; padding: 0; border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px; background: none; cursor: pointer; }
+    .admin-cathead .ac-count { color: rgba(247,236,221,.5); font: 600 13px 'Cairo', sans-serif; white-space: nowrap; }
+    /* The shared image picker is a big drop target elsewhere; in this dense
+       header it is a 40px swatch, matching the colour well beside it. */
+    .admin-cathead .image-picker { width: 40px; height: 40px; min-height: 0; border-radius: 12px;
+      background: rgba(230,199,142,.12); border: 1px solid rgba(230,199,142,.22); }
+    .admin-cathead .image-picker .plus { font-size: 20px; color: #e6c78e; }
+    .admin-cathead .image-picker img { border-radius: 11px; }
+    .admin-cathead .image-picker .img-remove, .admin-cathead .image-picker .img-preview { transform: scale(.72); }
+    .admin-cathead .ac-meta { display: flex; align-items: center; justify-content: flex-end;
+      flex: 0 1 auto; min-width: 0; flex-wrap: wrap; gap: 6px 10px; }
     .admin-cathead .ac-tiers { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-    .admin-cathead .ac-tier { background: #f3ead3; color: #6a5a2f; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 600; }
-    .admin-cathead .ac-tier b { color: #9a1c1c; font-weight: 800; margin-inline-end: 3px; }
-    .admin-cathead .ac-publish { margin-inline-start: auto; }
+    .admin-cathead .ac-tier { background: none; border: 1px solid rgba(230,199,142,.22); color: rgba(230,199,142,.55);
+      border-radius: 999px; padding: 6px 11px; font: 600 13px 'Cairo', sans-serif; white-space: nowrap; }
+    .admin-cathead .ac-tier b { color: #e6c78e; font-weight: 700; margin-inline-end: 5px; }
+    .admin-cathead .ac-publish { flex: 0 0 auto; padding: 14px 30px !important; border: none !important;
+      border-radius: 999px !important; background: #d8484f !important; color: #fff5ee !important;
+      font: 700 16px 'Cairo', sans-serif !important; box-shadow: 0 6px 18px rgba(216,72,79,.28) !important; }
+    .admin-cathead .ac-publish:hover { background: #e05a60 !important; }
     .admin-cathead .ac-publish.dirty { animation: armedPulse 1.4s ease-in-out infinite; }
+    /* The state switches: outlined, never filled, so neither competes with publish. */
+    .admin-cathead .ac-hide, .admin-cathead .ac-choices, .admin-cathead .ac-delete {
+      flex: 0 0 auto; display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
+      padding: 11px 20px !important; border-radius: 999px !important; box-shadow: none !important;
+      font: 700 14px 'Cairo', sans-serif !important; }
+    .admin-cathead .ac-hide, .admin-cathead .ac-delete {
+      border: 1.5px solid rgba(216,72,79,.55) !important; background: transparent !important; color: #e0666b !important; }
+    .admin-cathead .ac-hide:hover, .admin-cathead .ac-delete:hover { background: rgba(216,72,79,.14) !important; }
+    .admin-cathead .ac-choices {
+      border: 1.5px solid rgba(230,199,142,.24) !important; background: transparent !important; color: rgba(247,236,221,.85) !important; }
+    .admin-cathead .ac-choices:hover:not(:disabled) { border-color: #e6c78e !important; background: rgba(230,199,142,.10) !important; }
+    /* Disabled by the category's own nature — a statement, not a control. */
+    .admin-cathead .ac-choices:disabled {
+      border: none !important; background: rgba(247,236,221,.05) !important;
+      color: rgba(247,236,221,.42) !important; font-weight: 600 !important; opacity: 1; cursor: default; }
     .admin-table-wrap { flex: 1 1 auto; overflow: auto; border: 1px solid rgba(231,195,115,.16); border-radius: 14px; min-height: 0; }
     .admin-table { width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; }
     .admin-table thead th { position: sticky; top: 0; z-index: 1; background: #1d1812; color: #c9b790; font-size: 14px; font-weight: 800;
@@ -4658,57 +4698,70 @@
       display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch;
       flex: 0 0 auto; margin: 6px 0 10px;
     }
-    .admin-foot > button {
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      flex: 0 1 auto; min-height: 44px; padding: 9px 15px !important;
-      border-radius: 12px !important; box-shadow: none !important;
-      font: 800 14px 'Cairo', sans-serif !important; line-height: 1.25;
+    /* Two labelled GROUPS, each its own line: what you do to this category's
+       questions, then catalogue-wide maintenance. `order` used to do the
+       sorting inside one flat wrapped row, which meant the visual grouping
+       came apart at some window widths and put a delete beside an add. */
+    .af-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+    .af-group-maint { gap: 16px; padding-top: 4px; }
+    .af-spacer { flex: 1 1 auto; }
+    .af-maint-label { font: 600 11.5px 'Cairo', sans-serif; color: rgba(247,236,221,.3);
+      letter-spacing: .06em; flex: 0 0 auto; }
+    .admin-foot button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      flex: 0 0 auto; min-height: 44px; padding: 12px 20px !important;
+      border-radius: 999px !important; box-shadow: none !important;
+      font: 600 14px 'Cairo', sans-serif !important; line-height: 1.25;
       text-align: center; white-space: nowrap;
       transition: background .14s ease, border-color .14s ease, color .14s ease;
     }
-    .admin-foot > button:hover { transform: translateY(-1px); }
+    /* ⚠️ `display: inline-flex` above beats the UA's `[hidden] { display:none }`,
+       so without this every conditionally-hidden button in the toolbar —
+       «إعادة تحميل من الأصل», «حذف المحدد» — paints all the time. */
+    .admin-foot button[hidden] { display: none !important; }
     .admin-foot .af-ico { font-size: 15px; line-height: 1; flex: 0 0 auto; }
     .admin-foot .af-label { overflow: hidden; text-overflow: ellipsis; }
 
+    /* The one action that creates something: olive, filled, and first. */
     .admin-foot .af-primary {
-      order: 1; flex: 0 0 auto;
-      /* Darkened from #2fa15a: near-white on that green measured 4.05:1. */
-      background: linear-gradient(180deg, #1e7c44, #145f31) !important;
-      border: 1px solid #0f4c26 !important; color: #f4fff8 !important;
-      box-shadow: 0 2px 0 #0f4c26, 0 8px 16px -8px rgba(20, 90, 50, .6) !important;
-      font-size: 15px !important; padding-inline: 20px !important;
+      background: rgba(168,189,133,.14) !important;
+      border: 1.5px solid #a8bd85 !important; color: #c2d6a2 !important;
+      font-weight: 700 !important; font-size: 14.5px !important; padding: 12px 22px !important;
     }
-    .admin-foot .af-primary:hover { filter: brightness(1.06); }
+    .admin-foot .af-primary:hover { background: rgba(168,189,133,.24) !important; }
 
     .admin-foot .af-quiet {
-      order: 2;
-      background: rgba(246, 227, 176, .10) !important;
-      border: 1px solid rgba(230, 199, 117, .38) !important;
-      color: #f2e2bb !important;
+      background: transparent !important;
+      border: 1.5px solid rgba(230,199,142,.24) !important;
+      color: rgba(247,236,221,.85) !important;
     }
     .admin-foot .af-quiet:hover:not(:disabled) {
-      background: rgba(246, 227, 176, .18) !important; border-color: rgba(230, 199, 117, .7) !important;
+      border-color: #e6c78e !important; background: rgba(230,199,142,.10) !important;
+    }
+    /* Nothing to undo yet: dashed and obviously inert, not just faded. */
+    .admin-foot .af-quiet:disabled {
+      border-style: dashed !important; border-color: rgba(247,236,221,.16) !important;
+      color: rgba(247,236,221,.35) !important; cursor: not-allowed;
     }
 
-    .admin-foot .af-danger {
-      order: 3;
-      background: transparent !important; border: 1px solid rgba(214, 90, 90, .55) !important;
-      color: #eda3a3 !important;
-    }
-    .admin-foot .af-danger:hover:not(:disabled) {
-      background: #b3202a !important; border-color: #b3202a !important; color: #fff !important;
-    }
-
+    /* Maintenance is plain text — present, findable, never competing with the
+       work. These run over the WHOLE catalogue, so they are also the ones you
+       should not hit by accident while reaching for something else. */
     .admin-foot .af-tool {
-      order: 4;
-      background: transparent !important; border: 1px dashed rgba(230, 199, 117, .3) !important;
-      color: #cdb98d !important;
-      font-size: 12.5px !important; min-height: 38px; padding: 7px 12px !important;
+      background: none !important; border: none !important; min-height: 0;
+      padding: 0 !important; font-size: 13.5px !important;
+      color: rgba(247,236,221,.55) !important;
     }
-    .admin-foot .af-tool:hover:not(:disabled) {
-      background: rgba(246, 227, 176, .10) !important; border-style: solid !important; color: #f2e2bb !important;
+    .admin-foot .af-tool:hover:not(:disabled) { color: #f7ecdd !important; background: none !important; }
+    .admin-foot .af-tool .af-ico { font-size: 14px; }
+
+    /* Destructive: text too, red, and pushed to the far end by .af-spacer. */
+    .admin-foot .af-danger {
+      background: none !important; border: none !important; min-height: 0;
+      padding: 0 !important; font-size: 13.5px !important;
+      color: rgba(224,102,107,.8) !important;
     }
-    .admin-foot .af-tool .af-ico { font-size: 13px; }
+    .admin-foot .af-danger:hover:not(:disabled) { color: #e0666b !important; background: none !important; }
 
     /* No light-theme variant on purpose. The admin panel is a DARK surface in
        BOTH themes — measured, its ground sits at rgb(20,17,12)–rgb(42,38,28)
@@ -4716,8 +4769,12 @@
        near-black at 1.97:1; these colours are correct for both. */
 
     @media (max-width: 640px) {
-      .admin-foot > button { flex: 1 1 calc(50% - 8px); }
+      .af-group-do button { flex: 1 1 calc(50% - 8px); }
       .admin-foot .af-primary { flex: 1 1 100%; }
+      /* The maintenance strip stays text — wrapping it into half-width pills
+         would give catalogue-wide jobs the weight of everyday actions. */
+      .af-spacer { display: none; }
+      .admin-cathead .ac-publish { flex: 1 1 100%; }
     }
     .admin-q-modal { max-width: 560px; width: 92%; }
     .admin-q-grid { display: grid; gap: 8px; text-align: right; }
@@ -8259,20 +8316,31 @@
         </header>
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
+        <!-- Grouped by WHAT THE BUTTON TOUCHES, not by when it was added
+             (owner's toolbar mock, .296). Two rows: everyday work on this
+             category's questions, then catalogue-wide maintenance in a muted
+             row with the destructive pair pushed to the far end so «حذف كل
+             الأسئلة» is never adjacent to «إضافة سؤال جديد». -->
         <div class="admin-foot">
-          <button class="secondary af-primary" id="adminAddQuestion" type="button"><span class="af-ico">✦</span><span class="af-label">إضافة سؤال جديد</span></button>
-          <button class="secondary af-quiet" id="adminImportQuestions" type="button"><span class="af-ico">⬆</span><span class="af-label">استيراد أسئلة</span></button>
-          <button class="secondary af-quiet" id="adminSelectAll" type="button"><span class="af-ico">☑</span><span class="af-label">تحديد الكل</span></button>
-          <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><span class="af-ico">🗑</span><span class="af-label">حذف المحدد</span></button>
-          <button class="secondary af-quiet" id="adminFillDistractors" type="button"><span class="af-ico">✨</span><span class="af-label">توليد الخيارات الناقصة</span></button>
-          <button class="secondary af-quiet" id="adminFetchImages" type="button"><span class="af-ico">🖼</span><span class="af-label">جلب صور الإجابات الناقصة</span></button>
-          <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><span class="af-ico">⟲</span><span class="af-label">إعادة تحميل من الأصل</span></button>
-          <button class="secondary admin-clear-btn af-danger" id="adminClearQuestions" type="button"><span class="af-ico">🗑</span><span class="af-label">حذف كل الأسئلة</span></button>
-          <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><span class="af-ico">↶</span><span class="af-label">تراجع عن آخر خطوة</span></button>
-          <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><span class="af-ico">⬇</span><span class="af-label">نسخة احتياطية</span></button>
-          <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الفئات</span></button>
-          <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><span class="af-ico">🗂️</span><span class="af-label">بناء فهرس الفئات</span></button>
-          <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
+          <div class="af-group af-group-do" role="group" aria-label="أسئلة هذه الفئة">
+            <button class="secondary af-primary" id="adminAddQuestion" type="button"><span class="af-ico">✦</span><span class="af-label">إضافة سؤال جديد</span></button>
+            <button class="secondary af-quiet" id="adminImportQuestions" type="button"><span class="af-ico">⬆</span><span class="af-label">استيراد أسئلة</span></button>
+            <button class="secondary af-quiet" id="adminSelectAll" type="button"><span class="af-ico">☑</span><span class="af-label">تحديد الكل</span></button>
+            <button class="secondary af-quiet" id="adminFillDistractors" type="button"><span class="af-ico">✨</span><span class="af-label">توليد الخيارات الناقصة</span></button>
+            <button class="secondary af-quiet" id="adminFetchImages" type="button"><span class="af-ico">🖼</span><span class="af-label">جلب صور الإجابات الناقصة</span></button>
+            <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><span class="af-ico">↶</span><span class="af-label">تراجع عن آخر خطوة</span></button>
+          </div>
+          <div class="af-group af-group-maint" role="group" aria-label="صيانة">
+            <span class="af-maint-label" aria-hidden="true">صيانة</span>
+            <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
+            <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><span class="af-ico">🗂️</span><span class="af-label">بناء فهرس الفئات</span></button>
+            <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الفئات</span></button>
+            <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><span class="af-ico">⬇</span><span class="af-label">نسخة احتياطية</span></button>
+            <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><span class="af-ico">⟲</span><span class="af-label">إعادة تحميل من الأصل</span></button>
+            <span class="af-spacer"></span>
+            <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><span class="af-ico">🗑</span><span class="af-label">حذف المحدد</span></button>
+            <button class="secondary admin-clear-btn af-danger" id="adminClearQuestions" type="button"><span class="af-ico">🗑</span><span class="af-label">حذف كل الأسئلة</span></button>
+          </div>
         </div>
         <div class="admin-controls">
           <div class="izz-search admin-search">
@@ -12466,7 +12534,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-10.295";
+    const IZZBAH_BUILD = "2026-08-10.296";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17014,7 +17082,29 @@
         });
         controls.push(del);
       }
-      head.append(name, colorLbl, imgLbl, count, tierCounts, pub, ...controls);
+      /* Two rows, per the owner's mock (.296). Row 1 is IDENTITY and the one
+         action that matters — who this category is, how big it is, and
+         «نشر التعديلات». Row 2 is category STATE: the reversible switches that
+         change what every player sees, kept away from the publish button so a
+         mis-tap cannot hide a category while reaching for publish. */
+      const rowId = document.createElement("div");
+      rowId.className = "ac-row ac-row-id";
+      const spacer = document.createElement("span");
+      spacer.className = "ac-spacer";
+      /* Count + tiers ride in ONE shrinkable group. Loose in the row they were
+         rigid, so at anything under ~1150px the row overflowed and «نشر
+         التعديلات» — the widest item and the one that must stay put — was the
+         thing that wrapped. Now the chips wrap among themselves instead. */
+      const meta = document.createElement("div");
+      meta.className = "ac-meta";
+      meta.append(count, tierCounts);
+      rowId.append(name, colorLbl, imgLbl, spacer, meta, pub);
+
+      const rowState = document.createElement("div");
+      rowState.className = "ac-row ac-row-state";
+      rowState.append(...controls);
+
+      head.append(rowId, rowState);
       markAdminDirty();
     }
 

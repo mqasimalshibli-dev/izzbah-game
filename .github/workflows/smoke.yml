@@ -744,6 +744,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node distractors.mjs
 
+      - name: Run admin category-toolbar test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node admintoolbar.mjs
+
       - name: Run admin centre organisation test
         working-directory: tests
         run: |

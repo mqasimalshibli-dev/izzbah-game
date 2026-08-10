@@ -208,8 +208,21 @@ try {
         primaries: btns.filter(x => tier(x) === "af-primary").length,
         // the primary must come FIRST visually, whatever the source order
         firstTier: tier(visual[0]),
-        // tools must come last
+        // The tail of the toolbar must be the RARE stuff. Since .296 that is
+        // the maintenance strip, which ends with the destructive pair — so the
+        // test is "nothing everyday is last", not "af-tool is last".
         lastTier: tier(visual[visual.length - 1]),
+        // Stronger: no everyday action may appear after a tool/destructive one.
+        orderClean: (() => {
+          const rare = t => t === "af-tool" || t === "af-danger";
+          let seenRare = false;
+          for (const x of visual) {
+            const t = tier(x);
+            if (rare(t)) seenRare = true;
+            else if (seenRare) return false;      // an everyday button after a rare one
+          }
+          return true;
+        })(),
         rows: new Set(btns.map(x => Math.round(r(x).top))).size,
         // a tool is quieter than an everyday button, which is quieter than the primary
         sizes: ["af-primary", "af-quiet", "af-tool"].map(t => {
@@ -226,9 +239,14 @@ try {
         shape.untiered === 0 && shape.total >= 8);
       check(`…with exactly one primary (${shape.primaries})`, shape.primaries === 1);
       check(`…drawn first (${shape.firstTier})`, shape.firstTier === "af-primary");
-      check(`…and the rare tools last (${shape.lastTier})`, shape.lastTier === "af-tool");
+      check(`…and something RARE last, never an everyday action (${shape.lastTier})`,
+        shape.lastTier === "af-tool" || shape.lastTier === "af-danger");
+      check("…with no everyday button stranded after the rare ones", shape.orderClean);
+      // Grouped into tiers since .296, so a couple of rows per group is the
+      // shape now. The bug this still guards is the original one: eleven
+      // buttons each on their own line.
       check(`…flowing onto a few rows rather than one cell each (${shape.rows} rows)`,
-        shape.rows >= 1 && shape.rows <= 3);
+        shape.rows >= 1 && shape.rows <= 6);
       check(`…the primary is the largest and a tool the smallest (${shape.sizes.join(" > ")})`,
         shape.sizes[0] > shape.sizes[2] && shape.sizes[1] >= shape.sizes[2]);
     }
