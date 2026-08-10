@@ -386,6 +386,29 @@ service cloud.firestore {
         && request.resource.data.rev is number;
     }
 
+    // ---- meta/index — the catalogue projection a cold boot reads ------------
+    // One small document carrying, per published category, only what the PICKER
+    // paints: id, name, order, colour, question COUNT and a ~1.3 KB blurred
+    // placeholder. Boot reads this instead of every category's parent doc,
+    // which measured 4.27 MB across 40 categories.
+    //   • read: public, exactly like the rest of /meta and /categories.
+    //   • write: admin only. Rebuilt whole (it is derived data), so the shape
+    //     check is on the wrapper; the per-entry fields are cosmetic and a
+    //     malformed one can only misdraw a tile, never grant anything.
+    //   • the size cap is Firestore's own 1 MiB per document; the client
+    //     refuses above 700 KB so a growing catalogue fails loudly in the admin
+    //     panel rather than at the database.
+    // NOTE this sits BESIDE match /meta/{doc} on purpose: rules are a union, so
+    // meta/index gets this shape and every other meta doc keeps the stricter
+    // rev-only one above.
+    match /meta/index {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.data.keys().hasOnly(['cats', 'updatedAt'])
+        && request.resource.data.cats is list
+        && request.resource.data.cats.size() <= 300;
+    }
+
     // ---- Developer announcements (public feed) -----------------------------
     // Short messages the admin publishes to every player («إعلانات المطوّر»).
     // Anyone may READ them (the feed is public); only an admin may create,

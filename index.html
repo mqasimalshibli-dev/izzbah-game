@@ -8264,6 +8264,7 @@
           <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><span class="af-ico">↶</span><span class="af-label">تراجع عن آخر خطوة</span></button>
           <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><span class="af-ico">⬇</span><span class="af-label">نسخة احتياطية</span></button>
           <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الفئات</span></button>
+          <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><span class="af-ico">🗂️</span><span class="af-label">بناء فهرس الفئات</span></button>
           <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
         </div>
         <div class="admin-controls">
@@ -12458,7 +12459,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.293";
+    const IZZBAH_BUILD = "2026-08-09.294";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -23143,6 +23144,102 @@
         : (failed ? "تعذّر الوصول للأسئلة — تحقّق من الاتصال" : "كل صور الأسئلة مضغوطة بالفعل ✓"));
     }
 
+    /* ── meta/index — the one doc a cold boot should need (build .294) ──────
+       Boot reads every category's PARENT doc in one query. Measured live on
+       2026-08-10 that is 4.27 MB raw across 40 categories: 2.78 MB of covers
+       and 1.48 MB of question text, none of which the CATEGORY PICKER needs.
+       The picker shows a name, a colour, a count and a picture.
+
+       Two measurements shaped what goes in here, and both contradict the
+       earlier plan in CLAUDE.md — re-measure before changing them:
+       • A "~7 KB thumbnail" is 160×160. Tiles render at ~160 CSS px, which is
+         480 device px on a 3× phone, so that is a THIRD of the resolution —
+         PSNR 20–24 dB, visibly soft. Rejected.
+       • Re-encoding the covers to WebP at the same 480 px saves only ~25%
+         (2.76 → 2.14 MB) and loses quality, because they are already
+         re-compressed JPEGs. Also rejected.
+       So the index carries an LQIP — 32 px, ~1.3 KB — as an instant blurred
+       placeholder, and the real cover stays full quality and arrives later.
+       40 categories ≈ 60 KB, against a 1 MiB Firestore document ceiling. */
+    const LQIP_DIM = 32;
+    const LQIP_QUALITY = 0.6;
+    const INDEX_DOC_CEILING = 700000;   // leave headroom under Firestore's 1 MiB
+
+    function lqipFor(image) {
+      // Not fitCoverImage: that targets a VISIBLE cover. This is a placeholder
+      // measured in hundreds of bytes, and WebP beats JPEG decisively at that
+      // size. A cover that will not decode simply yields no placeholder — the
+      // tile then paints its colour, which is the existing behaviour anyway.
+      if (typeof image !== "string" || !/^data:image\//.test(image)) return Promise.resolve("");
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onerror = () => resolve("");
+        img.onload = () => {
+          try {
+            let w = img.naturalWidth || 1, h = img.naturalHeight || 1;
+            const s = Math.min(1, LQIP_DIM / Math.max(w, h));
+            w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const ctx = c.getContext("2d");
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, w, h);
+            const out = c.toDataURL("image/webp", LQIP_QUALITY);
+            // toDataURL falls back to PNG where WebP is unsupported, and a PNG
+            // at this size can be BIGGER than the source. Never ship that.
+            resolve(/^data:image\/webp/.test(out) && out.length < image.length ? out : "");
+          } catch (e) { resolve(""); }
+        };
+        img.src = image;
+      });
+    }
+
+    // One entry per published category — everything the picker paints, and
+    // nothing else. `count` replaces the question array the picker only ever
+    // measured the length of.
+    async function buildCategoryIndexEntries(cats) {
+      const out = [];
+      for (const cat of (cats || [])) {
+        if (!cat || !cat.id) continue;
+        out.push({
+          id: String(cat.id),
+          name: String(cat.name || ""),
+          order: Number(cat.order) || 0,
+          color: String(cat.color || ""),
+          count: Array.isArray(cat.questions) ? cat.questions.length : 0,
+          lqip: await lqipFor(cat.image),
+        });
+      }
+      out.sort((a, b) => (a.order - b.order) || a.id.localeCompare(b.id));
+      return out;
+    }
+
+    async function rebuildCategoryIndex() {
+      const btn = $("#adminBuildIndex");
+      if (!window.IZZBAH.writeCategoryIndex) { showToast("سجّل الدخول كمشرف أولاً"); return; }
+      const cats = state.publishedCategories || [];
+      if (!cats.length) { showToast("لا توجد فئات منشورة"); return; }
+      const orig = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ جارٍ بناء الفهرس…"; }
+      try {
+        const entries = await buildCategoryIndexEntries(cats);
+        const bytes = JSON.stringify(entries).length;
+        // Refuse rather than write a doc Firestore will reject at 1 MiB, or
+        // one so close to the ceiling that the next category tips it over.
+        if (bytes > INDEX_DOC_CEILING) {
+          showToast("الفهرس كبير جداً (" + toArabicDigits(Math.round(bytes / 1024)) + " ك.ب) — لم يُحفظ");
+          return;
+        }
+        await window.IZZBAH.writeCategoryIndex(entries);
+        showToast("✓ تم بناء فهرس " + toArabicDigits(entries.length) + " فئة ("
+          + toArabicDigits(Math.round(bytes / 1024)) + " ك.ب)");
+      } catch (e) {
+        showToast("تعذّر بناء الفهرس — " + ((e && (e.code || e.message)) || "حاول مرة أخرى"));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+      }
+    }
+
     async function shrinkPublishedCovers() {
       const btn = $("#adminShrinkCovers");
       if (!window.IZZBAH.cloudUpdateCover) { showToast("سجّل الدخول كمشرف أولاً"); return; }
@@ -24966,6 +25063,7 @@
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);
     $("#adminShrinkCovers").addEventListener("click", shrinkPublishedCovers);
+    $("#adminBuildIndex").addEventListener("click", rebuildCategoryIndex);
     $("#adminShrinkQMedia").addEventListener("click", shrinkPublishedQuestionMedia);
     $("#fetchImagesAnswers").addEventListener("change", updateFetchImagesCount);
     $("#fetchImagesQuestions").addEventListener("change", updateFetchImagesCount);
@@ -27040,6 +27138,18 @@
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             return db.collection("categories").doc(id).update({
               image: image,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }).then(() => bumpCatalogRev());
+          };
+          // meta/index — the one small doc a cold boot reads instead of every
+          // category. Written whole: it is a derived projection of the
+          // catalogue, so a partial update would be harder to reason about
+          // than a rebuild, and it is only ~60 KB.
+          window.IZZBAH.writeCategoryIndex = function (entries) {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            if (!Array.isArray(entries)) return Promise.reject(new Error("bad index"));
+            return db.collection("meta").doc("index").set({
+              cats: entries,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             }).then(() => bumpCatalogRev());
           };
