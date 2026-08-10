@@ -1655,7 +1655,14 @@
       font-size: 26px;
       line-height: 1;
       touch-action: none;
+      /* Android/Chrome paints rgba(51,181,229,.4) behind a tapped control by
+         default — a blue halo AROUND the button, reported as "a hollow". Every
+         other control in the game turns it off; these two were missed. The
+         press feedback below replaces it. */
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .1s ease, background .12s ease;
     }
+    .score-tools button:active { transform: scale(.9); background: #f4ece0; }
 
     .board {
       flex: 1;
@@ -12459,7 +12466,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-09.294";
+    const IZZBAH_BUILD = "2026-08-10.295";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -22102,11 +22109,33 @@
       button.addEventListener("pointerleave", stopHold);
     }
 
+    /* What each pill is currently showing. Kept OUT of the DOM (a dataset
+       attribute would carry a base64 team photo) and per-element, because the
+       three pills — board, question, answer — repaint independently. */
+    const turnBoxState = new WeakMap();
     function renderTurnBoxes() {
       const activeTeams = state.teams.slice(0, state.teamCount);
       const team = activeTeams[state.activeTeam] || activeTeams[0] || {};
       const displayName = teamDisplayName(team, state.activeTeam || 0);
+      const avatar = teamAvatarHtml(team, state.activeTeam || 0, "turn-photo");
+      const turnIdx = state.activeTeam || 0;
       document.querySelectorAll("[data-turn-box]").forEach(box => {
+        /* ⚠️ Do NOT rebuild a pill that is already showing this.
+           renderScores() calls this, and awarding points calls renderScores —
+           so every tap of «+»/«−» used to re-run the innerHTML below. Replacing
+           the children re-creates .turn-sheen and re-triggers the hand-over
+           animation, which made the pill flash on a SCORE change, as if the
+           turn had passed. Reported by the owner, .295. */
+        const prev = turnBoxState.get(box);
+        if (prev && prev.name === displayName && prev.avatar === avatar && prev.idx === turnIdx) return;
+        // First paint animates too; a rename or a new photo must NOT — only a
+        // genuine change of turn is worth announcing across the room.
+        const announce = !prev || prev.idx !== turnIdx;
+        turnBoxState.set(box, { name: displayName, avatar: avatar, idx: turnIdx });
+        /* Cleared BEFORE the children are replaced. A CSS animation starts when
+           a matching element is created, so leaving `turn-changed` on the box
+           while setting innerHTML would replay it regardless of this guard. */
+        box.classList.remove("turn-changed");
         /* The WHOLE pill hands over the turn, not just the swap icon (owner,
            2026-08-09). A 40px circle at the end of a 230px lozenge is a small
            target on a phone being passed around a room, and the pill already
@@ -22124,25 +22153,36 @@
         box.setAttribute("role", "button");
         box.setAttribute("tabindex", "0");
         box.setAttribute("aria-label", `تبديل الدور — دور الفريق ${displayName}`);
-        /* Order matters: this is an RTL row, so the AVATAR must come first to
+        /* Built ONCE, then updated in place. Re-running innerHTML re-creates
+           .turn-sheen, and its 4.5s sweep restarts from the beginning — so even
+           a plain rename made the pill flash. Only the parts that actually
+           changed are touched now.
+           Order matters: this is an RTL row, so the AVATAR must come first to
            sit on the right, with «تبديل الدور» at the far left. The sheen and
            the swap animation are decoration and are marked aria-hidden. */
-        box.innerHTML = `
-          <span class="turn-sheen" aria-hidden="true"></span>
-          <span class="turn-avatar">${teamAvatarHtml(team, state.activeTeam || 0, "turn-photo")}</span>
-          <span class="turn-label"><small>دور الفريق</small><strong>${escapeHtml(displayName)}</strong></span>
-          <span class="turn-switch" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 0 0-4 4"/>
-              <path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 0 0 4-4"/>
-            </svg>
-          </span>
-        `;
-        // Replay the hand-over animation on every change of turn.
-        box.classList.remove("turn-changed");
-        void box.offsetWidth;
-        box.classList.add("turn-changed");
+        const label = box.querySelector(".turn-label strong");
+        if (!label) {
+          box.innerHTML = `
+            <span class="turn-sheen" aria-hidden="true"></span>
+            <span class="turn-avatar">${avatar}</span>
+            <span class="turn-label"><small>دور الفريق</small><strong>${escapeHtml(displayName)}</strong></span>
+            <span class="turn-switch" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 0 0-4 4"/>
+                <path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 0 0 4-4"/>
+              </svg>
+            </span>
+          `;
+        } else {
+          if (label.textContent !== displayName) label.textContent = displayName;
+          const face = box.querySelector(".turn-avatar");
+          if (face && (!prev || prev.avatar !== avatar)) face.innerHTML = avatar;
+        }
+        if (announce) {
+          void box.offsetWidth;                    // restart, don't resume
+          box.classList.add("turn-changed");
+        }
       });
     }
 
@@ -25607,7 +25647,26 @@
         return;
       }
       const SDK = "10.12.2";
-      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-seen-v1", "izzbah-legal-consent-v1"];
+      /* "izzbah-coach-v1" is in here from .295. It was the ONLY piece of
+         "the player has already seen this" state that stayed device-local, and
+         localStorage is per browsing CONTEXT: on iOS an installed PWA does not
+         share it with Safari, so the same phone ran the first-run tour twice —
+         once in the browser, again from the home screen. Reported by the owner
+         as "the helping pop ups show up multiple times on the same device".
+         It is a tiny map of a few ids, so it costs nothing in the blob. */
+      const KEYS = ["izzbah-trivia-settings-v1", "izzbah-trivia-saved-games-v1", "izzbah-trivia-preview-questions-v1", "izzbah-free-game-v1", "izzbah-games-used-v1", "izzbah-code-balance-v1", "izzbah-progress-v1", "izzbah-seen-v1", "izzbah-legal-consent-v1", "izzbah-coach-v1"];
+      // Keys whose two copies must be UNIONED, not overwritten. "Seen" is
+      // monotonic: a tip dismissed on either surface is dismissed for good, and
+      // a blunt last-write-wins would un-see it and show the tour again — the
+      // very bug this is fixing.
+      const MERGE_SEEN_KEYS = ["izzbah-coach-v1"];
+      function mergeSeenMaps(localRaw, cloudRaw) {
+        try {
+          const a = JSON.parse(localRaw || "{}") || {};
+          const b = JSON.parse(cloudRaw || "{}") || {};
+          return JSON.stringify(Object.assign({}, b, a));   // any 1 wins
+        } catch (e) { return cloudRaw; }
+      }
       const origSet = localStorage.setItem.bind(localStorage);
       let db = null, auth = null, currentUser = null, pushTimer = null, applying = false;
       let lastCommunityCats = [], communityVotesLoaded = false; // for lazy vote loading
@@ -27592,7 +27651,12 @@
               if (data) {
                 applying = true;
                 try {
-                  KEYS.forEach(k => { if (data[k] != null) origSet(k, data[k]); });
+                  KEYS.forEach(k => {
+                    if (data[k] == null) return;
+                    origSet(k, MERGE_SEEN_KEYS.indexOf(k) >= 0
+                      ? mergeSeenMaps(localStorage.getItem(k), data[k])
+                      : data[k]);
+                  });
                   reloadFromStorage();
                 } finally {
                   // Must always clear, or schedulePush() stays blocked and the
