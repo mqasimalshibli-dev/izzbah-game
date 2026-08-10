@@ -154,6 +154,57 @@ try {
   check("«إضافة سؤال جديد» still responds after the move", wired.addResponds);
   check("«بناء فهرس الفئات» still responds after the move", wired.indexResponds);
 
+  // ---- icons: one stroked family, no emoji ------------------------------
+  // The toolbar shipped with ✦ ⬆ ☑ ✨ 🖼 ↶ ⚡ 🗂 ⬇ ⟲ 🗑 🙈 🚫, which render in
+  // each platform's own style, colour and optical size — a row that can never
+  // look like a set. Every icon is now a <use> into one inline sprite.
+  const icons = await page.evaluate(() => {
+    const scope = [document.querySelector(".admin-cathead"), document.querySelector(".admin-foot")];
+    const all = scope.flatMap(el => [...el.querySelectorAll(".af-ico")]);
+    const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}]/u;
+    const buttons = scope.flatMap(el => [...el.querySelectorAll("button")]);
+    return {
+      total: all.length,
+      notSvg: all.filter(i => i.tagName.toLowerCase() !== "svg").length,
+      // every <use> must point at a symbol that exists in the document
+      dangling: all.map(i => (i.querySelector("use") || {}).getAttribute?.("href"))
+                   .filter(h => !h || !document.querySelector(h)),
+      // a VISIBLE icon must actually have a box
+      unpainted: all.filter(i => {
+        const btn = i.closest("button");
+        if (btn && btn.hasAttribute("hidden")) return false;   // legitimately hidden
+        const r = i.getBoundingClientRect();
+        return r.width < 6 || r.height < 6;
+      }).length,
+      // and no button label may still carry an emoji glyph
+      emojiLabels: buttons.filter(b => emojiRe.test(b.textContent || "")).map(b => b.id || b.className),
+    };
+  });
+  check("every toolbar icon is an SVG from the sprite",
+    icons.total >= 12 && icons.notSvg === 0, `${icons.total} icons, ${icons.notSvg} non-svg`);
+  check("no icon points at a missing symbol", icons.dangling.length === 0, icons.dangling.join(", "));
+  check("every visible icon actually paints", icons.unpainted === 0, `${icons.unpainted} zero-size`);
+  check("no emoji left in any toolbar label", icons.emojiLabels.length === 0, icons.emojiLabels.join(", "));
+
+  // The two toggles rebuild their own labels — with innerHTML, or the icon dies.
+  const toggles = await page.evaluate(async () => {
+    const read = () => {
+      const h = document.querySelector(".ac-hide"), c = document.getElementById("adminToggleChoices");
+      return { hide: !!h.querySelector("svg.af-ico"), choices: !!c.querySelector("svg.af-ico") };
+    };
+    const before = read();
+    document.querySelector(".ac-hide").click();          // flips to «إظهار الفئة»
+    await new Promise(r => setTimeout(r, 250));
+    const after = read();
+    document.querySelector(".ac-hide").click();          // back
+    await new Promise(r => setTimeout(r, 250));
+    return { before, after };
+  });
+  check("the hide/show toggle keeps its icon through a flip",
+    toggles.before.hide && toggles.after.hide);
+  check("the «أربعة خيارات» switch keeps its icon too",
+    toggles.before.choices && toggles.after.choices);
+
   check("no uncaught JS errors", errs.length === 0, errs.slice(0, 2).join(" | "));
 } catch (e) {
   check("harness completed", false, e && e.message);
