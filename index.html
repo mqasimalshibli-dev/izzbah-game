@@ -12552,7 +12552,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-10.298";
+    const IZZBAH_BUILD = "2026-08-10.299";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15190,7 +15190,22 @@
        (subject ink 4.1% → 1.6% for a crowd drop of 32% → 19%). It is recorded
        here so nobody spends the afternoon rediscovering it.
        tests/sketchvideo.mjs pins the resulting ink budget. */
-    const SKETCH_THICKNESS = 1.8, SKETCH_DETAIL = 1.0;
+    /* ⚠️ .299 — the line width is now an absolute number of OUTPUT pixels, not
+       a fraction of the frame width. `W * 0.0075` came from the shell script
+       and looks reasonable until you put numbers in it: on a 576px clip with
+       2× supersampling it is a 15.5px blur. A difference-of-Gaussians that
+       wide cannot draw a line — it can only find very large luminance steps,
+       and it renders them as fat soft-edged smears. That is what the owner
+       kept calling "too heavy", twice, and raising THICKNESS in .288 made it
+       worse while the ink-percentage metric said it was getting better.
+       That metric was the trap: measured across sigma 0.45 → 4.8 on real
+       footage, ink stays 2–4% throughout. It cannot see the difference
+       between a pencil drawing and a handful of blobs. Judge line CHARACTER.
+       Working size lands between ~1150 and 1280px whatever is uploaded
+       (MAXW 1280, and SS doubles anything under 800), so a fixed line width
+       is stable across clips — which is what the width-scaling was for. */
+    const SKETCH_LINE_PX = 1.35;
+    const SKETCH_THICKNESS = 1.0, SKETCH_DETAIL = 1.0;
     /* Where graphite starts and where it saturates, in 0–255 of edge strength,
        plus the bend between them. Swept against a crowd-like source.
 
@@ -15202,7 +15217,12 @@
        that survive get STRONGER. Measured on the crowd source, going from 0.6 to
        1.8 lifts the stands from luminance 184 to 241 and at the same time raises
        subject ink from 0.7% to 1.5%. The two levers only work together. */
-    const SKETCH_INK_START = 5.0, SKETCH_INK_FULL = 15.0, SKETCH_GAMMA = 1.2;
+    /* The ramp moves DOWN with the narrower blur: a tighter difference-of-
+       Gaussians produces a smaller edge signal, so the old 5/15/1.2 window
+       skipped the finer strokes. Swept at the new width against the real
+       category photos; 3/11/1.0 keeps hair, badges and sleeve stripes while
+       the paper stays clean. */
+    const SKETCH_INK_START = 3.0, SKETCH_INK_FULL = 11.0, SKETCH_GAMMA = 1.0;
 
     function sketchifyVideo(file, onProgress, opts) {
       const o = opts || {};
@@ -15244,8 +15264,10 @@
             const SS = W <= 800 ? 2 : 1;
             const RW = W * SS, RH = H * SS;
 
-            // line weight scales with frame width, as in the shell script
-            const sigma = Math.max(0.6, W * 0.0075 * thickness * SS);
+            // Absolute line weight, in output pixels, scaled up to the
+            // supersampled buffer. See SKETCH_LINE_PX for why this is NOT a
+            // fraction of the frame width any more.
+            const sigma = Math.max(0.6, SKETCH_LINE_PX * thickness * SS);
             // `detail` still means "ink more readily": it lowers where graphite
             // starts AND where it saturates, so the whole ramp slides darker.
             const inkLo = (SKETCH_INK_START / 255) / detail;
