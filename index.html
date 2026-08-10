@@ -4575,7 +4575,8 @@
        header it is a 40px swatch, matching the colour well beside it. */
     .admin-cathead .image-picker { width: 40px; height: 40px; min-height: 0; border-radius: 12px;
       background: rgba(230,199,142,.12); border: 1px solid rgba(230,199,142,.22); }
-    .admin-cathead .image-picker .plus { font-size: 20px; color: #e6c78e; }
+    .admin-cathead .image-picker .plus { font-size: 20px; color: #e6c78e; display: grid; place-items: center; }
+    .admin-cathead .image-picker .ip-icon { width: 20px; height: 20px; display: block; }
     .admin-cathead .image-picker img { border-radius: 11px; }
     .admin-cathead .image-picker .img-remove, .admin-cathead .image-picker .img-preview { transform: scale(.72); }
     .admin-cathead .ac-meta { display: flex; align-items: center; justify-content: flex-end;
@@ -12551,7 +12552,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-10.297";
+    const IZZBAH_BUILD = "2026-08-10.298";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15420,11 +15421,23 @@
       const removeBtnHtml = `<button type="button" class="img-remove" title="حذف" aria-label="حذف">×</button>`;
       const previewBtnHtml = `<button type="button" class="img-preview" title="معاينة" aria-label="معاينة">🔍</button>`;
       const placeholder = opts && opts.placeholder;
+      /* The empty state is a «+» everywhere by default. `opts.emptyIcon` lets
+         ONE caller swap it for a symbol from the admin toolbar sprite — the
+         category header, where a 40px picture glyph matches the icon family
+         beside it. Opt-in on purpose: this picker is also the question editor's
+         and the community editor's, and «+» is the right affordance there.
+         The id is whitelisted rather than interpolated raw — it is developer
+         input today, and a selector injected into markup should never depend
+         on that staying true. */
+      const emptyIcon = /^[a-z-]+$/.test((opts && opts.emptyIcon) || "") ? opts.emptyIcon : "";
+      const emptyGlyph = emptyIcon
+        ? `<svg class="ip-icon" aria-hidden="true"><use href="#i-${emptyIcon}"/></svg>`
+        : "+";
       picker.innerHTML = currentImage
         ? mediaPreviewHtml(currentImage) + previewBtnHtml + removeBtnHtml
         : (placeholder
-            ? `<img class="ip-placeholder" src="${escapeHtml(placeholder)}" alt=""><span class="plus ip-plus-over">+</span>`
-            : `<span class="plus">+</span>`);
+            ? `<img class="ip-placeholder" src="${escapeHtml(placeholder)}" alt=""><span class="plus ip-plus-over">${emptyGlyph}</span>`
+            : `<span class="plus">${emptyGlyph}</span>`);
       const removeBtn = picker.querySelector(".img-remove");
       if (removeBtn) {
         // keep the click off the label so it doesn't reopen the file dialog
@@ -16993,7 +17006,8 @@
       const imgLbl = document.createElement("label");
       imgLbl.className = "field-label";
       imgLbl.textContent = "الصورة";
-      imgLbl.appendChild(imagePicker(cat.image, image => { cat.image = image; state.adminDirty = true; renderAdminCatHead(); autoPublishAdmin(); }, "صورة"));
+      imgLbl.appendChild(imagePicker(cat.image, image => { cat.image = image; state.adminDirty = true; renderAdminCatHead(); autoPublishAdmin(); },
+        "صورة", { emptyIcon: "image" }));
       const count = document.createElement("span");
       count.className = "ac-count";
       count.textContent = `${toArabicDigits(cat.questions.length)} سؤال`;
