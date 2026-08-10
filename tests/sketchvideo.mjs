@@ -106,6 +106,11 @@ try {
         // "too heavy" — and it is a far steadier signal than any ink
         // percentage. Kept clear of the moving shape and the text.
         x.fillStyle = "#151515"; x.fillRect(0, 180, 320, 60);
+        // A LOW-CONTRAST band, a small step away from the background. A tonal
+        // ramp inks this faintly; a binary one inks it as black as the slab or
+        // not at all. That difference is what «tonal» actually means, and
+        // unlike a mid-grey count it does not move when stroke width changes.
+        x.fillStyle = "#3cc887"; x.fillRect(0, 18, 320, 26);
         await new Promise(r => setTimeout(r, 33));
       }
       rec.stop();
@@ -159,6 +164,22 @@ try {
         for (let i = 0; i < band.length; i += 4) { if (band[i] < 200) dark++; tot++; }
         edgeInk = tot ? dark / tot * 100 : -1;
       }
+      /* Tonality, measured where it cannot be faked: the DARKEST pixel each
+         edge produces. The #151515 slab is a hard, high-contrast edge and must
+         reach near-black; the #3cc887 band is a small step and must stay
+         clearly lighter. Under the old step() shader both would hit 0. */
+      const darkestNear = (yFrac) => {
+        if (!v.videoWidth) return -1;
+        const y = Math.round(yFrac * oc.height);
+        const half = Math.max(3, Math.round(9 / 240 * oc.height));
+        const top = Math.max(0, y - half);
+        const dd = oc.getContext("2d").getImageData(0, top, oc.width, Math.min(half * 2, oc.height - top)).data;
+        let min = 255;
+        for (let i = 0; i < dd.length; i += 4) if (dd[i] < min) min = dd[i];
+        return min;
+      };
+      const strongMin = darkestNear(180 / 240);
+      const weakMin = darkestNear(18 / 240);
       // Tonal now, so the interesting statistics are the mean level and how
       // much of the frame is neither paper nor full ink.
       let meanLum = -1, midPct = -1;
@@ -171,7 +192,7 @@ try {
         }
         meanLum = sum / n2; midPct = mid / n2 * 100;
       }
-      return { meanLum, midPct, edgeInk, name: filtered.name, type: filtered.type, size: filtered.size,
+      return { meanLum, midPct, edgeInk, strongMin, weakMin, name: filtered.name, type: filtered.type, size: filtered.size,
                w: v.videoWidth, h: v.videoHeight, progress: seen.length,
                blackPct: n ? black / n * 100 : -1, whitePct: n ? white / n * 100 : -1,
                colourPct: n ? colour / n * 100 : -1 };
@@ -194,11 +215,14 @@ try {
     check("the result is mostly paper, not a dark mass", out.meanLum > 190,
       `mean luminance ${out.meanLum.toFixed(0)}/255`);
     check("output actually has ink in it", out.blackPct > 0.2, `${out.blackPct.toFixed(2)}% full ink`);
-    /* The signature of the tonal ramp: real mid-greys. A revert to the old
-       step() shader makes this collapse towards zero, since every pixel is then
-       either paper or full black. */
-    check("ink is graded, not switched on and off", out.midPct > 1.5,
-      `${out.midPct.toFixed(1)}% mid-tones`);
+    /* The signature of the tonal ramp, tested where it cannot be faked: a hard
+       edge reaches near-black while a low-contrast one stays visibly lighter.
+       This replaced a mid-grey COUNT, which sounded like a tonality test but
+       was really measuring BLUR WIDTH — it passed happily at the 15px blur that
+       drew nothing but blobs, and failed at the 1.35px line that fixed it. */
+    check("ink is graded — a weak edge draws lighter than a hard one",
+      out.strongMin < 90 && out.weakMin > out.strongMin + 40,
+      `hard edge ${out.strongMin}, weak edge ${out.weakMin}`);
     /* An edge still has to be DRAWN — "light" must not have become "blank". The
        slab's boundary is the one mark guaranteed to be in every frame. */
     check(`a hard edge is still inked (${out.edgeInk.toFixed(1)}% of the band)`, out.edgeInk > 8);
