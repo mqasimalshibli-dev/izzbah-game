@@ -4719,7 +4719,18 @@
        so without this every conditionally-hidden button in the toolbar —
        «إعادة تحميل من الأصل», «حذف المحدد» — paints all the time. */
     .admin-foot button[hidden] { display: none !important; }
-    .admin-foot .af-ico { font-size: 15px; line-height: 1; flex: 0 0 auto; }
+    /* The icons are <svg><use> now, not text, so they take a box rather than a
+       font-size — and inherit the button's colour through currentColor. */
+    .admin-foot .af-ico, .admin-cathead .af-ico {
+      width: 18px; height: 18px; flex: 0 0 auto; display: block;
+    }
+    .admin-foot .af-primary .af-ico { width: 19px; height: 19px; }
+    .admin-foot .af-tool .af-ico, .admin-foot .af-danger .af-ico { width: 17px; height: 17px; }
+    /* The mock tints a quiet button's icon gold while its label stays warm
+       white — it is what stops a long row of outlined pills reading flat. */
+    .admin-foot .af-quiet:not(:disabled) .af-ico { color: #e6c78e; }
+    .admin-cathead .ac-hide .af-ico, .admin-cathead .ac-delete .af-ico { width: 19px; height: 19px; }
+    .admin-cathead .ac-choices .af-ico { width: 18px; height: 18px; }
     .admin-foot .af-label { overflow: hidden; text-overflow: ellipsis; }
 
     /* The one action that creates something: olive, filled, and first. */
@@ -8314,6 +8325,12 @@
           <div class="admin-top-title">إدارة المحتوى <span class="admin-top-sub">— لوحة المشرف</span></div>
           <button class="ghost" data-back id="adminClose" type="button">رجوع</button>
         </header>
+        <!-- Toolbar icon set (owner's mock, .297). ONE stroked family at a
+             single weight, replacing the mixed emoji that were here — ✦ ⬆ ☑ ✨
+             🖼 ↶ ⚡ 🗂 ⬇ ⟲ 🗑 🙈 🚫 — which render in each platform's own style,
+             colour and optical size and so never matched one another. Drawn in
+             currentColor, so each button's tier colours its own icon. -->
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="i-image" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="4"/><circle cx="9" cy="9.8" r="1.6"/><path d="m4.2 17 4.4-4.2a2 2 0 0 1 2.7 0l5 4.8"/><path d="m14.8 14.4 1.6-1.5a2 2 0 0 1 2.7 0l1.5 1.4"/></g></symbol><symbol id="i-eyeoff" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 4.2 19.8 19.8"/><path d="M9.6 5.2A9.4 9.4 0 0 1 12 4.9c5 0 8.4 4.1 9.4 6a1.4 1.4 0 0 1 0 1.2 15 15 0 0 1-2.8 3.6"/><path d="M16.1 16.9A9.6 9.6 0 0 1 12 18c-5 0-8.4-4.1-9.4-6a1.4 1.4 0 0 1 0-1.2 15.4 15.4 0 0 1 3.5-4.2"/><path d="M10.2 10.3a2.5 2.5 0 0 0 3.5 3.5"/></g></symbol><symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 12.6a1.4 1.4 0 0 1 0-1.2C3.6 9.5 7 5.4 12 5.4s8.4 4.1 9.4 6a1.4 1.4 0 0 1 0 1.2c-1 1.9-4.4 6-9.4 6s-8.4-4.1-9.4-6Z"/><circle cx="12" cy="12" r="2.7"/></g></symbol><symbol id="i-ban" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="m6.1 6.1 11.8 11.8"/></g></symbol><symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="2.2"/></g></symbol><symbol id="i-plus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></g></symbol><symbol id="i-import" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.4V4.2"/><path d="m8.2 8 3.8-3.8L15.8 8"/><path d="M4.4 15v3.2a2 2 0 0 0 2 2h11.2a2 2 0 0 0 2-2V15"/></g></symbol><symbol id="i-checksq" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.4"/><path d="m8.2 12.2 2.7 2.7 5-5.4"/></g></symbol><symbol id="i-spark" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.4 13.7 9l5.6 1.7-5.6 1.7L12 18l-1.7-5.6L4.7 10.7 10.3 9Z"/><path d="M18.6 16.4v3M20.1 17.9h-3"/></g></symbol><symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 6.4v5h5"/><path d="M4.9 11.4a7.6 7.6 0 1 1 1.6 6.4"/></g></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 2.8 5 13.4h5.4L10.6 21.2 19 10.6h-5.4Z"/></g></symbol><symbol id="i-folder" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 6.6a2 2 0 0 1 2-2h3.3a2 2 0 0 1 1.5.7l1.2 1.4h7.2a2 2 0 0 1 2 2v8.7a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2Z"/><path d="M8 13.4h8"/></g></symbol><symbol id="i-backup" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.6"/><path d="m8 10.6 4 4 4-4"/><path d="M4.4 15.6v2.6a2 2 0 0 0 2 2h11.2a2 2 0 0 0 2-2v-2.6"/></g></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5.6v5h-5"/><path d="M19.5 10.6a7.8 7.8 0 1 0-.6 6.4"/></g></symbol><symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 6.6h15.6"/><path d="M9.4 6.6V5a1.6 1.6 0 0 1 1.6-1.6h2a1.6 1.6 0 0 1 1.6 1.6v1.6"/><path d="M6.4 6.6l.9 13a1.8 1.8 0 0 0 1.8 1.6h5.8a1.8 1.8 0 0 0 1.8-1.6l.9-13"/><path d="M10.4 10.8v6M13.6 10.8v6"/></g></symbol></defs></svg>
         <nav class="admin-tabs" id="adminTabs" aria-label="الفئات"></nav>
         <div class="admin-cathead" id="adminCatHead"></div>
         <!-- Grouped by WHAT THE BUTTON TOUCHES, not by when it was added
@@ -8323,23 +8340,23 @@
              الأسئلة» is never adjacent to «إضافة سؤال جديد». -->
         <div class="admin-foot">
           <div class="af-group af-group-do" role="group" aria-label="أسئلة هذه الفئة">
-            <button class="secondary af-primary" id="adminAddQuestion" type="button"><span class="af-ico">✦</span><span class="af-label">إضافة سؤال جديد</span></button>
-            <button class="secondary af-quiet" id="adminImportQuestions" type="button"><span class="af-ico">⬆</span><span class="af-label">استيراد أسئلة</span></button>
-            <button class="secondary af-quiet" id="adminSelectAll" type="button"><span class="af-ico">☑</span><span class="af-label">تحديد الكل</span></button>
-            <button class="secondary af-quiet" id="adminFillDistractors" type="button"><span class="af-ico">✨</span><span class="af-label">توليد الخيارات الناقصة</span></button>
-            <button class="secondary af-quiet" id="adminFetchImages" type="button"><span class="af-ico">🖼</span><span class="af-label">جلب صور الإجابات الناقصة</span></button>
-            <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><span class="af-ico">↶</span><span class="af-label">تراجع عن آخر خطوة</span></button>
+            <button class="secondary af-primary" id="adminAddQuestion" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-plus"/></svg><span class="af-label">إضافة سؤال جديد</span></button>
+            <button class="secondary af-quiet" id="adminImportQuestions" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-import"/></svg><span class="af-label">استيراد أسئلة</span></button>
+            <button class="secondary af-quiet" id="adminSelectAll" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-checksq"/></svg><span class="af-label">تحديد الكل</span></button>
+            <button class="secondary af-quiet" id="adminFillDistractors" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-spark"/></svg><span class="af-label">توليد الخيارات الناقصة</span></button>
+            <button class="secondary af-quiet" id="adminFetchImages" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-image"/></svg><span class="af-label">جلب صور الإجابات الناقصة</span></button>
+            <button class="secondary admin-undo-btn af-quiet" id="adminUndo" type="button" disabled><svg class="af-ico" aria-hidden="true"><use href="#i-undo"/></svg><span class="af-label">تراجع عن آخر خطوة</span></button>
           </div>
           <div class="af-group af-group-maint" role="group" aria-label="صيانة">
             <span class="af-maint-label" aria-hidden="true">صيانة</span>
-            <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الأسئلة</span></button>
-            <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><span class="af-ico">🗂️</span><span class="af-label">بناء فهرس الفئات</span></button>
-            <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><span class="af-ico">⚡</span><span class="af-label">ضغط صور الفئات</span></button>
-            <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><span class="af-ico">⬇</span><span class="af-label">نسخة احتياطية</span></button>
-            <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><span class="af-ico">⟲</span><span class="af-label">إعادة تحميل من الأصل</span></button>
+            <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-bolt"/></svg><span class="af-label">ضغط صور الأسئلة</span></button>
+            <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-folder"/></svg><span class="af-label">بناء فهرس الفئات</span></button>
+            <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-bolt"/></svg><span class="af-label">ضغط صور الفئات</span></button>
+            <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><svg class="af-ico" aria-hidden="true"><use href="#i-backup"/></svg><span class="af-label">نسخة احتياطية</span></button>
+            <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg><span class="af-label">إعادة تحميل من الأصل</span></button>
             <span class="af-spacer"></span>
-            <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><span class="af-ico">🗑</span><span class="af-label">حذف المحدد</span></button>
-            <button class="secondary admin-clear-btn af-danger" id="adminClearQuestions" type="button"><span class="af-ico">🗑</span><span class="af-label">حذف كل الأسئلة</span></button>
+            <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><svg class="af-ico" aria-hidden="true"><use href="#i-trash"/></svg><span class="af-label">حذف المحدد</span></button>
+            <button class="secondary admin-clear-btn af-danger" id="adminClearQuestions" type="button"><svg class="af-ico" aria-hidden="true"><use href="#i-trash"/></svg><span class="af-label">حذف كل الأسئلة</span></button>
           </div>
         </div>
         <div class="admin-controls">
@@ -12534,7 +12551,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-10.296";
+    const IZZBAH_BUILD = "2026-08-10.297";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -16989,9 +17006,12 @@
           const bankCount = bank ? builtinEditableQuestions(cat.id).length : 0;
           reseed.hidden = !bank;
           const behind = bank && bankCount > cat.questions.length;
-          reseed.textContent = behind
-            ? `⟲ إعادة تحميل من الأصل (${toArabicDigits(bankCount)})`
-            : "⟲ إعادة تحميل من الأصل";
+          // textContent here would delete the <svg><use> icon along with the
+          // label, leaving this one button bare among a row of icons.
+          const reseedIcon = '<svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg>';
+          reseed.innerHTML = reseedIcon + '<span class="af-label">'
+            + (behind ? `إعادة تحميل من الأصل (${toArabicDigits(bankCount)})` : "إعادة تحميل من الأصل")
+            + '</span>';
           reseed.classList.toggle("reseed-behind", !!behind);
         }
       }
@@ -17018,7 +17038,11 @@
       const hidden = isCategoryHidden(cat.id);
       const hideBtn = document.createElement("button");
       hideBtn.className = (hidden ? "secondary" : "ghost") + " ac-hide";
-      hideBtn.textContent = hidden ? "👁 إظهار الفئة" : "🙈 إخفاء الفئة";
+      // innerHTML, not textContent: the icon is an <svg><use>, and the sprite
+      // lives in the admin panel markup. Both states get one from the family.
+      hideBtn.innerHTML = hidden
+        ? '<svg class="af-ico" aria-hidden="true"><use href="#i-eye"/></svg>إظهار الفئة'
+        : '<svg class="af-ico" aria-hidden="true"><use href="#i-eyeoff"/></svg>إخفاء الفئة';
       hideBtn.title = hidden
         ? "إعادتها إلى شاشة اختيار الفئات لكل اللاعبين"
         : "إخفاؤها من شاشة اختيار الفئات لكل اللاعبين — تبقى محفوظة ويمكن إظهارها لاحقاً";
@@ -17040,12 +17064,14 @@
       const choiceBtn = document.createElement("button");
       choiceBtn.className = (choiceOff ? "secondary" : "ghost") + " ac-choices";
       choiceBtn.id = "adminToggleChoices";
-      choiceBtn.textContent = choiceOff ? "🔢 تفعيل «أربعة خيارات»" : "🚫 تعطيل «أربعة خيارات»";
+      choiceBtn.innerHTML = choiceOff
+        ? '<svg class="af-ico" aria-hidden="true"><use href="#i-grid"/></svg>تفعيل «أربعة خيارات»'
+        : '<svg class="af-ico" aria-hidden="true"><use href="#i-ban"/></svg>تعطيل «أربعة خيارات»';
       if (forcedFree) {
         // Already off by the category's own nature — say so rather than offer a
         // switch that would appear to do nothing.
         choiceBtn.disabled = true;
-        choiceBtn.textContent = "🚫 «أربعة خيارات» معطّلة لهذا النوع";
+        choiceBtn.innerHTML = '<svg class="af-ico" aria-hidden="true"><use href="#i-ban"/></svg>«أربعة خيارات» معطّلة لهذا النوع';
         choiceBtn.title = "نوع هذه الفئة لا يستخدم الاختيار من متعدد أصلاً";
       } else {
         choiceBtn.title = choiceOff
@@ -17064,7 +17090,7 @@
       if (!isBuiltin) {
         const del = document.createElement("button");
         del.className = "danger ac-delete";
-        del.textContent = "🗑 حذف الفئة";
+        del.innerHTML = '<svg class="af-ico" aria-hidden="true"><use href="#i-trash"/></svg>حذف الفئة';
         del.title = "حذف هذه الفئة وكل أسئلتها نهائيًا للجميع — لا يمكن التراجع";
         del.addEventListener("click", () => {
           if (!window.confirm(`حذف الفئة «${cat.name || ""}» وكل أسئلتها نهائيًا للجميع؟\n(لإخفائها مؤقتاً بدل حذفها استخدم «إخفاء الفئة».)`)) return;
@@ -17339,13 +17365,17 @@
       }
       const btn = $("#adminSelectAll");
       if (btn) {
-        btn.textContent = allVisible ? "☐ إلغاء تحديد الكل" : "☑ تحديد الكل";
+        // innerHTML, not textContent: this rewrites its own label on every
+        // selection change, and textContent would take the <svg><use> with it.
+        btn.innerHTML = '<svg class="af-ico" aria-hidden="true"><use href="#i-checksq"/></svg>'
+          + '<span class="af-label">' + (allVisible ? "إلغاء تحديد الكل" : "تحديد الكل") + '</span>';
         btn.disabled = adminVisibleQs.length === 0;
       }
       const delBtn = $("#adminDeleteSelected");
       if (delBtn) {
         delBtn.hidden = sel.size === 0;
-        delBtn.textContent = "🗑 حذف المحدد (" + toArabicDigits(sel.size) + ")";
+        delBtn.innerHTML = '<svg class="af-ico" aria-hidden="true"><use href="#i-trash"/></svg>'
+          + '<span class="af-label">حذف المحدد (' + toArabicDigits(sel.size) + ')</span>';
       }
     }
     function toggleAdminSelectAll() {
