@@ -186,6 +186,28 @@ try {
   check("every visible icon actually paints", icons.unpainted === 0, `${icons.unpainted} zero-size`);
   check("no emoji left in any toolbar label", icons.emojiLabels.length === 0, icons.emojiLabels.join(", "));
 
+  // The cover control's EMPTY state is the picture glyph here, matching the
+  // icon family beside it — but only here. The same imagePicker builds the
+  // question editor's and the community editor's, where «+» is still right.
+  const picker = await page.evaluate(async () => {
+    const head = document.querySelector(".admin-cathead .image-picker .plus");
+    const inHead = { icon: !!head.querySelector("svg.ip-icon"), text: (head.textContent || "").trim() };
+    // …and a picker built WITHOUT the option keeps its «+».
+    const probe = imagePicker("", () => {}, "صورة");
+    document.body.appendChild(probe);
+    const plain = { icon: !!probe.querySelector("svg.ip-icon"), text: (probe.textContent || "").trim() };
+    probe.remove();
+    // a bad symbol id must fall back, never inject
+    const bad = imagePicker("", () => {}, "صورة", { emptyIcon: '"/><script>x</script>' });
+    const safe = !bad.querySelector("script") && (bad.textContent || "").trim() === "+";
+    return { inHead, plain, safe };
+  });
+  check("the category cover shows the picture icon when empty",
+    picker.inHead.icon && picker.inHead.text === "", `«${picker.inHead.text}»`);
+  check("every other picker still shows «+»",
+    !picker.plain.icon && picker.plain.text === "+", `«${picker.plain.text}»`);
+  check("a malformed icon id falls back to «+» rather than injecting", picker.safe);
+
   // The two toggles rebuild their own labels — with innerHTML, or the icon dies.
   const toggles = await page.evaluate(async () => {
     const read = () => {
