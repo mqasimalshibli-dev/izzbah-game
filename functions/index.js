@@ -53,9 +53,21 @@ exports.mintUploadUrl = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
 
-    // Same source of truth as the game and the Firestore rules.
-    const adminDoc = await admin.firestore().collection("admins").doc(uid).get();
-    if (!adminDoc.exists) throw new HttpsError("permission-denied", "Admins only.");
+    // Same source of truth as the game and the Firestore rules. Content
+    // EDITORS mint upload URLs too: their whole job is authoring questions, and
+    // a question in «من الي سجل؟» or any voice round IS a media clip — without
+    // this they could add text and pasted images and nothing else. Uploading is
+    // the narrowest privilege here (it writes an object to R2 under a generated
+    // key), and the clip only becomes visible once it is attached to a question
+    // through the Firestore rules, which police editors separately.
+    const db = admin.firestore();
+    const [adminDoc, editorDoc] = await Promise.all([
+      db.collection("admins").doc(uid).get(),
+      db.collection("editors").doc(uid).get(),
+    ]);
+    if (!adminDoc.exists && !editorDoc.exists) {
+      throw new HttpsError("permission-denied", "Admins only.");
+    }
 
     const rawName = String((request.data && request.data.filename) || "").trim();
 

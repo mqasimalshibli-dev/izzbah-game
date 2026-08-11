@@ -62,6 +62,61 @@ readers it took 12. A job that looks hung is usually just serial — measure wit
 lookups will do (`orderBy(__name__).limit(20)` burned the full 300s deadline
 and returned nothing, while `getAll()` of the same docs worked fine).
 
+## Two roles now, not one: `admins/{uid}` and `editors/{uid}` (build .304)
+
+There used to be exactly ONE flag, and it granted content, credits,
+announcements, community moderation and the power to appoint more admins. The
+owner wanted to hand a helper question-authoring alone. `editors/{uid}` is that,
+and it is **NOT a weaker grade of admin** — it is an independent flag.
+
+- **Why independent.** Making it `isAdmin || isEditor` anywhere general would
+  have handed an editor everything the ~23 `state.isAdmin` checks grant, the
+  first of which is unlimited free play. `state.isAdmin` stays **false** for an
+  editor; each capability is opted in BY NAME. There are exactly five gates in
+  the client, all spelled `canEditContent()`: the R2 media upload path, opening
+  the content panel, opening the panel chooser, and the entry button from
+  either role. `tests/editorrole.mjs` counts them.
+- **What an editor may do:** add a question, change one, delete one, upload its
+  media, publish. That is the whole list.
+- **The boundary is `firestore.rules`, not the UI.** `isEditor()` grants inside
+  exactly TWO collections — `categories/{catId}` (its `questions` list plus the
+  `/questions` subcollection) and `meta/{doc}` (the rev bump). The test slices
+  the rules into match blocks and fails if it appears anywhere else; a stray
+  `|| isEditor()` in `/codes` or `/entitlements` would hand out money and would
+  read like a one-word typo in review.
+- ⚠️ **`editors/{uid}` is admin-write.** An editor must never appoint an editor.
+- ⚠️ **The rev bump is not optional.** Every publish ends in `bumpCatalogRev()`,
+  and the client short-circuits the whole catalogue on that number — so without
+  `meta/{doc}` an editor's questions would save and reach nobody. Worse, that
+  call is `.catch(() => {})`, so it would fail SILENTLY and the publish would
+  still look successful.
+- ⚠️ **Category identity is pinned field-by-field, not with `affectedKeys()`.**
+  `cloudPublish` uses a plain `set()`, so a field the in-memory copy does not
+  carry gets DELETED; equality-with-a-default (`get('color','')`) catches that
+  and is far easier to reason about. `description` is deliberately NOT pinned —
+  `normalizePublishedCategory` never carried it, so every publish already drops
+  it and pinning it would reject an editor on any category that still has one.
+- **"He can't delete all the questions"**: the parent rule refuses to let an
+  editor leave a category empty AND caps one publish at 5 removals (the app
+  deletes one at a time and auto-publishes, so that is generous). ⚠️ Residual,
+  accepted: `cloudPublish` commits the `/questions` subcollection in EARLIER
+  batches than the parent, so these rules stop a category being *emptied*, not
+  someone driving Firestore directly to delete its media docs. Catalogue text
+  always survives; images are covered by the backup runbook above.
+- ⚠️ **`mintUploadUrl` needed a Cloud Function change** (it gated on
+  `admins/{uid}`), so **media upload for editors does not work until that
+  function is redeployed** — and the deploy traps in the `resolveEmails` note
+  below apply verbatim (pull in Cloud Shell first; the masked secret prompt
+  crashes there). Text and pasted images work without it.
+- **UI locks are ergonomic only.** `applyEditorLocks()` hides 12 buttons by id;
+  the category head, the صيانة strip and the select column are hidden by CSS on
+  `body.is-editor-only` instead — those regions are rebuilt on every keystroke,
+  sort and delete, and a lock applied per-node is only as good as the last
+  render that remembered it.
+- **Appointing one:** the person signs in once, you read their uid from the
+  admin centre's players list, and you add `editors/<uid>` in the Firebase
+  console — same as `admins/{uid}`. There is no in-app UI for it.
+
 ## Pending TODOs (user-requested)
 
 - **Web Push notifications — PARKED until after release (owner's call,
