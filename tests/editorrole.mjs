@@ -39,12 +39,19 @@ const fns = readFileSync(join(ROOT, "functions/index.js"), "utf8");
 // ── 1) the rules: the registry ──────────────────────────────────────────────
 check("there is an isEditor() helper keyed on editors/{uid}",
   /function isEditor\(\)[\s\S]{0,200}?documents\/editors\/\$\(request\.auth\.uid\)/.test(rules));
-check("editors/{uid} is readable by any signed-in user (so the app can tell)",
-  /match \/editors\/\{uid\} \{[\s\S]{0,200}?allow read: if isSignedIn\(\);/.test(rules));
+// A single get() stays open, so any account can read its OWN role at sign-in…
+check("editors/{uid} — one doc is gettable by any signed-in user",
+  /match \/editors\/\{uid\} \{[\s\S]{0,240}?allow get: if isSignedIn\(\);/.test(rules));
+// …but ENUMERATING the collection is the owner's «المحرّرون» panel only. An
+// open list would hand every signed-in user the set of staff uids.
+check("...but LISTING it is admin-only",
+  /match \/editors\/\{uid\} \{[\s\S]{0,280}?allow list: if isAdmin\(\);/.test(rules));
+check("...and `allow read` was not left behind as a wildcard",
+  !/match \/editors\/\{uid\} \{[\s\S]{0,280}?allow read:/.test(rules));
 // The one that matters most: an editor must never be able to appoint anyone,
 // least of all themselves, and never touch the admin registry.
-check("...but WRITABLE ONLY BY AN ADMIN — an editor cannot appoint an editor",
-  /match \/editors\/\{uid\} \{[\s\S]{0,240}?allow write: if isAdmin\(\);/.test(rules));
+check("...and it is WRITABLE ONLY BY AN ADMIN — an editor cannot appoint an editor",
+  /match \/editors\/\{uid\} \{[\s\S]{0,320}?allow write: if isAdmin\(\);/.test(rules));
 
 // ── 2) the rules: isEditor() must appear ONLY where it is meant to ──────────
 // Slice the file into top-level match blocks and record which ones mention it.
@@ -271,6 +278,105 @@ try {
   });
   check("a rebuilt category head is still locked (name)", !afterRender.name);
   check("...and its state row (إخفاء / حذف الفئة) too", !afterRender.state);
+
+  // ── 9) «المحرّرون» — appointing one from inside the app ───────────────────
+  // The owner should not have to open the Firebase console to hand a friend
+  // question-authoring, and should not have to know their uid to do it.
+  const panel = await page.evaluate(() => {
+    const rows = (sel) => Array.prototype.map.call(
+      document.querySelectorAll(sel + " .prem-row"),
+      r => ({
+        id: r.querySelector(".prem-row-id").textContent,
+        byUid: r.querySelector(".prem-row-id").classList.contains("prem-row-id-uid"),
+        action: (r.querySelector("button") || {}).textContent || "",
+      }));
+    const search = document.getElementById("editorsSearch");
+    const seed = () => window.IZZBAH_TEST.renderEditorsPanel({
+      editors: [{ uid: "EDITORUID000000000000000001", email: "kholoud@example.com" }],
+      // One player named by their own usage stamp, one only by a past sale,
+      // and one nameless — the three cases the panel has to cope with.
+      usage: {
+        "PLAYERUID00000000000000000A": { email: "salim@example.com", granted: 5, used: 1 },
+        "PLAYERUID00000000000000000B": { granted: 2, used: 0 },
+        "PLAYERUID00000000000000000C": { granted: 0, used: 0 },
+      },
+      sales: [{ uid: "PLAYERUID00000000000000000B", email: "maryam@example.com" }],
+      orders: [],
+    });
+
+    const out = {};
+    seed();
+    out.current = rows("#editorsList");
+    out.emptySearch = (document.getElementById("editorsCandidates").textContent || "").trim();
+
+    search.value = "salim"; search.dispatchEvent(new Event("input"));
+    out.byEmail = rows("#editorsCandidates");
+
+    // Named from a SALE, not from their own usage stamp.
+    search.value = "maryam"; search.dispatchEvent(new Event("input"));
+    out.bySale = rows("#editorsCandidates");
+
+    // Someone already an editor must not be offered again.
+    search.value = "kholoud"; search.dispatchEvent(new Event("input"));
+    out.alreadyEditor = rows("#editorsCandidates");
+    out.alreadyEditorText = (document.getElementById("editorsCandidates").textContent || "").trim();
+
+    // The escape hatch: a raw uid pasted from the console.
+    search.value = "ZZUNKNOWNUID0000000000000001"; search.dispatchEvent(new Event("input"));
+    out.rawUidOffer = !!document.querySelector("#editorsCandidates .ed-grant-raw");
+
+    // …which must NOT appear for an ordinary miss.
+    search.value = "nobody@nowhere"; search.dispatchEvent(new Event("input"));
+    out.missOffer = !!document.querySelector("#editorsCandidates .ed-grant-raw");
+    out.missText = (document.getElementById("editorsCandidates").textContent || "").trim();
+
+    // And an empty registry says so rather than rendering nothing.
+    window.IZZBAH_TEST.renderEditorsPanel({ editors: [], usage: {}, sales: [], orders: [] });
+    out.emptyList = (document.getElementById("editorsList").textContent || "").trim();
+    return out;
+  });
+
+  check("the current editors are listed, named by email",
+    panel.current.length === 1 && panel.current[0].id === "kholoud@example.com" && !panel.current[0].byUid);
+  check("...with a remove action", panel.current[0] && panel.current[0].action === "إزالة");
+  check("an empty registry says so", /لا يوجد محرّرون/.test(panel.emptyList));
+  check("the candidate list waits for a search term", /اكتب جزءاً من البريد/.test(panel.emptySearch));
+  check("a player is found by email and offered the role",
+    panel.byEmail.length === 1 && panel.byEmail[0].id === "salim@example.com"
+    && panel.byEmail[0].action === "اجعله محرراً");
+  check("...including one named only by a past SALE",
+    panel.bySale.length === 1 && panel.bySale[0].id === "maryam@example.com");
+  check("someone who is ALREADY an editor is not offered again",
+    panel.alreadyEditor.length === 0 && /لا يوجد لاعب مطابق/.test(panel.alreadyEditorText));
+  check("a pasted raw uid gets an explicit «add this id» escape hatch", panel.rawUidOffer);
+  check("...which does NOT appear for an ordinary miss", !panel.missOffer);
+  check("...and the miss explains they must sign in once first",
+    /سجّل دخوله باللعبة/.test(panel.missText));
+
+  // Admin-only, and by two independent means: the rules refuse the write, and
+  // the panel is not in the editor's allow-list so its whole group disappears.
+  check("«المحرّرون» is NOT offered to an editor",
+    !html.includes('EDITOR_CHOICE_IDS = ["adminChoiceContent", "adminChoiceEditors"]')
+    && /EDITOR_CHOICE_IDS = \["adminChoiceContent"\]/.test(html));
+  check("...and openEditorsAdmin refuses a non-admin outright",
+    /function openEditorsAdmin\(\) \{\s*\n\s*if \(!state\.isAdmin\) return;/.test(html));
+  const groupHidden = await page.evaluate(() => {
+    window.IZZBAH.applyEditor(true);
+    const g = document.querySelector('.admin-group[data-group="access"]');
+    const hidden = !!g && g.hidden;
+    window.IZZBAH.applyEditor(false);
+    window.IZZBAH.applyAdmin(true);
+    const backAgain = !!g && !g.hidden;
+    window.IZZBAH.applyAdmin(false);
+    return { hidden, backAgain };
+  });
+  check("the whole «الصلاحيات» group is hidden from an editor", groupHidden.hidden);
+  check("...and comes back for the owner", groupHidden.backAgain);
+  // The bridges are gated locally too — not security (the rules are), but it
+  // turns a confusing permission error into a clear one.
+  check("listEditors and setEditor check cloudIsAdmin before the round-trip",
+    /IZZBAH\.listEditors = function \(\) \{\s*\n\s*if \(!cloudIsAdmin\)/.test(html)
+    && /IZZBAH\.setEditor = function \(uid, on, email\) \{[\s\S]{0,80}?if \(!cloudIsAdmin\)/.test(html));
 
   check("no page errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 3));

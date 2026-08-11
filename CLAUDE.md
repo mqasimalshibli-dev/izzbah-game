@@ -113,7 +113,31 @@ and it is **NOT a weaker grade of admin** — it is an independent flag.
   `body.is-editor-only` instead — those regions are rebuilt on every keystroke,
   sort and delete, and a lock applied per-node is only as good as the last
   render that remembered it.
-- **Appointing one:** the person signs in once, you read their uid from the
+- **Appointing one is IN THE APP (build .305):** admin panel → «الصلاحيات» →
+  «المحرّرون». Lists the current editors with a remove button, and adds by
+  searching the players the admin can already read. Adding by EMAIL is the
+  whole point — a 28-character uid tells the owner nothing about whose row it
+  is, the same problem .220 fixed for the subscriptions panel — so it reuses
+  `emailIndex()` (sales → orders → the usage stamp) plus `resolveEmails` and
+  the SAME `authEmailCache`, so opening both panels only asks Auth once.
+  - The person must have SIGNED IN once or their uid does not exist; the empty
+    state says so instead of leaving the owner hunting for a name.
+  - A pasted raw uid is accepted, but only offered when the search finds
+    nothing, so it never competes with the by-email flow.
+  - ⚠️ `editors/{uid}` now splits its read rule: `get` for any signed-in user
+    (each account reads its OWN role at sign-in), `list` for **admins only** —
+    the panel enumerates the collection, and an open list would hand every
+    signed-in user the set of staff uids. Do NOT collapse them back into
+    `allow read`.
+  - The `email` stored on the doc is only so the list can NAME the row. The
+    permission is the document EXISTING, exactly as with `admins/{uid}`;
+    nothing reads that field for access.
+  - ⚠️ `tests/adminorg.mjs` asserts every panel group holds ≥2 entries.
+    «الصلاحيات» is a deliberate group of ONE (so it reads as its own concern
+    and `applyAdminGroups` can hide it from an editor in one move), so it is
+    listed in that test's `SOLO_GROUPS`.
+- **The old manual route still works:** the person signs in once, you read
+  their uid from the
   admin centre's players list, and you add `editors/<uid>` in the Firebase
   console — same as `admins/{uid}`. There is no in-app UI for it.
 

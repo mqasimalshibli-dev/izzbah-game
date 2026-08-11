@@ -35,6 +35,7 @@ const ENTRIES = [
   ["adminChoiceAnnounce", "announceAdminModal"],
   ["adminChoiceText", null],
   ["adminChoiceCoach", "coachAdminModal"],
+  ["adminChoiceEditors", "editorsAdminModal"],
 ];
 
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
@@ -64,7 +65,7 @@ try {
     return { groups, loose, total: document.querySelectorAll(".admin-choice-btn").length };
   });
 
-  check(`the panel is organised into groups (${shape.groups.length})`, shape.groups.length === 5);
+  check(`the panel is organised into groups (${shape.groups.length})`, shape.groups.length === 6);
   check(`every entry lives in one (${shape.loose.length} loose)`, shape.loose.length === 0);
   check(`no entry was lost in the move (${shape.total} of ${ENTRIES.length})`,
     shape.total === ENTRIES.length);
@@ -74,8 +75,15 @@ try {
   check(`every known entry is present (${missing.join(", ") || "none missing"})`, missing.length === 0);
   check("groups start expanded, so nothing is hidden from someone used to the flat list",
     shape.groups.every(g => g.open === "1"));
+  /* Every group earns its heading by holding more than one entry — EXCEPT
+     «الصلاحيات», which is deliberately a group of one. It is there so that
+     appointing staff reads as its own concern rather than as a stray button
+     under «المحتوى», and so applyAdminGroups can hide the whole thing
+     from a content editor in one move. */
+  const SOLO_GROUPS = ["access"];
   shape.groups.forEach(g => {
-    check(`«${g.name}» holds ${g.items.length} entries`, g.items.length >= 2);
+    const min = SOLO_GROUPS.includes(g.id) ? 1 : 2;
+    check(`«${g.name}» holds ${g.items.length} entries`, g.items.length >= min);
   });
 
   // ---- the wiring still works from inside a group ----

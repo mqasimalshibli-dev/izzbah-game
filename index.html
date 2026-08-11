@@ -5286,6 +5286,18 @@
     .prem-fulfil { flex: none; background: #e6f3e9; color: #1b6a3f; border: 1px solid #a9d4b4; border-radius: 7px; padding: 5px 10px; font: 700 12.5px 'Cairo', sans-serif; cursor: pointer; }
     .prem-fulfil:hover { background: #d3ecd9; }
     .prem-empty { color: #8a7550; font: 600 13px 'Cairo', sans-serif; text-align: center; padding: 10px; }
+    /* «المحرّرون» — deliberately built out of .prem-row and friends rather than
+       a new visual language: it is the same "a list of people, one action per
+       row" shape as the subscriptions panel, and the owner already reads that
+       one fluently. Only the section headings and spacing are new. */
+    .editors-admin-modal { max-width: 620px; }
+    .ed-section-head { font: 800 14px 'Cairo', sans-serif; color: #8a6a2a; margin: 14px 0 6px; }
+    .ed-hint { margin-top: 0; }
+    .ed-list { display: flex; flex-direction: column; gap: 8px; max-height: 30vh; overflow-y: auto; padding: 2px; }
+    .ed-search { margin-bottom: 10px; }
+    .ed-grant { padding: 7px 14px; font-size: 13px; white-space: nowrap; }
+    .ed-grant-raw { display: block; margin: 6px auto 0; }
+    :root[data-theme="dark"] .ed-section-head { color: #e6c869; }
     /* ---- Admin insights (stats) ---- */
     .stats-tiles { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
     .stats-tile { flex: 1 1 130px; background: #f7efd9; border: 1px solid rgba(201,151,74,.45); border-radius: 11px; padding: 12px 14px; text-align: center; }
@@ -8596,6 +8608,20 @@
           </button>
             </div>
           </div>
+          <div class="admin-group" data-group="access">
+            <button class="admin-group-head" type="button" aria-expanded="true">
+              <span class="admin-group-ico" aria-hidden="true">🔑</span>
+              <span class="admin-group-text"><span class="admin-group-name">الصلاحيات</span><span class="admin-group-sub">من يقدر يعدّل محتوى اللعبة</span></span>
+              <span class="admin-group-chev" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-group-body">
+              <button class="admin-choice-btn" id="adminChoiceEditors" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">✏️</span>
+            <span class="admin-choice-name">المحرّرون</span>
+            <span class="admin-choice-sub">امنح شخصاً صلاحية إضافة الأسئلة وحذفها فقط</span>
+          </button>
+            </div>
+          </div>
           <div class="admin-group" data-group="copy">
             <button class="admin-group-head" type="button" aria-expanded="true">
               <span class="admin-group-ico" aria-hidden="true">✏️</span>
@@ -8674,6 +8700,33 @@
         <div class="actions">
           <button class="ghost" id="featuredAdminClose" type="button">إغلاق</button>
           <button class="primary" id="featuredAdminSave" type="button">💾 حفظ للجميع</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editors («المحرّرون») — the owner appoints a helper who may author
+         QUESTIONS and nothing else. Admin-only; see the editors/{uid} note in
+         CLAUDE.md. Adding is by EMAIL from the players the admin can already
+         see, because a uid tells the owner nothing about whose row it is — the
+         same reason the subscriptions panel stopped showing raw uids in .220.
+         A uid box is still there for the case the list cannot name someone. -->
+    <div class="modal-backdrop" id="editorsAdminModal" aria-hidden="true">
+      <div class="question-modal editors-admin-modal" role="dialog" aria-modal="true" aria-labelledby="editorsAdminTitle">
+        <h3 class="preview-title" id="editorsAdminTitle">✏️ المحرّرون</h3>
+        <p class="import-help">المحرّر يقدر <b>يضيف سؤالاً ويعدّله ويحذفه ويرفع صوره ومقاطعه</b> داخل الفئات الموجودة — وهذا كل شيء. لا يقدر ينشئ فئة أو يحذفها أو يحذف كل أسئلتها، ولا يشوف الاشتراكات ولا الأرصدة ولا الإعلانات، ولا يعيّن محرّرين. ويظل لاعباً عادياً: <b>ما عنده لعب مجاني غير محدود</b>.</p>
+        <div class="ed-section-head">المحرّرون الحاليون</div>
+        <div class="ed-list" id="editorsList"></div>
+        <div class="ed-section-head">أضف محرّراً</div>
+        <p class="import-help ed-hint">لازم الشخص يسجّل دخوله باللعبة مرة وحدة أول، عشان يظهر هنا. ابحث ببريده:</p>
+        <div class="izz-search ed-search">
+          <input id="editorsSearch" type="search" placeholder="ابحث ببريد اللاعب…" autocomplete="off" />
+          <span class="izz-search-lead" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4" stroke-linecap="round"/></svg></span>
+        </div>
+        <div class="ed-list ed-candidates" id="editorsCandidates"></div>
+        <div class="prem-status" id="editorsStatus" aria-live="polite"></div>
+        <div class="actions">
+          <button class="ghost" id="editorsRefresh" type="button">↻ تحديث</button>
+          <button class="ghost" id="editorsAdminClose" type="button">إغلاق</button>
         </div>
       </div>
     </div>
@@ -12574,7 +12627,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-11.304";
+    const IZZBAH_BUILD = "2026-08-11.305";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -21319,6 +21372,204 @@
         if (btn) btn.disabled = false;
       });
     }
+    /* ── «المحرّرون»: appoint a content editor, in the app ──────────────────
+       Adding is BY EMAIL, from the players the admin can already see. A 28
+       character uid tells the owner nothing about whose row it is — the same
+       problem the subscriptions panel had until .220 — and the owner should
+       not have to open the Firebase console to hand a friend the ability to
+       write questions.
+       Where the names come from, weakest source first, exactly as the players
+       list does it: sales/{id} and orders/{uid} (both carry an email), the
+       usage/{uid} mirror the player stamps themselves, and finally the
+       resolveEmails Cloud Function for anyone still showing raw — which is the
+       ONLY thing that can name someone who has never bought anything.
+       ⚠️ The person must have SIGNED IN once. Their uid does not exist before
+       that, so there is nothing to appoint; the panel says so rather than
+       leaving the owner searching for a name that cannot be there.
+       ⚠️ Admin-only. `adminChoiceEditors` is deliberately NOT in
+       EDITOR_CHOICE_IDS, so applyAdminGroups hides the whole «الصلاحيات» group
+       from an editor — and editors/{uid} is admin-write in the rules, which is
+       the part that actually matters. */
+    let editorsData = { editors: [], usage: {}, orders: [], sales: [], loaded: false };
+    function editorsSetStatus(msg, kind) {
+      const el = $("#editorsStatus");
+      if (!el) return;
+      el.textContent = msg || "";
+      el.className = "prem-status" + (kind ? " " + kind : "");
+    }
+    // uid -> email across every source the admin can read, including the
+    // session cache the subscriptions panel already filled from Auth.
+    function editorsEmailFor(uid) {
+      const known = emailIndex(editorsData.usage, editorsData.orders, editorsData.sales);
+      return known[uid] || authEmailCache[uid] || "";
+    }
+    function editorRow(uid, email, isEditorRow) {
+      const row = document.createElement("div");
+      row.className = "prem-row";
+      const main = document.createElement("div");
+      main.className = "prem-row-main";
+      const id = document.createElement("div");
+      id.className = "prem-row-id" + (email ? "" : " prem-row-id-uid");
+      id.textContent = email || uid;
+      id.title = email ? (email + "\n" + uid) : uid;
+      id.style.cursor = "pointer";
+      id.addEventListener("click", () => {
+        const t = navigator.clipboard && navigator.clipboard.writeText(uid);
+        if (t && t.then) t.then(() => showToast("نُسخ معرّف المستخدم")).catch(() => {});
+      });
+      const sub = document.createElement("div");
+      sub.className = "prem-row-sub";
+      sub.textContent = isEditorRow ? "محرّر — يضيف الأسئلة ويحذفها فقط" : "لاعب";
+      main.append(id, sub);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = isEditorRow ? "prem-revoke" : "secondary ed-grant";
+      btn.textContent = isEditorRow ? "إزالة" : "اجعله محرراً";
+      btn.addEventListener("click", () => setEditorFromAdmin(uid, !isEditorRow, email, btn));
+      row.append(main, btn);
+      return row;
+    }
+    function setEditorFromAdmin(uid, on, email, btn) {
+      const bridge = window.IZZBAH && window.IZZBAH.setEditor;
+      if (!bridge) { editorsSetStatus("سجّل الدخول كمشرف أولاً.", "err"); return; }
+      // Removing is reversible and adding is narrow, so only the destructive
+      // half asks — but it names WHO, because the rows are emails now and two
+      // of them can look alike.
+      if (!on && !confirm(`إزالة صلاحية التحرير عن «${email || uid}»؟`)) return;
+      if (btn) btn.disabled = true;
+      editorsSetStatus(on ? "جارٍ المنح…" : "جارٍ الإزالة…", "busy");
+      bridge(uid, on, email).then(() => {
+        editorsSetStatus(on ? `✅ صار «${email || uid}» محرّراً.` : "✅ أُزيلت صلاحية التحرير.", "ok");
+        refreshEditorsList();
+      }).catch(err => {
+        const code = String((err && (err.code || err.message)) || "");
+        console.warn("setEditor failed", code, err);
+        editorsSetStatus(/permission-denied/.test(code)
+          ? "الصلاحيات لا تسمح — انشر قواعد Firestore المحدّثة (مجموعة editors)."
+          : "تعذّرت العملية: " + (code || "خطأ"), "err");
+        if (btn) btn.disabled = false;
+      });
+    }
+    function renderEditorsPanel() {
+      const list = $("#editorsList"), cands = $("#editorsCandidates");
+      if (!list) return;
+      const editors = editorsData.editors || [];
+      const editorUids = new Set(editors.map(e => e.uid));
+      list.innerHTML = "";
+      if (!editors.length) {
+        list.innerHTML = '<div class="prem-empty">لا يوجد محرّرون بعد — أنت وحدك من يعدّل المحتوى.</div>';
+      } else {
+        editors.forEach(e => list.appendChild(editorRow(e.uid, e.email || editorsEmailFor(e.uid), true)));
+      }
+      if (!cands) return;
+      const q = (($("#editorsSearch") || {}).value || "").trim().toLowerCase();
+      cands.innerHTML = "";
+      if (!q) { cands.innerHTML = '<div class="prem-empty">اكتب جزءاً من البريد لعرض النتائج.</div>'; return; }
+      // Search every uid we know about from ANY source, not just the ones with
+      // a balance: a helper who has only ever signed in and played still has a
+      // usage doc, and they are exactly who the owner wants to appoint.
+      const seen = new Set();
+      const pool = [];
+      const consider = (uid) => {
+        if (!uid || seen.has(uid) || editorUids.has(uid)) return;
+        seen.add(uid);
+        pool.push({ uid, email: editorsEmailFor(uid) });
+      };
+      Object.keys(editorsData.usage || {}).forEach(consider);
+      (editorsData.sales || []).forEach(s => consider(s && s.uid));
+      (editorsData.orders || []).forEach(o => consider(o && o.uid));
+      const hits = pool
+        .filter(p => (p.email || "").toLowerCase().includes(q) || p.uid.toLowerCase().includes(q))
+        .sort((a, b) => (b.email ? 1 : 0) - (a.email ? 1 : 0))
+        .slice(0, 25);
+      if (!hits.length) {
+        /* A raw uid pasted from the Firebase console is the escape hatch for
+           somebody the lists cannot name (a brand-new account, or a deleted
+           one). Offered only when the search found nothing, so it never
+           competes with the normal by-email flow. */
+        const looksLikeUid = /^[A-Za-z0-9]{20,40}$/.test(q);
+        const box = document.createElement("div");
+        box.className = "prem-empty";
+        box.textContent = looksLikeUid
+          ? "لا يوجد لاعب بهذا الاسم — لكن هذا يشبه معرّف مستخدم."
+          : "لا يوجد لاعب مطابق. تأكّد أنه سجّل دخوله باللعبة مرة على الأقل.";
+        cands.appendChild(box);
+        if (looksLikeUid) {
+          const direct = document.createElement("button");
+          direct.type = "button"; direct.className = "secondary ed-grant ed-grant-raw";
+          direct.textContent = "أضف هذا المعرّف محرّراً";
+          direct.addEventListener("click", () => setEditorFromAdmin(q, true, "", direct));
+          cands.appendChild(direct);
+        }
+        return;
+      }
+      hits.forEach(p => cands.appendChild(editorRow(p.uid, p.email, false)));
+    }
+    function refreshEditorsList() {
+      const list = $("#editorsList");
+      const bridge = window.IZZBAH && window.IZZBAH.listEditors;
+      if (!list) return;
+      if (!bridge) { list.innerHTML = '<div class="prem-empty">سجّل الدخول كمشرف لعرض القائمة.</div>'; return; }
+      list.innerHTML = skeleton("prem", 2);
+      // The name sources are read alongside the registry and each is allowed to
+      // fail on its own — an editor with no sale and no order is still listed,
+      // just by uid, rather than the whole panel refusing to draw.
+      const usageBridge = window.IZZBAH && window.IZZBAH.listUsage;
+      const ordersBridge = window.IZZBAH && window.IZZBAH.listOrders;
+      const salesBridge = window.IZZBAH && window.IZZBAH.listSales;
+      Promise.all([
+        bridge(),
+        usageBridge ? usageBridge().catch(() => ({})) : Promise.resolve({}),
+        ordersBridge ? ordersBridge().catch(() => []) : Promise.resolve([]),
+        salesBridge ? salesBridge().catch(() => []) : Promise.resolve([])
+      ]).then(([editors, usage, orders, sales]) => {
+        editorsData = { editors: editors || [], usage: usage || {}, orders: orders || [], sales: sales || [], loaded: true };
+        renderEditorsPanel();
+        resolveEditorNames();
+      }).catch(err => {
+        const code = String((err && (err.code || err.message)) || "");
+        console.warn("list editors failed", code, err);
+        list.innerHTML = '<div class="prem-empty">تعذّر تحميل القائمة — تأكّد من نشر قواعد Firestore المحدّثة (مجموعة editors).</div>';
+      });
+    }
+    // Name anyone still showing a raw uid, from Firebase Auth. Same function and
+    // same session cache the subscriptions panel uses, so opening both asks once.
+    function resolveEditorNames() {
+      const bridge = window.IZZBAH && window.IZZBAH.resolveEmails;
+      if (!bridge) return;
+      const missing = Object.keys(editorsData.usage || {})
+        .concat((editorsData.editors || []).map(e => e.uid))
+        .filter((uid, i, a) => a.indexOf(uid) === i)
+        .filter(uid => !editorsEmailFor(uid) && !(uid in authEmailCache));
+      if (!missing.length) return;
+      bridge(missing).then(map => {
+        missing.forEach(uid => { authEmailCache[uid] = (map && map[uid]) || ""; });
+        renderEditorsPanel();
+      }).catch(e => { console.warn("resolveEmails (editors) failed", e); });
+    }
+    function openEditorsAdmin() {
+      if (!state.isAdmin) return;   // owner only; the rules say the same
+      const m = $("#editorsAdminModal");
+      if (!m) return;
+      const s = $("#editorsSearch");
+      if (s) s.value = "";
+      editorsSetStatus("", "");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden", "false");
+      refreshEditorsList();
+    }
+    function closeEditorsAdmin() {
+      const m = $("#editorsAdminModal");
+      if (!m) return;
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden", "true");
+    }
+    window.IZZBAH_TEST = window.IZZBAH_TEST || {};
+    window.IZZBAH_TEST.renderEditorsPanel = function (data) {
+      editorsData = Object.assign({ editors: [], usage: {}, orders: [], sales: [], loaded: true }, data || {});
+      renderEditorsPanel();
+    };
+
     // The last-loaded subscription data, kept so the search box can re-filter the
     // three lists WITHOUT re-reading Firestore, and so the live orders listener
     // can refresh just the orders in place.
@@ -25390,6 +25641,12 @@
     $("#distSmart").addEventListener("click", distRunSmart);
     $("#distShowAll").addEventListener("click", distClearDone);
     $("#distModal").addEventListener("click", e => { if (e.target.id === "distModal") closeDistModal(); });
+    $("#adminChoiceEditors").addEventListener("click", () => { closeAdminChoice(); openEditorsAdmin(); });
+    $("#editorsAdminClose").addEventListener("click", closeEditorsAdmin);
+    $("#editorsRefresh").addEventListener("click", refreshEditorsList);
+    $("#editorsAdminModal").addEventListener("click", e => { if (e.target.id === "editorsAdminModal") closeEditorsAdmin(); });
+    // Filters the already-loaded lists — no Firestore read per keystroke.
+    $("#editorsSearch").addEventListener("input", renderEditorsPanel);
     $("#adminChoiceCoach").addEventListener("click", () => { closeAdminChoice(); openCoachAdmin(); });
     $("#adminChoiceText").addEventListener("click", () => { closeAdminChoice(); enterTextEdit(); });
     $("#adminChoiceFeatured").addEventListener("click", () => { closeAdminChoice(); openFeaturedAdmin(); });
@@ -26801,6 +27058,46 @@
               })
               .then(() => true);
           };
+          // ---- Content editors (editors/{uid}) --------------------------------
+          // The registry the owner manages from «المحرّرون». Both are gated on
+          // cloudIsAdmin here AND on isAdmin() in the rules — the local check
+          // only saves a round-trip and a confusing error; the rules are what
+          // stop an editor appointing an editor.
+          // ⚠️ LISTING is admin-only by rules (`allow list: if isAdmin()`),
+          // while a single get() stays open to any signed-in user so each
+          // account can read its OWN role at sign-in. Do not collapse the two.
+          window.IZZBAH.listEditors = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("editors").limit(200).get().then(snap => {
+              const out = [];
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                out.push({
+                  uid: doc.id,
+                  email: d.email || "",
+                  addedAt: d.addedAt && typeof d.addedAt.toMillis === "function" ? d.addedAt.toMillis() : null
+                });
+              });
+              out.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+              return out;
+            });
+          };
+          // on=true appoints, on=false removes. The email is stored purely so
+          // the list can NAME the row later — the permission is the document
+          // existing, exactly as with admins/{uid}, and nothing reads this
+          // field for access. Hence the rules accept the doc whatever it holds.
+          window.IZZBAH.setEditor = function (uid, on, email) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const id = String(uid || "").trim();
+            if (!id) return Promise.reject(new Error("no-uid"));
+            const ref = db.collection("editors").doc(id);
+            if (!on) return ref.delete().then(() => true);
+            return ref.set({
+              email: String(email || "").slice(0, 320),
+              addedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => true);
+          };
+
           // ---- Pack purchase orders ------------------------------------------
           // Player: place (or replace) their ONE pending order — the doc id is
           // their uid, so a player can never spam the queue. The admin fulfils
