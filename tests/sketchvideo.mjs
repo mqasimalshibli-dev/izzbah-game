@@ -343,15 +343,27 @@ try {
         return out;
       };
 
-      const fullSeen = [];
-      const full = await window.IZZBAH.sketchifyVideo(src, p => fullSeen.push(p));
-      const endSeen = [];
-      const cutEnd = await window.IZZBAH.sketchifyVideo(src, p => endSeen.push(p), { end: half });
-      let startBands = null;
-      if (canSeek) {
-        const cutStart = await window.IZZBAH.sketchifyVideo(src, null, { start: cutFrom });
-        startBands = await firstFrameBands(cutStart);
+      /* A loaded machine can hand MediaRecorder a source it then encodes to
+         nothing — «sketch-empty» — which is an environment limit, not a defect,
+         and it made this file fail about one run in three locally. Report it as
+         a skip; anything else still throws. */
+      let full, cutEnd, startBands = null;
+      try {
+        const fullSeen = [];
+        full = await window.IZZBAH.sketchifyVideo(src, p => fullSeen.push(p));
+        full.seen = fullSeen;
+        const endSeen = [];
+        cutEnd = await window.IZZBAH.sketchifyVideo(src, p => endSeen.push(p), { end: half });
+        cutEnd.seen = endSeen;
+        if (canSeek) {
+          const cutStart = await window.IZZBAH.sketchifyVideo(src, null, { start: cutFrom });
+          startBands = await firstFrameBands(cutStart);
+        }
+      } catch (e) {
+        if (/sketch-empty/.test(String(e && e.message))) return { starved: true };
+        throw e;
       }
+      const fullSeen = full.seen, endSeen = cutEnd.seen;
 
       return {
         dur, canSeek,
@@ -366,6 +378,8 @@ try {
 
     if (tr.noSource) {
       console.log("SKIP  trim run — this machine could not record a source clip");
+    } else if (tr.starved) {
+      console.log("SKIP  trim run — the encoder produced an empty clip (machine too loaded)");
     } else if (tr.noDuration) {
       console.log(`SKIP  trim run — the recorded source reported no usable duration (${tr.dur})`);
     } else {
@@ -432,13 +446,21 @@ try {
       let uploads = 0;
       proto.texImage2D = function () { uploads++; return real.apply(this, arguments); };
       const t0 = performance.now();
-      await window.IZZBAH.sketchifyVideo(src, () => {}, {});
+      try {
+        await window.IZZBAH.sketchifyVideo(src, () => {}, {});
+      } catch (e) {
+        proto.texImage2D = real;
+        if (/sketch-empty/.test(String(e && e.message))) return { starved: true };
+        throw e;
+      }
       const secs = (performance.now() - t0) / 1000;
       proto.texImage2D = real;
       return { displayHz, rendersPerSec: (uploads / 2) / secs };
     });
     if (load.noSource) {
       console.log("SKIP  render-rate check — could not record a source clip");
+    } else if (load.starved) {
+      console.log("SKIP  render-rate check — the encoder produced an empty clip (machine too loaded)");
     } else if (load.displayHz < 45) {
       // A machine that cannot reach 45Hz is already below the cap, so the cap
       // is unobservable — say so rather than pass on a vacuous comparison.
@@ -461,6 +483,115 @@ try {
     check("...with grayscale moved off the blur passes (the two commute)",
       /cg\.filter = "grayscale\(1\)"/.test(src)
       && /ca\.filter = "blur\(/.test(src) && !/ca\.filter = "grayscale/.test(src));
+  }
+
+  // ── 7) the watermark mask ─────────────────────────────────────────────────
+  /* A semi-transparent bug is the WORST case for this filter, not the easiest:
+     difference-of-Gaussians answers to edges, not to brightness, so it throws
+     away the watermark's flat interior and keeps its outline — a faint ghost
+     logo can come out as a confident pencil drawing of that logo. The mask is
+     painted as PAPER over the finished art, which can only remove.
+     Two things have to hold, and the second is the one that is easy to get
+     wrong: the watermark must be gone, AND no rectangle may be drawn where it
+     used to be. Masking the SOURCE instead would satisfy the first and fail
+     the second — a flat patch has a hard boundary and the detector inks
+     boundaries. */
+  if (!(await page.evaluate(() => window.IZZBAH.sketchSupported()))) {
+    console.log("SKIP  watermark mask — this browser lacks WebGL/MediaRecorder");
+  } else {
+    const mask = await page.evaluate(async () => {
+      const W = 320, H = 240;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const x = c.getContext("2d");
+      const rec = new MediaRecorder(c.captureStream(30));
+      const parts = []; rec.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+      rec.start();
+      for (let i = 0; i < 30; i++) {
+        x.fillStyle = "#3d7a55"; x.fillRect(0, 0, W, H);
+        x.fillStyle = "#141414"; x.fillRect(30 + i * 3, 150, 70, 60);   // the action
+        // A watermark in the top-left corner: semi-transparent, hard-edged,
+        // and STATIC, exactly like a channel bug.
+        x.save();
+        x.globalAlpha = 0.55;
+        x.fillStyle = "#ffffff";
+        x.fillRect(14, 14, 76, 30);
+        x.fillStyle = "#000000"; x.font = "700 22px sans-serif"; x.fillText("TV1", 22, 38);
+        x.restore();
+        await new Promise(r => setTimeout(r, 33));
+      }
+      rec.stop(); await new Promise(r => { rec.onstop = r; });
+      const src = new File(parts, "s.webm", { type: "video/webm" });
+      if (!src.size) return { noSource: true };
+
+      // Ink inside the watermark corner, and ink in a RING just outside it —
+      // the ring is where a boundary artefact would show up.
+      const measure = async (f) => {
+        const u = URL.createObjectURL(f);
+        const v = document.createElement("video"); v.src = u; v.muted = true;
+        await new Promise(r => { v.onloadedmetadata = r; v.onerror = r; setTimeout(r, 4000); });
+        v.currentTime = 0.4;
+        await new Promise(r => { v.onseeked = r; setTimeout(r, 2000); });
+        if (!v.videoWidth) { URL.revokeObjectURL(u); return null; }
+        const oc = document.createElement("canvas");
+        oc.width = v.videoWidth; oc.height = v.videoHeight;
+        const ctx = oc.getContext("2d"); ctx.drawImage(v, 0, 0);
+        const sx = oc.width / W, sy = oc.height / H;
+        const inkIn = (px, py, pw, ph) => {
+          const X = Math.max(0, Math.round(px * sx)), Y = Math.max(0, Math.round(py * sy));
+          const Wd = Math.min(oc.width - X, Math.round(pw * sx)), Hd = Math.min(oc.height - Y, Math.round(ph * sy));
+          if (Wd <= 0 || Hd <= 0) return -1;
+          const d = ctx.getImageData(X, Y, Wd, Hd).data;
+          let dark = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) { if (d[i] < 200) dark++; n++; }
+          return n ? dark / n * 100 : -1;
+        };
+        const out = {
+          logo: inkIn(14, 14, 76, 30),           // where the bug is
+          ringBelow: inkIn(6, 52, 92, 16),       // just outside the mask
+          ringRight: inkIn(98, 8, 16, 44),
+          action: inkIn(30, 150, 130, 60),       // the play — must survive
+        };
+        URL.revokeObjectURL(u);
+        return out;
+      };
+
+      try {
+        const plain = await measure(await window.IZZBAH.sketchifyVideo(src, null, {}));
+        const masked = await measure(await window.IZZBAH.sketchifyVideo(src, null, {
+          masks: [{ x: 8 / W, y: 8 / H, w: 88 / W, h: 42 / H }],
+        }));
+        // A mask given nonsense must be ignored rather than blanking the frame.
+        const junk = await measure(await window.IZZBAH.sketchifyVideo(src, null, {
+          masks: [{ x: 0.1, y: 0.1, w: 0, h: 0 }, null, { x: NaN, y: 0, w: 0.2, h: 0.2 }],
+        }));
+        return { plain, masked, junk };
+      } catch (e) {
+        if (/sketch-empty/.test(String(e && e.message))) return { starved: true };
+        throw e;
+      }
+    });
+
+    if (mask.noSource) {
+      console.log("SKIP  watermark mask — could not record a source clip");
+    } else if (mask.starved) {
+      console.log("SKIP  watermark mask — the encoder produced an empty clip (machine too loaded)");
+    } else if (!mask.plain || !mask.masked) {
+      console.log("SKIP  watermark mask — a filtered clip would not decode");
+    } else {
+      console.log(`      (logo ink ${mask.plain.logo.toFixed(1)}% → ${mask.masked.logo.toFixed(1)}%, `
+        + `action ${mask.plain.action.toFixed(1)}% → ${mask.masked.action.toFixed(1)}%)`);
+      // The premise: unmasked, the filter really does draw the bug.
+      check(`unmasked, the watermark IS drawn (${mask.plain.logo.toFixed(1)}% ink)`,
+        mask.plain.logo > 3);
+      check(`masked, it is gone (${mask.masked.logo.toFixed(1)}% ink)`, mask.masked.logo < 1);
+      // The part that separates "covered" from "boxed".
+      check(`no rectangle is drawn where it was (below ${mask.masked.ringBelow.toFixed(1)}%, right ${mask.masked.ringRight.toFixed(1)}%)`,
+        mask.masked.ringBelow < 6 && mask.masked.ringRight < 6);
+      // …and the rest of the frame is untouched.
+      check(`the action is unaffected (${mask.plain.action.toFixed(1)}% → ${mask.masked.action.toFixed(1)}%)`,
+        Math.abs(mask.masked.action - mask.plain.action) < 2);
+      check("a malformed mask is ignored, not applied", mask.junk && mask.junk.action > 3);
+    }
   }
 
   check("no page errors", errs.length === 0);

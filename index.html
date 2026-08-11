@@ -4861,6 +4861,27 @@
     .trim-mute[hidden] { display: none; }
     .trim-mute input { width: 17px; height: 17px; accent-color: #cc2531; flex: none; cursor: pointer; }
     .trim-mute-sub { font-weight: 700; font-size: 11.5px; color: #c9b183; margin-inline-start: auto; }
+    /* ---- Watermark mask (sketch path only) ----
+       The boxes are drawn over the video at authoring time and painted as PAPER
+       onto the finished line art at encode time. Translucent white here so the
+       admin sees roughly what the result will be — a blank patch, not a black
+       box, because the output is ink on paper. */
+    .trim-stage { position: relative; }
+    .tm-mask-layer { position: absolute; cursor: crosshair; touch-action: none; z-index: 3; }
+    .tm-mask-layer[hidden] { display: none; }
+    .tm-mask-box {
+      position: absolute; background: rgba(255, 255, 255, .62);
+      border: 1.5px dashed rgba(20, 20, 20, .55); border-radius: 3px;
+    }
+    .tm-mask-del {
+      position: absolute; top: -11px; inset-inline-end: -11px; width: 22px; height: 22px;
+      border: none; border-radius: 50%; background: #b3202c; color: #fff; cursor: pointer;
+      font: 800 13px/1 'Cairo', sans-serif; display: grid; place-items: center; padding: 0;
+    }
+    .trim-mask-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .trim-mask-row[hidden] { display: none; }
+    .trim-set.is-on { background: #b8862b; color: #23150a; border-color: #e6c869; }
+    .trim-mask-note { font: 700 12px 'Cairo', sans-serif; color: #c9b183; }
     .trim-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .trim-btn {
       border: none; border-radius: 999px; font: 800 14px 'Cairo', sans-serif;
@@ -8895,7 +8916,18 @@
       <div class="media-preview-box trim-box" role="dialog" aria-modal="true" aria-label="قص المقطع">
         <button class="media-preview-close" id="mediaTrimClose" type="button" aria-label="إغلاق">✕</button>
         <div class="trim-head">✂️ قص المقطع — اختر البداية والنهاية</div>
-        <div class="media-preview-stage" id="mediaTrimStage"></div>
+        <div class="media-preview-stage trim-stage" id="mediaTrimStage">
+          <!-- Sits exactly over the PAINTED part of the video (a video letterboxes
+               inside its box, so the overlay is positioned from videoWidth/Height,
+               not from the element). Only shown for the sketch path — every other
+               upload is stored as-is, so there is nothing to paint a mask onto. -->
+          <div class="tm-mask-layer" id="trimMaskLayer" hidden></div>
+        </div>
+        <div class="trim-mask-row" id="trimMaskRow" hidden>
+          <button class="trim-set" id="trimMaskAdd" type="button">🩹 غطِّ العلامة المائية</button>
+          <button class="trim-set" id="trimMaskClear" type="button" hidden>مسح التغطية</button>
+          <span class="trim-mask-note" id="trimMaskNote"></span>
+        </div>
         <div class="trim-readout">من <span id="trimFrom">0:00</span> إلى <span id="trimTo">0:00</span></div>
         <div class="trim-set-row">
           <button class="trim-set" id="trimSetStart" type="button">⏱️ تعيين البداية هنا</button>
@@ -12627,7 +12659,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-11.306";
+    const IZZBAH_BUILD = "2026-08-11.307";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15062,6 +15094,151 @@
       if (from) from.textContent = fmtClock(trimCtx.start);
       if (to) to.textContent = fmtClock(isFinite(trimCtx.end) ? trimCtx.end : trimCtx.dur);
     }
+    /* ── Watermark mask ────────────────────────────────────────────────────
+       Boxes are stored as FRACTIONS of the frame (0..1), never pixels: the
+       encode downscales to at most 1280 wide, and a pixel box measured against
+       a 1080p preview would land somewhere else entirely.
+       ⚠️ Only offered on the sketch path. Everywhere else the file is stored
+       byte-for-byte as uploaded, so there is no pass in which a mask could be
+       painted, and offering one would be a lie.
+       Why a mask rather than an "AI watermark remover": inpainting a video
+       crawls frame to frame and re-encodes everything. Here the output is ink
+       on white paper, so a masked patch reads as blank paper — the one case
+       where covering beats erasing. See sketchifyVideo for the paint. */
+    const TRIM_MASK_MAX = 3;
+    // Where the video is actually PAINTED inside its element. A <video>
+    // letterboxes (object-fit: contain by default), so the element's box and
+    // the picture's box are different rectangles — measuring against the
+    // former puts every mask off by the letterbox bars.
+    function videoPaintRect(el) {
+      const vw = el.videoWidth || 0, vh = el.videoHeight || 0;
+      const cw = el.clientWidth || 0, ch = el.clientHeight || 0;
+      if (!vw || !vh || !cw || !ch) return { left: 0, top: 0, w: cw, h: ch };
+      const scale = Math.min(cw / vw, ch / vh);
+      const w = vw * scale, h = vh * scale;
+      return { left: (cw - w) / 2, top: (ch - h) / 2, w, h };
+    }
+    function trimMaskLayout() {
+      if (!trimCtx || !trimCtx.isVideo) return;
+      const layer = $("#trimMaskLayer");
+      if (!layer) return;
+      const r = videoPaintRect(trimCtx.el);
+      const off = trimCtx.el.offsetLeft, offTop = trimCtx.el.offsetTop;
+      layer.style.left = (off + r.left) + "px";
+      layer.style.top = (offTop + r.top) + "px";
+      layer.style.width = r.w + "px";
+      layer.style.height = r.h + "px";
+    }
+    function renderTrimMasks() {
+      const layer = $("#trimMaskLayer"), clear = $("#trimMaskClear"), note = $("#trimMaskNote");
+      if (!layer || !trimCtx) return;
+      trimMaskLayout();
+      layer.innerHTML = "";
+      (trimCtx.masks || []).forEach((m, i) => {
+        const box = document.createElement("div");
+        box.className = "tm-mask-box";
+        box.style.left = (m.x * 100) + "%"; box.style.top = (m.y * 100) + "%";
+        box.style.width = (m.w * 100) + "%"; box.style.height = (m.h * 100) + "%";
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "tm-mask-del"; del.textContent = "✕";
+        del.setAttribute("aria-label", "إزالة هذه التغطية");
+        // pointerdown too, or the drag handler on the layer starts a new box
+        // underneath the button before the click ever lands.
+        del.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); });
+        del.addEventListener("click", e => {
+          e.preventDefault(); e.stopPropagation();
+          trimCtx.masks.splice(i, 1);
+          renderTrimMasks();
+        });
+        box.appendChild(del);
+        layer.appendChild(box);
+      });
+      const n = (trimCtx.masks || []).length;
+      if (clear) clear.hidden = !n;
+      if (note) {
+        note.textContent = !trimCtx.maskMode ? ""
+          : n >= TRIM_MASK_MAX ? `الحد ${toArabicDigits(TRIM_MASK_MAX)} تغطيات`
+          : n ? `${toArabicDigits(n)} تغطية — ارسم أخرى أو أغلق التغطية`
+          : "ارسم مربعاً فوق العلامة المائية";
+      }
+    }
+    function setTrimMaskMode(on) {
+      if (!trimCtx) return;
+      trimCtx.maskMode = !!on;
+      const layer = $("#trimMaskLayer"), btn = $("#trimMaskAdd");
+      // The layer swallows clicks on the video's own controls, so it is only
+      // present while the admin is actually drawing.
+      if (layer) layer.hidden = !on;
+      if (btn) {
+        btn.classList.toggle("is-on", !!on);
+        btn.textContent = on ? "✓ تمّت التغطية" : "🩹 غطِّ العلامة المائية";
+      }
+      if (on) { try { trimCtx.el.pause(); } catch (e) {} }
+      renderTrimMasks();
+    }
+    /* Everything that happens once a rectangle exists, in frame fractions.
+       Split out of the pointer handler so the cap, the too-small rule and the
+       re-render are ONE implementation — a test cannot drag a pointer across a
+       video that has not decoded, and a second copy of these rules living in
+       the test would pin nothing. */
+    function addTrimMask(box) {
+      if (!trimCtx || !box) return false;
+      if ((trimCtx.masks || []).length >= TRIM_MASK_MAX) { renderTrimMasks(); return false; }
+      // A tap is not a box. Below ~1.5% of the frame it is almost certainly a
+      // mis-tap, and a stray invisible mask is worse than none.
+      if (!(box.w > 0.015 && box.h > 0.015)) { renderTrimMasks(); return false; }
+      trimCtx.masks.push({
+        x: Math.min(1, Math.max(0, box.x)), y: Math.min(1, Math.max(0, box.y)),
+        w: Math.min(1, box.w), h: Math.min(1, box.h),
+      });
+      renderTrimMasks();
+      return true;
+    }
+    // Drag a rectangle. Bound once; it does nothing unless the layer is shown.
+    function wireTrimMaskDrag() {
+      const layer = $("#trimMaskLayer");
+      if (!layer || layer.dataset.wired) return;
+      layer.dataset.wired = "1";
+      let start = null, ghost = null;
+      const frac = (e) => {
+        const r = layer.getBoundingClientRect();
+        return {
+          x: Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))),
+          y: Math.min(1, Math.max(0, (e.clientY - r.top) / (r.height || 1))),
+        };
+      };
+      layer.addEventListener("pointerdown", (e) => {
+        if (!trimCtx || (trimCtx.masks || []).length >= TRIM_MASK_MAX) return;
+        e.preventDefault();
+        start = frac(e);
+        layer.setPointerCapture(e.pointerId);
+        ghost = document.createElement("div");
+        ghost.className = "tm-mask-box";
+        layer.appendChild(ghost);
+      });
+      layer.addEventListener("pointermove", (e) => {
+        if (!start || !ghost) return;
+        const p = frac(e);
+        ghost.style.left = (Math.min(start.x, p.x) * 100) + "%";
+        ghost.style.top = (Math.min(start.y, p.y) * 100) + "%";
+        ghost.style.width = (Math.abs(p.x - start.x) * 100) + "%";
+        ghost.style.height = (Math.abs(p.y - start.y) * 100) + "%";
+      });
+      const finish = (e) => {
+        if (!start) return;
+        const p = frac(e);
+        const box = {
+          x: Math.min(start.x, p.x), y: Math.min(start.y, p.y),
+          w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y),
+        };
+        start = null;
+        if (ghost) { ghost.remove(); ghost = null; }
+        addTrimMask(box);
+      };
+      layer.addEventListener("pointerup", finish);
+      layer.addEventListener("pointercancel", finish);
+    }
+
     function openMediaTrim(file, onConfirm, opts) {
       const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
       if (!modal || !stage) { onConfirm(null); return; } // no UI → just upload whole
@@ -15069,8 +15246,17 @@
       const url = URL.createObjectURL(file);
       const el = document.createElement(isVideo ? "video" : "audio");
       el.src = url; el.controls = true; el.playsInline = true; el.preload = "metadata";
-      stage.innerHTML = ""; stage.appendChild(el);
-      trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null, isVideo };
+      // Same reason as in closeMediaTrim: replace the media, keep the layer.
+      stage.querySelectorAll("video, audio").forEach(n => n.remove());
+      stage.insertBefore(el, stage.firstChild);
+      trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null, isVideo,
+                  masks: [], maskMode: false, sketch: !!(opts && opts.sketch) };
+      // Masking is only honest where the clip is re-encoded — see the note on
+      // TRIM_MASK_MAX. Everything else uploads the original bytes.
+      const maskRow = $("#trimMaskRow");
+      if (maskRow) maskRow.hidden = !(isVideo && trimCtx.sketch);
+      wireTrimMaskDrag();
+      setTrimMaskMode(false);
       // Muting a voice note would leave nothing to play, so the row is for
       // video only. `sketch` clips are muted at the source instead (see below),
       // and the copy says so rather than silently meaning something different.
@@ -15089,14 +15275,25 @@
       }
       el.addEventListener("loadedmetadata", () => {
         trimCtx.dur = el.duration || 0; trimCtx.end = trimCtx.dur; trimReadout();
+        // The painted rect is unknown until the intrinsic size is, so the mask
+        // layer can only be placed now — and again on resize/rotate, or a
+        // phone turned sideways leaves the boxes floating off the picture.
+        trimMaskLayout();
       });
+      el.addEventListener("loadeddata", trimMaskLayout);
       trimReadout();
       modal.classList.add("open"); modal.setAttribute("aria-hidden", "false");
     }
     function closeMediaTrim() {
       const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
       if (trimCtx) { try { trimCtx.el.pause(); } catch (e) {} try { URL.revokeObjectURL(trimCtx.url); } catch (e) {} trimCtx = null; }
-      if (stage) stage.innerHTML = "";
+      // Clear the MEDIA but keep the mask layer: it is markup, not per-clip
+      // state, and innerHTML = "" would delete it on the very first upload,
+      // after which every $("#trimMaskLayer") returns null and masking is
+      // silently dead for the rest of the session.
+      if (stage) stage.querySelectorAll("video, audio").forEach(n => n.remove());
+      const layerAfter = $("#trimMaskLayer");
+      if (layerAfter) { layerAfter.hidden = true; layerAfter.innerHTML = ""; }
       if (modal) { modal.classList.remove("open"); modal.setAttribute("aria-hidden", "true"); }
     }
     function trimSetStart() {
@@ -15125,6 +15322,10 @@
     function trimFinish(useTrim) {
       if (!trimCtx) return;
       const { start, end, dur, onConfirm, isVideo } = trimCtx;
+      // Read the masks BEFORE closeMediaTrim() drops trimCtx. They ride with
+      // the choice rather than the fragment: a mask is baked into the pixels,
+      // so unlike «#t=» there is nothing for a player to honour later.
+      const masks = (trimCtx.masks || []).slice();
       const muteBox = $("#trimMute");
       const mute = !!(isVideo && muteBox && muteBox.checked);
       let frag = null;
@@ -15139,7 +15340,7 @@
       closeMediaTrim();
       // «#mute» goes BEFORE «#t=», which has to stay last for mediaFragment.
       if (mute) frag = frag ? "#mute&" + frag.slice(1) : "#mute";
-      onConfirm(frag, { mute });
+      onConfirm(frag, { mute, masks });
     }
 
     // Admin-only direct upload: ask the Cloud Function for a one-time presigned
@@ -15384,6 +15585,19 @@
          uploading sixty. */
       const clipStart = Math.max(0, +o.start || 0);
       const clipEnd = (+o.end > clipStart) ? +o.end : Infinity;
+      /* Watermark masks, as fractions of the frame. Painted as PAPER onto the
+         finished line art, AFTER the shader — deliberately not onto the source
+         before it.
+         Masking the source looks more thorough and is worse: a flat patch has
+         a hard boundary, the detector inks boundaries, and the result is a
+         crisp rectangle drawn around the thing being hidden. Painting paper
+         over the output cannot draw anything; it can only remove. And it is
+         unconditional — whatever the filter made of the watermark, it is gone.
+         The edge is feathered so strokes fade out instead of being guillotined
+         along a straight line, which in a pencil drawing reads as an unfinished
+         corner rather than a censored one. */
+      const masks = (Array.isArray(o.masks) ? o.masks : []).filter(m =>
+        m && m.w > 0 && m.h > 0 && isFinite(m.x) && isFinite(m.y));
 
       return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
@@ -15495,6 +15709,30 @@
             octx.imageSmoothingEnabled = true;
             if ("imageSmoothingQuality" in octx) octx.imageSmoothingQuality = "high";
 
+            /* The mask is stamped ONCE into its own canvas and composited each
+               frame — the boxes never move, so rebuilding the feather 30 times
+               a second would be pure waste in the one loop that must stay
+               cheap (see the render cap above).
+               The rects are INFLATED by the feather radius before blurring, so
+               the fully-opaque core covers exactly the box the admin drew; blur
+               eats the outer half of the transition. */
+            let maskStamp = null;
+            if (masks.length) {
+              const feather = Math.max(5, Math.round(Math.min(W, H) * 0.02));
+              maskStamp = document.createElement("canvas");
+              maskStamp.width = W; maskStamp.height = H;
+              const mctx = maskStamp.getContext("2d");
+              mctx.filter = "blur(" + feather + "px)";
+              // Paper is white; with `invert` the page is black instead, and a
+              // white patch there would be the most obvious mark on the frame.
+              mctx.fillStyle = invert ? "#000000" : "#ffffff";
+              masks.forEach(m => {
+                mctx.fillRect(
+                  m.x * W - feather, m.y * H - feather,
+                  m.w * W + feather * 2, m.h * H + feather * 2);
+              });
+            }
+
             const stream = out.captureStream(30);
             // Carry the original audio across. AudioContext is used rather than
             // video.captureStream() because it is the more portable of the two,
@@ -15564,6 +15802,7 @@
                   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurB);
                   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
                   octx.drawImage(glCanvas, 0, 0, W, H);
+                  if (maskStamp) octx.drawImage(maskStamp, 0, 0);
                 } catch (e) { /* a dropped frame is better than aborting the run */ }
                 /* Progress is over the CHOSEN range, not the whole file — a
                    trim that showed 20٪ and then finished would read as a crash.
@@ -15736,6 +15975,9 @@
               mute: !!(choice && choice.mute),
               start: range ? range.start : 0,
               end: range ? range.end : Infinity,
+              // Watermark boxes, as fractions of the frame. Nothing to strip
+              // afterwards the way «#t=» has to be — a mask is in the pixels.
+              masks: (choice && choice.masks) || [],
             });
             frag = sketchFragAfterBake(frag);
           }
@@ -18154,6 +18396,12 @@
     window.IZZBAH_TEST.mediaFragment = mediaFragment;
     window.IZZBAH_TEST.mediaMuted = mediaMuted;
     window.IZZBAH_TEST.openMediaTrim = openMediaTrim;
+    window.IZZBAH_TEST.trimMasks = () => (trimCtx && trimCtx.masks) || [];
+    // The same tail the pointer handlers run once they have a rectangle in
+    // frame fractions — so a test exercises the real cap, the real
+    // too-small rule and the real render, without needing a decoded video
+    // for the pointer to have something to drag across.
+    window.IZZBAH_TEST.addTrimMask = (box) => { addTrimMask(box); };
     window.IZZBAH_TEST.applyClipPlayback = applyClipPlayback;
     window.IZZBAH_TEST.mediaKind = mediaKind;
     window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
@@ -25814,6 +26062,11 @@
     $("#trimSetStart").addEventListener("click", trimSetStart);
     $("#trimSetEnd").addEventListener("click", trimSetEnd);
     $("#trimPreview").addEventListener("click", trimPreviewSel);
+    $("#trimMaskAdd").addEventListener("click", () => setTrimMaskMode(!(trimCtx && trimCtx.maskMode)));
+    $("#trimMaskClear").addEventListener("click", () => { if (trimCtx) { trimCtx.masks = []; renderTrimMasks(); } });
+    // A rotate or a resize moves the letterbox bars, so the layer has to be
+    // re-placed or the boxes drift off the picture.
+    window.addEventListener("resize", () => { if (trimCtx) trimMaskLayout(); });
     $("#trimConfirm").addEventListener("click", () => trimFinish(true));
     $("#trimFull").addEventListener("click", () => trimFinish(false));
     $("#importCancel").addEventListener("click", closeImportModal);
