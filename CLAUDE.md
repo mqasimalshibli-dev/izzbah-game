@@ -407,6 +407,42 @@ and it is **NOT a weaker grade of admin** — it is an independent flag.
   ⚠️ γ SATURATES — 1.10 buys almost nothing over 0.95. If lighter is asked for
   again, this lever is spent: go to `hi` next, never `lo`.
 
+- **"There is flashing while the filter runs" — it was the PAGE, not the video
+  (build .306).** ⚠️ Read this before chasing a flicker in this filter again.
+  None of `sketchifyVideo`'s canvases (`grey`, `blurA`, `blurB`, `glCanvas`,
+  `out`) or its `<video>` are ever appended to the DOM, so nothing of the clip
+  is on screen during an encode. What pulsed was the app: measured at the real
+  1280×720 working size, the encode starved the main thread to **6 rAF ticks a
+  second with blocks up to 309ms**, and a page that cannot paint for a third of
+  a second reads as the whole screen juddering.
+  Three things I RULED OUT first, all measured, so nobody re-measures them:
+  codec-noise sensitivity (a static source drifts 2.11→2.34% ink, no jumps), a
+  blank opening frame (t=0 is identical to t=1.0), and per-pixel boiling of the
+  line work (zero pixels flip between consecutive frames on a static scene at
+  HD). ⚠️ Note the first two probes measured a 480px source and proved nothing:
+  at ≤800px wide `SS = 2`, and the downsample averages exactly the flicker you
+  are looking for. Probe this filter at ≥900px or not at all.
+  The fix is all load, no look — `tests/sketchvideo.mjs` re-checks ink grading
+  and the hard-edge test to prove the output did not move:
+  - **The render is capped to 30fps**, the rate `out.captureStream(30)`
+    actually samples. Measured on a 61Hz display: **117 renders → 60** for the
+    same clip, i.e. half the work was being thrown away by the recorder.
+  - **One video decode per rendered frame, not two.** `cg.drawImage(video)`
+    into a grayscale canvas, then both blurs are taken from THAT. Also removes
+    a real one-frame glitch: two separate `drawImage(video)` calls could
+    straddle different source frames and hand the shader a difference between
+    two DIFFERENT pictures. Moving `grayscale(1)` off the blur passes is exact,
+    not an approximation — both are linear ops in the same colour space.
+  - **Progress text throttled to 5/s** from up to 60/s; each write rebuilt an
+    Arabic-digit string and forced a layout inside the hot loop.
+    `finishRecording()` sends a final reading so the bar still lands on ٩٩٪.
+  ⚠️ CI's software GL is already below 30fps, so the cap is invisible in a
+  wall-clock measurement there. The render-rate test skips itself under 45Hz
+  rather than passing on a vacuous comparison. What is LEFT, if this is ever
+  not enough: one render still costs ~150ms in software because the two
+  `blur()` passes are CPU canvas filters at full size. Moving the blur into the
+  existing WebGL pass is the real fix, and it is a rewrite of the shader.
+
 - **The sketch path is the ONE place a trim really cuts the file (build .302).**
   Owner's question: "does the full clip get uploaded? even when cut?" It did.
   Everywhere else a trim is deliberately a `#t=start,end` fragment honoured at

@@ -13,6 +13,7 @@
 //     CODECS, not the container.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
+import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -390,6 +391,76 @@ try {
           tr.startBands.bottom > tr.startBands.top + 5);
       }
     }
+  }
+
+  // ── 6) the encode must not starve the page while it runs ─────────────────
+  /* Reported as "there is flashing while the filter runs". None of the
+     filter's canvases are ever in the DOM, so nothing of the VIDEO is on
+     screen — what was pulsing was the page itself. The loop rendered on every
+     animation frame while out.captureStream(30) samples 30 a second and throws
+     the rest away, so on any 60Hz device half the work went nowhere and the
+     main thread had nothing left for painting.
+     texImage2D runs exactly twice per rendered frame and nothing else on the
+     page calls it, so wrapping it counts renders exactly. Measured small, so
+     one render is cheap and rAF is the limit rather than the GPU — which is
+     the condition the cap exists for. */
+  if (!(await page.evaluate(() => window.IZZBAH.sketchSupported()))) {
+    console.log("SKIP  render-rate check — this browser lacks WebGL/MediaRecorder");
+  } else {
+    const load = await page.evaluate(async () => {
+      const W = 240, H = 160;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const x = c.getContext("2d");
+      const rec = new MediaRecorder(c.captureStream(30));
+      const parts = []; rec.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+      rec.start();
+      for (let i = 0; i < 45; i++) {
+        x.fillStyle = "#7d8a76"; x.fillRect(0, 0, W, H);
+        x.fillStyle = "#1a1a1a"; x.fillRect(40 + (i % 20), 60, 30, 60);
+        await new Promise(r => setTimeout(r, 33));
+      }
+      rec.stop(); await new Promise(r => { rec.onstop = r; });
+      const src = new File(parts, "s.webm", { type: "video/webm" });
+      if (!src.size) return { noSource: true };
+      // What rate could the page render at if nothing were in the way?
+      const displayHz = await new Promise(r => {
+        let n = 0; const t0 = performance.now();
+        const tick = () => { n++; if (performance.now() - t0 < 500) requestAnimationFrame(tick); else r(n / ((performance.now() - t0) / 1000)); };
+        requestAnimationFrame(tick);
+      });
+      const proto = WebGLRenderingContext.prototype, real = proto.texImage2D;
+      let uploads = 0;
+      proto.texImage2D = function () { uploads++; return real.apply(this, arguments); };
+      const t0 = performance.now();
+      await window.IZZBAH.sketchifyVideo(src, () => {}, {});
+      const secs = (performance.now() - t0) / 1000;
+      proto.texImage2D = real;
+      return { displayHz, rendersPerSec: (uploads / 2) / secs };
+    });
+    if (load.noSource) {
+      console.log("SKIP  render-rate check — could not record a source clip");
+    } else if (load.displayHz < 45) {
+      // A machine that cannot reach 45Hz is already below the cap, so the cap
+      // is unobservable — say so rather than pass on a vacuous comparison.
+      console.log(`SKIP  render-rate check — this machine only reaches ${load.displayHz.toFixed(0)}Hz, below the cap`);
+    } else {
+      check(`the encode renders at the recorder's 30fps, not every animation frame (${load.rendersPerSec.toFixed(1)}/s at ${load.displayHz.toFixed(0)}Hz)`,
+        load.rendersPerSec < 40);
+      // …and it must not have over-corrected into a slideshow.
+      check("...and still keeps up with it", load.rendersPerSec > 20);
+    }
+  }
+  // One decode per rendered frame, not two: drawing the video twice paid for a
+  // full-size decode and a grayscale pass twice over, and let the two blurs
+  // straddle different source frames — a one-frame burst of wrong ink.
+  {
+    const src = readFileSync(join(ROOT, "index.html"), "utf8");
+    check("the video frame is decoded once per render, then blurred twice",
+      /cg\.drawImage\(video, 0, 0, RW, RH\);[\s\S]{0,120}?ca\.drawImage\(grey, 0, 0\);[\s\S]{0,60}?cb\.drawImage\(grey, 0, 0\);/.test(src)
+      && !/ca\.drawImage\(video/.test(src));
+    check("...with grayscale moved off the blur passes (the two commute)",
+      /cg\.filter = "grayscale\(1\)"/.test(src)
+      && /ca\.filter = "blur\(/.test(src) && !/ca\.filter = "grayscale/.test(src));
   }
 
   check("no page errors", errs.length === 0);
