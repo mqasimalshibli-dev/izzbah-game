@@ -316,6 +316,17 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   ⚠️ **Ink percentage is a useless metric here.** Swept across sigma 0.45 → 4.8
   on real footage it stays 2–4% throughout. It cannot tell a pencil drawing from
   a handful of blobs. Judge line CHARACTER.
+  ⚠️ **.303 — "make it just a tad bit lighter", γ 0.80 → 0.95.** That is the ONE
+  constant that changed. There are two ways to lighten this filter and only one
+  of them is safe; measured against a 12-step contrast ramp, comparing total ink
+  against FULL BLACK (which is where the detail lives):
+  γ 0.80 → 10.17% ink / 4.44% black; **γ 0.95 → 9.43% / 4.37%**; γ 1.10 →
+  9.16% / 4.36%; γ 0.80 with the ramp slid up → 9.18% / **3.88%**.
+  Only the last row loses full black — sliding `lo`/`hi` up DELETES the faintest
+  strokes, which is precisely how .300 became "too white and it has less
+  details". γ just presses each surviving stroke less hard.
+  ⚠️ γ SATURATES — 1.10 buys almost nothing over 0.95. If lighter is asked for
+  again, this lever is spent: go to `hi` next, never `lo`.
 
 - **The sketch path is the ONE place a trim really cuts the file (build .302).**
   Owner's question: "does the full clip get uploaded? even when cut?" It did.
