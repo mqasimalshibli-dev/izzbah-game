@@ -35,6 +35,19 @@ service cloud.firestore {
       return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+    // A CONTENT EDITOR: a doc at editors/{their-uid}. They may add, change and
+    // delete individual QUESTIONS inside an existing category, and nothing
+    // else — no new or deleted categories, no renaming or re-covering one, no
+    // credits, no announcements, no appointing anyone. An editor is an ordinary
+    // player everywhere else in the app (they buy games like everyone else).
+    // ⚠️ NOT a subset-of-admin flag: isAdmin() and isEditor() are independent,
+    //    and every rule below that says isAdmin() still means admin ONLY.
+    // ⚠️ Only an ADMIN may write editors/{uid} (see the match block), so an
+    //    editor cannot promote themselves or anyone else.
+    function isEditor() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/editors/$(request.auth.uid));
+    }
     // Shape + size checks shared by community create and author-edit. Keeps a
     // submission small, well-formed, and free of any unexpected fields.
     function validCommunity(d) {
@@ -77,6 +90,17 @@ service cloud.firestore {
     // Any signed-in user may READ this (so the app can tell if they're an admin
     // and show the admin tools). Only an existing admin may add/remove admins.
     match /admins/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- Content-editor registry -------------------------------------------
+    // Same shape as admins/{uid}: the doc existing IS the permission. Readable
+    // by any signed-in user so the app can decide whether to show the content
+    // panel; writable ONLY by an admin — an editor must never be able to
+    // appoint an editor, and this is also why isEditor() appears nowhere near
+    // admins/{uid} above.
+    match /editors/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -379,9 +403,15 @@ service cloud.firestore {
     // catalog changed since their device cache — one read instead of one per
     // category. It holds no content, only a counter + timestamp. Anyone may
     // read it (same as the categories it tracks); only an admin may bump it.
+    // A CONTENT EDITOR must be able to bump `rev` too. Every publish ends in
+    // bumpCatalogRev(), and the client short-circuits the whole catalogue on
+    // that one number — so without this an editor's questions would save
+    // correctly and then never reach a single player's device. Worse, the bump
+    // is best-effort (`.catch(() => {})`), so it would fail SILENTLY and the
+    // publish would still look successful. Same shape check as the admin.
     match /meta/{doc} {
       allow read: if true;
-      allow write: if isAdmin()
+      allow write: if (isAdmin() || isEditor())
         && request.resource.data.keys().hasOnly(['rev', 'updatedAt'])
         && request.resource.data.rev is number;
     }
@@ -467,8 +497,55 @@ service cloud.firestore {
         && request.resource.data.questions.size() <= 500;  // text-only copy; full Qs live in /questions
       allow delete: if isAdmin();
 
+      // A CONTENT EDITOR may change this doc's QUESTION LIST and nothing else.
+      // `update` only — never create (no new categories) and never delete.
+      //   • The category's identity is pinned field by field. affectedKeys()
+      //     was tried first and is the wrong tool here: cloudPublish uses a
+      //     plain set(), so a field the in-memory copy happens not to carry is
+      //     DELETED, and an equality test with a default catches that while
+      //     affectedKeys() reasoning about it is much harder to follow.
+      //   • `description` is deliberately NOT pinned: normalizePublishedCategory
+      //     does not carry it, so every publish already drops it and pinning it
+      //     would reject an editor on any category that still has one. It is
+      //     not shown anywhere for official categories.
+      //   • THE FLOOR: an editor can never empty a category, and can remove at
+      //     most 5 questions in one publish. The app deletes one at a time and
+      //     auto-publishes, so 5 is generous for real work while a mass wipe
+      //     would take dozens of sequential writes instead of one button.
+      //     ⚠️ This is the parent doc only. cloudPublish commits the
+      //     /questions subcollection in EARLIER batches, so these two rules
+      //     together stop a category being emptied, not every media doc inside
+      //     it being deleted by someone driving Firestore directly. The
+      //     catalogue text always survives; question images are covered by the
+      //     backup runbook in CLAUDE.md.
+      allow update: if isEditor()
+        && request.resource.data.keys().hasOnly(['name', 'image', 'color', 'order', 'description', 'questions', 'updatedAt'])
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.image == resource.data.image
+        && request.resource.data.get('color', '') == resource.data.get('color', '')
+        && request.resource.data.get('order', 0) == resource.data.get('order', 0)
+        && request.resource.data.questions is list
+        && request.resource.data.questions.size() > 0
+        && request.resource.data.questions.size() <= 500
+        && request.resource.data.questions.size() >= resource.data.questions.size() - 5;
+
       match /questions/{questionId} {
         allow read: if true;
+        // An editor writes and deletes question docs on the same terms as an
+        // admin. Delete is REQUIRED, not a convenience: docs are keyed q0..qN
+        // by position, so removing the 3rd of 10 rewrites q0..q8 and deletes
+        // q9 — an editor who could not delete could not delete a question.
+        allow write: if isEditor()
+          && request.resource.data.keys().hasOnly(['points', 'q', 'a', 'image', 'answerImage', 'idx'])
+          && request.resource.data.points is number
+          && request.resource.data.q is string
+          && request.resource.data.q.size() <= 2000
+          && request.resource.data.a is string
+          && request.resource.data.a.size() <= 2000
+          && request.resource.data.image is string
+          && request.resource.data.answerImage is string
+          && request.resource.data.idx is number;
+        allow delete: if isEditor();
         allow write: if isAdmin()
           && request.resource.data.keys().hasOnly(['points', 'q', 'a', 'image', 'answerImage', 'idx'])
           && request.resource.data.points is number

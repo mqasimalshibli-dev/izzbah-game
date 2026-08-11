@@ -520,6 +520,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node sketchvideo.mjs
 
+      - name: Run content-editor role test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node editorrole.mjs
+
       - name: Run category-index (meta/index) test
         working-directory: tests
         run: |

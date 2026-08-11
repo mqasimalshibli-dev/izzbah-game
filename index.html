@@ -4615,6 +4615,25 @@
     .admin-table .col-pts, .admin-table .col-img, .admin-table .col-act { text-align: center; }
     /* group-select checkboxes: one per row + a select-all in the header */
     .admin-table .col-sel { width: 36px; text-align: center; padding-inline: 8px; }
+    /* ── Content editor (editors/{uid}) — see applyEditorLocks ──────────────
+       Everything here belongs to the owner, and all of it lives in markup that
+       renderAdminCatHead / renderAdminTable rebuild constantly, which is why it
+       is CSS keyed off one body class rather than per-node JS: a re-render
+       cannot drop a stylesheet rule.
+         • .ac-name / .field-label — the category's name, colour and cover
+         • .ac-row-state — إخفاء الفئة / أربعة خيارات / حذف الفئة
+         • .af-group-maint — the whole صيانة strip (its label would otherwise
+           sit alone above an empty row once its buttons are hidden)
+         • .col-sel — the per-question checkbox column exists only to feed
+           «حذف المحدد», the delete-many path
+       An EDITOR still gets: the category tabs, add/edit/delete on a single
+       question, its media picker, search, sort and «نشر التعديلات».
+       ⚠️ Cosmetic. firestore.rules is the boundary. */
+    body.is-editor-only .admin-cathead .ac-name,
+    body.is-editor-only .admin-cathead .field-label,
+    body.is-editor-only .admin-cathead .ac-row-state,
+    body.is-editor-only .af-group-maint,
+    body.is-editor-only .admin-table .col-sel { display: none !important; }
     .admin-table .q-sel { width: 17px; height: 17px; min-height: 0; accent-color: #b51f2b; cursor: pointer; margin: 0; vertical-align: middle; }
     .admin-table tbody tr.row-selected { background: rgba(230, 200, 105, .10); }
     .admin-table tbody tr.row-selected:hover { background: rgba(230, 200, 105, .14); }
@@ -12528,6 +12547,9 @@
       featuredLoaded: false,  // same, for the «ألعابنا» featured-set library
       announcementsLoaded: false, // same, for the developer announcements feed
       isAdmin: false,
+      // editors/{uid}: may author QUESTIONS only. Never implies isAdmin, and
+      // never grants free play — see applyEditor.
+      isEditor: false,
       isPremium: false,
       gamesAllowed: 0,     // allowance from the entitlement doc (future billing)
       codeGamesAllowed: 0, // allowance from redeemed one-time codes
@@ -12552,7 +12574,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-11.303";
+    const IZZBAH_BUILD = "2026-08-11.304";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15652,7 +15674,12 @@
         const t = file.type || "";
         if (/^image\//.test(t)) { onChange(await fileToDataUrl(file, opts)); return; }
         if (allowMedia && /^(audio|video)\//.test(t)) {
-          if (state.isAdmin && window.firebase && typeof firebase.functions === "function") {
+          // canEditContent(), not state.isAdmin: a content editor authors the
+          // same questions, and «من الي سجل؟» / the voice rounds ARE clips. On
+          // the false branch they would silently fall back to a 1 MB inline
+          // data URL, which is not a clip at all. mintUploadUrl accepts
+          // editors/{uid} for the same reason.
+          if (canEditContent() && window.firebase && typeof firebase.functions === "function") {
             cloudUpload(file);
             return;
           }
@@ -17026,11 +17053,16 @@
     }
 
     function openAdminPanel() {
-      if (!state.isAdmin) return;
+      if (!canEditContent()) return;
       const list = adminOfficialList();
       showScreen("adminPanel");
+      // Before the first render, so an editor never sees the owner's buttons
+      // flash on screen.
+      applyEditorLocks();
+      // An editor has no «＋ فئة جديدة», so an empty catalogue leaves them
+      // with nothing rather than a new-category form they cannot publish.
       if (list.length) selectAdminCategory(list[0].id);
-      else newAdminCategory();
+      else if (!editorOnly()) newAdminCategory();
     }
 
     function selectAdminCategory(id) {
@@ -17086,6 +17118,64 @@
       renderAdminTable();
     }
 
+    /* ── Content-editor locks ─────────────────────────────────────────────
+       An editor (editors/{uid}) may add a question, change one, delete one,
+       and upload its media. Everything else on this screen belongs to the
+       owner, so it is removed for them.
+       ⚠️ COSMETIC ONLY. firestore.rules is what actually stops an editor
+       renaming a category or emptying it; this just keeps the screen honest
+       about what will work. Never move a check the other way — a rule that
+       exists only here is not a rule.
+       Locked ids are listed explicitly, and `editorOnly()` is false for an
+       admin, so the owner's panel is untouched. A NEW button added later is
+       visible to editors until it is named here — the reverse (allow-list)
+       was tried and made the everyday add/edit/delete flow fragile, so the
+       test enumerates the buttons instead and fails when one appears
+       unlisted. */
+    function editorOnly() { return !state.isAdmin && !!state.isEditor; }
+    const EDITOR_LOCKED_IDS = [
+      // bulk authoring + tools: not "add a question", and each can rewrite
+      // many questions at once
+      "adminImportQuestions", "adminFillDistractors", "adminFetchImages",
+      // selection exists only to feed «حذف المحدد» — the delete-many path
+      "adminSelectAll", "adminDeleteSelected",
+      // undo restores a whole-category snapshot, which would silently revert
+      // work someone else published in the meantime
+      "adminUndo",
+      // catalogue-wide maintenance, all of it the owner's
+      "adminShrinkQMedia", "adminBuildIndex", "adminShrinkCovers",
+      "adminExportAll", "adminReseedBuiltin",
+      // the two the owner named directly
+      "adminClearQuestions",
+    ];
+    function applyEditorLocks() {
+      const lock = editorOnly();
+      EDITOR_LOCKED_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Remember the button's own hidden state (some are conditionally
+        // hidden already — «حذف المحدد» and «إعادة تحميل من الأصل») so
+        // unlocking cannot reveal one their own logic wanted hidden.
+        if (lock) {
+          if (el.dataset.editorWasHidden === undefined) el.dataset.editorWasHidden = el.hidden ? "1" : "0";
+          el.hidden = true;
+        } else if (el.dataset.editorWasHidden !== undefined) {
+          el.hidden = el.dataset.editorWasHidden === "1";
+          delete el.dataset.editorWasHidden;
+        }
+      });
+      /* Everything else is done with ONE body class and static CSS, not by
+         walking the DOM: the category head and the question table are rebuilt
+         by renderAdminCatHead/renderAdminTable on every keystroke, sort and
+         delete, so a lock applied by JS to those nodes is only as good as the
+         last render that remembered to re-apply it. A class on <body> cannot
+         be re-rendered away. */
+      document.body.classList.toggle("is-editor-only", lock);
+    }
+    window.IZZBAH_TEST = window.IZZBAH_TEST || {};
+    window.IZZBAH_TEST.applyEditorLocks = applyEditorLocks;
+    window.IZZBAH_TEST.EDITOR_LOCKED_IDS = EDITOR_LOCKED_IDS;
+
     function adminTabChip(id, name, color, active) {
       const b = document.createElement("button");
       b.className = "admin-tab" + (active ? " active" : "");
@@ -17107,12 +17197,17 @@
       const ids = new Set(list.map(c => c.id));
       list.forEach(cat => bar.appendChild(adminTabChip(cat.id, cat.name, categoryColor(cat), cat.id === curId)));
       if (curId && !ids.has(curId)) bar.appendChild(adminTabChip(curId, state.adminCat.name || "فئة جديدة", state.adminCat.color, true));
-      const add = document.createElement("button");
-      add.className = "admin-tab add";
-      add.type = "button";
-      add.textContent = "＋ فئة جديدة";
-      add.addEventListener("click", () => { if (confirmDiscard()) newAdminCategory(); });
-      bar.appendChild(add);
+      // A content editor works INSIDE existing categories; creating one is not
+      // theirs. Left out of the DOM entirely rather than disabled — a greyed
+      // «＋ فئة جديدة» reads as "broken", an absent one reads as "not my job".
+      if (!editorOnly()) {
+        const add = document.createElement("button");
+        add.className = "admin-tab add";
+        add.type = "button";
+        add.textContent = "＋ فئة جديدة";
+        add.addEventListener("click", () => { if (confirmDiscard()) newAdminCategory(); });
+        bar.appendChild(add);
+      }
     }
 
     function markAdminDirty() {
@@ -17836,7 +17931,12 @@
     // Shown when a non-subscriber tries to start a second game.
     // ---- Admin entry chooser: content vs subscriptions ---------------------
     function openAdminChoice() {
+      if (!canEditContent()) return;
       const m = $("#adminChoiceModal");
+      // Re-filter on every open: the roles arrive asynchronously after
+      // sign-in, so the modal's markup may have been laid out before we knew
+      // this account was an editor rather than an admin.
+      applyAdminGroups();
       m.classList.add("open");
       m.setAttribute("aria-hidden", "false");
     }
@@ -25232,8 +25332,24 @@
       try { return JSON.parse(localStorage.getItem(ADMIN_GROUP_KEY) || "{}") || {}; }
       catch (e) { return {}; }
     }
+    /* What a content EDITOR is allowed to reach from the panel: «إدارة المحتوى»
+       and nothing else. Listed as an allow-list of element ids rather than a
+       deny-list, so a NEW admin tool added later is hidden from editors by
+       default instead of being exposed until somebody remembers to deny it. */
+    const EDITOR_CHOICE_IDS = ["adminChoiceContent"];
     function applyAdminGroups() {
       const st = adminGroupState();
+      // An editor sees one button; hide the rest, then hide any group left
+      // with nothing in it (otherwise «التقارير» etc. remain as empty headers).
+      const contentOnly = editorOnly();
+      document.querySelectorAll(".admin-choice-btn").forEach(b => {
+        b.hidden = contentOnly && EDITOR_CHOICE_IDS.indexOf(b.id) < 0;
+      });
+      document.querySelectorAll(".admin-group").forEach(g => {
+        const anyVisible = Array.prototype.some.call(
+          g.querySelectorAll(".admin-choice-btn"), b => !b.hidden);
+        g.hidden = !anyVisible;
+      });
       document.querySelectorAll(".admin-group").forEach(g => {
         // Default OPEN: the flat list showed everything, and quietly hiding
         // items behind a closed group would lose things the owner knows are
@@ -25632,10 +25748,30 @@
       try { window.IZZBAH._trackQueue.push([name, params || {}]); } catch (e) {}
     };
     const track = (name, params) => { try { window.IZZBAH.track(name, params); } catch (e) {} };
+    /* A CONTENT EDITOR (editors/{uid}). Deliberately a SEPARATE flag from
+       state.isAdmin rather than a weaker grade of it, because every existing
+       `state.isAdmin` check would otherwise start granting an editor something:
+       unlimited free play, the community approval queue, the money panels.
+       The owner's spec was exact — add a question, delete a question, upload
+       its media, nothing else, and no free games. So isAdmin stays false for an
+       editor and each capability is opted IN by name below.
+       ⚠️ The UI locks in applyEditorLocks() are ERGONOMIC, not security. The
+       real boundary is firestore.rules, where an editor may only touch a
+       category's `questions` list and its /questions docs. Anyone with a
+       browser console can un-hide a button; nothing they press will write. */
+    function canEditContent() { return !!(state.isAdmin || state.isEditor); }
+    window.IZZBAH.applyEditor = function (isEditor) {
+      state.isEditor = !!isEditor;
+      const btn = $("#adminEntry");
+      if (btn) btn.style.display = canEditContent() ? "" : "none";
+      applyAdminGroups();
+      if (typeof applyEditorLocks === "function") applyEditorLocks();
+    };
     window.IZZBAH.applyAdmin = function (isAdmin) {
       state.isAdmin = !!isAdmin;
       const btn = $("#adminEntry");
-      if (btn) btn.style.display = state.isAdmin ? "" : "none";
+      if (btn) btn.style.display = canEditContent() ? "" : "none";
+      if (typeof applyEditorLocks === "function") applyEditorLocks();
       renderPlayBalance();
       maybeFixGeoDistractors();
       maybeFixSeerahDistractors();
@@ -27413,7 +27549,21 @@
                 });
             });
           };
+          /* editors/{uid} — the content-editor role. Read on the SAME tick as
+             the admin check and with the same failure posture: any error means
+             "not an editor", never "assume yes". Kept a separate read rather
+             than folded into refreshAdminStatus so a rules deployment that has
+             not landed yet (the collection is new) can only cost the editor
+             role, never the admin one. */
+          function refreshEditorStatus(user) {
+            const apply = (v) => { if (window.IZZBAH.applyEditor) window.IZZBAH.applyEditor(v); };
+            if (!user) { apply(false); return Promise.resolve(); }
+            return db.collection("editors").doc(user.uid).get()
+              .then(doc => apply(doc.exists))
+              .catch(e => { console.warn("editor check failed", e); apply(false); });
+          }
           function refreshAdminStatus(user) {
+            if (user) refreshEditorStatus(user); else refreshEditorStatus(null);
             if (!user) { cloudIsAdmin = false; if (window.IZZBAH.applyAdmin) window.IZZBAH.applyAdmin(false); return Promise.resolve(); }
             return db.collection("admins").doc(user.uid).get()
               .then(doc => {
