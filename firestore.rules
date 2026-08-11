@@ -95,13 +95,20 @@ service cloud.firestore {
     }
 
     // ---- Content-editor registry -------------------------------------------
-    // Same shape as admins/{uid}: the doc existing IS the permission. Readable
-    // by any signed-in user so the app can decide whether to show the content
-    // panel; writable ONLY by an admin — an editor must never be able to
-    // appoint an editor, and this is also why isEditor() appears nowhere near
-    // admins/{uid} above.
+    // Same shape as admins/{uid}: the doc existing IS the permission — the
+    // `email` field beside it is only so «المحرّرون» can NAME the row, and
+    // nothing reads it for access.
+    //   • get   — any signed-in user, so each account can read its OWN role at
+    //             sign-in (the app does exactly one doc(uid).get()).
+    //   • list  — ADMIN ONLY. The owner's «المحرّرون» panel enumerates the
+    //             collection; nobody else has a reason to, and an open list
+    //             would hand any signed-in user the set of staff uids.
+    //             ⚠️ Do not collapse these two back into `allow read`.
+    //   • write — ADMIN ONLY. An editor must never appoint an editor. This is
+    //             also why isEditor() appears nowhere in this block.
     match /editors/{uid} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 
