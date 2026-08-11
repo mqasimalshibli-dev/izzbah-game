@@ -12552,7 +12552,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-10.300";
+    const IZZBAH_BUILD = "2026-08-10.301";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15218,17 +15218,21 @@
        1.8 lifts the stands from luminance 184 to 241 and at the same time raises
        subject ink from 0.7% to 1.5%. The two levers only work together. */
     /* Where graphite starts, where it saturates, and the bend between.
-       .299 shipped 1.35 / 3 / 11 / 1.0 and the owner still read it as heavy, so
-       .300 steps the whole set down together — measured on the category's own
-       photos, solid black roughly halves (2.85% → 1.45%) and total ink drops
-       about a third (4.4% → 2.7%) while hair, badge and sleeve stripes all
-       survive. The gamma does most of the work: at 1.3 the weak edges bend
-       towards paper while the strong ones keep their weight, which lightens
-       the drawing without thinning the lines that carry the subject.
-       If it needs to go further, the next measured step is 1.05 / 6.5 / 18 /
-       1.5 — but that one starts losing face detail, so check before shipping
-       it. Do NOT judge either by ink percentage alone; see SKETCH_LINE_PX. */
-    const SKETCH_INK_START = 5.0, SKETCH_INK_FULL = 15.0, SKETCH_GAMMA = 1.3;
+       ⚠️ READ THIS BEFORE TUNING. "Too heavy" meant heavy STROKES — fat blobs
+       from a 15px blur (see SKETCH_LINE_PX) — and NOT too much ink. Chasing it
+       with the ink threshold made the picture emptier while the real fault sat
+       in the blur width, and .300 ended up at 1.9% ink on a real clip: the
+       players were specks and the advertising hoardings were the most legible
+       thing in frame. The owner's words for that were "too white and it has
+       less details".
+       So the two knobs do different jobs and must not be confused:
+         SKETCH_LINE_PX  stroke WEIGHT. Too big and everything is a smear.
+         this ramp        how MUCH gets drawn. Too high and the frame empties.
+       γ below 1 LIFTS weak edges towards ink, which is what puts a player's
+       face and a shirt's folds back. Measured on the category's own photos,
+       1.8 / 8 / 0.8 gives ~5.2% ink against .300's 2.4% while the strokes stay
+       thin — hair strands, badge, sleeve stripes and fabric folds all draw. */
+    const SKETCH_INK_START = 1.8, SKETCH_INK_FULL = 8.0, SKETCH_GAMMA = 0.8;
 
     function sketchifyVideo(file, onProgress, opts) {
       const o = opts || {};
