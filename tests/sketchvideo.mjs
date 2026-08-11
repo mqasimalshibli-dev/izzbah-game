@@ -38,6 +38,34 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => window.IZZBAH && typeof window.IZZBAH.sketchifyVideo === "function", { timeout: 15000 });
 
+  // ---- 0) the encode budget ----
+  /* 4.5 Mbps flat was a photographic-video number and made a 64-second answer
+     clip 16 MB. Line art needs a fraction of that — but not an arbitrary
+     fraction: thin hard strokes are the worst case for a codec, so the floor
+     matters as much as the reduction. */
+  const br = await page.evaluate(() => ({
+    hd: window.IZZBAH.sketchBitrate(1280, 720),
+    small: window.IZZBAH.sketchBitrate(320, 240),
+    huge: window.IZZBAH.sketchBitrate(4096, 2160),
+    zero: window.IZZBAH.sketchBitrate(0, 0),
+  }));
+  check(`720p budget is well under the old 4.5 Mbps (${(br.hd / 1e6).toFixed(2)} Mbps)`,
+    br.hd < 2500000 && br.hd > 1200000);
+  check("a small frame gets a floor, not a starvation budget", br.small >= 700000);
+  check("a huge frame is capped", br.huge <= 3000000);
+  check("a zero-sized frame still returns a usable number", br.zero >= 700000);
+  check("the budget scales with area", br.hd > br.small);
+
+  // ---- 0b) the fragment left on the URL once the encode has baked it in ----
+  const bake = await page.evaluate(() => {
+    const f = window.IZZBAH.sketchFragAfterBake;
+    return { trim: f("#t=12.0,18.0"), both: f("#mute&t=12.0,18.0"), mute: f("#mute"), none: f(null), empty: f("") };
+  });
+  check("a baked «#t=» range is dropped — trimming twice would empty the clip", bake.trim === null);
+  check("...even when it rode in behind «#mute»", bake.both === "#mute");
+  check("a bare «#mute» survives", bake.mute === "#mute");
+  check("no fragment stays no fragment", bake.none === null && bake.empty === null);
+
   // ---- 1) which categories get the filter ----
   const cat = await page.evaluate(() => {
     const f = window.IZZBAH.isSketchVideoCategory;
@@ -227,6 +255,140 @@ try {
        slab's boundary is the one mark guaranteed to be in every frame. */
     check(`a hard edge is still inked (${out.edgeInk.toFixed(1)}% of the band)`, out.edgeInk > 8);
     console.log(`      (${out.w}x${out.h}, ${Math.round(out.size/1024)}KB, black ${out.blackPct.toFixed(1)}% / white ${out.whitePct.toFixed(1)}%)`);
+    }
+  }
+
+  // ---- 5) the trim is BAKED IN, not left as a «#t=» fragment ----
+  /* Everywhere else a trim is a URL fragment honoured at playback, so the whole
+     file still uploads. On this path the clip is re-encoded anyway, and the
+     owner's question was exactly "does the full clip get uploaded, even when
+     cut?" — it did. These check that only the chosen seconds are recorded.
+     The source carries the SAME amount of detail throughout — a band of hard
+     stripes — but moves it from the top of the frame to the bottom halfway
+     through. Equal busy-ness means the size comparison measures DURATION and
+     not content, while «which half has the stripes» reads the encode's start
+     moment off a single frame of the output. */
+  if (!(await page.evaluate(() => window.IZZBAH.sketchSupported()))) {
+    console.log("SKIP  trim run — this browser lacks WebGL/MediaRecorder");
+  } else {
+    const tr = await page.evaluate(async () => {
+      const c = document.createElement("canvas"); c.width = 320; c.height = 240;
+      const x = c.getContext("2d");
+      const stream = c.captureStream(30);
+      const rec = new MediaRecorder(stream);
+      const parts = [];
+      rec.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+      rec.start();
+      for (let i = 0; i < 60; i++) {
+        x.fillStyle = "#808080"; x.fillRect(0, 0, 320, 240);
+        x.fillStyle = "#0d0d0d";
+        const y0 = i < 30 ? 8 : 128;   // same stripes, top half then bottom half
+        for (let y = y0; y < y0 + 104; y += 20) x.fillRect(0, y, 320, 8);
+        await new Promise(r => setTimeout(r, 33));
+      }
+      rec.stop();
+      await new Promise(r => { rec.onstop = r; });
+      const src = new File(parts, "src.webm", { type: "video/webm" });
+      if (!src.size) return { noSource: true };
+
+      // A MediaRecorder webm carries no duration element, so ask the browser
+      // the hard way before trusting any timing in this test.
+      const srcUrl = URL.createObjectURL(src);
+      const probe = document.createElement("video");
+      probe.src = srcUrl; probe.muted = true; probe.preload = "auto";
+      await new Promise(r => { probe.onloadedmetadata = r; probe.onerror = r; setTimeout(r, 5000); });
+      if (!(isFinite(probe.duration) && probe.duration > 0)) {
+        await new Promise(r => { probe.onseeked = r; try { probe.currentTime = 1e6; } catch (e) {} setTimeout(r, 4000); });
+      }
+      const dur = isFinite(probe.duration) && probe.duration > 0 ? probe.duration : 0;
+      if (dur < 0.8) return { noDuration: true, dur };
+      const half = dur / 2;
+      /* The «start» cut is taken at 70%, NOT at the halfway mark: the 33ms
+         frame loop that built the source drifts, so the moment the stripes
+         actually move is only APPROXIMATELY dur/2 — seeking exactly there can
+         still land on the last top-striped frame and the check fails for a
+         reason that has nothing to do with the trim. (It did, first run.) */
+      const cutFrom = dur * 0.7;
+
+      // Can this browser seek the recorded blob at all? If not, the «start»
+      // assertion below would fail for a reason that has nothing to do with the
+      // filter, so it is reported as a skip rather than a failure.
+      await new Promise(r => { probe.onseeked = r; try { probe.currentTime = cutFrom; } catch (e) {} setTimeout(r, 4000); });
+      const canSeek = Math.abs((probe.currentTime || 0) - cutFrom) < 0.3;
+      URL.revokeObjectURL(srcUrl);
+
+      /* «where are the stripes?» in the FIRST frame of a filtered result,
+         as ink in the top half of the frame versus the bottom half. */
+      const firstFrameBands = async (f) => {
+        const u = URL.createObjectURL(f);
+        const v = document.createElement("video"); v.src = u; v.muted = true;
+        await new Promise(r => { v.onloadedmetadata = r; v.onerror = r; setTimeout(r, 4000); });
+        v.currentTime = 0.05;
+        await new Promise(r => { v.onseeked = r; setTimeout(r, 2000); });
+        if (!v.videoWidth) { URL.revokeObjectURL(u); return { top: -1, bottom: -1 }; }
+        const oc = document.createElement("canvas");
+        oc.width = v.videoWidth; oc.height = v.videoHeight;
+        const ctx = oc.getContext("2d");
+        ctx.drawImage(v, 0, 0);
+        const band = (y, h) => {
+          const d = ctx.getImageData(0, y, oc.width, h).data;
+          let dark = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) { if (d[i] < 200) dark++; n++; }
+          return n ? dark / n * 100 : -1;
+        };
+        const halfH = Math.floor(oc.height / 2);
+        const out = { top: band(0, halfH), bottom: band(halfH, oc.height - halfH) };
+        URL.revokeObjectURL(u);
+        return out;
+      };
+
+      const fullSeen = [];
+      const full = await window.IZZBAH.sketchifyVideo(src, p => fullSeen.push(p));
+      const endSeen = [];
+      const cutEnd = await window.IZZBAH.sketchifyVideo(src, p => endSeen.push(p), { end: half });
+      let startBands = null;
+      if (canSeek) {
+        const cutStart = await window.IZZBAH.sketchifyVideo(src, null, { start: cutFrom });
+        startBands = await firstFrameBands(cutStart);
+      }
+
+      return {
+        dur, canSeek,
+        fullSize: full.size, endSize: cutEnd.size,
+        fullBands: await firstFrameBands(full),
+        endBands: await firstFrameBands(cutEnd),
+        startBands,
+        endMaxProgress: endSeen.length ? Math.max.apply(null, endSeen) : -1,
+        fullMaxProgress: fullSeen.length ? Math.max.apply(null, fullSeen) : -1,
+      };
+    });
+
+    if (tr.noSource) {
+      console.log("SKIP  trim run — this machine could not record a source clip");
+    } else if (tr.noDuration) {
+      console.log(`SKIP  trim run — the recorded source reported no usable duration (${tr.dur})`);
+    } else {
+      console.log(`      (source ${tr.dur.toFixed(2)}s, full ${Math.round(tr.fullSize / 1024)}KB, cut ${Math.round(tr.endSize / 1024)}KB)`);
+      // The whole point: half the seconds must mean materially fewer bytes.
+      check(`trimming to half the clip uploads far fewer bytes (${Math.round(tr.endSize / 1024)}KB vs ${Math.round(tr.fullSize / 1024)}KB)`,
+        tr.endSize > 0 && tr.endSize < tr.fullSize * 0.8);
+      /* Progress is over the CHOSEN range. Before this it was currentTime /
+         duration, which on a half-length trim would stall at ~50٪ and read as
+         a crash to whoever was waiting on it. */
+      check(`progress reaches the end of a trimmed range (${(tr.endMaxProgress * 100).toFixed(0)}٪)`,
+        tr.endMaxProgress > 0.8);
+      check("...and of an untrimmed one", tr.fullMaxProgress > 0.8);
+      /* Sanity: the source really does start with its stripes up top, or the
+         seek check below would prove nothing. */
+      check(`the untrimmed encode starts on the source's first half (top ${tr.fullBands.top.toFixed(1)}% vs bottom ${tr.fullBands.bottom.toFixed(1)}%)`,
+        tr.fullBands.top > tr.fullBands.bottom + 5);
+      check("an «end» trim starts there too", tr.endBands.top > tr.endBands.bottom + 5);
+      if (!tr.canSeek) {
+        console.log("SKIP  «start» trim — this browser cannot seek a MediaRecorder blob");
+      } else {
+        check(`a «start» trim begins at the chosen moment, not at 0 (top ${tr.startBands.top.toFixed(1)}% vs bottom ${tr.startBands.bottom.toFixed(1)}%)`,
+          tr.startBands.bottom > tr.startBands.top + 5);
+      }
     }
   }
 

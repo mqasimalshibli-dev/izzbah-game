@@ -297,6 +297,53 @@ and returned nothing, while `getAll()` of the same docs worked fine).
   width but grew its height by the home indicator, so on those phones «رجوع»
   rendered as a circle rather than an oval.
 
+- **Sketch filter, current tuning (.299 → .301) — this SUPERSEDES the
+  thickness numbers in the .288 note below.** Constants today:
+  `SKETCH_LINE_PX = 1.15`, `SKETCH_THICKNESS = 1.0`, `SKETCH_DETAIL = 1.0`,
+  ramp `SKETCH_INK_START/FULL/GAMMA = 1.8 / 8.0 / 0.8`.
+  ⚠️ The real fault behind "too heavy" was never the ink threshold. Sigma was a
+  FRACTION OF THE FRAME WIDTH, so a 1280px clip blurred at ~15.5px and drew fat
+  blobs. .299 made it an absolute line weight in output pixels
+  (`sigma = SKETCH_LINE_PX * thickness * SS`), which is stable because the
+  working size always lands between ~1150 and 1280px (MAXW 1280, SS doubles
+  anything under 800).
+  ⚠️ .300 then chased the same complaint with the ink ramp (5 / 15 / 1.3) and
+  went too far — 1.9% ink on a real clip, players reduced to specks. The owner's
+  words were "too white and it has less details". .301 put it back: γ **below 1
+  lifts** weak edges towards ink, and 1.8 / 8 / 0.8 gives ~5.2% while the
+  strokes stay thin. Keep the two knobs separate — `SKETCH_LINE_PX` is stroke
+  WEIGHT, the ramp is how MUCH is drawn.
+  ⚠️ **Ink percentage is a useless metric here.** Swept across sigma 0.45 → 4.8
+  on real footage it stays 2–4% throughout. It cannot tell a pencil drawing from
+  a handful of blobs. Judge line CHARACTER.
+
+- **The sketch path is the ONE place a trim really cuts the file (build .302).**
+  Owner's question: "does the full clip get uploaded? even when cut?" It did.
+  Everywhere else a trim is deliberately a `#t=start,end` fragment honoured at
+  playback (`applyClipRange`) because nothing is re-encoded — but the sketch
+  path re-encodes regardless, so `sketchifyVideo` now takes `{start, end}`,
+  seeks before the recorder rolls, and stops at `end`. A six-second answer out
+  of a sixty-second clip now uploads six seconds.
+  ⚠️ `performUpload` must then DROP the `#t=` — `sketchFragAfterBake()` does it.
+  The range is in the file; leaving it on the URL trims the already-trimmed clip
+  a second time and the player seeks past its end and shows nothing. `#mute`
+  is kept (redundant — no audio track is attached at all — but harmless).
+  ⚠️ Progress is reported over the CHOSEN range. Computed over the whole
+  duration it would stall at ~50٪ on a half-length trim and read as a crash.
+  ⚠️ The seek has a 4s fallback that starts from wherever the element is: a
+  source whose seek never reports back would otherwise hang the upload forever.
+  Bitrate is no longer a flat 4.5 Mbps (a photographic-video number that made a
+  64s clip 16 MB). `sketchBitrate()` budgets by area — `SKETCH_BITS_PER_PX =
+  0.06` at 30fps, ~1.66 Mbps at 1280×720, floor 700 kbps, ceiling 3 Mbps. Don't
+  push it much lower: thin hard-edged strokes are the worst case for a codec and
+  starving it rings around every line.
+  `tests/sketchvideo.mjs` builds a source with the SAME amount of detail
+  throughout but moves it from the top of the frame to the bottom halfway
+  through, so the size comparison measures duration rather than content while a
+  single output frame says where the encode started. ⚠️ Take the «start» cut at
+  70%, not 50% — the test's 33ms frame loop drifts, so seeking to exactly dur/2
+  can land on the last frame of the first half and fail for nothing.
+
 - **The «من الي سجل؟» sketch filter is TONAL (build .288 — read this before
   touching it).** The owner said "too heavy" TWICE. The first attempt (.286)
   only tuned the knobs of a BINARY filter and did not fix it, because a binary
