@@ -443,6 +443,41 @@ and it is **NOT a weaker grade of admin** — it is an independent flag.
   `blur()` passes are CPU canvas filters at full size. Moving the blur into the
   existing WebGL pass is the real fix, and it is a rewrite of the shader.
 
+- **Watermark mask in the trim modal (build .307).** «🩹 غطِّ العلامة المائية»
+  — drag up to 3 boxes over the video, and they are painted as PAPER onto the
+  finished line art. Offered on the SKETCH path only, and that is not a
+  limitation to lift: every other upload is stored byte-for-byte as it arrived,
+  so there is no pass in which a mask could be painted.
+  - ⚠️ **Painted AFTER the shader, never onto the source before it.** Masking
+    the source looks more thorough and is worse: a flat patch has a hard
+    boundary, difference-of-Gaussians inks boundaries, and the result is a
+    crisp rectangle drawn around the thing being hidden. Paper over the output
+    can only remove. The edge is feathered (2% of the short side) so strokes
+    fade instead of being guillotined along a straight line.
+  - ⚠️ **Boxes are FRACTIONS of the frame, never pixels** — the encode
+    downscales to `MAXW` 1280, so a box measured against a 1080p preview lands
+    somewhere else entirely.
+  - ⚠️ `videoPaintRect()` exists because a `<video>` LETTERBOXES: the element's
+    box and the picture's box are different rectangles, and measuring against
+    the element puts every mask off by the bars. Re-run on `loadedmetadata`,
+    `loadeddata` and `resize`.
+  - ⚠️ `openMediaTrim`/`closeMediaTrim` no longer do `stage.innerHTML = ""` —
+    that would delete `#trimMaskLayer`, after which every lookup returns null
+    and masking is silently dead for the session. They remove the media only.
+  - The stamp is built ONCE per encode and composited each frame; the boxes do
+    not move, so rebuilding the feather 30×/s would be waste in the one loop
+    that must stay cheap (see the render cap in .306).
+  - `addTrimMask()` holds the cap and the too-small rule so the pointer handler
+    and the test share ONE implementation — a test cannot drag across a video
+    that never decoded. `tests/mutevideo.mjs` covers the UI;
+    `tests/sketchvideo.mjs` proves the pixels: an unmasked semi-transparent bug
+    inks at 10.6% and a masked one at 0.0%, with no ink ring where it was and
+    the action untouched at 9.6% either way.
+  - Worth knowing: this filter makes watermarks MORE visible, not less. DoG
+    answers to edges, not brightness, so it discards a bug's flat interior and
+    keeps its outline — a faint ghost logo comes out as a confident drawing of
+    that logo. Measured above.
+
 - **The sketch path is the ONE place a trim really cuts the file (build .302).**
   Owner's question: "does the full clip get uploaded? even when cut?" It did.
   Everywhere else a trim is deliberately a `#t=start,end` fragment honoured at

@@ -138,6 +138,96 @@ try {
   // The two mechanisms differ, so the wording has to differ with them.
   check("the sketch category says the audio is DELETED, not silenced",
     /يُحذف/.test(ui.sketchSub) && !/يُشغَّل/.test(ui.sketchSub), ui.sketchSub);
+
+  // ── watermark mask ────────────────────────────────────────────────────────
+  /* Only offered on the sketch path: everywhere else the file is stored
+     byte-for-byte as uploaded, so there is no pass in which a mask could be
+     painted and offering one would be a lie. The boxes travel as FRACTIONS of
+     the frame — the encode downscales to at most 1280 wide, and a box measured
+     in preview pixels would land somewhere else entirely. */
+  const mask = await page.evaluate(async () => {
+    const bytes = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]);
+    const vid = new File([bytes], "clip.mp4", { type: "video/mp4" });
+    const aud = new File([bytes], "voice.m4a", { type: "audio/mp4" });
+    const out = {};
+    const open = async (file, opts) => {
+      let got = "unset";
+      window.IZZBAH_TEST.openMediaTrim(file, (frag, choice) => { got = { frag, choice }; }, opts);
+      await new Promise(r => setTimeout(r, 200));
+      return () => got;
+    };
+    const row = () => document.getElementById("trimMaskRow");
+    const layer = () => document.getElementById("trimMaskLayer");
+
+    // Who is offered the control at all
+    await open(vid, null);
+    out.plainVideoRow = row().hidden;
+    document.getElementById("trimFull").click(); await new Promise(r => setTimeout(r, 150));
+    await open(aud, { sketch: true });
+    out.audioRow = row().hidden;
+    document.getElementById("trimFull").click(); await new Promise(r => setTimeout(r, 150));
+
+    let res = await open(vid, { sketch: true });
+    out.sketchRow = row().hidden;
+    out.layerHiddenAtFirst = layer().hidden;          // must not block the controls
+    document.getElementById("trimMaskAdd").click();
+    out.layerShownInMode = !layer().hidden;
+
+    // Drive the drag directly — the layer has no size in this harness (the
+    // fake file never decodes), so a real mouse drag has nothing to hit.
+    // fracOf() is what the pointer handlers compute, so this exercises the
+    // same path from the fractions onward.
+    window.IZZBAH_TEST.addTrimMask({ x: 0.02, y: 0.03, w: 0.22, h: 0.15 });
+    out.afterOne = window.IZZBAH_TEST.trimMasks().length;
+    out.boxesDrawn = layer().querySelectorAll(".tm-mask-box").length;
+    out.clearShown = !document.getElementById("trimMaskClear").hidden;
+
+    // A tap is not a box.
+    window.IZZBAH_TEST.addTrimMask({ x: 0.5, y: 0.5, w: 0.002, h: 0.002 });
+    out.tapIgnored = window.IZZBAH_TEST.trimMasks().length === 1;
+    // …and there is a ceiling.
+    for (let i = 0; i < 6; i++) window.IZZBAH_TEST.addTrimMask({ x: 0.1 * i, y: 0.4, w: 0.08, h: 0.08 });
+    out.capped = window.IZZBAH_TEST.trimMasks().length;
+
+    document.getElementById("trimMaskClear").click();
+    out.afterClear = window.IZZBAH_TEST.trimMasks().length;
+
+    window.IZZBAH_TEST.addTrimMask({ x: 0.02, y: 0.03, w: 0.22, h: 0.15 });
+    document.getElementById("trimFull").click();
+    await new Promise(r => setTimeout(r, 200));
+    out.delivered = res();
+
+    // A fresh clip must not inherit the last one's boxes.
+    res = await open(vid, { sketch: true });
+    out.freshMasks = window.IZZBAH_TEST.trimMasks().length;
+    out.freshLayer = layer().hidden;
+    document.getElementById("trimFull").click();
+    await new Promise(r => setTimeout(r, 200));
+    out.freshDelivered = res();
+    return out;
+  });
+
+  check("the mask control is offered on the sketch path", mask.sketchRow === false);
+  check("...and NOT for an ordinary video, which is stored as uploaded", mask.plainVideoRow === true);
+  check("...nor for a voice clip", mask.audioRow === true);
+  // The layer covers the video, so leaving it up would swallow every click on
+  // the player's own controls.
+  check("the drawing layer is down until asked for", mask.layerHiddenAtFirst === true);
+  check("...and comes up on «غطِّ العلامة المائية»", mask.layerShownInMode === true);
+  check("a drawn box is kept and rendered", mask.afterOne === 1 && mask.boxesDrawn === 1);
+  check("«مسح التغطية» appears once there is something to clear", mask.clearShown === true);
+  check("a stray tap is not stored as an invisible mask", mask.tapIgnored);
+  check(`there is a ceiling on boxes (${mask.capped})`, mask.capped === 3);
+  check("clearing removes them all", mask.afterClear === 0);
+  check("the boxes reach the uploader as fractions of the frame",
+    !!(mask.delivered && mask.delivered.choice && mask.delivered.choice.masks
+       && mask.delivered.choice.masks.length === 1
+       && mask.delivered.choice.masks[0].w > 0 && mask.delivered.choice.masks[0].w <= 1),
+    JSON.stringify(mask.delivered && mask.delivered.choice && mask.delivered.choice.masks));
+  // A mask carried over would silently blank a corner of the NEXT clip.
+  check("a fresh clip starts with no boxes", mask.freshMasks === 0);
+  check("...and its layer starts down again", mask.freshLayer === true);
+  check("...and it reports none", mask.freshDelivered && mask.freshDelivered.choice.masks.length === 0);
   check("an ordinary video says it plays silent", /يُشغَّل/.test(ui.videoRow.sub), ui.videoRow.sub);
 
   // ── the sketch path really drops the track ──────────────────────────────
