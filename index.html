@@ -12552,7 +12552,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-11.302";
+    const IZZBAH_BUILD = "2026-08-11.303";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15245,8 +15245,27 @@
        γ below 1 LIFTS weak edges towards ink, which is what puts a player's
        face and a shirt's folds back. Measured on the category's own photos,
        1.8 / 8 / 0.8 gives ~5.2% ink against .300's 2.4% while the strokes stay
-       thin — hair strands, badge, sleeve stripes and fabric folds all draw. */
-    const SKETCH_INK_START = 1.8, SKETCH_INK_FULL = 8.0, SKETCH_GAMMA = 0.8;
+       thin — hair strands, badge, sleeve stripes and fabric folds all draw.
+
+       .303 — "I like it but make it just a tad bit lighter". Only γ moved,
+       0.80 → 0.95, deliberately nothing else. Measured against a source built
+       as a 12-step contrast RAMP (weak, medium and hard edges in one frame),
+       comparing total ink against FULL BLACK, which is the part that carries
+       the detail:
+                                   ink     full black
+         γ 0.80  (.301/.302)     10.17%       4.44%
+         γ 0.95  (.303)           9.43%       4.37%   ← lighter, detail intact
+         γ 1.10                   9.16%       4.36%
+         γ 0.80 + ramp raised     9.18%       3.88%   ← the .300 mistake
+       γ presses each surviving stroke less hard and leaves the strong ones
+       alone. Sliding the RAMP up instead removes the faintest strokes outright
+       — note how only that row's full black falls — which is exactly how .300
+       ended up "too white and it has less details".
+       ⚠️ γ SATURATES: 1.10 buys almost nothing over 0.95. If lighter is asked
+       for again this lever is spent, so the next move is `hi` (a stronger edge
+       needed to reach solid black), NOT `lo`. Leave `lo` alone unless the
+       complaint is specifically about too much fine detail. */
+    const SKETCH_INK_START = 1.8, SKETCH_INK_FULL = 8.0, SKETCH_GAMMA = 0.95;
 
     /* Encode budget for line art, in bits per pixel per frame at 30fps.
        This used to be a flat 4.5 Mbps, which is a number for PHOTOGRAPHIC video:
