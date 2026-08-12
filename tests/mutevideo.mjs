@@ -228,6 +228,52 @@ try {
   check("a fresh clip starts with no boxes", mask.freshMasks === 0);
   check("...and its layer starts down again", mask.freshLayer === true);
   check("...and it reports none", mask.freshDelivered && mask.freshDelivered.choice.masks.length === 0);
+
+  // ── filtered preview ──────────────────────────────────────────────────────
+  /* Same gating as the mask, for the same reason: there is nothing to preview
+     where nothing is re-encoded. The pixel-level proof that the preview shows
+     what the encoder writes lives in tests/sketchvideo.mjs — this only checks
+     who is offered the button, and that it cannot be left running. */
+  const prev = await page.evaluate(async () => {
+    const bytes = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]);
+    const vid = new File([bytes], "clip.mp4", { type: "video/mp4" });
+    const out = {};
+    const open = async (file, opts) => {
+      window.IZZBAH_TEST.openMediaTrim(file, () => {}, opts);
+      await new Promise(r => setTimeout(r, 200));
+    };
+    const btn = () => document.getElementById("trimFilterPreview");
+    await open(vid, null);
+    out.plainRowHidden = document.getElementById("trimMaskRow").hidden;
+    document.getElementById("trimFull").click(); await new Promise(r => setTimeout(r, 150));
+
+    await open(vid, { sketch: true });
+    out.sketchRowHidden = document.getElementById("trimMaskRow").hidden;
+    out.label = btn().textContent.trim();
+    out.offAtStart = window.IZZBAH_TEST.filterPreviewOn() === false;
+    /* The fake file never decodes, so videoWidth is 0 and starting must REFUSE
+       rather than build a renderer against a guessed size — a preview at the
+       wrong size would show a different crop than the encode. */
+    window.IZZBAH_TEST.startFilterPreview();
+    out.refusedWithoutVideo = window.IZZBAH_TEST.filterPreviewOn() === false;
+    document.getElementById("trimFull").click(); await new Promise(r => setTimeout(r, 150));
+
+    // Closing must stop it: a loop left running holds a WebGL context and a
+    // decoded video alive for the rest of the session.
+    await open(vid, { sketch: true });
+    document.getElementById("mediaTrimClose").click();
+    await new Promise(r => setTimeout(r, 150));
+    out.stoppedOnClose = window.IZZBAH_TEST.filterPreviewOn() === false;
+    out.canvasGone = !document.querySelector(".tm-preview-canvas");
+    return out;
+  });
+  check("the filter preview is offered on the sketch path", prev.sketchRowHidden === false);
+  check("...and not for an ordinary video", prev.plainRowHidden === true);
+  check("it starts off", prev.offAtStart);
+  check("its label says what it does", /معاينة بالفلتر/.test(prev.label), prev.label);
+  check("it refuses to start before the clip has decoded", prev.refusedWithoutVideo);
+  check("closing the modal stops it", prev.stoppedOnClose);
+  check("...and detaches its canvas", prev.canvasGone);
   check("an ordinary video says it plays silent", /يُشغَّل/.test(ui.videoRow.sub), ui.videoRow.sub);
 
   // ── the sketch path really drops the track ──────────────────────────────

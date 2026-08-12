@@ -443,6 +443,38 @@ and it is **NOT a weaker grade of admin** — it is an independent flag.
   `blur()` passes are CPU canvas filters at full size. Moving the blur into the
   existing WebGL pass is the real fix, and it is a rewrite of the shader.
 
+- **The filter lives in `createSketchRenderer()` now (build .308).** Extracted
+  from `sketchifyVideo` so the ENCODE and the on-screen PREVIEW are ONE
+  implementation. ⚠️ Never inline the pipeline into a caller again — a preview
+  that drifts from the encode is worse than no preview, and the whole reason
+  the owner asked for one was to stop guessing before a realtime encode and an
+  upload. The factory owns the working size, both blur canvases, the WebGL pass
+  and the mask stamp; `render(video)` paints one frame into `out` and schedules
+  nothing. `tests/sketchvideo.mjs` compares the two paths on ink statistics
+  (not bytes — the encoded clip has been through a codec): measured 5.9% vs
+  5.9% ink and 2.0% vs 1.9% solid.
+- **«🎨 معاينة بالفلتر» in the trim modal (build .308).** Plays the CHOSEN
+  RANGE through the filter with the masks applied, by appending the renderer's
+  own output canvas over the picture — literally the frames the encoder would
+  write, not a copy. Capped at 30fps for the same reason the encode is.
+  ⚠️ It REFUSES to start before `videoWidth` is known rather than guessing a
+  size, which would preview a different crop than the encode makes.
+  ⚠️ `stopFilterPreview()` must run BEFORE `trimCtx` is dropped in
+  `closeMediaTrim` — otherwise the rAF loop keeps a WebGL context and a decoded
+  video alive for the rest of the session. Entering mask mode stops it too;
+  drawing boxes and watching the result at once makes no sense, and the preview
+  already shows the masks.
+- **Sketch ink: `SKETCH_INK_FULL` 8.0 → 10.0 (build .308, "make it a bit
+  lighter").** γ was spent — .303 measured 1.10 as buying almost nothing over
+  0.95 — so this is the next lever, exactly as that note predicted. Raising
+  `hi` means a stronger edge is needed to reach solid black, so black becomes
+  grey WITHOUT deleting anything, because `lo` does not move. Swept on the same
+  12-step contrast ramp: hi 8 → 9.65% ink / 4.57% black; **hi 10 → 9.13% /
+  2.92%**; hi 12 → 8.17% / 2.08%; hi 14 → 7.15% / 1.58%. Note the shape at
+  hi 10 — ink barely moves (−5%) while solid black falls by a third. That is
+  "lighter", where the .300 mistake (raising `lo`) was "emptier". This lever
+  has real authority and has room left: 12 and 14 are there if asked again.
+
 - **Watermark mask in the trim modal (build .307).** «🩹 غطِّ العلامة المائية»
   — drag up to 3 boxes over the video, and they are painted as PAPER onto the
   finished line art. Offered on the SKETCH path only, and that is not a

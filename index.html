@@ -4867,6 +4867,11 @@
        admin sees roughly what the result will be — a blank patch, not a black
        box, because the output is ink on paper. */
     .trim-stage { position: relative; }
+    /* The filtered preview sits exactly over the picture, same geometry as the
+       mask layer. It is the renderer's OWN output canvas, appended here rather
+       than copied into a second one — what the admin sees is literally the
+       frame the encoder would write. */
+    .tm-preview-canvas { position: absolute; z-index: 4; border-radius: 8px; background: #fff; }
     .tm-mask-layer { position: absolute; cursor: crosshair; touch-action: none; z-index: 3; }
     .tm-mask-layer[hidden] { display: none; }
     .tm-mask-box {
@@ -8924,6 +8929,7 @@
           <div class="tm-mask-layer" id="trimMaskLayer" hidden></div>
         </div>
         <div class="trim-mask-row" id="trimMaskRow" hidden>
+          <button class="trim-set" id="trimFilterPreview" type="button">🎨 معاينة بالفلتر</button>
           <button class="trim-set" id="trimMaskAdd" type="button">🩹 غطِّ العلامة المائية</button>
           <button class="trim-set" id="trimMaskClear" type="button" hidden>مسح التغطية</button>
           <span class="trim-mask-note" id="trimMaskNote"></span>
@@ -12659,7 +12665,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-11.307";
+    const IZZBAH_BUILD = "2026-08-12.308";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -15118,16 +15124,86 @@
       const w = vw * scale, h = vh * scale;
       return { left: (cw - w) / 2, top: (ch - h) / 2, w, h };
     }
-    function trimMaskLayout() {
-      if (!trimCtx || !trimCtx.isVideo) return;
-      const layer = $("#trimMaskLayer");
-      if (!layer) return;
+    // Park an absolutely-positioned element exactly over the painted picture.
+    // Shared by the mask layer and the filtered preview so the two can never
+    // disagree about where the frame is.
+    function placeOverVideo(node) {
+      if (!node || !trimCtx || !trimCtx.isVideo) return;
       const r = videoPaintRect(trimCtx.el);
-      const off = trimCtx.el.offsetLeft, offTop = trimCtx.el.offsetTop;
-      layer.style.left = (off + r.left) + "px";
-      layer.style.top = (offTop + r.top) + "px";
-      layer.style.width = r.w + "px";
-      layer.style.height = r.h + "px";
+      node.style.left = (trimCtx.el.offsetLeft + r.left) + "px";
+      node.style.top = (trimCtx.el.offsetTop + r.top) + "px";
+      node.style.width = r.w + "px";
+      node.style.height = r.h + "px";
+    }
+    function trimMaskLayout() {
+      placeOverVideo($("#trimMaskLayer"));
+      if (trimCtx && trimCtx.previewRenderer) placeOverVideo(trimCtx.previewRenderer.out);
+    }
+
+    /* ── Filtered preview ──────────────────────────────────────────────────
+       Play the chosen range THROUGH the filter, masks and all, before
+       committing to a realtime encode and an upload. It runs the very same
+       createSketchRenderer the encode uses and shows its own output canvas, so
+       this cannot drift from the result — a preview that lies is worse than
+       none, which is the whole reason for asking.
+       Capped at 30fps for the same reason the encode is (see .306): the
+       renderer is the expensive thing on the page while it runs. */
+    function stopFilterPreview() {
+      if (!trimCtx) return;
+      if (trimCtx.previewRaf) cancelAnimationFrame(trimCtx.previewRaf);
+      trimCtx.previewRaf = 0;
+      trimCtx.previewOn = false;
+      if (trimCtx.previewRenderer) {
+        try { trimCtx.previewRenderer.out.remove(); } catch (e) {}
+        trimCtx.previewRenderer = null;
+      }
+      try { trimCtx.el.pause(); } catch (e) {}
+      updateFilterPreviewBtn();
+    }
+    function updateFilterPreviewBtn() {
+      const b = $("#trimFilterPreview");
+      if (!b) return;
+      const on = !!(trimCtx && trimCtx.previewOn);
+      b.classList.toggle("is-on", on);
+      b.textContent = on ? "⏹ إيقاف المعاينة" : "🎨 معاينة بالفلتر";
+    }
+    function startFilterPreview() {
+      if (!trimCtx || !trimCtx.isVideo || !trimCtx.sketch) return;
+      if (!sketchSupported()) { showToast("هذا المتصفح لا يدعم فلتر الرسم"); return; }
+      const el = trimCtx.el;
+      // Without the intrinsic size there is nothing to size the renderer from,
+      // and guessing would preview a different frame than the encode makes.
+      if (!el.videoWidth) { showToast("لحظة — لم يُحمّل المقطع بعد"); return; }
+      let r;
+      try { r = createSketchRenderer(el.videoWidth, el.videoHeight, { masks: trimCtx.masks }); }
+      catch (e) { showToast("تعذّرت المعاينة بالفلتر على هذا المتصفح"); return; }
+      // Drawing boxes and watching the result at once makes no sense — and the
+      // preview already SHOWS the masks, so the dashed overlay would double up.
+      setTrimMaskMode(false);
+      trimCtx.previewRenderer = r;
+      r.out.className = "tm-preview-canvas";
+      // CSS sizes it to the painted rect; the canvas keeps its own full
+      // resolution, so the preview is downscaled by the browser rather than
+      // rendered small — same pixels the encoder would write.
+      trimCtx.el.parentNode.appendChild(r.out);
+      placeOverVideo(r.out);
+      trimCtx.previewOn = true;
+      updateFilterPreviewBtn();
+      const RENDER_MS = 1000 / 30;
+      let last = -1e9;
+      const tick = (ts) => {
+        if (!trimCtx || !trimCtx.previewOn) return;
+        const now = ts || performance.now();
+        if (now - last >= RENDER_MS - 1) {
+          last = now;
+          try { r.render(el); } catch (e) { /* a dropped preview frame is nothing */ }
+        }
+        trimCtx.previewRaf = requestAnimationFrame(tick);
+      };
+      trimCtx.previewRaf = requestAnimationFrame(tick);
+      // Show the SELECTION, not the whole clip: the point is to check what
+      // will actually be uploaded.
+      trimPreviewSel();
     }
     function renderTrimMasks() {
       const layer = $("#trimMaskLayer"), clear = $("#trimMaskClear"), note = $("#trimMaskNote");
@@ -15165,6 +15241,7 @@
     function setTrimMaskMode(on) {
       if (!trimCtx) return;
       trimCtx.maskMode = !!on;
+      if (on && trimCtx.previewOn) stopFilterPreview();
       const layer = $("#trimMaskLayer"), btn = $("#trimMaskAdd");
       // The layer swallows clicks on the video's own controls, so it is only
       // present while the admin is actually drawing.
@@ -15250,13 +15327,15 @@
       stage.querySelectorAll("video, audio").forEach(n => n.remove());
       stage.insertBefore(el, stage.firstChild);
       trimCtx = { el, url, start: 0, end: Infinity, dur: 0, onConfirm, stopper: null, isVideo,
-                  masks: [], maskMode: false, sketch: !!(opts && opts.sketch) };
+                  masks: [], maskMode: false, sketch: !!(opts && opts.sketch),
+                  previewOn: false, previewRaf: 0, previewRenderer: null };
       // Masking is only honest where the clip is re-encoded — see the note on
       // TRIM_MASK_MAX. Everything else uploads the original bytes.
       const maskRow = $("#trimMaskRow");
       if (maskRow) maskRow.hidden = !(isVideo && trimCtx.sketch);
       wireTrimMaskDrag();
       setTrimMaskMode(false);
+      updateFilterPreviewBtn();
       // Muting a voice note would leave nothing to play, so the row is for
       // video only. `sketch` clips are muted at the source instead (see below),
       // and the copy says so rather than silently meaning something different.
@@ -15286,6 +15365,10 @@
     }
     function closeMediaTrim() {
       const modal = $("#mediaTrimModal"), stage = $("#mediaTrimStage");
+      // BEFORE trimCtx is dropped: stopFilterPreview needs it to cancel the
+      // rAF and detach the canvas, and a loop left running holds a WebGL
+      // context and a decoded video alive for the rest of the session.
+      stopFilterPreview();
       if (trimCtx) { try { trimCtx.el.pause(); } catch (e) {} try { URL.revokeObjectURL(trimCtx.url); } catch (e) {} trimCtx = null; }
       // Clear the MEDIA but keep the mask layer: it is markup, not per-clip
       // state, and innerHTML = "" would delete it on the very first upload,
@@ -15326,6 +15409,7 @@
       // the choice rather than the fragment: a mask is baked into the pixels,
       // so unlike «#t=» there is nothing for a player to honour later.
       const masks = (trimCtx.masks || []).slice();
+      stopFilterPreview();
       const muteBox = $("#trimMute");
       const mute = !!(isVideo && muteBox && muteBox.checked);
       let frag = null;
@@ -15541,7 +15625,7 @@
        for again this lever is spent, so the next move is `hi` (a stronger edge
        needed to reach solid black), NOT `lo`. Leave `lo` alone unless the
        complaint is specifically about too much fine detail. */
-    const SKETCH_INK_START = 1.8, SKETCH_INK_FULL = 8.0, SKETCH_GAMMA = 0.95;
+    const SKETCH_INK_START = 1.8, SKETCH_INK_FULL = 10.0, SKETCH_GAMMA = 0.95;
 
     /* Encode budget for line art, in bits per pixel per frame at 30fps.
        This used to be a flat 4.5 Mbps, which is a number for PHOTOGRAPHIC video:
@@ -15570,13 +15654,156 @@
       return mediaMuted(frag) ? "#mute" : null;
     }
 
-    function sketchifyVideo(file, onProgress, opts) {
-      const o = opts || {};
+    /* ── The filter itself, as a reusable renderer ─────────────────────────
+       Extracted from sketchifyVideo in .308 so the ENCODE and the on-screen
+       PREVIEW are one implementation. A second copy would drift, and a preview
+       that lies about the result is worse than no preview — the whole reason
+       the owner wanted one is to stop guessing.
+       Owns the working size, the two blur canvases, the WebGL pass and the
+       mask stamp. render(video) paints one frame into `out`; nothing here
+       schedules, records or plays. Throws with a coded message the callers map
+       to Arabic. */
+    function createSketchRenderer(srcW, srcH, o) {
+      o = o || {};
       const thickness = o.thickness > 0 ? o.thickness : SKETCH_THICKNESS;
       const detail = o.detail > 0 ? o.detail : SKETCH_DETAIL;
       const gamma = o.gamma > 0 ? o.gamma : SKETCH_GAMMA;
-      const mute = !!o.mute;
       const invert = o.invert ? 1.0 : 0.0;
+      const masks = (Array.isArray(o.masks) ? o.masks : []).filter(m =>
+        m && m.w > 0 && m.h > 0 && isFinite(m.x) && isFinite(m.y));
+
+      // Cap the working size: these are phone clips, and the encode is
+      // realtime, so a 4K source would only make it slower and heavier
+      // for no visible gain once it is reduced to two-tone line art.
+      const MAXW = 1280;
+      const scale = Math.min(1, MAXW / (srcW || MAXW));
+      const W = Math.max(2, Math.round((srcW || 640) * scale / 2) * 2);
+      const H = Math.max(2, Math.round((srcH || 360) * scale / 2) * 2);
+      // Supersample only when there is headroom — it is what keeps the
+      // lines anti-aliased instead of stair-stepped.
+      const SS = W <= 800 ? 2 : 1;
+      const RW = W * SS, RH = H * SS;
+
+      // Absolute line weight, in output pixels, scaled up to the
+      // supersampled buffer. See SKETCH_LINE_PX for why this is NOT a
+      // fraction of the frame width any more.
+      const sigma = Math.max(0.6, SKETCH_LINE_PX * thickness * SS);
+      // `detail` still means "ink more readily": it lowers where graphite
+      // starts AND where it saturates, so the whole ramp slides darker.
+      const inkLo = (SKETCH_INK_START / 255) / detail;
+      const inkHi = (SKETCH_INK_FULL / 255) / detail;
+
+      /* The video frame is decoded ONCE per rendered frame, into `grey`, and
+         both blurs are then taken from THAT. It used to be drawImage(video)
+         twice, which paid for a full 1280×720 video decode-and-upload and a
+         grayscale pass twice over — and left the two blurs able to straddle
+         different source frames, which shows up as a one-frame burst of
+         wrong-looking ink.
+         Moving grayscale() off the blur passes is exact, not an approximation:
+         both are linear operations in the same colour space, so
+         grayscale(blur(x)) and blur(grayscale(x)) are the same image. */
+      const grey = document.createElement("canvas"); grey.width = RW; grey.height = RH;
+      const cg = grey.getContext("2d");
+      cg.filter = "grayscale(1)";
+      const blurA = document.createElement("canvas"); blurA.width = RW; blurA.height = RH;
+      const blurB = document.createElement("canvas"); blurB.width = RW; blurB.height = RH;
+      const ca = blurA.getContext("2d"), cb = blurB.getContext("2d");
+      ca.filter = "blur(" + sigma.toFixed(2) + "px)";
+      cb.filter = "blur(" + (sigma * 1.6).toFixed(2) + "px)";
+
+      const glCanvas = document.createElement("canvas"); glCanvas.width = RW; glCanvas.height = RH;
+      const gl = glCanvas.getContext("webgl", { preserveDrawingBuffer: true })
+              || glCanvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
+      if (!gl) throw new Error("sketch-nogl");
+
+      const sh = (type, src) => {
+        const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
+        if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x) || "shader");
+        return x;
+      };
+      const prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, SKETCH_VS));
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, SKETCH_FS));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("sketch-link");
+      gl.useProgram(prog);
+
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p");
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+      const mkTex = (unit) => {
+        const t = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        return t;
+      };
+      const texA = mkTex(0), texB = mkTex(1);
+      gl.uniform1i(gl.getUniformLocation(prog, "a"), 0);
+      gl.uniform1i(gl.getUniformLocation(prog, "b"), 1);
+      gl.uniform1f(gl.getUniformLocation(prog, "lo"), inkLo);
+      gl.uniform1f(gl.getUniformLocation(prog, "hi"), inkHi);
+      gl.uniform1f(gl.getUniformLocation(prog, "gam"), gamma);
+      gl.uniform1f(gl.getUniformLocation(prog, "inv"), invert);
+      gl.viewport(0, 0, RW, RH);
+
+      // Output canvas — this is what MediaRecorder captures, and what the
+      // preview shows. When supersampling, the downscale to W×H anti-aliases.
+      const out = document.createElement("canvas"); out.width = W; out.height = H;
+      const octx = out.getContext("2d");
+      octx.imageSmoothingEnabled = true;
+      if ("imageSmoothingQuality" in octx) octx.imageSmoothingQuality = "high";
+
+      /* The mask is stamped ONCE and composited each frame — the boxes never
+         move, so rebuilding the feather 30 times a second would be pure waste
+         in the one loop that must stay cheap (see the render cap below).
+         The rects are INFLATED by the feather radius before blurring, so the
+         fully-opaque core covers exactly the box the admin drew; blur eats the
+         outer half of the transition. */
+      let maskStamp = null;
+      if (masks.length) {
+        const feather = Math.max(5, Math.round(Math.min(W, H) * 0.02));
+        maskStamp = document.createElement("canvas");
+        maskStamp.width = W; maskStamp.height = H;
+        const mctx = maskStamp.getContext("2d");
+        mctx.filter = "blur(" + feather + "px)";
+        // Paper is white; with `invert` the page is black instead, and a white
+        // patch there would be the most obvious mark on the frame.
+        mctx.fillStyle = invert ? "#000000" : "#ffffff";
+        masks.forEach(m => {
+          mctx.fillRect(
+            m.x * W - feather, m.y * H - feather,
+            m.w * W + feather * 2, m.h * H + feather * 2);
+        });
+      }
+
+      return {
+        out: out, width: W, height: H,
+        render: function (video) {
+          cg.drawImage(video, 0, 0, RW, RH);   // one decode, both blurs
+          ca.drawImage(grey, 0, 0);
+          cb.drawImage(grey, 0, 0);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurA);
+          gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurB);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          octx.drawImage(glCanvas, 0, 0, W, H);
+          if (maskStamp) octx.drawImage(maskStamp, 0, 0);
+        },
+      };
+    }
+
+    function sketchifyVideo(file, onProgress, opts) {
+      const o = opts || {};
+      const mute = !!o.mute;
       /* The chosen clip range, BAKED IN rather than left as a «#t=» fragment.
          Everywhere else in the app a trim is a fragment because no re-encode
          happens and a lossless cut is impossible in the browser — but this path
@@ -15585,19 +15812,6 @@
          uploading sixty. */
       const clipStart = Math.max(0, +o.start || 0);
       const clipEnd = (+o.end > clipStart) ? +o.end : Infinity;
-      /* Watermark masks, as fractions of the frame. Painted as PAPER onto the
-         finished line art, AFTER the shader — deliberately not onto the source
-         before it.
-         Masking the source looks more thorough and is worse: a flat patch has
-         a hard boundary, the detector inks boundaries, and the result is a
-         crisp rectangle drawn around the thing being hidden. Painting paper
-         over the output cannot draw anything; it can only remove. And it is
-         unconditional — whatever the filter made of the watermark, it is gone.
-         The edge is feathered so strokes fade out instead of being guillotined
-         along a straight line, which in a pencil drawing reads as an unfinished
-         corner rather than a censored one. */
-      const masks = (Array.isArray(o.masks) ? o.masks : []).filter(m =>
-        m && m.w > 0 && m.h > 0 && isFinite(m.x) && isFinite(m.y));
 
       return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
@@ -15619,119 +15833,11 @@
         video.onerror = () => fail("sketch-decode");
         video.onloadedmetadata = () => {
           try {
-            // Cap the working size: these are phone clips, and the encode is
-            // realtime, so a 4K source would only make it slower and heavier
-            // for no visible gain once it is reduced to two-tone line art.
-            const MAXW = 1280;
-            const scale = Math.min(1, MAXW / (video.videoWidth || MAXW));
-            const W = Math.max(2, Math.round((video.videoWidth || 640) * scale / 2) * 2);
-            const H = Math.max(2, Math.round((video.videoHeight || 360) * scale / 2) * 2);
-            // Supersample only when there is headroom — it is what keeps the
-            // lines anti-aliased instead of stair-stepped.
-            const SS = W <= 800 ? 2 : 1;
-            const RW = W * SS, RH = H * SS;
-
-            // Absolute line weight, in output pixels, scaled up to the
-            // supersampled buffer. See SKETCH_LINE_PX for why this is NOT a
-            // fraction of the frame width any more.
-            const sigma = Math.max(0.6, SKETCH_LINE_PX * thickness * SS);
-            // `detail` still means "ink more readily": it lowers where graphite
-            // starts AND where it saturates, so the whole ramp slides darker.
-            const inkLo = (SKETCH_INK_START / 255) / detail;
-            const inkHi = (SKETCH_INK_FULL / 255) / detail;
-
-            /* The video frame is decoded ONCE per rendered frame, into `grey`,
-               and both blurs are then taken from THAT. It used to be
-               drawImage(video) twice, which paid for a full 1280×720 video
-               decode-and-upload and a grayscale pass twice over — and left the
-               two blurs able to straddle different source frames, which shows
-               up as a one-frame burst of wrong-looking ink.
-               Moving grayscale() off the blur passes is exact, not an
-               approximation: both are linear operations in the same colour
-               space, so grayscale(blur(x)) and blur(grayscale(x)) are the same
-               image. */
-            const grey = document.createElement("canvas"); grey.width = RW; grey.height = RH;
-            const cg = grey.getContext("2d");
-            cg.filter = "grayscale(1)";
-            const blurA = document.createElement("canvas"); blurA.width = RW; blurA.height = RH;
-            const blurB = document.createElement("canvas"); blurB.width = RW; blurB.height = RH;
-            const ca = blurA.getContext("2d"), cb = blurB.getContext("2d");
-            ca.filter = "blur(" + sigma.toFixed(2) + "px)";
-            cb.filter = "blur(" + (sigma * 1.6).toFixed(2) + "px)";
-
-            const glCanvas = document.createElement("canvas"); glCanvas.width = RW; glCanvas.height = RH;
-            const gl = glCanvas.getContext("webgl", { preserveDrawingBuffer: true })
-                    || glCanvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
-            if (!gl) return fail("sketch-nogl");
-
-            const sh = (type, src) => {
-              const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
-              if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x) || "shader");
-              return x;
-            };
-            const prog = gl.createProgram();
-            gl.attachShader(prog, sh(gl.VERTEX_SHADER, SKETCH_VS));
-            gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, SKETCH_FS));
-            gl.linkProgram(prog);
-            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return fail("sketch-link");
-            gl.useProgram(prog);
-
-            const buf = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-            const loc = gl.getAttribLocation(prog, "p");
-            gl.enableVertexAttribArray(loc);
-            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-            const mkTex = (unit) => {
-              const t = gl.createTexture();
-              gl.activeTexture(gl.TEXTURE0 + unit);
-              gl.bindTexture(gl.TEXTURE_2D, t);
-              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-              return t;
-            };
-            const texA = mkTex(0), texB = mkTex(1);
-            gl.uniform1i(gl.getUniformLocation(prog, "a"), 0);
-            gl.uniform1i(gl.getUniformLocation(prog, "b"), 1);
-            gl.uniform1f(gl.getUniformLocation(prog, "lo"), inkLo);
-            gl.uniform1f(gl.getUniformLocation(prog, "hi"), inkHi);
-            gl.uniform1f(gl.getUniformLocation(prog, "gam"), gamma);
-            gl.uniform1f(gl.getUniformLocation(prog, "inv"), invert);
-            gl.viewport(0, 0, RW, RH);
-
-            // Output canvas — this is what MediaRecorder captures. When
-            // supersampling, the downscale to W×H is what anti-aliases.
-            const out = document.createElement("canvas"); out.width = W; out.height = H;
-            const octx = out.getContext("2d");
-            octx.imageSmoothingEnabled = true;
-            if ("imageSmoothingQuality" in octx) octx.imageSmoothingQuality = "high";
-
-            /* The mask is stamped ONCE into its own canvas and composited each
-               frame — the boxes never move, so rebuilding the feather 30 times
-               a second would be pure waste in the one loop that must stay
-               cheap (see the render cap above).
-               The rects are INFLATED by the feather radius before blurring, so
-               the fully-opaque core covers exactly the box the admin drew; blur
-               eats the outer half of the transition. */
-            let maskStamp = null;
-            if (masks.length) {
-              const feather = Math.max(5, Math.round(Math.min(W, H) * 0.02));
-              maskStamp = document.createElement("canvas");
-              maskStamp.width = W; maskStamp.height = H;
-              const mctx = maskStamp.getContext("2d");
-              mctx.filter = "blur(" + feather + "px)";
-              // Paper is white; with `invert` the page is black instead, and a
-              // white patch there would be the most obvious mark on the frame.
-              mctx.fillStyle = invert ? "#000000" : "#ffffff";
-              masks.forEach(m => {
-                mctx.fillRect(
-                  m.x * W - feather, m.y * H - feather,
-                  m.w * W + feather * 2, m.h * H + feather * 2);
-              });
-            }
+            let renderer;
+            try {
+              renderer = createSketchRenderer(video.videoWidth, video.videoHeight, o);
+            } catch (e) { return fail(/^sketch-/.test(e && e.message) ? e.message : "sketch-setup"); }
+            const W = renderer.width, H = renderer.height, out = renderer.out;
 
             const stream = out.captureStream(30);
             // Carry the original audio across. AudioContext is used rather than
@@ -15793,16 +15899,7 @@
               if (now - lastRender >= RENDER_MS - 1) {
                 lastRender = now;
                 try {
-                  cg.drawImage(video, 0, 0, RW, RH);   // one decode, both blurs
-                  ca.drawImage(grey, 0, 0);
-                  cb.drawImage(grey, 0, 0);
-                  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA);
-                  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurA);
-                  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB);
-                  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurB);
-                  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-                  octx.drawImage(glCanvas, 0, 0, W, H);
-                  if (maskStamp) octx.drawImage(maskStamp, 0, 0);
+                  renderer.render(video);
                 } catch (e) { /* a dropped frame is better than aborting the run */ }
                 /* Progress is over the CHOSEN range, not the whole file — a
                    trim that showed 20٪ and then finished would read as a crash.
@@ -18402,6 +18499,10 @@
     // too-small rule and the real render, without needing a decoded video
     // for the pointer to have something to drag across.
     window.IZZBAH_TEST.addTrimMask = (box) => { addTrimMask(box); };
+    window.IZZBAH_TEST.filterPreviewOn = () => !!(trimCtx && trimCtx.previewOn);
+    window.IZZBAH_TEST.startFilterPreview = startFilterPreview;
+    window.IZZBAH_TEST.stopFilterPreview = stopFilterPreview;
+    window.IZZBAH_TEST.createSketchRenderer = createSketchRenderer;
     window.IZZBAH_TEST.applyClipPlayback = applyClipPlayback;
     window.IZZBAH_TEST.mediaKind = mediaKind;
     window.IZZBAH_TEST.mediaPicker = (onChange, opts) => imagePicker("", onChange, "اختبار", Object.assign({ media: true }, opts || {}));
@@ -26062,6 +26163,9 @@
     $("#trimSetStart").addEventListener("click", trimSetStart);
     $("#trimSetEnd").addEventListener("click", trimSetEnd);
     $("#trimPreview").addEventListener("click", trimPreviewSel);
+    $("#trimFilterPreview").addEventListener("click", () => {
+      if (trimCtx && trimCtx.previewOn) stopFilterPreview(); else startFilterPreview();
+    });
     $("#trimMaskAdd").addEventListener("click", () => setTrimMaskMode(!(trimCtx && trimCtx.maskMode)));
     $("#trimMaskClear").addEventListener("click", () => { if (trimCtx) { trimCtx.masks = []; renderTrimMasks(); } });
     // A rotate or a resize moves the letterbox bars, so the layer has to be
