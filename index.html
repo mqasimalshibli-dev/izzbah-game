@@ -12665,7 +12665,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-12.308";
+    const IZZBAH_BUILD = "2026-08-12.309";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13361,6 +13361,11 @@
 
     function categoryHasQuestions(cat) {
       if (!cat || cat.empty === true) return false;
+      /* An entry painted from meta/index on a cold boot carries no questions,
+         only how many there are. Falling through would mark every category
+         "coming soon" and empty the picker for the first seconds of a first
+         visit — the exact screen this optimisation exists to improve. */
+      if (cat.__idx) return (Number(cat.count) || 0) > 0;
       // real questions in the category's own list (published / community / custom,
       // and built-ins once refreshBuiltinQuestions has populated them)
       if ((cat.questions || []).some(question => question.q?.trim() || question.a?.trim())) return true;
@@ -18493,6 +18498,7 @@
     window.IZZBAH_TEST.mediaFragment = mediaFragment;
     window.IZZBAH_TEST.mediaMuted = mediaMuted;
     window.IZZBAH_TEST.openMediaTrim = openMediaTrim;
+    window.IZZBAH_TEST.categoryHasQuestions = categoryHasQuestions;
     window.IZZBAH_TEST.trimMasks = () => (trimCtx && trimCtx.masks) || [];
     // The same tail the pointer handlers run once they have a rectangle in
     // frame fractions — so a test exercises the real cap, the real
@@ -23018,6 +23024,24 @@
     }
 
     function startGame() {
+      /* A cold boot paints the picker from meta/index, which has names and
+         covers but NO questions. Building a board from that would deal an empty
+         game. The full catalogue read is already in flight, so wait for it
+         rather than refusing — this is a first-visit-only path and it resolves
+         in the time the read takes.
+         Returns BEFORE anything is charged or written, and re-enters the whole
+         function once, so a credit can never be spent twice here. */
+      if (activeCategories().some(c => c && c.__idx)) {
+        showToast("لحظة — جارٍ تحميل الأسئلة…");
+        const t0 = Date.now();
+        const tick = () => {
+          if (!activeCategories().some(c => c && c.__idx)) { startGame(); return; }
+          if (Date.now() - t0 > 20000) { showToast("تعذّر تحميل الأسئلة — تحقّق من اتصالك وحاول مجدداً"); return; }
+          setTimeout(tick, 250);
+        };
+        setTimeout(tick, 250);
+        return;
+      }
       // Guard against a blank board: every selected category may have been
       // deleted or be empty (e.g. a shared link to a removed category, or a
       // saved game whose categories are gone). Don't start with nothing to play.
@@ -26378,6 +26402,12 @@
         // cache. Dropping either here makes hydration a silent no-op and the
         // game plays with no pictures at all.
         __lite: !!c.__lite,
+        // Carried deliberately: normalizePublishedCategory returns a fixed
+        // shape, so anything not named here is dropped. Losing these two turns
+        // an index entry into a category with no questions and no count, i.e.
+        // an unplayable one.
+        __idx: !!c.__idx,
+        count: Math.max(0, Number(c.count) || 0),
         updatedAtMs: c.updatedAtMs || (c.updatedAt && typeof c.updatedAt.toMillis === "function" ? c.updatedAt.toMillis() : 0),
         questions: (Array.isArray(c.questions) ? c.questions : []).map((q, i) => {
           const out = {
@@ -26879,6 +26909,36 @@
           // the catalog (e.g. before the updated rules are published).
           const CATALOG_META = () => db.collection("meta").doc("catalog");
           const CATALOG_REV_KEY = "__catalogRev";
+          /* meta/index — the catalogue PROJECTION a cold boot paints from.
+             One small document (id/name/order/colour/count + a 32px blurred
+             cover each, ~1.3 KB apiece) against the ~1.6 MB gzipped it costs to
+             read all 39 parent docs, 88% of which is cover images. Firestore's
+             web SDK has no field projection, so there is no way to read a
+             parent doc WITHOUT its cover — hence a separate doc.
+             ⚠️ This is a PAINTING aid, never the authority. Entries carry no
+             questions, so they are marked __idx and startGame refuses to build
+             a board from one (see awaitPlayableCatalog). The full read still
+             runs and overwrites them; if meta/index is missing, stale or
+             denied, nothing here changes what the player ends up with. */
+          const CATALOG_INDEX = () => db.collection("meta").doc("index");
+          function categoriesFromIndex(doc) {
+            const d = (doc && doc.exists && doc.data()) || null;
+            const list = d && Array.isArray(d.cats) ? d.cats : [];
+            return list.filter(e => e && e.id).map(e => ({
+              id: String(e.id),
+              name: String(e.name || ""),
+              color: String(e.color || ""),
+              order: Number(e.order) || 0,
+              // The blurred placeholder stands in for the cover until the real
+              // one arrives with the full read.
+              image: typeof e.lqip === "string" ? e.lqip : "",
+              // No questions — only how many there are, which is all the picker
+              // ever measured.
+              questions: [],
+              count: Math.max(0, Number(e.count) || 0),
+              __idx: true, __lite: true, updatedAtMs: 0,
+            }));
+          }
           function bumpCatalogRev() {
             try {
               return CATALOG_META().set(
@@ -27101,12 +27161,31 @@
               // edits, not a cached copy of them.
               if (haveCats && !cloudIsAdmin) applyCachedCategories(cache, true);
 
+              /* COLD BOOT — no cache to paint from, which is the expensive case
+                 and the only one this helps. Read the small projection FIRST
+                 and put the picker on screen, then let the full read below
+                 replace it. Deliberately awaited: it is one tiny document, and
+                 racing it against the 1.6 MB read would often lose.
+                 Admins skip it — they must see their own just-published edits,
+                 and an index built before those edits would show stale counts. */
+              const idxP = (haveCats || cloudIsAdmin)
+                ? Promise.resolve(false)
+                : CATALOG_INDEX().get()
+                    .then(doc => {
+                      const cats = categoriesFromIndex(doc);
+                      if (!cats.length || state.catalogReady) return false;
+                      readStats.indexPaint = true;
+                      if (window.IZZBAH.applyPublished) window.IZZBAH.applyPublished(cats);
+                      return true;
+                    })
+                    .catch(() => false);   // missing/denied/offline → just wait
+
               const revP = cloudIsAdmin
                 ? Promise.resolve(null)
                 : CATALOG_META().get({ source: "server" })
                     .then(doc => (doc.exists && typeof (doc.data() || {}).rev === "number") ? doc.data().rev : null)
                     .catch(() => null);
-              return revP.then(freshRev => {
+              return Promise.all([idxP, revP]).then(([, freshRev]) => {
                 // FAST PATH: the catalog revision is unchanged and we hold a
                 // populated cache — serve it and skip reading every category
                 // doc (1 read this whole load instead of ~one-per-category).
