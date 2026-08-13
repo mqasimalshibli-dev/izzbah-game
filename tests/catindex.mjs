@@ -151,6 +151,46 @@ try {
   check("the stricter generic /meta rule is still there for everything else",
     /match \/meta\/\{doc\}[\s\S]{0,300}hasOnly\(\['rev', 'updatedAt'\]\)/.test(rules));
 
+  // ── auto-rebuild on publish (build .310) ─────────────────────────────────
+  /* Before this, meta/index only changed when someone pressed
+     «🗂️ بناء فهرس الفئات», so a publishing session left cold-boot visitors
+     painting yesterday's names and counts. Publishing rebuilds it now — but
+     autoPublishAdmin fires on every question add/edit/delete, so the two
+     properties that make that safe are the debounce and the memo. */
+  const auto = await page.evaluate(async () => {
+    const T = window.IZZBAH_TEST || {};
+    if (!T.scheduleIndexRebuild) return { noBridge: true };
+    let writes = 0, lastEntries = null;
+    window.IZZBAH.writeCategoryIndex = (entries) => { writes++; lastEntries = entries; return Promise.resolve(); };
+    window.IZZBAH.applyAdmin(true);
+    window.IZZBAH.applyPublished([
+      { id: "a", name: "ألف", color: "#111111", order: 1, image: "", questions: [{ points: 100, q: "س", a: "ج" }] },
+      { id: "b", name: "باء", color: "#222222", order: 2, image: "", questions: [{ points: 100, q: "س", a: "ج" }, { points: 200, q: "س2", a: "ج2" }] },
+    ]);
+    const delay = T.indexRebuildDelay();
+    for (let i = 0; i < 6; i++) T.scheduleIndexRebuild();   // a few seconds of editing
+    const duringBurst = writes;
+    await new Promise(r => setTimeout(r, delay + 900));
+    const afterBurst = writes;
+    window.IZZBAH.applyAdmin(false);
+    T.scheduleIndexRebuild();
+    await new Promise(r => setTimeout(r, delay + 600));
+    const afterNonAdmin = writes;
+    return { duringBurst, afterBurst, afterNonAdmin, delay, entries: lastEntries };
+  });
+  if (auto.noBridge) {
+    console.log("SKIP  auto-rebuild — no test bridge");
+  } else {
+    check("a burst of publishes writes nothing while it is still bursting", auto.duringBurst === 0);
+    check(`...and coalesces into ONE write (${auto.afterBurst})`, auto.afterBurst === 1);
+    check("a non-admin never attempts the write", auto.afterNonAdmin === auto.afterBurst);
+    check(`the debounce covers a run of typing (${auto.delay}ms)`, auto.delay >= 2000);
+    check("the rebuilt entries carry the live counts",
+      Array.isArray(auto.entries) && auto.entries.length === 2
+      && auto.entries[0].count === 1 && auto.entries[1].count === 2,
+      JSON.stringify(auto.entries && auto.entries.map(e => [e.id, e.count])));
+  }
+
   check("no uncaught JS errors", errs.length === 0, errs.slice(0, 2).join(" | "));
 } catch (e) {
   check("harness completed", false, e && e.message);

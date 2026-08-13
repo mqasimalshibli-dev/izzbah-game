@@ -169,10 +169,23 @@ that is why the projection is a separate document.
     re-enters once, so a credit cannot be spent twice.
 - **The write side already existed** (.294): `lqipFor()` at `LQIP_DIM = 32`,
   WebP q0.6, ~1.3 KB each, ~60 KB for 40 categories, behind
-  «🗂️ بناء فهرس الفئات». ⚠️ It is NOT automatic — publishing a category does
-  not rebuild the index, so a stale index shows old names/counts on a cold boot
-  until the full read lands a moment later. Press the button after a publishing
-  session, or make the publish path rebuild it.
+  «🗂️ بناء فهرس الفئات».
+- **The publish path rebuilds it automatically (build .310).** A successful
+  `cloudPublish`, and either category-delete path, calls
+  `scheduleIndexRebuild()`. The button stays for bulk maintenance.
+  - ⚠️ **DEBOUNCED (4s), and that is not a nicety.** `autoPublishAdmin` fires on
+    every question add/edit/delete, so an immediate rebuild would write a
+    ~60 KB document on every keystroke-driven save. `tests/catindex.mjs` pins
+    that a burst of six publishes produces exactly ONE write.
+  - ⚠️ **Placeholders are memoised by (id, cover)** in `lqipMemo`. Without it
+    each rebuild re-encodes all 39 covers through a canvas — a decode storm in
+    the middle of typing. Changing artwork still recomputes exactly one.
+  - ⚠️ **Silent on failure.** It is derived, cosmetic data and the full read is
+    always the authority, so a failed rebuild must never surface as a publish
+    error. Note `meta/index` is admin-write, so a content EDITOR's publish is
+    denied here — all that goes stale is a question COUNT (editors cannot
+    change a name, cover, colour or order), for the moment before the full read
+    corrects it.
 - **What is still on the table:** this removes the covers from the *critical
   path*, not from the *bill* — the full read still transfers 1.6 MB, just
   behind the paint. Making it a true saving means question text going lazy per
