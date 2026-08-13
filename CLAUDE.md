@@ -141,6 +141,44 @@ and it is **NOT a weaker grade of admin** — it is an independent flag.
   admin centre's players list, and you add `editors/<uid>` in the Firebase
   console — same as `admins/{uid}`. There is no in-app UI for it.
 
+## Cold boot paints from `meta/index` (build .309)
+
+The catalogue read was the single biggest item in a cold boot — ~1.6 MB gzipped
+across 39 parent docs, **88% of it cover images**. Firestore's web SDK has no
+field projection, so there is no way to read a parent doc WITHOUT its cover;
+that is why the projection is a separate document.
+
+- **What changed:** on a cold boot ONLY (no device cache, not an admin), the
+  client reads `meta/index` first and paints the picker from it, then the full
+  `categories.get()` runs exactly as before and replaces those entries.
+  Measured on a throttled harness at the real catalogue size: **picker at 4240ms
+  → 268ms**. `tests/catboot2.mjs`.
+- ⚠️ **The index is a PAINTING aid, never the authority.** Entries carry no
+  questions — only a `count` — and are marked `__idx`. If `meta/index` is
+  missing, stale or denied, the read fails to `false` and nothing changes.
+- ⚠️ **Three choke points had to learn about it**, and missing any one empties
+  the picker on a first visit:
+  - `categoryHasQuestions()` — an `__idx` entry is playable if `count > 0`.
+    Without this every tile reads "coming soon" and `activeCategories()`
+    filters them all out.
+  - `normalizePublishedCategory()` returns a FIXED shape, so `__idx` and
+    `count` have to be named there or they are silently dropped by
+    `applyPublished`.
+  - `startGame()` refuses to build a board from an `__idx` entry and waits for
+    the real read (20s ceiling). It returns BEFORE anything is charged and
+    re-enters once, so a credit cannot be spent twice.
+- **The write side already existed** (.294): `lqipFor()` at `LQIP_DIM = 32`,
+  WebP q0.6, ~1.3 KB each, ~60 KB for 40 categories, behind
+  «🗂️ بناء فهرس الفئات». ⚠️ It is NOT automatic — publishing a category does
+  not rebuild the index, so a stale index shows old names/counts on a cold boot
+  until the full read lands a moment later. Press the button after a publishing
+  session, or make the publish path rebuild it.
+- **What is still on the table:** this removes the covers from the *critical
+  path*, not from the *bill* — the full read still transfers 1.6 MB, just
+  behind the paint. Making it a true saving means question text going lazy per
+  category too, which is the same shape as the .209 media change and a much
+  bigger job.
+
 ## Pending TODOs (user-requested)
 
 - **Web Push notifications — PARKED until after release (owner's call,
