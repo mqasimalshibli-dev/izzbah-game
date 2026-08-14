@@ -1040,3 +1040,33 @@ Single self-contained page, same palette and type system as the game. Marked
   the key outright if nothing meaningful is left. (In practice the budget is
   not reached today: `seen` is trimmed to 120 KB, `progress` maxes near 80 KB
   at the current catalogue size, saved games ~100 KB.)
+
+- **The cloud sync MERGES instead of overwriting (build .311, 2026-08-14).** Two
+  devices signed into the same account used to be last-write-wins: `schedulePush`
+  wrote this device's whole blob over whatever was there, so a phone that had
+  been offline could erase games the tablet had just finished, and vice versa.
+  `schedulePush` is now a `db.runTransaction` read-modify-write — it reads
+  `users/{uid}.data`, runs `mergeBlob(mine, theirs)`, writes the result, and then
+  applies the merged blob back into THIS device's localStorage (under
+  `applying = true`, followed by `reloadFromStorage()`), so both devices converge
+  on the same state without a reload. `tests/blobmerge.mjs` simulates two devices
+  pushing out of order.
+  - Per-key rules live in `MERGE_RULES`: saved games union by id (`charged` is
+    sticky — once true it can never go false, or a replay would become free on
+    the other device; the copy that still has a `frozen` board wins; newest-first;
+    cap 200), `izzbah-seen-v1` and `izzbah-progress-v1` and `izzbah-coach-v1`
+    union, `izzbah-games-used-v1` takes the MAX, `izzbah-free-game-v1` and the
+    legal consent are true-wins, `izzbah-code-balance-v1` keeps the better grant.
+    Anything with no rule keeps the LOCAL value (per-device settings — theme,
+    sound — should not follow you across devices).
+  - Rules of thumb for any key later added to `KEYS`: accumulating list → union;
+    one-way counter → max; one-way flag → true wins; per-device preference →
+    leave it out of `MERGE_RULES`.
+  - ⚠️ `shaveBlob(o)` was split out of `cloudBlob()` **because shaving has to
+    happen AFTER merging**. Shaving the local blob first and then merging can push
+    the result back over `CLOUD_BUDGET` and the write fails outright.
+  - ⚠️ `mergeBlob` is wrapped so a corrupt stored value can never throw away the
+    write — any key whose merge throws falls back to the local value.
+  - This fixes divergence, not simultaneity: two devices playing the SAME game at
+    the same moment still interleave. The owner has accepted that (friends sharing
+    an account is fine); a single-device lock was considered and rejected.

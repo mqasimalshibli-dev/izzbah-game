@@ -12665,7 +12665,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-12.310";
+    const IZZBAH_BUILD = "2026-08-12.311";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -26839,6 +26839,12 @@
       function cloudBlob() {
         const o = {};
         KEYS.forEach(k => { const v = localStorage.getItem(k); if (v != null) o[k] = v; });
+        return shaveBlob(o);
+      }
+      /* Split out of cloudBlob so the MERGED blob can be shaved too. Shaving
+         the local copy and then merging would let the merge push it back over
+         the budget, and the write would fail outright. */
+      function shaveBlob(o) {
         try {
           // SHRINK the play history to fit; only drop it outright if even a
           // minimal one won't. It used to be deleted whole the moment the blob
@@ -26867,15 +26873,142 @@
         } catch (e) { /* stringify failure — push what we have */ }
         return o;
       }
+      /* ── Two devices, one account ──────────────────────────────────────────
+         The push used to write the whole blob with set(), and the only merge
+         in the system ran at SIGN-IN. So two devices signed into one account —
+         friends sharing, or one person on a phone and a laptop — each
+         overwrote the other, and whoever saved last won. Saved games and the
+         question-freshness history simply disappeared.
+         Now every push is a read-modify-write inside a TRANSACTION, and each
+         key is combined by a rule that suits it. The transaction is the part
+         that makes it correct: Firestore retries automatically when the
+         document changed underneath, so two simultaneous pushes serialise
+         instead of racing.
+         ⚠️ Rules of thumb for anything added to KEYS later:
+           • a LIST the player accumulates  → union, never replace
+           • a COUNTER that only goes up    → max
+           • a one-way FLAG                 → true wins
+           • a per-device preference        → last write is fine
+         Getting this wrong loses player data silently, which is why each key
+         below is named explicitly rather than defaulting. */
+      function parseJson(raw, fallback) {
+        try { const v = JSON.parse(raw); return v == null ? fallback : v; } catch (e) { return fallback; }
+      }
+      // Saved games: union by id. A record is immutable once created EXCEPT for
+      // `charged` and its frozen board, so the richer copy wins on conflict.
+      function mergeSavedGames(mineRaw, theirsRaw) {
+        const mine = parseJson(mineRaw, []), theirs = parseJson(theirsRaw, []);
+        if (!Array.isArray(mine) || !Array.isArray(theirs)) return mineRaw != null ? mineRaw : theirsRaw;
+        const by = new Map();
+        theirs.concat(mine).forEach(g => {          // mine second: it wins ties
+          if (!g || !g.id) return;
+          const prev = by.get(g.id);
+          if (!prev) { by.set(g.id, g); return; }
+          by.set(g.id, Object.assign({}, prev, g, {
+            // Once charged, always charged — or a stale device could hand back
+            // a free replay of a game that was already paid for.
+            charged: !!(prev.charged || g.charged),
+            // Keep whichever copy actually has the pinned board.
+            frozen: (g.frozen && Object.keys(g.frozen).length) ? g.frozen : (prev.frozen || {}),
+          }));
+        });
+        // Newest first, then the same 200 cap the loader applies.
+        const out = [...by.values()].sort((a, b) =>
+          String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 200);
+        return JSON.stringify(out);
+      }
+      // Question freshness: catId → [sig, …], OLDEST first. Union per category,
+      // keeping the other device's older entries ahead of ours so recency order
+      // survives — pickUnseen reads that order.
+      function mergeSeenHistory(mineRaw, theirsRaw) {
+        const mine = parseJson(mineRaw, {}), theirs = parseJson(theirsRaw, {});
+        const out = {};
+        new Set(Object.keys(mine).concat(Object.keys(theirs))).forEach(cat => {
+          const a = Array.isArray(theirs[cat]) ? theirs[cat] : [];
+          const b = Array.isArray(mine[cat]) ? mine[cat] : [];
+          const seen = new Set(); const list = [];
+          a.concat(b).forEach(sig => { if (sig && !seen.has(sig)) { seen.add(sig); list.push(sig); } });
+          out[cat] = list;
+        });
+        return JSON.stringify(out);
+      }
+      // Per-category solved signatures: catId → [sig, …]. Union, order is not
+      // meaningful here (only membership is, for the progress ring).
+      function mergeProgress(mineRaw, theirsRaw) {
+        const mine = parseJson(mineRaw, {}), theirs = parseJson(theirsRaw, {});
+        const out = {};
+        new Set(Object.keys(mine).concat(Object.keys(theirs))).forEach(cat => {
+          const a = Array.isArray(theirs[cat]) ? theirs[cat] : [];
+          const b = Array.isArray(mine[cat]) ? mine[cat] : [];
+          out[cat] = [...new Set(a.concat(b))];
+        });
+        return JSON.stringify(out);
+      }
+      const MERGE_RULES = {
+        "izzbah-trivia-saved-games-v1": mergeSavedGames,
+        "izzbah-seen-v1": mergeSeenHistory,
+        "izzbah-progress-v1": mergeProgress,
+        "izzbah-coach-v1": (mine, theirs) => mergeSeenMaps(mine, theirs),
+        // Spent count only ever rises. Also guarded server-side by the
+        // monotonic usage/{uid} rule — this keeps the local mirror honest.
+        "izzbah-games-used-v1": (mine, theirs) =>
+          String(Math.max(Number(mine) || 0, Number(theirs) || 0)),
+        // One-way flags: used is used, agreed is agreed.
+        "izzbah-free-game-v1": (mine, theirs) => (mine === "1" || theirs === "1") ? "1" : (mine != null ? mine : theirs),
+        "izzbah-legal-consent-v1": (mine, theirs) => mine || theirs,
+        // Balance mirror: the bigger grant and premium-on both win; the cloud
+        // code query overwrites this whenever it succeeds anyway.
+        "izzbah-code-balance-v1": (mineRaw, theirsRaw) => {
+          const a = parseJson(mineRaw, {}), b = parseJson(theirsRaw, {});
+          return JSON.stringify({ g: Math.max(Number(a.g) || 0, Number(b.g) || 0), p: !!(a.p || b.p) });
+        },
+        // settings + preview-questions: per-device, last write is correct.
+      };
+      function mergeBlob(mine, theirs) {
+        mine = mine || {}; theirs = theirs || {};
+        const out = {};
+        new Set(Object.keys(mine).concat(Object.keys(theirs))).forEach(k => {
+          const rule = MERGE_RULES[k];
+          if (!rule) { out[k] = mine[k] != null ? mine[k] : theirs[k]; return; }
+          if (mine[k] == null) { out[k] = theirs[k]; return; }
+          if (theirs[k] == null) { out[k] = mine[k]; return; }
+          try { out[k] = rule(mine[k], theirs[k]); }
+          catch (e) { out[k] = mine[k]; }   // a bad rule must never lose the write
+        });
+        return out;
+      }
+      window.IZZBAH_TEST = window.IZZBAH_TEST || {};
+      window.IZZBAH_TEST.mergeBlob = mergeBlob;
       function schedulePush() {
         if (!currentUser || !db || applying) return;
         clearTimeout(pushTimer);
         pushTimer = setTimeout(() => {
-          db.collection("users").doc(currentUser.uid).set({
-            email: currentUser.email || "",
-            data: cloudBlob(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true }).catch(e => console.warn("cloud push failed", e));
+          const ref = db.collection("users").doc(currentUser.uid);
+          db.runTransaction(tx => tx.get(ref).then(snap => {
+            const theirs = (snap.exists && snap.data() && snap.data().data) || null;
+            // No cloud copy yet — nothing to merge against, write ours.
+            const merged = theirs ? mergeBlob(cloudBlob(), theirs) : cloudBlob();
+            // ⚠️ Shave AFTER merging. Running the size guard on the pre-merge
+            // copy lets the merge push it back over the budget and the write
+            // fails outright.
+            tx.set(ref, {
+              email: currentUser.email || "",
+              data: shaveBlob(merged),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            return merged;
+          })).then(merged => {
+            /* Apply the merged result back to THIS device, or it is now out of
+               step with what it just wrote — the other device's saved games
+               would sit in the cloud unseen until the next sign-in. `applying`
+               suppresses the push this would otherwise trigger. */
+            if (!merged) return;
+            applying = true;
+            try {
+              KEYS.forEach(k => { if (merged[k] != null && merged[k] !== localStorage.getItem(k)) origSet(k, merged[k]); });
+              reloadFromStorage();
+            } finally { applying = false; }
+          }).catch(e => console.warn("cloud push failed", e));
         }, 900);
       }
       localStorage.setItem = function (k, v) {
