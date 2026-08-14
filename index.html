@@ -4571,6 +4571,17 @@
     .admin-cathead input[type=color] { width: 40px; height: 40px; padding: 0; border: 1px solid rgba(255,255,255,.14);
       border-radius: 12px; background: none; cursor: pointer; }
     .admin-cathead .ac-count { color: rgba(247,236,221,.5); font: 600 13px 'Cairo', sans-serif; white-space: nowrap; }
+    /* «تكرار بعد N ألعاب» — the depth badge. The board draws ONE cell per point
+       tier, so a category runs out at the rate of its THINNEST tier, not its
+       total. Three states: fine (muted, like the count beside it), thin (amber)
+       and critical (red), so a starved tier is visible without reading numbers. */
+    .ac-depth { font: 700 13px 'Cairo', sans-serif; white-space: nowrap; padding: 3px 10px;
+      border-radius: 999px; border: 1px solid transparent; }
+    .admin-cathead .ac-depth { color: rgba(247,236,221,.5); }
+    .ac-depth.warn { color: #c9871f; border-color: rgba(201,135,31,.45); background: rgba(201,135,31,.10); }
+    .ac-depth.crit { color: #d4453c; border-color: rgba(212,69,60,.45); background: rgba(212,69,60,.10); }
+    .admin-cathead .ac-depth.warn { color: #e8a33c; }
+    .admin-cathead .ac-depth.crit { color: #ff7a70; }
     /* The shared image picker is a big drop target elsewhere; in this dense
        header it is a 40px swatch, matching the colour well beside it. */
     .admin-cathead .image-picker { width: 40px; height: 40px; min-height: 0; border-radius: 12px;
@@ -4585,6 +4596,12 @@
     .admin-cathead .ac-tier { background: none; border: 1px solid rgba(230,199,142,.22); color: rgba(230,199,142,.55);
       border-radius: 999px; padding: 6px 11px; font: 600 13px 'Cairo', sans-serif; white-space: nowrap; }
     .admin-cathead .ac-tier b { color: #e6c78e; font-weight: 700; margin-inline-end: 5px; }
+    /* The tier that runs out first — the one worth adding to. Marked on the
+       chip itself so the row of numbers points somewhere. */
+    .admin-cathead .ac-tier.lim { border-color: rgba(232,163,60,.6); background: rgba(232,163,60,.12); color: #e8a33c; }
+    .admin-cathead .ac-tier.lim b { color: #e8a33c; }
+    /* The depth badge under a row in the category list. */
+    .custom-row .cr-depth { margin-top: 4px; }
     .admin-cathead .ac-publish { flex: 0 0 auto; padding: 14px 30px !important; border: none !important;
       border-radius: 999px !important; background: #d8484f !important; color: #fff5ee !important;
       font: 700 16px 'Cairo', sans-serif !important; box-shadow: 0 6px 18px rgba(216,72,79,.28) !important; }
@@ -12665,7 +12682,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-12.311";
+    const IZZBAH_BUILD = "2026-08-14.312";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13457,6 +13474,79 @@
     function boardTileCount(cats) {
       const list = cats || activeCategories();
       return list.reduce((n, c) => n + categoryTiers(c).length, 0);
+    }
+
+    // ---- How many games until a category has to repeat itself --------------
+    // categoryTiers() above draws exactly ONE cell per point tier, so a NEW game
+    // consumes one question from every tier the category has. The tier with the
+    // FEWEST questions is therefore what runs dry first, and it alone decides
+    // how many games the category survives — the TOTAL count says nothing.
+    // Measured against the live catalogue (2026-08-14) that gap is wide:
+    // «حنكة عمانية» holds 105 questions and repeats on game 7 (6 at the 100
+    // tier), «أفلام أجنبية» holds 119 and repeats on game 8 (7 at the 100 tier).
+    // Reading the totals, both look perfectly healthy. That is exactly why this
+    // is shown in the admin list INSTEAD of leaving the total to speak alone.
+    //
+    // Returns { games, tier, blanks }:
+    //   games  — new games playable before some tier must serve a repeat.
+    //   tier   — the point value that runs out first, i.e. WHERE to add. This
+    //            is the actionable half: topping a category up at the wrong
+    //            tier changes nothing at all.
+    //   blanks — questions with no text. Counted separately and NOT as content,
+    //            so a category padded with empty rows reports the depth it
+    //            really has rather than the depth it appears to have.
+    // A tier with no questions is not a shortage: categoryTiers() simply omits
+    // it, which makes the board smaller, never more repetitive — so empty tiers
+    // are skipped rather than reported as zero.
+    function repeatDepth(questions) {
+      const per = new Map();
+      let blanks = 0;
+      (questions || []).forEach(q => {
+        if (!q) return;
+        const p = q.points;
+        if (typeof p !== "number" || !isFinite(p) || p <= 0) return;
+        if (!String(q.q || "").trim()) { blanks++; return; }
+        per.set(p, (per.get(p) || 0) + 1);
+      });
+      if (!per.size) return { games: 0, tier: null, blanks };
+      let games = Infinity, tier = null;
+      per.forEach((n, p) => {
+        // Ties go to the CHEAPEST tier, so the label names one place to start
+        // rather than flickering between equally-starved tiers on re-render.
+        if (n < games || (n === games && tier != null && p < tier)) { games = n; tier = p; }
+      });
+      return { games, tier, blanks };
+    }
+    // Arabic needs the dual, and "3 ألعاب" vs "11 لعبة" split at ten.
+    function gamesWord(n) {
+      if (n === 1) return "لعبة واحدة";
+      if (n === 2) return "لعبتين";
+      if (n <= 10) return toArabicDigits(n) + " ألعاب";
+      return toArabicDigits(n) + " لعبة";
+    }
+    // The badge shown beside a category's question count. `crit` at two games or
+    // fewer (a repeat inside the very next sitting), `warn` at five or fewer.
+    function repeatDepthBadge(questions) {
+      const d = repeatDepth(questions);
+      const el = document.createElement("span");
+      el.className = "ac-depth";
+      if (!d.games) {
+        el.textContent = "لا أسئلة";
+        el.classList.add("crit");
+        el.title = "لا يوجد سؤال واحد مكتوب في هذه الفئة.";
+        return el;
+      }
+      el.textContent = "♻︎ تكرار بعد " + gamesWord(d.games);
+      if (d.games <= 2) el.classList.add("crit");
+      else if (d.games <= 5) el.classList.add("warn");
+      const tierNote = d.tier != null
+        ? `أقل مستوى: ${toArabicDigits(d.tier)} (${toArabicDigits(d.games)} سؤال). أضف أسئلة عند هذا المستوى تحديداً.`
+        : "";
+      const blankNote = d.blanks
+        ? ` — ${toArabicDigits(d.blanks)} سؤال فارغ لا يُحتسب.`
+        : "";
+      el.title = `اللوحة تأخذ سؤالاً واحداً من كل مستوى، فتنتهي الفئة بسرعة أقل مستوى فيها لا بعددها الكلي. ${tierNote}${blankNote}`;
+      return el;
     }
 
     // A "private" category is a personal one a player made and kept to themselves
@@ -17406,11 +17496,21 @@
         ...newOnes.map(c => ({ cat: c, base: c, edited: true, builtin: false }))
       ];
       rows.forEach(({ cat, edited, builtin }) => {
-        // Show the real question count: for a built-in whose override (if any) is
-        // empty, count the built-in bank rather than the empty inline list.
-        const effectiveQs = (builtin && !overrideHasQuestions(cat) && builtinQuestionBanks[cat.id])
-          ? builtinEditableQuestions(cat.id)
-          : (cat.questions || []);
+        // Show the real question count. Two cases send us to the bundled bank:
+        //   • there is no cloud override at all, and
+        //   • there is one but it carries no real questions.
+        // ⚠️ The first case cannot be detected with overrideHasQuestions(cat)
+        // alone. With no override, `cat` IS the built-in, and
+        // refreshBuiltinQuestions() sets a built-in's `.questions` to
+        // buildQuestionSet() — ONE question per tier, a sampled BOARD, not the
+        // bank. So the test passed on the sample and a category with a 135-
+        // question bank counted as 5. Harmless-looking beside «٥/٥ أسئلة»; next
+        // to the repeat badge it read «تكرار بعد لعبة واحدة» in red for a
+        // perfectly healthy category. `edited` already knows whether a cloud
+        // override exists, so ask that first.
+        const useBank = builtin && builtinQuestionBanks[cat.id]
+          && (!edited || !overrideHasQuestions(cat));
+        const effectiveQs = useBank ? builtinEditableQuestions(cat.id) : (cat.questions || []);
         const done = effectiveQs.filter(q => (q.q || "").trim()).length;
         const total = effectiveQs.length || pointValues.length;
         const hidden = isCategoryHidden(cat.id);
@@ -17425,7 +17525,12 @@
           <div>
             <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}${statusLabel}</div>
             <div style="font-size:17px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(done)}/${toArabicDigits(total)}</span> أسئلة</div>
+            <div class="cr-depth"></div>
           </div>`;
+        // Appended rather than interpolated: repeatDepthBadge builds a real
+        // element (with its own title text), and this row is assembled with
+        // innerHTML from category names that are already escaped above.
+        row.querySelector(".cr-depth").appendChild(repeatDepthBadge(effectiveQs));
         const actions = document.createElement("div");
         actions.className = "actions";
         actions.style.margin = "0";
@@ -17620,6 +17725,8 @@
     window.IZZBAH_TEST = window.IZZBAH_TEST || {};
     window.IZZBAH_TEST.applyEditorLocks = applyEditorLocks;
     window.IZZBAH_TEST.EDITOR_LOCKED_IDS = EDITOR_LOCKED_IDS;
+    window.IZZBAH_TEST.repeatDepth = repeatDepth;
+    window.IZZBAH_TEST.gamesWord = gamesWord;
 
     function adminTabChip(id, name, color, active) {
       const b = document.createElement("button");
@@ -17710,8 +17817,15 @@
       const byTier = {};
       (cat.questions || []).forEach(q => { const p = q.points || 0; byTier[p] = (byTier[p] || 0) + 1; });
       const tiers = Object.keys(byTier).map(Number).sort((a, b) => a - b);
+      // The chips have always carried the per-tier numbers; what was missing is
+      // which of them is the BOTTLENECK. The board takes one question per tier,
+      // so the smallest chip alone sets how long the category lasts — marking it
+      // turns a row of numbers into "add here".
+      const limTier = repeatDepth(cat.questions).tier;
       tierCounts.innerHTML = tiers
-        .map(p => `<span class="ac-tier" title="عدد أسئلة فئة ${toArabicDigits(p)}"><b>${toArabicDigits(p)}</b> ${toArabicDigits(byTier[p])}</span>`)
+        .map(p => `<span class="ac-tier${p === limTier ? " lim" : ""}" title="${p === limTier
+              ? `أقل مستوى — هذا ما يحدّد عمر الفئة. أضف أسئلة عند ${toArabicDigits(p)}.`
+              : `عدد أسئلة فئة ${toArabicDigits(p)}`}"><b>${toArabicDigits(p)}</b> ${toArabicDigits(byTier[p])}</span>`)
         .join("");
       const pub = document.createElement("button");
       pub.className = "primary ac-publish";
@@ -17815,7 +17929,7 @@
          thing that wrapped. Now the chips wrap among themselves instead. */
       const meta = document.createElement("div");
       meta.className = "ac-meta";
-      meta.append(count, tierCounts);
+      meta.append(count, repeatDepthBadge(cat.questions), tierCounts);
       rowId.append(name, colorLbl, imgLbl, spacer, meta, pub);
 
       const rowState = document.createElement("div");
