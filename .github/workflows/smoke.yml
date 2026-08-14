@@ -526,6 +526,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catboot2.mjs
 
+      - name: Run category repeat-depth («تكرار بعد N ألعاب») test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node repeatdepth.mjs
+
       - name: Run cloud-blob two-device merge test
         working-directory: tests
         run: |

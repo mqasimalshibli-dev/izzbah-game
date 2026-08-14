@@ -1031,6 +1031,44 @@ Single self-contained page, same palette and type system as the game. Marked
   the categories need more questions. 12 of 196 published tiers hold exactly
   one question. By contrast «تاريخ» ([20,29,29,27,27]) shows no repeat inside
   13 consecutive games.
+  ⚠️ Re-measured 2026-08-14 (40 categories, 4570 questions) — see the entry
+  below; the shortage is now concentrated in FOUR categories, and several
+  healthy-LOOKING ones are starved at a single tier.
+
+- **«تكرار بعد N ألعاب» — the only category-health number worth reading
+  (build .312, 2026-08-14).** `categoryTiers()` puts exactly ONE cell per point
+  tier on the board, so a new game eats one question from every tier and the
+  THINNEST tier alone decides how long a category lasts. The total says nothing.
+  `repeatDepth(questions)` returns `{games, tier, blanks}` and
+  `repeatDepthBadge()` renders it beside the question count in BOTH admin
+  surfaces — the category row list and the open-category head, where the
+  limiting tier's existing chip is also marked `.lim` so the row of per-tier
+  numbers points somewhere. Bands: `crit` ≤2 games, `warn` ≤5.
+  - Measured live 2026-08-14 (40 categories, 4570 questions). Broken:
+    **دين 5 and ميمز 5** (one per tier — identical board forever),
+    **جلسة حريم 9** (1 @ 500), **من الي سجل؟ 31** (2 @ 500, and it is the
+    sketch-video flagship). Healthy-looking but starved at ONE tier:
+    **حنكة عمانية 105 → 7 games** (6 @ 100), **أفلام أجنبية 119 → 8** (7 @ 100),
+    **تاريخ 126 → 11** (10 @ 100), كافيهات ومطاعم (5 @ 400), رياكشنات (5 @ 500).
+    For those the fix is 15–25 questions at ONE named tier, not bulk topping-up.
+  - ⚠️ A blank question is counted as `blanks`, never as depth — otherwise a
+    category padded with empty rows reports a life it does not have.
+  - ⚠️ A tier with NO questions is skipped, not reported as zero:
+    `categoryTiers()` omits that row, which makes the board smaller, never more
+    repetitive.
+  - ⚠️ **`overrideHasQuestions(cat)` cannot tell you "is there a cloud
+    override".** With no override, `cat` IS the built-in, and
+    `refreshBuiltinQuestions()` sets a built-in's `.questions` to
+    `buildQuestionSet()` — ONE question per tier, a sampled BOARD, not the bank.
+    So the test passed on the sample and a 135-question bank counted as 5. That
+    was invisible next to «٥/٥ أسئلة» and glaring next to the new badge (red
+    «تكرار بعد لعبة واحدة» on a healthy category). `renderAdminCategoryList` now
+    asks `edited` first. Anything else reaching for a built-in's real question
+    list wants `builtinEditableQuestions(id)`, never `cat.questions`.
+  - `toArabicDigits` is `String(value)` — identity. The app renders Latin
+    digits and styles them with `.clean-number`; do not assert Arabic-Indic
+    digits in tests. `tests/repeatdepth.mjs` (23 checks) covers the arithmetic
+    and both rendered surfaces.
 
 - **`izzbah-seen-v1` is no longer silently dropped from the cloud sync.** When
   the `users/{uid}.data` blob crossed 700 KB, `cloudBlob()` deleted the whole
