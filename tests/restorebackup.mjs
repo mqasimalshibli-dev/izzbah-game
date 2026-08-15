@@ -128,6 +128,21 @@ try {
   });
   check("...and the handler refuses even if the button is reached directly", refused === false);
 
+  // A restored category must carry its IDENTITY, not just its questions. The
+  // export keeps covers (only question media is stripped) and a cover cannot be
+  // recreated — the masters are gone. Dropping it would lose the one
+  // irreplaceable thing in the file.
+  const ident = await page.evaluate(() => {
+    const plan = window.IZZBAH_TEST.restorePlan;
+    const p = plan({ kind: "izzbah-catalog-backup", version: 1, exportedAt: "", published: [
+      { id: "cat-gone", name: "فئة محذوفة", image: "data:image/webp;base64,AAAA", color: "#a9772a", order: 7,
+        questions: [{ points: 100, q: "س", a: "ج" }] }] }, []);
+    return p.newCats[0] && p.newCats[0].meta;
+  });
+  check("a restored category keeps its cover", ident && ident.image === "data:image/webp;base64,AAAA");
+  check("...its colour", ident && ident.color === "#a9772a");
+  check("...and its place in the picker", ident && ident.order === 7, ident && String(ident.order));
+
   // ---- the modal: a preview must write NOTHING ---------------------------
   const ui = await page.evaluate(async () => {
     const sleep = ms => new Promise(z => setTimeout(z, ms));
