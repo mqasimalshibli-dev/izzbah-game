@@ -8449,7 +8449,8 @@
             <button class="secondary af-tool" id="adminShrinkQMedia" type="button" title="يضغط صور الأسئلة والإجابات المنشورة — يقلّل استهلاك الذاكرة أثناء اللعب. قد يستغرق عدة دقائق. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-bolt"/></svg><span class="af-label">ضغط صور الأسئلة</span></button>
             <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-folder"/></svg><span class="af-label">بناء فهرس الفئات</span></button>
             <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-bolt"/></svg><span class="af-label">ضغط صور الفئات</span></button>
-            <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><svg class="af-ico" aria-hidden="true"><use href="#i-backup"/></svg><span class="af-label">نسخة احتياطية</span></button>
+            <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل النصوص فقط (سريع، صغير) — بدون صور الأسئلة. للنسخة الكاملة استخدم «نسخة كاملة بالصور»"><svg class="af-ico" aria-hidden="true"><use href="#i-backup"/></svg><span class="af-label">نسخة احتياطية (نصوص)</span></button>
+            <button class="secondary af-tool" id="adminExportFull" type="button" title="ينزّل كل شيء بما فيه صور الأسئلة — بطيء وكبير، استخدمه على الحاسوب. هذه هي النسخة التي تنقذ الصور"><svg class="af-ico" aria-hidden="true"><use href="#i-backup"/></svg><span class="af-label">نسخة كاملة بالصور</span></button>
             <button class="secondary af-tool" id="adminRestoreAll" type="button" title="يقرأ ملف نسخة احتياطية ويعيد الأسئلة الناقصة فقط — يعرض ما سيتغيّر قبل الكتابة، ولا يحذف ولا يعدّل شيئاً موجوداً"><svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg><span class="af-label">استعادة من نسخة</span></button>
             <input type="file" id="adminRestoreFile" accept="application/json,.json" hidden>
             <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg><span class="af-label">إعادة تحميل من الأصل</span></button>
@@ -12719,7 +12720,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.318";
+    const IZZBAH_BUILD = "2026-08-15.319";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17741,7 +17742,7 @@
       // recreate deleted ones — squarely the owner's. startCatalogRestore()
       // re-checks state.isAdmin as well, since a hidden button is ergonomics
       // and not a permission.
-      "adminExportAll", "adminRestoreAll", "adminReseedBuiltin",
+      "adminExportAll", "adminExportFull", "adminRestoreAll", "adminReseedBuiltin",
       // the two the owner named directly
       "adminClearQuestions",
     ];
@@ -26433,6 +26434,80 @@
       };
     }
 
+    // ---- The FULL backup: text AND question pictures ------------------------
+    // «نسخة احتياطية» is text-only, because state.publishedCategories is
+    // media-lite (.209). That is the everyday backup and it stays. This one is
+    // the disaster backup: it hydrates each category, writes it out, and
+    // RELEASES it before moving on, so the JS heap only ever holds ONE
+    // category's pictures however big the catalogue grows.
+    // ⚠️ The finished parts are folded into a Blob as they are produced. A Blob
+    // is browser-managed and may be spilled to disk; accumulating the same
+    // ~160 MB as JS strings instead would put the whole catalogue back on the
+    // heap and reproduce the crash this design exists to avoid.
+    // ⚠️ COMMUNITY question media is NOT included — it is lazy too, and it is
+    // members' content with its own recovery story. `mediaIncluded` therefore
+    // means "the published questions carry their pictures", which is what the
+    // game plays and what the August wipe destroyed.
+    async function buildFullBackupBlob(onProgress) {
+      const cats = (state.publishedCategories || []).slice();
+      let blob = new Blob([]);
+      let buf = [];
+      const flush = () => { if (buf.length) { blob = new Blob([blob].concat(buf), { type: "application/json" }); buf = []; } };
+      const head = {
+        kind: "izzbah-catalog-backup", version: 2, build: IZZBAH_BUILD,
+        exportedAt: new Date().toISOString(), mediaIncluded: true
+      };
+      buf.push(JSON.stringify(head).slice(0, -1) + ',"published":[');
+      let withMedia = 0, missed = 0;
+      for (let i = 0; i < cats.length; i++) {
+        const c = cats[i];
+        if (onProgress) onProgress(i, cats.length, c.name || c.id);
+        let got = true;
+        if (categoryNeedsMedia(c)) {
+          try { await hydrateMediaInto([c]); } catch (e) {}
+          got = hydratedCats.has(c.id);
+        }
+        if (got) withMedia++; else missed++;
+        buf.push((i ? "," : "") + JSON.stringify(c));
+        // Straight after serialising, before the next category is fetched.
+        if (got) releaseCategoryMedia(c.id);
+        flush();
+      }
+      buf.push('],"community":' + JSON.stringify(state.communityCategories || [])
+        + ',"custom":' + JSON.stringify(state.customCategories || []) + '}');
+      flush();
+      if (onProgress) onProgress(cats.length, cats.length, "");
+      return { blob: blob, cats: cats.length, withMedia: withMedia, missed: missed };
+    }
+
+    async function exportFullBackup() {
+      if (!state.isAdmin) { showToast("النسخة الكاملة للمشرف فقط"); return; }
+      const btn = $("#adminExportFull");
+      if (btn && btn.disabled) return;
+      const label = btn ? btn.querySelector(".af-label") : null;
+      const orig = label ? label.textContent : "";
+      if (btn) btn.disabled = true;
+      try {
+        const res = await buildFullBackupBlob((done, total, name) => {
+          if (label) label.textContent = `${toArabicDigits(done)}/${toArabicDigits(total)}` + (name ? ` — ${name}` : "");
+        });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(res.blob);
+        a.download = "izzbah-full-" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+        const mb = Math.round(res.blob.size / (1024 * 1024));
+        showToast(res.missed
+          ? `تم التنزيل — ${toArabicDigits(res.withMedia)} فئة بصورها، و${toArabicDigits(res.missed)} تعذّر تحميل صورها (${toArabicDigits(mb)} م.ب)`
+          : `تم تنزيل النسخة الكاملة — ${toArabicDigits(res.cats)} فئة بصورها (${toArabicDigits(mb)} م.ب)`);
+      } catch (e) {
+        showToast("تعذّر بناء النسخة الكاملة");
+      } finally {
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = orig;
+      }
+    }
+
     // ---- Restoring from a backup file --------------------------------------
     // The single most destructive thing an admin can press, so the rules are
     // narrow and absolute:
@@ -26473,7 +26548,7 @@
     // visible and harmless.
     const RESTORE_Q_MAX = 2000;
     const RESTORE_CAT_MAX = 500;
-    function restoreCleanQuestion(q) {
+    function restoreCleanQuestion(q, keepMedia) {
       if (!q) return null;
       // Trimmed, like every other authoring path (parseImport trims each cell).
       // Whitespace is not content, and restoreNorm ignores it for matching
@@ -26489,15 +26564,21 @@
       const pts = Number(q.points);
       if (!Number.isFinite(pts) || pts <= 0) return null;
       // Rebuilt field by field, so nothing unexpected from the file reaches
-      // Firestore, and an image is never carried across — the file has none.
-      return { points: pts, q: text, a: ans, image: "", answerImage: "" };
+      // Firestore. Images are carried ONLY from a file that stamped
+      // mediaIncluded:true — a v1 (text-only) file has empty images, and
+      // trusting those is precisely how a restore would blank the catalogue.
+      return {
+        points: pts, q: text, a: ans,
+        image: keepMedia ? String(q.image || "") : "",
+        answerImage: keepMedia ? String(q.answerImage || "") : ""
+      };
     }
 
     // Pure: given a parsed backup file and the live categories, work out what
     // WOULD be added. No side effects, so the preview and the write share one
     // implementation and cannot disagree.
     function restorePlan(backup, liveCats) {
-      const out = { ok: false, error: "", cats: [], newCats: [], totals: { cats: 0, questions: 0 }, dropped: 0, capped: 0, meta: {} };
+      const out = { ok: false, error: "", cats: [], newCats: [], totals: { cats: 0, questions: 0 }, dropped: 0, capped: 0, mediaCats: 0, meta: {} };
       if (!backup || typeof backup !== "object") { out.error = "الملف غير صالح"; return out; }
       if (backup.kind !== "izzbah-catalog-backup") { out.error = "هذا ليس ملف نسخة احتياطية من عِزبة"; return out; }
       if (!Array.isArray(backup.published)) { out.error = "الملف لا يحتوي فئات"; return out; }
@@ -26514,7 +26595,7 @@
         if (!bc || !bc.id) return;
         const id = String(bc.id);
         const raw = Array.isArray(bc.questions) ? bc.questions : [];
-        const bq = raw.map(restoreCleanQuestion).filter(Boolean);
+        const bq = raw.map(q => restoreCleanQuestion(q, out.meta.mediaIncluded)).filter(Boolean);
         // Rows the rules would have rejected. Reported, never written.
         out.dropped += raw.length - bq.length;
         const cur = live.get(id);
@@ -26559,8 +26640,20 @@
         const fit = add.slice(0, roomLeft);
         out.capped += add.length - fit.length;
         if (fit.length) {
-          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: fit.length, questions: fit, liveCount: liveCount });
+          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: fit.length, questions: fit, liveCount: liveCount, all: bq });
           out.totals.cats++; out.totals.questions += fit.length;
+        } else if (out.meta.mediaIncluded) {
+          // Nothing textual is missing, but a media-complete file can still
+          // REFILL pictures that were lost while the text survived — which is
+          // exactly the shape of the August wipe. Whether there is anything to
+          // refill cannot be known here: live categories are media-LITE, so an
+          // empty image in state means "not loaded", not "missing". Only
+          // hydrating tells you, and hydrating 40 categories to draw a preview
+          // is the heap problem all over again. So the category is queued and
+          // the real count is reported after the run.
+          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: 0, questions: [], liveCount: liveCount, all: bq, mediaOnly: true });
+          out.totals.cats++;
+          out.mediaCats++;
         }
       });
       out.ok = true;
@@ -26569,7 +26662,7 @@
 
     // Apply one category's additions. `report` collects a line per category so
     // the admin sees exactly what happened, including anything skipped.
-    async function restoreOneCategory(entry, isNew, report) {
+    async function restoreOneCategory(entry, isNew, report, plannedMedia) {
       const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
       if (!cloud) { report.push({ name: entry.name, skipped: "الحفظ السحابي غير متاح" }); return false; }
       let target;
@@ -26602,11 +26695,45 @@
             return false;
           }
         }
-        target = Object.assign({}, cur, { questions: (cur.questions || []).concat(entry.questions) });
+        // Refill pictures that are missing live but present in the file. This is
+        // the case the August wipe actually produced: every question's TEXT
+        // survived and its image was blanked, so an add-only restore would have
+        // recovered nothing at all.
+        //   • FILL BLANKS ONLY. A live image is never overwritten, even if the
+        //     file disagrees — the live copy is newer by definition.
+        //   • Matched on CONTENT, never on index, for the same reason as
+        //     everything else here: question docs are positional.
+        //   • Only from a file that stamped mediaIncluded. A v1 file's images
+        //     are all empty, and "filling" from those is the blanking bug.
+        let refilled = 0;
+        let merged = (cur.questions || []);
+        if (plannedMedia && entry.all && entry.all.length) {
+          const byKey = new Map(entry.all.map(q => [restoreQKey(q), q]));
+          merged = merged.map(q => {
+            const src = byKey.get(restoreQKey(q));
+            if (!src) return q;
+            const wantImg = !String(q.image || "").trim() && String(src.image || "").trim();
+            const wantAns = !String(q.answerImage || "").trim() && String(src.answerImage || "").trim();
+            if (!wantImg && !wantAns) return q;
+            refilled++;
+            return Object.assign({}, q, {
+              image: wantImg ? src.image : q.image,
+              answerImage: wantAns ? src.answerImage : q.answerImage
+            });
+          });
+        }
+        if (!entry.questions.length && !refilled) {
+          // Nothing to do for this category — do NOT republish it. A publish
+          // rewrites every question doc, so a no-op write is pure risk.
+          report.push({ name: entry.name, added: 0, refilled: 0, noop: true });
+          return true;
+        }
+        target = Object.assign({}, cur, { questions: merged.concat(entry.questions) });
+        entry.__refilled = refilled;
       }
       try {
         await cloud(target);
-        report.push({ name: entry.name, added: entry.questions.length, isNew: isNew });
+        report.push({ name: entry.name, added: entry.questions.length, refilled: entry.__refilled || 0, isNew: isNew });
         return true;
       } catch (e) {
         report.push({ name: entry.name, skipped: "فشل النشر — " + ((e && e.message) || "خطأ") });
@@ -26644,7 +26771,7 @@
         // Sequential ON PURPOSE: each category hydrates its own media, and
         // running them in parallel would put the whole catalogue's pictures on
         // the heap at once — the 541 MB crash that build .209 exists to prevent.
-        await restoreOneCategory(all[i][0], all[i][1], report);
+        await restoreOneCategory(all[i][0], all[i][1], report, !!(plan.meta && plan.meta.mediaIncluded));
       }
       if (onProgress) onProgress(all.length, all.length, "");
       return report;
@@ -26676,7 +26803,7 @@
       }
       const when = plan.meta.exportedAt ? plan.meta.exportedAt.slice(0, 10) : "غير معروف";
       let html = `<span class="imp-ok">نسخة بتاريخ <b>${escapeHtml(when)}</b>${plan.meta.build ? ` — بناء ${escapeHtml(plan.meta.build)}` : ""}</span>`;
-      if (!plan.totals.questions) {
+      if (!plan.totals.questions && !plan.mediaCats) {
         html += `<div class="imp-auto">لا يوجد شيء ناقص — المحتوى الحالي يشمل كل ما في النسخة.</div>`;
         box.innerHTML = html; run.disabled = true; return;
       }
@@ -26688,7 +26815,9 @@
       // The media warning is not decoration. Every backup ever written is
       // text-only, and an admin restoring after a picture loss must not walk
       // away believing the pictures came back.
-      html += `<div class="imp-auto">🖼️ هذه النسخة <b>لا تحتوي صور الأسئلة</b> (النص فقط). الصور الحالية لن تتغيّر، ولن تُستعاد صورة مفقودة.</div>`;
+      html += plan.meta.mediaIncluded
+        ? `<div class="imp-auto">🖼️ نسخة <b>كاملة بالصور</b>. ستُملأ الصور <b>الناقصة فقط</b> في ${toArabicDigits(plan.mediaCats + plan.cats.filter(c => !c.mediaOnly).length)} فئة — لن تُستبدل صورة موجودة أبداً.</div>`
+        : `<div class="imp-auto">🖼️ هذه النسخة <b>لا تحتوي صور الأسئلة</b> (النص فقط). الصور الحالية لن تتغيّر، ولن تُستعاد صورة مفقودة.</div>`;
       // Anything the plan is NOT going to write has to be said out loud. A
       // recovery tool that quietly drops rows is worse than one that refuses.
       if (plan.dropped || plan.capped) {
@@ -26745,8 +26874,11 @@
           if (name) box.innerHTML = `<span class="imp-ok">جارٍ: ${escapeHtml(name)}</span>`;
         });
         const added = report.reduce((s, r) => s + (r.added || 0), 0);
+        const refilled = report.reduce((s, r) => s + (r.refilled || 0), 0);
         const skipped = report.filter(r => r.skipped);
-        let html = `<span class="imp-ok">تمت الاستعادة — <b>${toArabicDigits(added)}</b> سؤالاً في ${toArabicDigits(report.length - skipped.length)} فئة.</span>`;
+        let html = `<span class="imp-ok">تمت الاستعادة — <b>${toArabicDigits(added)}</b> سؤالاً`
+          + (refilled ? ` و<b>${toArabicDigits(refilled)}</b> صورة` : "")
+          + ` في ${toArabicDigits(report.length - skipped.length)} فئة.</span>`;
         if (skipped.length) {
           html += `<div class="imp-errs">${skipped.map(r => `<div>⚠️ ${escapeHtml(r.name)}: ${escapeHtml(r.skipped)}</div>`).join("")}</div>`;
         }
@@ -26764,6 +26896,7 @@
       }
     });
     $("#adminRestoreAll").addEventListener("click", startCatalogRestore);
+    $("#adminExportFull").addEventListener("click", exportFullBackup);
     $("#adminExportAll").addEventListener("click", exportCatalogBackup);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);

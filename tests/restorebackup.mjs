@@ -237,6 +237,83 @@ try {
   check("the plan warns the file has no question images", ui.warnsNoMedia);
   check("cancelling closes without writing", ui.closed);
 
+  // ---- v2: a media-complete file ------------------------------------------
+  // The August wipe left every question's TEXT intact and blanked its image, so
+  // an add-only restore would have recovered NOTHING. A v2 file must be able to
+  // refill blanks — and must never overwrite a live picture.
+  const media = await page.evaluate(() => {
+    const plan = window.IZZBAH_TEST.restorePlan;
+    const v2 = (qs) => ({ kind: "izzbah-catalog-backup", version: 2, exportedAt: "", mediaIncluded: true,
+      published: [{ id: "c", name: "ف", questions: qs }] });
+    const v1 = (qs) => ({ kind: "izzbah-catalog-backup", version: 1, exportedAt: "",
+      published: [{ id: "c", name: "ف", questions: qs }] });
+    const live = [{ id: "c", name: "ف", questions: [{ points: 100, q: "س", a: "ج", image: "", answerImage: "" }] }];
+    const p2 = plan(v2([{ points: 100, q: "س", a: "ج", image: "IMG", answerImage: "ANS" }]), live);
+    const p1 = plan(v1([{ points: 100, q: "س", a: "ج", image: "IMG" }]), live);
+    return {
+      v2Queued: p2.mediaCats,
+      v2CarriesImage: p2.cats[0] && p2.cats[0].all[0].image === "IMG",
+      v2NotCountedAsQuestions: p2.totals.questions === 0,
+      v1Queued: p1.mediaCats,
+      v1DropsImage: p1.cats.length === 0,
+      v1Flag: p1.meta.mediaIncluded, v2Flag: p2.meta.mediaIncluded,
+    };
+  });
+  check("a media-complete file queues the category for an image refill", media.v2Queued === 1);
+  check("...carrying the picture through the plan", media.v2CarriesImage);
+  check("...without pretending questions are missing", media.v2NotCountedAsQuestions);
+  check("a TEXT-ONLY file queues no refill and carries no image", media.v1Queued === 0 && media.v1DropsImage);
+  check("the two files are distinguished by the flag", media.v1Flag === false && media.v2Flag === true);
+
+  // The full export: bounded heap, and it must release what it hydrates.
+  const full = await page.evaluate(() => ({
+    exists: !!document.getElementById("adminExportFull"),
+    locked: (window.IZZBAH_TEST.EDITOR_LOCKED_IDS || []).includes("adminExportFull"),
+    textOnlyRelabelled: /نصوص/.test((document.querySelector("#adminExportAll .af-label") || {}).textContent || ""),
+  }));
+  check("«نسخة كاملة بالصور» exists and is admin-only", full.exists && full.locked);
+  check("...and the text-only backup no longer claims to be complete", full.textOnlyRelabelled);
+
+  // The refill, end to end: what actually reaches cloudPublish.
+  const wrote = await page.evaluate(async () => {
+    const sleep = ms => new Promise(z => setTimeout(z, ms));
+    state.isAdmin = true;
+    // Live: q1 has LOST its picture, q2 still has one, q3 exists only live.
+    state.publishedCategories = [{ id: "c", name: "ف", custom: true, __lite: false, questions: [
+      { points: 100, q: "س١", a: "ج١", image: "", answerImage: "" },
+      { points: 200, q: "س٢", a: "ج٢", image: "LIVE2", answerImage: "" },
+      { points: 300, q: "س٣", a: "ج٣", image: "LIVE3", answerImage: "" } ] }];
+    let sent = null;
+    const prev = window.IZZBAH.cloudPublish;
+    window.IZZBAH.cloudPublish = (cat) => { sent = JSON.parse(JSON.stringify(cat)); return Promise.resolve(); };
+    const file = new File([JSON.stringify({
+      kind: "izzbah-catalog-backup", version: 2, exportedAt: "", mediaIncluded: true,
+      published: [{ id: "c", name: "ف", questions: [
+        { points: 100, q: "س١", a: "ج١", image: "FILE1", answerImage: "FILEA1" },
+        { points: 200, q: "س٢", a: "ج٢", image: "FILE2" },
+        { points: 400, q: "س٤", a: "ج٤", image: "FILE4" } ] }],
+    })], "f.json", { type: "application/json" });
+    const dt = new DataTransfer(); dt.items.add(file);
+    const inp = document.getElementById("adminRestoreFile");
+    inp.files = dt.files; inp.dispatchEvent(new Event("change"));
+    await sleep(400);
+    document.getElementById("restoreRun").click();
+    await sleep(900);
+    const txt = document.getElementById("restorePreview").textContent || "";
+    document.getElementById("restoreCancel").click();
+    window.IZZBAH.cloudPublish = prev;
+    return { sent, txt };
+  });
+  const qs = (wrote.sent && wrote.sent.questions) || [];
+  const byQ = (t) => qs.find(x => x.q === t) || {};
+  check("a BLANK live image is refilled from the file", byQ("س١").image === "FILE1", byQ("س١").image);
+  check("...including the answer image", byQ("س١").answerImage === "FILEA1");
+  check("AN EXISTING LIVE IMAGE IS NEVER OVERWRITTEN", byQ("س٢").image === "LIVE2", byQ("س٢").image);
+  check("a question the file does not know is left exactly as it was", byQ("س٣").image === "LIVE3");
+  check("a question missing from live is appended", !!byQ("س٤").q, JSON.stringify(byQ("س٤")));
+  check("...and nothing is deleted", qs.length === 4, String(qs.length));
+  check("the report names the refilled pictures", /صورة/.test(wrote.txt), wrote.txt.slice(0, 70));
+
   check("no page errors", errs.length === 0, errs[0] || "");
 } finally {
   await browser.close();
