@@ -1065,6 +1065,25 @@ Single self-contained page, same palette and type system as the game. Marked
   - Admin-only: `adminRestoreAll` is in `EDITOR_LOCKED_IDS` **and**
     `startCatalogRestore()` re-checks `state.isAdmin`, because a hidden button
     is ergonomics, not a permission.
+  - ⚠️ **`releaseCategoryMedia()` after each publish, and `hydratedCats` had NO
+    eviction anywhere before .317.** Hydrating N categories left all N sets of
+    pictures resident, so a full-catalogue restore reproduced the exact 541 MB
+    heap .209 exists to prevent. Sequential hydration bounds CONCURRENCY, not
+    ACCUMULATION — only the release does. Any future bulk job that hydrates
+    more than one category must release too.
+  - ⚠️ **A restored category carries its cover, colour and order** (`entry.meta`).
+    Covers survive the lite stripping (they sit on the parent doc) and CANNOT be
+    recreated — the masters are gone and 480px is the ceiling — so the first cut
+    of this, which rebuilt the category from `{id, name, questions}` alone, threw
+    away the one irreplaceable thing in the file.
+  - ⚠️ **An EDITED question is indistinguishable from a missing one.** Matching
+    is on content, so restoring a stale backup after a round of rewording
+    APPENDS the old wording beside the new. That is the likeliest way to make a
+    mess with this; it is add-only so nothing is lost, but the duplicate scanner
+    is the cleanup.
+  - ⚠️ No undo spans categories («تراجع» is a single-category snapshot), and a
+    mid-run failure leaves some categories restored and some not. The report
+    names them; nothing unwinds.
   - **Still open:** the export carries no question media. Making it complete
     means hydrating category-by-category and streaming, so the heap stays
     bounded — worth doing, not done.

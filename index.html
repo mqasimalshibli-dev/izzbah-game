@@ -12719,7 +12719,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.316";
+    const IZZBAH_BUILD = "2026-08-15.317";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -26478,7 +26478,21 @@
         if (!cur) {
           // A category that no longer exists live. Restored whole.
           if (!bq.length) return;
-          out.newCats.push({ id: id, name: String(bc.name || ""), add: bq.length, questions: bq });
+          out.newCats.push({
+            id: id, name: String(bc.name || ""), add: bq.length, questions: bq,
+            // Carry the category's IDENTITY across. The export keeps covers —
+            // only question media is stripped — and a cover cannot be recreated
+            // (the masters are gone, 480px is the ceiling), so dropping it here
+            // would lose the one irreplaceable thing in the file. colour and
+            // order matter too: cloudPublish uses a plain set(), so a field the
+            // in-memory copy does not carry is DELETED.
+            meta: {
+              image: String(bc.image || ""),
+              color: String(bc.color || ""),
+              order: Number.isFinite(Number(bc.order)) ? Number(bc.order) : 9999,
+              description: String(bc.description || "")
+            }
+          });
           out.totals.cats++; out.totals.questions += bq.length;
           return;
         }
@@ -26510,7 +26524,13 @@
         // Nothing live to protect — the category is gone. Its questions carry
         // no images (the file has none), which is correct: there is no stored
         // picture to lose.
-        target = { id: entry.id, name: entry.name, custom: false, published: true, order: 9999, questions: entry.questions.slice() };
+        const m = entry.meta || {};
+        target = {
+          id: entry.id, name: entry.name, custom: false, published: true,
+          image: m.image || "", color: m.color || "",
+          order: Number.isFinite(Number(m.order)) ? Number(m.order) : 9999,
+          questions: entry.questions.slice()
+        };
       } else {
         const cur = (state.publishedCategories || []).find(c => String(c.id) === String(entry.id));
         if (!cur) { report.push({ name: entry.name, skipped: "الفئة اختفت أثناء الاستعادة" }); return false; }
@@ -26538,7 +26558,29 @@
       } catch (e) {
         report.push({ name: entry.name, skipped: "فشل النشر — " + ((e && e.message) || "خطأ") });
         return false;
+      } finally {
+        // ⚠️ RELEASE the media we just pulled in. hydrateMediaInto() merges
+        // images into the state objects and nothing anywhere evicts them, so
+        // restoring the whole catalogue would end with every category's
+        // pictures resident at once — the 541 MB heap that killed iOS Safari
+        // and that build .209 exists to prevent. Sequential hydration bounds
+        // CONCURRENCY, not ACCUMULATION; only this does.
+        if (!isNew) releaseCategoryMedia(entry.id);
       }
+    }
+
+    // Put a category back to its media-LITE boot state: blank the question
+    // images in memory and forget that it was hydrated, so the next reader
+    // fetches them again. Safe because an empty image on an unhydrated category
+    // means "not loaded" everywhere in the app, and cloudPublish's keepImg()
+    // then falls back to the STORED value rather than writing the blank.
+    function releaseCategoryMedia(catId) {
+      const cat = (state.publishedCategories || []).find(c => String(c.id) === String(catId));
+      if (cat && cat.__lite) {
+        cat.questions = (cat.questions || []).map(q =>
+          (q && (q.image || q.answerImage)) ? Object.assign({}, q, { image: "", answerImage: "" }) : q);
+      }
+      hydratedCats.delete(String(catId));
     }
 
     async function runCatalogRestore(plan, onProgress) {
