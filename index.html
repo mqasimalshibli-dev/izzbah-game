@@ -4947,6 +4947,9 @@
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
+    /* A line break that took, made visible — HTML would collapse it to a space
+       and a «\n» that failed would look identical to one that worked. */
+    .import-preview .imp-nl { color: #a9772a; font-weight: 700; }
     /* Says WHY the points dropdown moved on its own. Informational, not an
        error — a quiet note, not the red error box below it. */
     .import-preview .imp-auto { margin: 6px 0 0; padding: 7px 10px; background: #eef5ff;
@@ -8542,7 +8545,7 @@
         <h3 class="preview-title" id="importTitle">استيراد أسئلة</h3>
         <p class="import-help">الصق أسئلتك — سطر لكل سؤال. افصل بين الحقول بمسافة جدولة (Tab، عند النسخ من Excel/Sheets) أو بالرمز <b>|</b>. ترتيب الأعمدة:</p>
         <div class="import-format"><span>السؤال</span><b>|</b><span>الإجابة</span><b>|</b><span>خطأ١</span><b>|</b><span>خطأ٢</span><b>|</b><span>خطأ٣</span><b>|</b><span>النقاط</span></div>
-        <p class="import-note">الإجابة مطلوبة فقط. الأخطاء الثلاثة والنقاط اختيارية.</p>
+        <p class="import-note">الإجابة مطلوبة فقط. الأخطاء الثلاثة والنقاط اختيارية. اكتب <b>\n</b> داخل السؤال لسطر جديد (مثل أسئلة «من أنا؟»).</p>
         <textarea id="importText" class="import-text" placeholder="ما عاصمة عُمان؟ | مسقط | صلالة | نزوى | صحار | 100&#10;أطول نهر في العالم؟ | النيل | الأمازون | الكونغو | اليانغتسي"></textarea>
 
         <div class="import-controls">
@@ -12701,7 +12704,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.314";
+    const IZZBAH_BUILD = "2026-08-15.315";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17751,6 +17754,7 @@
     window.IZZBAH_TEST.applyEditorLocks = applyEditorLocks;
     window.IZZBAH_TEST.EDITOR_LOCKED_IDS = EDITOR_LOCKED_IDS;
     window.IZZBAH_TEST.repeatDepth = repeatDepth;
+    window.IZZBAH_TEST.parseImport = (raw) => parseImport(raw);
     window.IZZBAH_TEST.gamesWord = gamesWord;
 
     function adminTabChip(id, name, color, active) {
@@ -18281,6 +18285,18 @@
     // wrong3 | points. Only the answer is required. Points are assigned by the
     // chosen mode. Parsed here, previewed, then committed either to the open
     // category or a brand-new one — publishing through the normal pipeline.
+    //
+    // A literal «\n» inside the question or answer becomes a real line break.
+    // The parser is one-row-per-LINE, so a genuinely multi-line clue could not
+    // be pasted at all — which locked «من أنا؟» out of bulk import entirely,
+    // since every one of its questions is three clue lines. `.question-text` is
+    // `white-space: pre-line` (see the CSS, which names this category), so the
+    // break renders on the card exactly as a hand-typed one does.
+    // ⚠️ Applied to the question and answer only. A distractor is a single
+    // option by nature, and a multi-line one would break the four-choices grid.
+    function importLineBreaks(cell) {
+      return String(cell || "").replace(/\\n/g, "\n").trim();
+    }
     function parseImport(raw) {
       const rows = [];
       const lines = String(raw || "").replace(/\r/g, "").split("\n");
@@ -18290,8 +18306,8 @@
         const cells = line.split(delim).map(c => c.trim());
         // Skip an obvious header row (first non-blank line only).
         if (rows.length === 0 && /^(question|السؤال)$/i.test(cells[0] || "") ) return;
-        const q = cells[0] || "";
-        const a = cells[1] || "";
+        const q = importLineBreaks(cells[0]);
+        const a = importLineBreaks(cells[1]);
         const distractors = [cells[2], cells[3], cells[4]].map(x => (x || "").trim()).filter(Boolean);
         const ptsRaw = cells[5];
         const pts = ptsRaw != null && ptsRaw !== "" ? parseInt(String(ptsRaw).replace(/[^\d]/g, ""), 10) : null;
@@ -18368,7 +18384,11 @@
       if (valid[0]) {
         const s = valid[0];
         const opts = s.distractors.length ? ` — خيارات: ${escapeHtml(s.distractors.join("، "))}` : "";
-        html += `<div class="imp-sample">مثال: «${escapeHtml(s.q || "—")}» ← ${escapeHtml(s.a)} (${toArabicDigits(s.points)})${opts}</div>`;
+        // Show a line break as ⏎ rather than letting HTML collapse it to a
+        // space — otherwise «\n» that did NOT take looks identical to one that
+        // did, which is the only thing worth checking in this sample.
+        const shown = (t) => escapeHtml(t).replace(/\n/g, ' <b class="imp-nl">⏎</b> ');
+        html += `<div class="imp-sample">مثال: «${shown(s.q || "—")}» ← ${shown(s.a)} (${toArabicDigits(s.points)})${opts}</div>`;
       }
       if (errs.length) {
         html += `<div class="imp-errs">${errs.slice(0, 8).map(e => `<div>السطر ${toArabicDigits(e.line)}: ${e.error}</div>`).join("")}${errs.length > 8 ? `<div>… و${toArabicDigits(errs.length - 8)} أخرى</div>` : ""}</div>`;

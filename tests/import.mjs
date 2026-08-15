@@ -146,6 +146,40 @@ try {
   check("...and claims nothing about a column it cannot trust", !partial.hint);
   await page.evaluate(() => document.getElementById("importCancel").click());
 
+  // ---- multi-line clues («من أنا؟») ---------------------------------------
+  // The parser is one row per LINE, so a three-line clue could not be pasted at
+  // all and that whole category was locked out of bulk import. A literal «\n»
+  // now becomes a real break; .question-text is white-space: pre-line, so it
+  // renders exactly like a hand-typed one.
+  await page.evaluate(() => document.getElementById("adminImportQuestions").click());
+  await page.waitForTimeout(200);
+  await page.fill("#importText",
+    "أنا عالم.\\nوضعت أسس علم البصريات.\\nشرحت كيف نرى الأشياء. | ابن الهيثم | ابن سينا | الخوارزمي | البيروني | 500\n"
+    + "سؤال بسطر واحد؟ | جواب | أ | ب | ج | 500");
+  await page.waitForTimeout(300);
+
+  const multi = await page.evaluate(() => {
+    const rows = window.IZZBAH_TEST.parseImport(document.getElementById("importText").value);
+    return {
+      count: rows.length,
+      lines: (rows[0].q.match(/\n/g) || []).length,
+      first: rows[0].q.split("\n")[0],
+      last: rows[0].q.split("\n").pop(),
+      answer: rows[0].a,
+      distractors: rows[0].distractors,
+      plain: rows[1].q,
+      marker: !!document.querySelector("#importPreview .imp-nl"),
+    };
+  });
+  check("a multi-line clue stays ONE question, not three broken rows", multi.count === 2, `${multi.count} rows`);
+  check("...with both breaks restored", multi.lines === 2, `${multi.lines} breaks`);
+  check("...and the clue lines intact", /^أنا عالم\.$/.test(multi.first) && /نرى الأشياء\.$/.test(multi.last), multi.first);
+  check("...leaving the answer and distractors untouched",
+    multi.answer === "ابن الهيثم" && multi.distractors.length === 3, `${multi.answer} / ${multi.distractors.join("،")}`);
+  check("a single-line question is unaffected", multi.plain === "سؤال بسطر واحد؟", multi.plain);
+  check("the preview marks the break so a failed «\\n» is visible", multi.marker);
+  await page.evaluate(() => document.getElementById("importCancel").click());
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
