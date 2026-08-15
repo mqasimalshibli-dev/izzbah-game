@@ -1101,7 +1101,30 @@ Single self-contained page, same palette and type system as the game. Marked
     tool that quietly discards rows is worse than one that refuses.
   - Points given as a STRING are repaired (`Number("100")`), not dropped: the
     number is what gets written, so the rules hold and a typo costs nothing.
-  - **Still open:** the export carries no question media. Making it complete
+  - **«نسخة كاملة بالصور» (build .319) closes that.** `buildFullBackupBlob()`
+    hydrates ONE category, serialises it, `releaseCategoryMedia()`, next — so
+    the JS heap holds one category's pictures however big the catalogue grows.
+    ⚠️ Finished parts are folded into a **Blob** as they are produced, because a
+    Blob is browser-managed and may spill to disk; accumulating the same ~160 MB
+    as JS strings would put the whole catalogue back on the heap and reproduce
+    the crash the design exists to avoid.
+    The text-only button is now labelled «نسخة احتياطية (نصوص)» — it claimed to
+    be complete and was not.
+  - ⚠️ **A media file is version 2 with `mediaIncluded: true`, and ONLY such a
+    file may contribute an image.** A v1 file's images are all empty; "filling"
+    from those is exactly the blanking bug.
+  - ⚠️ **The restore REFILLS blank images, fill-only.** The August wipe left
+    every question's TEXT intact and blanked the picture, so an add-only restore
+    would have recovered nothing at all. A live image is never overwritten even
+    if the file disagrees — the live copy is newer by definition. Whether a
+    category has anything to refill cannot be known at PREVIEW time (live
+    categories are lite, so an empty image means "not loaded"), so such
+    categories are queued and the real count is reported after the run.
+  - ⚠️ A category with nothing to add AND nothing to refill is **not
+    republished** — a publish rewrites every question doc, so a no-op write is
+    pure risk.
+  - **Still open:** community question media is not in the full backup — it is
+    lazy too, and it is members' content with its own recovery story. Making it complete
     means hydrating category-by-category and streaming, so the heap stays
     bounded — worth doing, not done.
 
