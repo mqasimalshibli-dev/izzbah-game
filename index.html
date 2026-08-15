@@ -12719,7 +12719,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.317";
+    const IZZBAH_BUILD = "2026-08-15.318";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -26447,17 +26447,57 @@
     //     mediaIncluded above); images come only from the live hydrated copy.
     //   • Nothing is written until the plan has been shown and confirmed.
     const restoreNorm = (s) => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
-    const restoreQKey = (q) => [
+    const restoreQKey = (q) => JSON.stringify([
       Number(q && q.points) || 0,
       restoreNorm(q && q.q),
       restoreNorm(q && q.a)
-    ].join(" ");
+    ]);
+
+    // ⚠️ Identity is JSON.stringify of the TUPLE, not the fields joined by a
+    // separator. Joining with a space collided — {100,"أ ب","ج"} and
+    // {100,"أ","ب ج"} produced the same key, so a genuinely missing question
+    // could be judged already-present and silently skipped, the worst possible
+    // failure in a recovery tool. The first fix used a NUL separator, which
+    // works but writes a raw NUL byte into index.html: grep then reports the
+    // file as binary and refuses to match, and string-replacing edits fail.
+    // JSON escapes the delimiter inside the values, so it cannot collide and
+    // stays printable.
+    //
+    // The Firestore rules field-check every question doc — `points is number`,
+    // q and a at most 2000 chars, at most 500 questions on the parent. A row
+    // from a hand-edited file that breaks one is NOT cosmetic: cloudPublish
+    // commits the /questions subcollection in EARLIER batches than the parent,
+    // so the question writes would LAND and the parent write would then be
+    // REJECTED, leaving the subcollection and the catalogue list permanently
+    // disagreeing. Bad rows are rejected here, in the plan, where they are
+    // visible and harmless.
+    const RESTORE_Q_MAX = 2000;
+    const RESTORE_CAT_MAX = 500;
+    function restoreCleanQuestion(q) {
+      if (!q) return null;
+      // Trimmed, like every other authoring path (parseImport trims each cell).
+      // Whitespace is not content, and restoreNorm ignores it for matching
+      // anyway, so the stored value may as well be tidy.
+      const text = String(q.q == null ? "" : q.q).trim();
+      const ans = String(q.a == null ? "" : q.a).trim();
+      if (!text && !ans) return null;
+      if (text.length > RESTORE_Q_MAX || ans.length > RESTORE_Q_MAX) return null;
+      // REPAIRED, not rejected: a hand-edited file often carries points as a
+      // string, and Number("100") is a clean 100. The number is what gets
+      // WRITTEN, so `points is number` holds either way, and dropping the
+      // question instead would lose content over a typo.
+      const pts = Number(q.points);
+      if (!Number.isFinite(pts) || pts <= 0) return null;
+      // Rebuilt field by field, so nothing unexpected from the file reaches
+      // Firestore, and an image is never carried across — the file has none.
+      return { points: pts, q: text, a: ans, image: "", answerImage: "" };
+    }
 
     // Pure: given a parsed backup file and the live categories, work out what
     // WOULD be added. No side effects, so the preview and the write share one
     // implementation and cannot disagree.
     function restorePlan(backup, liveCats) {
-      const out = { ok: false, error: "", cats: [], newCats: [], totals: { cats: 0, questions: 0 }, meta: {} };
+      const out = { ok: false, error: "", cats: [], newCats: [], totals: { cats: 0, questions: 0 }, dropped: 0, capped: 0, meta: {} };
       if (!backup || typeof backup !== "object") { out.error = "الملف غير صالح"; return out; }
       if (backup.kind !== "izzbah-catalog-backup") { out.error = "هذا ليس ملف نسخة احتياطية من عِزبة"; return out; }
       if (!Array.isArray(backup.published)) { out.error = "الملف لا يحتوي فئات"; return out; }
@@ -26473,13 +26513,18 @@
       (backup.published || []).forEach(bc => {
         if (!bc || !bc.id) return;
         const id = String(bc.id);
-        const bq = Array.isArray(bc.questions) ? bc.questions.filter(q => q && (restoreNorm(q.q) || restoreNorm(q.a))) : [];
+        const raw = Array.isArray(bc.questions) ? bc.questions : [];
+        const bq = raw.map(restoreCleanQuestion).filter(Boolean);
+        // Rows the rules would have rejected. Reported, never written.
+        out.dropped += raw.length - bq.length;
         const cur = live.get(id);
         if (!cur) {
           // A category that no longer exists live. Restored whole.
           if (!bq.length) return;
+          const room = Math.min(bq.length, RESTORE_CAT_MAX);
+          out.capped += bq.length - room;
           out.newCats.push({
-            id: id, name: String(bc.name || ""), add: bq.length, questions: bq,
+            id: id, name: String(bc.name || ""), add: room, questions: bq.slice(0, room),
             // Carry the category's IDENTITY across. The export keeps covers —
             // only question media is stripped — and a cover cannot be recreated
             // (the masters are gone, 480px is the ceiling), so dropping it here
@@ -26493,7 +26538,7 @@
               description: String(bc.description || "")
             }
           });
-          out.totals.cats++; out.totals.questions += bq.length;
+          out.totals.cats++; out.totals.questions += room;
           return;
         }
         const have = new Set((cur.questions || []).map(restoreQKey));
@@ -26505,9 +26550,17 @@
           seen.add(k);
           add.push(q);
         });
-        if (add.length) {
-          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: add.length, questions: add, liveCount: (cur.questions || []).length });
-          out.totals.cats++; out.totals.questions += add.length;
+        // The parent doc may hold at most 500 questions (firestore.rules). Going
+        // over does not fail cleanly: cloudPublish writes the /questions
+        // subcollection in earlier batches, so the questions would land and the
+        // parent would then be rejected. Trim to what will fit and say so.
+        const liveCount = (cur.questions || []).length;
+        const roomLeft = Math.max(0, RESTORE_CAT_MAX - liveCount);
+        const fit = add.slice(0, roomLeft);
+        out.capped += add.length - fit.length;
+        if (fit.length) {
+          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: fit.length, questions: fit, liveCount: liveCount });
+          out.totals.cats++; out.totals.questions += fit.length;
         }
       });
       out.ok = true;
@@ -26636,6 +26689,14 @@
       // text-only, and an admin restoring after a picture loss must not walk
       // away believing the pictures came back.
       html += `<div class="imp-auto">🖼️ هذه النسخة <b>لا تحتوي صور الأسئلة</b> (النص فقط). الصور الحالية لن تتغيّر، ولن تُستعاد صورة مفقودة.</div>`;
+      // Anything the plan is NOT going to write has to be said out loud. A
+      // recovery tool that quietly drops rows is worse than one that refuses.
+      if (plan.dropped || plan.capped) {
+        const bits = [];
+        if (plan.dropped) bits.push(`<b>${toArabicDigits(plan.dropped)}</b> سطراً غير صالح (نقاط غير رقمية أو نص أطول من الحد) لن يُستورد`);
+        if (plan.capped) bits.push(`<b>${toArabicDigits(plan.capped)}</b> سؤالاً يتجاوز حد ${toArabicDigits(500)} سؤال للفئة`);
+        html += `<div class="imp-errs"><div>⚠️ ${bits.join(" — ")}</div></div>`;
+      }
       const rows = plan.newCats.map(c => `<div>➕ <b>${escapeHtml(c.name || c.id)}</b> — فئة كاملة، ${toArabicDigits(c.add)} سؤالاً</div>`)
         .concat(plan.cats.map(c => `<div>• ${escapeHtml(c.name || c.id)} — <b>${toArabicDigits(c.add)}</b> سؤالاً ناقصاً (لديك ${toArabicDigits(c.liveCount)})</div>`));
       html += `<div class="imp-errs restore-list">${rows.slice(0, 40).join("")}${rows.length > 40 ? `<div>… و${toArabicDigits(rows.length - 40)} فئة أخرى</div>` : ""}</div>`;
