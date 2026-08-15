@@ -526,6 +526,12 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catboot2.mjs
 
+      - name: Run publish audit-log test
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node auditlog.mjs
+
       - name: Run catalogue-health board test
         working-directory: tests
         run: |

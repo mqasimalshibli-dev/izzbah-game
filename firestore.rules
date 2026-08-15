@@ -404,6 +404,34 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // ---- Publish audit log (who changed what, when) ------------------------
+    // One small doc per publish. There was NO record of catalogue changes before
+    // this — `updatedAt` was the only trace — which is why the August media wipe
+    // took a day to understand. It matters more now that editors write too.
+    //   • create — an admin OR a content editor, since both publish. The uid is
+    //     pinned to the caller, so nobody can write an entry as someone else,
+    //     and the shape is fixed so the collection cannot become free storage.
+    //   • read/list — ADMIN ONLY. It carries staff email addresses.
+    //   • update — never. An audit trail that can be edited is not one.
+    //   • delete — admin only («مسح السجل»).
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if (isAdmin() || isEditor())
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'cat', 'name', 'action',
+                                                 'before', 'after', 'wrote', 'removed', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string && request.resource.data.email.size() <= 320
+        && request.resource.data.cat is string    && request.resource.data.cat.size() <= 128
+        && request.resource.data.name is string   && request.resource.data.name.size() <= 80
+        && request.resource.data.action is string && request.resource.data.action.size() <= 20
+        && request.resource.data.before is int    && request.resource.data.before >= 0
+        && request.resource.data.after is int     && request.resource.data.after >= 0
+        && request.resource.data.wrote is int     && request.resource.data.wrote >= 0
+        && request.resource.data.removed is int   && request.resource.data.removed >= 0;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // ---- Catalog revision marker (read-cost saver) -------------------------
     // One tiny public doc, meta/catalog, whose `rev` counter every category
     // publish/delete bumps. Players read just THIS doc to learn whether the

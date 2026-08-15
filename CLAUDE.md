@@ -1035,6 +1035,30 @@ Single self-contained page, same palette and type system as the game. Marked
   below; the shortage is now concentrated in FOUR categories, and several
   healthy-LOOKING ones are starved at a single tier.
 
+- **«سجل التعديلات» — who published what, and when (build .321).** NEW
+  collection `logs/{id}`: one tiny doc per publish carrying uid, email, category,
+  before/after counts and a server timestamp. There was NO record of catalogue
+  changes before this — `updatedAt` was the only trace — which is why the August
+  wipe took a day to understand, and it matters more now that editors write too.
+  «فحص المحتوى» → «سجل التعديلات»; a publish that REMOVED questions is marked red.
+  - ⚠️ **The write is fire-and-forget and can never fail a publish.** It sits
+    outside the promise chain, is wrapped in try/catch, and swallows its own
+    rejection. A catalogue that cannot be audited is a nuisance; a publish that
+    fails because its logging did is a real problem.
+  - ⚠️ **`isEditor()` now grants in THREE collections, not two.** `tests/
+    editorrole.mjs` failed on the change and that is exactly what it is for —
+    the grant is deliberate: an editor must create its own entry or an editor's
+    publishes are invisible, and editors writing is the whole reason the log
+    exists. Create-only, uid pinned to the caller, shape closed with `hasOnly`,
+    reading admin-only (it carries staff emails), `update` denied outright
+    because an editable audit trail is not one.
+  - ⚠️ **`autoPublishAdmin` fires on every question edit**, so authoring a batch
+    writes a row each. Rows are tiny, and «مسح السجل» clears up to 400 at a
+    time — but do not add anything expensive to this path.
+  - `tests/auditlog.mjs` (20 checks) slices the rules per match-block. ⚠️ Its
+    block extractor must start scanning AFTER the path: `match /logs/{logId}`
+    contains braces of its own and a naive scan returns the wildcard.
+
 - **«صحة الكتالوج» — the whole catalogue on one screen (build .320).**
   «فحص المحتوى» → «صحة الكتالوج». Every category ranked by how many games it
   lasts before repeating, with its limiting tier, blanks, missing cover and
