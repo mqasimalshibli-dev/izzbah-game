@@ -4947,6 +4947,31 @@
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
+    /* Catalogue health board. Two colours only — crit and warn — so the eye
+       goes straight to the categories that need questions. */
+    .health-modal { max-width: 760px; }
+    .health-sort { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
+    .health-sort button { padding: 6px 14px !important; font-size: 13px !important; border-radius: 999px !important; }
+    .health-sort button.is-on { background: rgba(169,119,42,.16) !important; color: #6a4d12 !important; }
+    .health-body { max-height: 52vh; overflow-y: auto; margin-top: 8px; }
+    .health-top { margin-bottom: 8px; }
+    .imp-tier.hl-crit { color: #b23; border-color: rgba(178,51,51,.4); background: rgba(178,51,51,.08); }
+    .imp-tier.hl-warn { color: #a9772a; }
+    .health-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .health-tbl th { text-align: start; font-weight: 700; color: #6a5a2f; padding: 6px 8px;
+      position: sticky; top: 0; background: #fdf6e9; border-bottom: 1px solid rgba(169,119,42,.25); }
+    .health-tbl td { padding: 7px 8px; border-bottom: 1px solid rgba(169,119,42,.12); }
+    .health-tbl .h-games { font-weight: 800; }
+    .health-tbl tr.crit .h-games { color: #b23; }
+    .health-tbl tr.warn .h-games { color: #a9772a; }
+    .health-tbl .h-tag { font-size: 11px; padding: 1px 7px; border-radius: 999px;
+      background: rgba(169,119,42,.12); color: #6a5a2f; margin-inline-start: 4px; white-space: nowrap; }
+    :root[data-theme="dark"] .health-tbl th { background: #241a12 !important; color: #d9c39c !important; }
+    :root[data-theme="dark"] .health-tbl td { border-bottom-color: rgba(230,199,117,.14) !important; color: #f6ead2 !important; }
+    :root[data-theme="dark"] .health-tbl tr.crit .h-games { color: #ff7a70 !important; }
+    :root[data-theme="dark"] .health-tbl tr.warn .h-games { color: #e8a33c !important; }
+    :root[data-theme="dark"] .health-tbl .h-tag { background: rgba(230,199,117,.14) !important; color: #d9c39c !important; }
+    :root[data-theme="dark"] .health-sort button.is-on { background: rgba(230,199,117,.2) !important; color: #e6c775 !important; }
     /* A line break that took, made visible — HTML would collapse it to a space
        and a «\n» that failed would look identical to one that worked. */
     .import-preview .imp-nl { color: #a9772a; font-weight: 700; }
@@ -8586,6 +8611,22 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="healthModal" aria-hidden="true">
+      <div class="question-modal import-modal health-modal" role="dialog" aria-modal="true" aria-labelledby="healthTitle">
+        <h3 class="preview-title" id="healthTitle">صحة الكتالوج</h3>
+        <p class="import-help">اللوحة تأخذ سؤالاً واحداً من كل مستوى، فعمر الفئة يحدّده <b>أقل مستوى فيها</b> لا عددها الكلي.</p>
+        <div class="health-sort" id="healthSort" role="group" aria-label="ترتيب">
+          <button class="ghost is-on" type="button" data-sort="depth">الأقصر عمراً</button>
+          <button class="ghost" type="button" data-sort="total">الأقل أسئلة</button>
+          <button class="ghost" type="button" data-sort="name">الاسم</button>
+        </div>
+        <div class="health-body" id="healthBody"></div>
+        <div class="actions">
+          <button class="ghost" id="healthClose" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="restoreModal" aria-hidden="true">
       <div class="question-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
         <h3 class="preview-title" id="restoreTitle">استعادة من نسخة احتياطية</h3>
@@ -8643,6 +8684,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🎯</span>
             <span class="admin-choice-name">فحص الخيارات</span>
             <span class="admin-choice-sub">خيارات «أربعة خيارات» الخاطئة أو المكرّرة</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceHealth" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🩺</span>
+            <span class="admin-choice-name">صحة الكتالوج</span>
+            <span class="admin-choice-sub">كل فئة وكم لعبة تدوم قبل التكرار — والمستوى الذي ينفد أولاً</span>
           </button>
             </div>
           </div>
@@ -12720,7 +12766,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.319";
+    const IZZBAH_BUILD = "2026-08-15.320";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17776,6 +17822,7 @@
     window.IZZBAH_TEST.repeatDepth = repeatDepth;
     window.IZZBAH_TEST.parseImport = (raw) => parseImport(raw);
     window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
+    window.IZZBAH_TEST.categoryHealthRows = () => categoryHealthRows();
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
     window.IZZBAH_TEST.gamesWord = gamesWord;
 
@@ -26271,6 +26318,16 @@
     $("#adminChoiceAnnounce").addEventListener("click", () => { closeAdminChoice(); openAnnouncementsAdmin(); });
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
+    $("#adminChoiceHealth").addEventListener("click", () => { closeAdminChoice(); openHealthBoard(); });
+    $("#healthClose").addEventListener("click", closeHealthBoard);
+    $("#healthModal").addEventListener("click", e => { if (e.target.id === "healthModal") closeHealthBoard(); });
+    $("#healthSort").addEventListener("click", e => {
+      const b = e.target.closest("button[data-sort]");
+      if (!b) return;
+      healthSortKey = b.getAttribute("data-sort");
+      Array.from($("#healthSort").querySelectorAll("button")).forEach(x => x.classList.toggle("is-on", x === b));
+      renderHealthBoard();
+    });
     $("#adminChoiceDist").addEventListener("click", () => { closeAdminChoice(); openDistModal(); });
     // Group collapse. Remembered per group, so an admin who only ever touches
     // «المحتوى» does not re-collapse the other four every time they open it.
@@ -26432,6 +26489,101 @@
         community: state.communityCategories || [],
         custom: state.customCategories || []
       };
+    }
+
+    // ---- Catalogue health ---------------------------------------------------
+    // One screen answering "what should I work on". Per-category depth already
+    // exists (.312) but only inside an open category, so judging the catalogue
+    // meant opening forty of them — or measuring it from outside the app, which
+    // is what actually happened.
+    // ⚠️ Uses the same bank-vs-sample rule as renderAdminCategoryList. With no
+    // cloud override, `cat` IS the built-in and refreshBuiltinQuestions() has
+    // set its `.questions` to buildQuestionSet() — ONE per tier, a sampled
+    // BOARD. Reading that would report every bundled category as lasting a
+    // single game.
+    function categoryHealthRows() {
+      const overrideIds = new Set((state.publishedCategories || []).map(c => c.id));
+      const newOnes = (state.publishedCategories || []).filter(c => !builtinCategories.some(b => b.id === c.id));
+      const rows = [
+        ...builtinCategories.map(b => ({ cat: (state.publishedCategories || []).find(p => p.id === b.id) || b, edited: overrideIds.has(b.id), builtin: true })),
+        ...newOnes.map(c => ({ cat: c, edited: true, builtin: false }))
+      ];
+      return rows.map(({ cat, edited, builtin }) => {
+        const useBank = builtin && builtinQuestionBanks[cat.id] && (!edited || !overrideHasQuestions(cat));
+        const qs = useBank ? builtinEditableQuestions(cat.id) : (cat.questions || []);
+        const d = repeatDepth(qs);
+        return {
+          id: cat.id, name: cat.name || cat.id,
+          total: qs.length, games: d.games, tier: d.tier, blanks: d.blanks,
+          cover: !!(cat.image || "").trim(),
+          hidden: isCategoryHidden(cat.id)
+        };
+      });
+    }
+    let healthSortKey = "depth";
+    function renderHealthBoard() {
+      const box = $("#healthBody");
+      if (!box) return;
+      const rows = categoryHealthRows();
+      // ⚠️ games === 0 means "no questions written yet", NOT "repeats
+      // immediately". Those are placeholders — they never reach the picker
+      // (categoryHasQuestions is false) and there is no tier to top up — so
+      // they sort LAST rather than burying the categories that are actually
+      // being played and running dry.
+      const rank = (r) => (r.games ? r.games : Infinity);
+      const by = {
+        depth: (a, b) => (rank(a) - rank(b)) || (a.total - b.total),
+        total: (a, b) => (a.total - b.total) || (rank(a) - rank(b)),
+        name: (a, b) => String(a.name).localeCompare(String(b.name), "ar")
+      }[healthSortKey] || ((a, b) => a.games - b.games);
+      rows.sort(by);
+      const crit = rows.filter(r => r.games && r.games <= 2).length;
+      const warn = rows.filter(r => r.games > 2 && r.games <= 5).length;
+      const empty = rows.filter(r => !r.games).length;
+      const noCover = rows.filter(r => !r.cover).length;
+      const blanks = rows.reduce((s, r) => s + r.blanks, 0);
+      let html = `<div class="imp-tiers health-top">`
+        + `<span class="imp-tier"><b>${toArabicDigits(rows.length)}</b> فئة</span>`
+        + `<span class="imp-tier"><b>${toArabicDigits(rows.reduce((s, r) => s + r.total, 0))}</b> سؤالاً</span>`
+        + (crit ? `<span class="imp-tier hl-crit"><b>${toArabicDigits(crit)}</b> حرجة</span>` : "")
+        + (warn ? `<span class="imp-tier hl-warn"><b>${toArabicDigits(warn)}</b> ضعيفة</span>` : "")
+        + (empty ? `<span class="imp-tier"><b>${toArabicDigits(empty)}</b> فارغة</span>` : "")
+        + (noCover ? `<span class="imp-tier"><b>${toArabicDigits(noCover)}</b> بلا غلاف</span>` : "")
+        + (blanks ? `<span class="imp-tier"><b>${toArabicDigits(blanks)}</b> سؤالاً فارغاً</span>` : "")
+        + `</div>`;
+      html += `<table class="health-tbl"><thead><tr><th>الفئة</th><th>الأسئلة</th><th>تدوم</th><th>أقل مستوى</th></tr></thead><tbody>`;
+      rows.forEach(r => {
+        const cls = !r.games ? "" : (r.games <= 2 ? "crit" : (r.games <= 5 ? "warn" : ""));
+        html += `<tr class="${cls}">`
+          + `<td class="h-name">${escapeHtml(r.name)}`
+            + (!r.games ? ` <span class="h-tag">فارغة</span>` : "")
+            + (r.hidden ? ` <span class="h-tag">مخفية</span>` : "")
+            + (!r.cover ? ` <span class="h-tag">بلا غلاف</span>` : "")
+            + (r.blanks ? ` <span class="h-tag">${toArabicDigits(r.blanks)} فارغ</span>` : "")
+          + `</td>`
+          + `<td class="clean-number">${toArabicDigits(r.total)}</td>`
+          + `<td class="h-games clean-number">${r.games ? toArabicDigits(r.games) : "—"}</td>`
+          + `<td class="clean-number">${r.tier == null ? "—" : toArabicDigits(r.tier)}</td>`
+          + `</tr>`;
+      });
+      html += `</tbody></table>`;
+      box.innerHTML = html;
+    }
+    function openHealthBoard() {
+      // ⚠️ ADMIN, not canEditContent(). The editor role grants exactly five
+      // things by the owner's instruction ("he can't do anything else"), and
+      // tests/editorrole.mjs counts the gates precisely so a sixth cannot be
+      // added by accident — which is what this was. A read-only board arguably
+      // helps an editor find work, but widening the role is the owner's call,
+      // not a side effect of building a dashboard.
+      if (!state.isAdmin) return;
+      renderHealthBoard();
+      const m = $("#healthModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function closeHealthBoard() {
+      const m = $("#healthModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
     }
 
     // ---- The FULL backup: text AND question pictures ------------------------
