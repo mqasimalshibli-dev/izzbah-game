@@ -1035,6 +1035,23 @@ Single self-contained page, same palette and type system as the game. Marked
   below; the shortage is now concentrated in FOUR categories, and several
   healthy-LOOKING ones are starved at a single tier.
 
+- **Player feedback carries device diagnostics (build .322).** A player wrote
+  «اللعبة ما تشتغل» and that sentence was ALL the developer got. Each message
+  now staples a short `diag` string — build, online/offline, how many categories
+  arrived (and whether via the cold-boot index), whether the cloud bridge
+  exists, signed-in/role, viewport, PWA-or-web, platform FAMILY.
+  - ⚠️ **Deliberately not a fingerprint**, and it must not become one: platform
+    family only, never the raw user-agent, no email. It rides a support channel,
+    not analytics. `tests/fbdiag.mjs` asserts the absence.
+  - ⚠️ **ADMIN-ONLY rendering.** A player seeing build numbers stapled to their
+    own message reads as the app malfunctioning, so `.fb-diag` only renders when
+    `state.feedbackAdminUid` is set.
+  - ⚠️ **It can never cost a bug report.** `buildDiagnostics()` never throws,
+    the field is omitted when empty, and a `permission-denied` retries WITHOUT
+    it — so a device on un-published rules still gets its message through.
+  - Rules: `diag` added to the `feedback` create rule as an optional string
+    ≤ 400, key set still closed with `hasOnly`.
+
 - **«سجل التعديلات» — who published what, and when (build .321).** NEW
   collection `logs/{id}`: one tiny doc per publish carrying uid, email, category,
   before/after counts and a server timestamp. There was NO record of catalogue

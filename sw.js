@@ -12,7 +12,7 @@
 // ⚠️ MUST equal "izzbah-" + IZZBAH_BUILD in index.html (the game). This froze at
 // .203 for four deploys, so phones kept launching the stale cached shell —
 // tests/swsync.mjs now fails CI if the two ever drift again.
-const CACHE = "izzbah-2026-08-15.321";
+const CACHE = "izzbah-2026-08-15.322";
 
 self.addEventListener("install", () => { self.skipWaiting(); });
 

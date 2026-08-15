@@ -376,8 +376,16 @@ service cloud.firestore {
     // the only subcollection named 'messages' in the schema).
     match /feedback/{uid}/messages/{msgId} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // `diag` is an OPTIONAL short device-state string the app staples to a
+      // player's own report (build, online, category count, screen, platform
+      // family) so a bug report is actionable. Player-written and only ever
+      // about their own device; capped and type-checked like everything else,
+      // and the client omits it rather than failing the send if it cannot be
+      // built. It is NOT a fingerprint and must not become one.
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['from', 'text', 'name', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['from', 'text', 'name', 'createdAt', 'diag'])
+        && (!('diag' in request.resource.data)
+            || (request.resource.data.diag is string && request.resource.data.diag.size() <= 400))
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000

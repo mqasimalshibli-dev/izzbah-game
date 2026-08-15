@@ -5158,6 +5158,12 @@
     .fb-msg .fb-who { font-size: 12px; font-weight: 800; margin-bottom: 3px; opacity: .8; }
     .fb-msg .fb-text { font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
     .fb-msg .fb-time { font-size: 11px; opacity: .6; margin-top: 4px; }
+    /* Device state stapled to a player's report — admin view only. Monospace
+       and quiet: it is reference material, not part of the conversation. */
+    .fb-msg .fb-diag { font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      direction: ltr; text-align: left; margin-top: 6px; padding: 4px 7px; border-radius: 7px;
+      background: rgba(0,0,0,.05); color: #5a4a2a; opacity: .85; word-break: break-word; }
+    :root[data-theme="dark"] .fb-msg .fb-diag { background: rgba(255,255,255,.07) !important; color: #d9c39c !important; }
     .fb-del { margin-top: 5px; background: transparent; border: none; box-shadow: none; min-height: 0; padding: 0; font: 700 12px 'Cairo', sans-serif; cursor: pointer; opacity: .75; }
     .fb-user .fb-del { color: #9e1322; }
     .fb-dev .fb-del { color: #ffdede; }
@@ -12783,7 +12789,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.321";
+    const IZZBAH_BUILD = "2026-08-15.322";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19093,8 +19099,14 @@
       div.className = "fb-msg " + (dev ? "fb-dev" : "fb-user");
       const who = dev ? "المطوّر" : (m.name || "أنت");
       const dateStr = m.createdAt ? new Date(Number(m.createdAt)).toLocaleString("ar", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      // The diagnostic is for whoever is FIXING the bug, so it renders only in
+      // the admin's view of a thread. A player seeing a line of build numbers
+      // stapled to their own message reads as the app malfunctioning.
+      const diagLine = (state.feedbackAdminUid && m.diag)
+        ? `<div class="fb-diag" title="حالة جهاز اللاعب وقت الإرسال">${escapeHtml(String(m.diag))}</div>` : "";
       div.innerHTML = `<div class="fb-who">${escapeHtml(who)}</div>`
         + `<div class="fb-text">${escapeHtml(toArabicDigits(m.text || ""))}</div>`
+        + diagLine
         + (dateStr ? `<div class="fb-time">${escapeHtml(dateStr)}</div>` : "");
       if (onDelete) {
         const del = document.createElement("button");
@@ -19173,6 +19185,38 @@
     function ackFeedbackGuidelines() { try { localStorage.setItem(FB_GUIDELINES_KEY, "1"); } catch (e) {} }
     function openFeedbackGuidelines() { const m = $("#fbGuidelinesModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false"); }
     function closeFeedbackGuidelines() { const m = $("#fbGuidelinesModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    // ---- Diagnostics stamped on a player's feedback -------------------------
+    // A player writes «اللعبة ما تشتغل» and that sentence is ALL the developer
+    // gets — no build, no idea whether the catalogue loaded, no device. This
+    // attaches the handful of facts that make a report actionable.
+    // ⚠️ Deliberately NOT a fingerprint. Build, connection, screen shape and
+    // whether the app's own data arrived — nothing that identifies the person
+    // beyond the account already sending the message, and no raw user-agent
+    // string. Keep it that way; this rides on a support channel, not analytics.
+    // ⚠️ Never throws: a diagnostic that breaks the send is worse than none.
+    function buildDiagnostics() {
+      try {
+        const bits = [];
+        bits.push("b" + IZZBAH_BUILD);
+        bits.push(navigator.onLine ? "on" : "off");
+        // Which boot path, and whether content actually arrived — the single
+        // most useful fact when someone says the game is empty.
+        const cats = (state.publishedCategories || []).length;
+        const idx = (state.publishedCategories || []).some(c => c && c.__idx);
+        bits.push("cat:" + cats + (idx ? "/idx" : ""));
+        bits.push("cloud:" + (window.IZZBAH && window.IZZBAH.cloudPublish ? "y" : "n"));
+        bits.push((state.signedIn ? "in" : "out") + (state.isAdmin ? "/adm" : (state.isEditor ? "/ed" : "")));
+        bits.push(Math.round(window.innerWidth) + "x" + Math.round(window.innerHeight));
+        bits.push(matchMedia("(display-mode: standalone)").matches ? "pwa" : "web");
+        // Platform family only — enough to reproduce, not enough to single out.
+        const ua = String(navigator.userAgent || "");
+        bits.push(/iPhone|iPad|iPod/.test(ua) ? "ios"
+          : /Android/.test(ua) ? "android"
+          : /Mac/.test(ua) ? "mac" : /Windows/.test(ua) ? "win" : "other");
+        return bits.join(" · ").slice(0, 400);
+      } catch (e) { return ""; }
+    }
+
     function sendFeedbackMsg() {
       const text = (($("#feedbackInput").value) || "").trim();
       if (!text) return;
@@ -28444,11 +28488,28 @@
             if (!currentUser) return Promise.reject(new Error("not signed in"));
             const t = String(text || "").slice(0, 2000);
             if (!t.trim()) return Promise.reject(new Error("empty"));
-            return db.collection("feedback").doc(currentUser.uid).collection("messages").add({
+            const msg = {
               from: "user", text: t,
               name: currentUser.displayName || currentUser.email || "لاعب",
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            // Optional: omitted entirely if it could not be built, so an older
+            // rules deployment (which field-locks this document) still accepts
+            // the message rather than rejecting a player's bug report.
+            const d = (typeof buildDiagnostics === "function") ? buildDiagnostics() : "";
+            if (d) msg.diag = d;
+            return db.collection("feedback").doc(currentUser.uid).collection("messages").add(msg)
+              .catch(e => {
+                const code = (e && e.code) || "";
+                // The one failure worth retrying: rules not yet published, so
+                // `diag` is an unexpected field. Never lose the message over a
+                // diagnostic.
+                if (msg.diag && code === "permission-denied") {
+                  delete msg.diag;
+                  return db.collection("feedback").doc(currentUser.uid).collection("messages").add(msg);
+                }
+                throw e;
+              });
           };
           window.IZZBAH.deleteFeedback = function (msgId) {
             if (!currentUser || !msgId) return Promise.reject(new Error("no message"));
