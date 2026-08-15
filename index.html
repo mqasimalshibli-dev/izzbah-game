@@ -4947,6 +4947,16 @@
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
+    /* Says WHY the points dropdown moved on its own. Informational, not an
+       error — a quiet note, not the red error box below it. */
+    .import-preview .imp-auto { margin: 6px 0 0; padding: 7px 10px; background: #eef5ff;
+      border: 1px solid #bcd4f2; border-radius: 8px; color: #24507f; font-size: 12.5px; line-height: 1.6; }
+    /* Where the batch will actually land, per tier. The single sample line
+       could not show a spread, which is exactly what went wrong unnoticed. */
+    .import-preview .imp-tiers { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 5px; }
+    .import-preview .imp-tier { font: 600 12px 'Cairo', sans-serif; padding: 3px 9px; border-radius: 999px;
+      background: rgba(169,119,42,.10); border: 1px solid rgba(169,119,42,.28); color: #6a5a2f; white-space: nowrap; }
+    .import-preview .imp-tier b { color: #a9772a; margin-inline-end: 4px; }
     /* ---- Admin entry chooser (content vs subscriptions) ---- */
     /* Calmer frame than the shared 5px-red question-modal border — a control
        panel shouldn't read like an alert box. A thin gold edge on the cream
@@ -7818,6 +7828,15 @@
     :root[data-theme="dark"] .dup-group.conflict,
     :root[data-theme="dark"] .ann-card.pinned { background: rgba(230, 199, 117, .1) !important; border-color: #c99a3a !important; }
     :root[data-theme="dark"] .dup-q { color: #f6ead2 !important; }
+    /* The import preview's informational note + tier chips. Both are painted on
+       a light card in the default theme, so they need the dark equivalents or
+       they render as pale-on-pale. */
+    :root[data-theme="dark"] .import-preview .imp-auto { background: rgba(90, 150, 220, .14) !important;
+      border-color: rgba(140, 185, 235, .38) !important; color: #a9cdf0 !important; }
+    :root[data-theme="dark"] .import-preview .imp-tier { background: rgba(230, 199, 117, .12) !important;
+      border-color: rgba(230, 199, 117, .3) !important; color: #d9c39c !important; }
+    :root[data-theme="dark"] .import-preview .imp-tier b { color: #e6c775 !important; }
+    :root[data-theme="dark"] .import-preview .imp-sample { color: #d9c39c !important; }
     :root[data-theme="dark"] .dup-occ-row { color: #d9c39c !important; }
     :root[data-theme="dark"] .dup-occ-cat { color: #f0a49c !important; }
     :root[data-theme="dark"] .dup-occ-a { color: #7fd0a0 !important; }
@@ -12682,7 +12701,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-14.312";
+    const IZZBAH_BUILD = "2026-08-15.313";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18289,6 +18308,28 @@
         valid.forEach((r, i) => { r.points = pointValues[Math.min(pointValues.length - 1, Math.floor(i / perTier))]; });
       }
     }
+    // Has the person changed «النقاط» by hand for this import? Reset per open.
+    // Without it the auto-detect below would keep yanking the dropdown back
+    // every keystroke, which is worse than the bug it fixes.
+    let importModeTouched = false;
+    // The points column is only read in "column" mode, and the modal opens on
+    // "auto" — which IGNORES that column and spreads the rows evenly over
+    // 100–500 instead. So pasting a deliberately-levelled batch (14 questions
+    // all meant for the 100 tier) silently produced 3/3/3/3/2 across every tier,
+    // with nothing on screen to say why. If EVERY row carries points, that is an
+    // unambiguous statement of intent, so honour it.
+    // ⚠️ Only when every row has one. A partial column means the paste is
+    // unsorted and "auto" is still the right answer — switching then would send
+    // the rows with no points to tier 0.
+    function autoPickPointsMode(valid) {
+      if (importModeTouched || !valid.length) return false;
+      if (!valid.every(r => Number.isFinite(r.points))) return false;
+      const sel = $("#importPointsMode");
+      if (sel.value === "column") return true;   // already there; still say why
+      sel.value = "column";
+      $("#importFixedWrap").style.display = "none";
+      return true;
+    }
     function refreshImportPreview() {
       const rows = parseImport($("#importText").value);
       const valid = rows.filter(r => !r.error);
@@ -18296,8 +18337,28 @@
       const box = $("#importPreview");
       const runBtn = $("#importRun");
       if (!rows.length) { box.innerHTML = ""; runBtn.disabled = true; return; }
+      // BEFORE assignImportPoints: that call overwrites r.points from the mode,
+      // so asking afterwards can no longer tell a supplied column from a
+      // generated one.
+      const autoPicked = autoPickPointsMode(valid);
       assignImportPoints(valid);
       let html = `<span class="imp-ok">سيتم استيراد <span class="imp-count">${toArabicDigits(valid.length)}</span> سؤالاً.</span>`;
+      if (autoPicked) {
+        html += `<div class="imp-auto">📊 كل سطر يحمل نقاطاً، فتم اختيار «من العمود الأخير» تلقائياً. غيّر «النقاط» إن أردت غير ذلك.</div>`;
+      }
+      // WHERE the batch lands, per tier. The sample line shows one question, so
+      // it cannot reveal a spread — and a spread is precisely the failure that
+      // went unnoticed: 14 questions all meant for the 100 tier arriving as
+      // 3/3/3/3/2 across five tiers, with the sample line reading a cheerful
+      // «(100)» because the FIRST row happened to be right.
+      const spread = new Map();
+      valid.forEach(r => spread.set(r.points, (spread.get(r.points) || 0) + 1));
+      if (spread.size) {
+        const chips = [...spread.keys()].sort((a, b) => a - b)
+          .map(p => `<span class="imp-tier"><b>${toArabicDigits(p)}</b> ${toArabicDigits(spread.get(p))}</span>`)
+          .join("");
+        html += `<div class="imp-tiers" title="عدد الأسئلة التي ستُضاف عند كل مستوى">${chips}</div>`;
+      }
       if (valid[0]) {
         const s = valid[0];
         const opts = s.distractors.length ? ` — خيارات: ${escapeHtml(s.distractors.join("، "))}` : "";
@@ -18314,6 +18375,7 @@
       const community = state.importCtx === "community";
       $("#importText").value = "";
       $("#importPointsMode").value = "auto";
+      importModeTouched = false;
       $("#importFixedWrap").style.display = "none";
       // The community editor always appends to the category being edited, so
       // hide the admin-only destination / new-name controls.
@@ -26370,6 +26432,9 @@
     $("#importRun").addEventListener("click", runImport);
     $("#importText").addEventListener("input", refreshImportPreview);
     $("#importPointsMode").addEventListener("change", () => {
+      // A deliberate choice wins from here on — the auto-detect below must never
+      // fight the person using it.
+      importModeTouched = true;
       $("#importFixedWrap").style.display = $("#importPointsMode").value === "fixed" ? "" : "none";
       refreshImportPreview();
     });

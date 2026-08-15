@@ -1035,6 +1035,26 @@ Single self-contained page, same palette and type system as the game. Marked
   below; the shortage is now concentrated in FOUR categories, and several
   healthy-LOOKING ones are starved at a single tier.
 
+- **Bulk import ignored the points column you supplied (fixed .313).** Reported
+  from real use: fourteen history questions written for the 100 tier arrived
+  spread 3/3/3/3/2 across all five. Not a parser bug — `openImportModal` hard-
+  sets «النقاط» to `auto` on every open, and auto DISTRIBUTES over 100–500 in
+  order, ignoring the column entirely. Nothing on screen said so, and the sample
+  line read a reassuring «(100)» because the FIRST row happened to be right.
+  - `autoPickPointsMode()` switches to «من العمود الأخير» when **every** valid
+    row carries a points value, and the preview says why it moved.
+  - ⚠️ **Only when every row has one.** A partial column means an unsorted
+    paste, where `auto` is still correct — switching would send the point-less
+    rows to tier 0. Pinned in `tests/import.mjs`.
+  - ⚠️ `importModeTouched` exists so the detect never fights a manual choice; it
+    is reset per open, and re-selecting «وزّع تلقائياً» by hand sticks.
+  - ⚠️ It must run BEFORE `assignImportPoints`, which overwrites `r.points` from
+    the mode — after that call you can no longer tell a supplied column from a
+    generated one.
+  - The preview also shows a **per-tier chip row** of where the batch will land.
+    The single sample line cannot show a spread, which is exactly why this went
+    unnoticed.
+
 - **«تكرار بعد N ألعاب» — the only category-health number worth reading
   (build .312, 2026-08-14).** `categoryTiers()` puts exactly ONE cell per point
   tier on the board, so a new game eats one question from every tier and the

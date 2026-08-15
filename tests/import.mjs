@@ -88,6 +88,64 @@ try {
   });
   check(`first question got an auto points value (${firstRowPts})`, /\d|[٠-٩]/.test(firstRowPts));
 
+  // ---- the points column is honoured when every row carries one -----------
+  // Reported from real use: fourteen history questions written for the 100 tier
+  // arrived spread as 3/3/3/3/2 across all five. The modal opens on «وزّع
+  // تلقائياً», which IGNORES the points column, and nothing on screen said so —
+  // the sample line even read «(100)», because the first row happened to be
+  // right. A batch where every row states its points is unambiguous, so the mode
+  // now switches itself and says why.
+  await page.evaluate(() => document.getElementById("adminImportQuestions").click());
+  await page.waitForTimeout(200);
+  const allHundred = Array.from({ length: 14 }, (_, i) => `سؤال ${i + 1}؟ | جواب ${i + 1} | أ | ب | ج | 100`).join("\n");
+  await page.fill("#importText", allHundred);
+  await page.waitForTimeout(300);
+
+  const levelled = await page.evaluate(() => {
+    const chips = Array.from(document.querySelectorAll("#importPreview .imp-tier")).map(c => c.textContent.trim());
+    return {
+      mode: document.getElementById("importPointsMode").value,
+      hint: !!document.querySelector("#importPreview .imp-auto"),
+      chips,
+      text: document.getElementById("importPreview").textContent,
+    };
+  });
+  check("a fully-levelled batch switches «النقاط» to the column", levelled.mode === "column", levelled.mode);
+  check("...and says why, rather than moving the control silently", levelled.hint);
+  check("...so all 14 land on ONE tier, not spread over five",
+    levelled.chips.length === 1 && /100/.test(levelled.chips[0]) && /14/.test(levelled.chips[0]),
+    levelled.chips.join(" / "));
+
+  // The spread is now visible BEFORE importing — which is the part that was
+  // missing when this went wrong.
+  await page.selectOption("#importPointsMode", "auto");
+  await page.waitForTimeout(250);
+  const spread = await page.evaluate(() => ({
+    mode: document.getElementById("importPointsMode").value,
+    chips: Array.from(document.querySelectorAll("#importPreview .imp-tier")).map(c => c.textContent.trim()),
+    hint: !!document.querySelector("#importPreview .imp-auto"),
+  }));
+  check("choosing «وزّع تلقائياً» by hand is respected, not yanked back", spread.mode === "auto");
+  check("...and the tier chips show the 3/3/3/3/2 spread up front",
+    spread.chips.length === 5, spread.chips.join(" / "));
+  check("...with the auto-detect note gone once the choice is manual", !spread.hint);
+
+  // A PARTIAL points column must stay on auto: switching would send the rows
+  // that carry no points to tier 0.
+  await page.evaluate(() => document.getElementById("importCancel").click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById("adminImportQuestions").click());
+  await page.waitForTimeout(200);
+  await page.fill("#importText", "سؤال أ؟ | جواب أ | أ | ب | ج | 100\nسؤال ب؟ | جواب ب | أ | ب | ج");
+  await page.waitForTimeout(300);
+  const partial = await page.evaluate(() => ({
+    mode: document.getElementById("importPointsMode").value,
+    hint: !!document.querySelector("#importPreview .imp-auto"),
+  }));
+  check("a PARTIAL points column stays on «وزّع تلقائياً»", partial.mode === "auto", partial.mode);
+  check("...and claims nothing about a column it cannot trust", !partial.hint);
+  await page.evaluate(() => document.getElementById("importCancel").click());
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
