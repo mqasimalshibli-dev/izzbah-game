@@ -12701,7 +12701,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.313";
+    const IZZBAH_BUILD = "2026-08-15.314";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13514,6 +13514,12 @@
     //   blanks — questions with no text. Counted separately and NOT as content,
     //            so a category padded with empty rows reports the depth it
     //            really has rather than the depth it appears to have.
+    //            ⚠️ "No text" means NEITHER a question NOR an answer — the same
+    //            rule overrideHasQuestions() uses, and for the same reason. The
+    //            «وش الكلمة» / «ولا كلمة» categories are ANSWER-ONLY word games:
+    //            the word lives in `a` and `q` is deliberately empty. Testing
+    //            `q` alone counted all 250 of them as padding, so the badge read
+    //            «لا أسئلة» on the four fullest categories in the catalogue.
     // A tier with no questions is not a shortage: categoryTiers() simply omits
     // it, which makes the board smaller, never more repetitive — so empty tiers
     // are skipped rather than reported as zero.
@@ -13524,7 +13530,7 @@
         if (!q) return;
         const p = q.points;
         if (typeof p !== "number" || !isFinite(p) || p <= 0) return;
-        if (!String(q.q || "").trim()) { blanks++; return; }
+        if (!String(q.q || "").trim() && !String(q.a || "").trim()) { blanks++; return; }
         per.set(p, (per.get(p) || 0) + 1);
       });
       if (!per.size) return { games: 0, tier: null, blanks };

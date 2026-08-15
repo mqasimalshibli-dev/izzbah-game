@@ -1073,6 +1073,15 @@ Single self-contained page, same palette and type system as the game. Marked
     For those the fix is 15–25 questions at ONE named tier, not bulk topping-up.
   - ⚠️ A blank question is counted as `blanks`, never as depth — otherwise a
     category padded with empty rows reports a life it does not have.
+    ⚠️⚠️ **"Blank" means NEITHER `q` NOR `a`** — the same rule
+    `overrideHasQuestions()` uses, and for the same reason. .312 tested `q`
+    alone and so counted every «وش الكلمة» / «ولا كلمة» word as padding: those
+    are ANSWER-ONLY word games where the word lives in `a` and `q` is
+    deliberately empty. The four fullest categories in the catalogue (250
+    questions each, 50 per tier) rendered «لا أسئلة». Fixed in .314.
+    ⚠️ The .312 TEST fixtures encoded the same mistake — they built "blank"
+    rows as `{q: "", a: "ج"}`, so they passed against the bug and went red
+    against the fix. A blank fixture must be `{q: "", a: ""}`.
   - ⚠️ A tier with NO questions is skipped, not reported as zero:
     `categoryTiers()` omits that row, which makes the board smaller, never more
     repetitive.
