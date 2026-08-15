@@ -1054,6 +1054,15 @@ Single self-contained page, same palette and type system as the game. Marked
   - The preview also shows a **per-tier chip row** of where the batch will land.
     The single sample line cannot show a spread, which is exactly why this went
     unnoticed.
+  - **A literal `\n` in the question or answer becomes a real line break
+    (.315).** The parser is one row per LINE, so a multi-line clue could not be
+    pasted at all — which locked «من أنا؟» out of bulk import entirely, since
+    every question there is three clue lines. `.question-text` is already
+    `white-space: pre-line` (the CSS comment names that category), so nothing
+    else was needed. Question and answer only: a multi-line DISTRACTOR would
+    break the four-choices grid. The preview renders the break as a gold ⏎,
+    because HTML collapses a newline to a space and a `\n` that silently failed
+    would otherwise look identical to one that worked.
 
 - **«تكرار بعد N ألعاب» — the only category-health number worth reading
   (build .312, 2026-08-14).** `categoryTiers()` puts exactly ONE cell per point
