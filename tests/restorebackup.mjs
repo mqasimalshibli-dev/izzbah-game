@@ -128,6 +128,53 @@ try {
   });
   check("...and the handler refuses even if the button is reached directly", refused === false);
 
+  // ---- what the rules would reject must be caught in the PLAN -------------
+  // cloudPublish commits the /questions subcollection in EARLIER batches than
+  // the parent doc. A row the rules refuse therefore lands in the subcollection
+  // and THEN fails the parent write, leaving the two permanently disagreeing.
+  // So every such row has to be filtered before anything is written.
+  const guard = await page.evaluate(() => {
+    const plan = window.IZZBAH_TEST.restorePlan;
+    const bk = (qs) => ({ kind: "izzbah-catalog-backup", version: 1, exportedAt: "",
+      published: [{ id: "c", name: "ف", questions: qs }] });
+    const big = "ط".repeat(2100);
+    const many = Array.from({ length: 620 }, (_, i) => ({ points: 100, q: "س" + i, a: "ج" + i }));
+    return {
+      strPoints: plan(bk([{ points: "100", q: "س", a: "ج" }]), []),
+      zeroPoints: plan(bk([{ points: 0, q: "س", a: "ج" }]), []),
+      nanPoints: plan(bk([{ points: "abc", q: "س", a: "ج" }]), []),
+      longQ: plan(bk([{ points: 100, q: big, a: "ج" }]), []),
+      longA: plan(bk([{ points: 100, q: "س", a: big }]), []),
+      over500: plan(bk(many), []),
+      over500live: plan(bk(many), [{ id: "c", name: "ف", questions: [{ points: 100, q: "موجود", a: "ج" }] }]),
+      // Identity must not collide when a space moves between the fields.
+      collide: plan({ kind: "izzbah-catalog-backup", version: 1, exportedAt: "", published: [
+        { id: "c", name: "ف", questions: [{ points: 100, q: "أ", a: "ب ج" }] }] },
+        [{ id: "c", name: "ف", questions: [{ points: 100, q: "أ ب", a: "ج" }] }]),
+      // A well-formed row still gets through, with its fields rebuilt.
+      good: plan(bk([{ points: 300, q: " س ", a: "ج", junk: "x", image: "data:xxx" }]), []),
+    };
+  });
+  // A string points value is REPAIRED, not dropped — Number("100") is a clean
+  // 100 and that number is what gets written, so the rules are satisfied and a
+  // typo in a hand-edited file does not cost a question.
+  check("a STRING points value is repaired into a real number",
+    guard.strPoints.totals.questions === 1 && guard.strPoints.newCats[0].questions[0].points === 100,
+    JSON.stringify(guard.strPoints.newCats[0] && guard.strPoints.newCats[0].questions[0]));
+  check("points of zero is rejected", guard.zeroPoints.dropped === 1);
+  check("non-numeric points is rejected", guard.nanPoints.dropped === 1);
+  check("a question over the 2000-char rule limit is rejected", guard.longQ.dropped === 1);
+  check("...and so is an over-long answer", guard.longA.dropped === 1);
+  check("a category is capped at the 500 the rules allow",
+    guard.over500.totals.questions === 500 && guard.over500.capped === 120,
+    `${guard.over500.totals.questions} kept, ${guard.over500.capped} capped`);
+  check("...counting what is already live", guard.over500live.totals.questions === 499, `${guard.over500live.totals.questions}`);
+  check("moving a SPACE between question and answer is not the same question",
+    guard.collide.totals.questions === 1, `${guard.collide.totals.questions}`);
+  check("a good row survives, trimmed and rebuilt", guard.good.totals.questions === 1
+    && guard.good.newCats[0].questions[0].q === "س" && guard.good.newCats[0].questions[0].points === 300);
+  check("...and never carries an image from the file", guard.good.newCats[0].questions[0].image === "");
+
   // A restored category must carry its IDENTITY, not just its questions. The
   // export keeps covers (only question media is stripped) and a cover cannot be
   // recreated — the masters are gone. Dropping it would lose the one

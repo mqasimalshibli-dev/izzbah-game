@@ -1084,6 +1084,23 @@ Single self-contained page, same palette and type system as the game. Marked
   - ⚠️ No undo spans categories («تراجع» is a single-category snapshot), and a
     mid-run failure leaves some categories restored and some not. The report
     names them; nothing unwinds.
+  - ⚠️ **Question identity is `JSON.stringify` of the tuple, not a joined
+    string.** Joining with a SPACE collided — `{100,"أ ب","ج"}` and
+    `{100,"أ","ب ج"}` keyed the same, so a genuinely missing question could be
+    judged already-present and silently skipped. The first fix used a NUL
+    separator, which works but wrote a **raw NUL byte into index.html**: grep
+    then reports the file as binary and refuses to match, and string-replacing
+    edits fail against it. Do not put control characters in this file.
+  - ⚠️ **Every restored row is rebuilt by `restoreCleanQuestion()` and anything
+    the RULES would refuse is dropped in the plan.** This is not tidiness:
+    `cloudPublish` commits the `/questions` subcollection in EARLIER batches
+    than the parent doc, so a row breaking `points is number` or the 2000-char
+    cap would LAND in the subcollection and then fail the parent write, leaving
+    the two permanently disagreeing. Same reason the category is capped at the
+    rules' 500. Dropped and capped counts are shown in the plan — a recovery
+    tool that quietly discards rows is worse than one that refuses.
+  - Points given as a STRING are repaired (`Number("100")`), not dropped: the
+    number is what gets written, so the rules hold and a typo costs nothing.
   - **Still open:** the export carries no question media. Making it complete
     means hydrating category-by-category and streaming, so the heap stays
     bounded — worth doing, not done.
