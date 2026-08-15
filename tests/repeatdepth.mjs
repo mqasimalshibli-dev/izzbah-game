@@ -37,6 +37,10 @@ try {
     const w = window.IZZBAH_TEST.gamesWord;
     // Build `n` questions on one tier.
     const tier = (points, n, text) => Array.from({ length: n }, (_, i) => ({ points, q: text === undefined ? `س${i}` : text, a: "ج" }));
+    // A REAL blank: neither question nor answer. An empty `q` alone is not
+    // padding — that is the shape of every «وش الكلمة» word, which is the bug
+    // this file exists to catch.
+    const blank = (points, n) => Array.from({ length: n }, () => ({ points, q: "", a: "" }));
     const cat = (spec) => Object.entries(spec).flatMap(([p, n]) => tier(Number(p), n));
 
     return {
@@ -51,11 +55,25 @@ try {
       // that row, so the category is SMALLER, never more repetitive.
       missing:  d(cat({ 100: 9, 300: 9, 500: 9 })),
       // Blank rows are padding, not content.
-      padded:   d([...tier(100, 3), ...tier(100, 20, ""), ...tier(200, 9)]),
+      padded:   d([...tier(100, 3), ...blank(100, 20), ...tier(200, 9)]),
       // Junk points values can't create a phantom bottleneck of 1.
       junk:     d([...cat({ 100: 4, 200: 6 }), { points: 0, q: "x", a: "y" }, { points: null, q: "x", a: "y" }, { q: "x", a: "y" }]),
       empty:    d([]),
-      noText:   d(tier(100, 5, "")),
+      noText:   d(blank(100, 5)),
+      // ANSWER-ONLY categories. «وش الكلمة» (×4, 250 questions each) and
+      // «ولا كلمة» put the word in `a` and leave `q` deliberately empty, so a
+      // blank test that looks at `q` alone counts all 250 as padding and the
+      // badge reads «لا أسئلة» on the fullest categories in the catalogue —
+      // which is exactly what shipped in .312. overrideHasQuestions() had the
+      // rule right all along: q OR a.
+      wordGame: d(Object.entries({ 100: 50, 200: 50, 300: 50, 400: 50, 500: 50 })
+        .flatMap(([p, n]) => Array.from({ length: n }, (_, i) => ({ points: Number(p), q: "", a: `كلمة${i}` })))),
+      // …and a genuinely empty row is still padding even beside answer-only ones.
+      wordGameGap: d([
+        ...Array.from({ length: 6 }, (_, i) => ({ points: 100, q: "", a: `كلمة${i}` })),
+        ...Array.from({ length: 4 }, () => ({ points: 100, q: "", a: "" })),
+        ...Array.from({ length: 9 }, (_, i) => ({ points: 200, q: "", a: `كلمة${i}` })),
+      ]),
       // Two tiers equally starved: name the cheaper one, so the label does not
       // flicker between them on re-render.
       tie:      d(cat({ 100: 3, 200: 3, 300: 40 })),
@@ -79,6 +97,11 @@ try {
   check("junk/absent points values create no phantom bottleneck", r.junk.games === 4 && r.junk.tier === 100, `${r.junk.games} @ ${r.junk.tier}`);
   check("an empty category reports zero, not Infinity", r.empty.games === 0 && r.empty.tier === null);
   check("a category of blanks reports zero", r.noText.games === 0 && r.noText.blanks === 5);
+  check("an ANSWER-ONLY category is measured, not written off as empty  — وش الكلمة",
+    r.wordGame.games === 50 && r.wordGame.blanks === 0, `${r.wordGame.games} games, ${r.wordGame.blanks} blanks`);
+  check("...while a truly empty row beside them still counts as padding",
+    r.wordGameGap.games === 6 && r.wordGameGap.tier === 100 && r.wordGameGap.blanks === 4,
+    `${r.wordGameGap.games} @ ${r.wordGameGap.tier}, ${r.wordGameGap.blanks} blanks`);
   check("a tie between two starved tiers names the cheaper one", r.tie.games === 3 && r.tie.tier === 100, `tier ${r.tie.tier}`);
   check("Arabic counts use the dual and switch at ten",
     r.words[0] === "لعبة واحدة" && r.words[1] === "لعبتين"
