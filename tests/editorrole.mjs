@@ -70,12 +70,19 @@ const blocks = [];
   if (prev) blocks.push({ path: prev.path, body: rulesCode.slice(prev.at) });
 }
 const touched = blocks.filter(b => /isEditor\(\)/.test(b.body)).map(b => b.path).sort();
-/* Exactly two: the categories block (which carries the /questions
-   subcollection inside it) and the catalogue rev marker. NOT /editors/{uid}
-   itself — that block grants on isAdmin(), which is the point: the registry of
-   editors is written by the owner alone. */
-const EXPECTED = ["/categories/{catId}", "/meta/{doc}"].sort();
-check(`isEditor() grants inside exactly two collections`,
+/* Exactly three: the categories block (which carries the /questions
+   subcollection inside it), the catalogue rev marker, and the audit log.
+   NOT /editors/{uid} itself — that block grants on isAdmin(), which is the
+   point: the registry of editors is written by the owner alone.
+   ⚠️ /logs/{logId} was added deliberately in .321 and this guard is what forced
+   the decision. An editor must be able to CREATE its own audit entry, or an
+   editor's publishes would be invisible in the log — and editors writing is
+   the main reason the log exists. It is create-only, the uid is pinned to the
+   caller so nobody can log as someone else, the shape is closed with hasOnly,
+   and reading stays admin-only because the log carries staff emails.
+   Do NOT widen this list again without the same argument. */
+const EXPECTED = ["/categories/{catId}", "/logs/{logId}", "/meta/{doc}"].sort();
+check(`isEditor() grants inside exactly three collections`,
   JSON.stringify(touched) === JSON.stringify(EXPECTED),
   touched.join(", ") || "none");
 // Named individually so a failure says WHICH one leaked.

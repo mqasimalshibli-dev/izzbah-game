@@ -8611,6 +8611,18 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="auditModal" aria-hidden="true">
+      <div class="question-modal import-modal health-modal" role="dialog" aria-modal="true" aria-labelledby="auditTitle">
+        <h3 class="preview-title" id="auditTitle">سجل التعديلات</h3>
+        <p class="import-help">كل نشر يُسجَّل: من، وأي فئة، وكيف تغيّر عددها.</p>
+        <div class="health-body" id="auditBody"></div>
+        <div class="actions">
+          <button class="ghost af-danger" id="auditClear" type="button">مسح السجل</button>
+          <button class="ghost" id="auditClose" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="healthModal" aria-hidden="true">
       <div class="question-modal import-modal health-modal" role="dialog" aria-modal="true" aria-labelledby="healthTitle">
         <h3 class="preview-title" id="healthTitle">صحة الكتالوج</h3>
@@ -8684,6 +8696,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🎯</span>
             <span class="admin-choice-name">فحص الخيارات</span>
             <span class="admin-choice-sub">خيارات «أربعة خيارات» الخاطئة أو المكرّرة</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceLog" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">📜</span>
+            <span class="admin-choice-name">سجل التعديلات</span>
+            <span class="admin-choice-sub">من نشر ماذا ومتى — لكل فئة</span>
           </button>
               <button class="admin-choice-btn" id="adminChoiceHealth" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🩺</span>
@@ -12766,7 +12783,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.320";
+    const IZZBAH_BUILD = "2026-08-15.321";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -26319,6 +26336,16 @@
     $("#adminChoiceFilters").addEventListener("click", () => { closeAdminChoice(); openCatFilterAdmin(); });
     $("#adminChoiceDupes").addEventListener("click", () => { closeAdminChoice(); openDupModal(); });
     $("#adminChoiceHealth").addEventListener("click", () => { closeAdminChoice(); openHealthBoard(); });
+    $("#adminChoiceLog").addEventListener("click", () => { closeAdminChoice(); openAuditLog(); });
+    $("#auditClose").addEventListener("click", closeAuditLog);
+    $("#auditModal").addEventListener("click", e => { if (e.target.id === "auditModal") closeAuditLog(); });
+    $("#auditClear").addEventListener("click", () => {
+      if (!window.confirm("مسح سجل التعديلات؟ لا يمكن التراجع.")) return;
+      const c = window.IZZBAH && window.IZZBAH.clearAuditLog;
+      if (!c) return;
+      c().then(n => { showToast(`تم مسح ${toArabicDigits(n)} سطراً`); openAuditLog(); })
+        .catch(() => showToast("تعذّر المسح"));
+    });
     $("#healthClose").addEventListener("click", closeHealthBoard);
     $("#healthModal").addEventListener("click", e => { if (e.target.id === "healthModal") closeHealthBoard(); });
     $("#healthSort").addEventListener("click", e => {
@@ -26569,6 +26596,49 @@
       html += `</tbody></table>`;
       box.innerHTML = html;
     }
+    // ---- Audit log viewer ---------------------------------------------------
+    function auditWhen(ts) {
+      try {
+        const d = ts && ts.toDate ? ts.toDate() : null;
+        if (!d) return "—";
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch (e) { return "—"; }
+    }
+    function renderAuditRows(rows) {
+      const box = $("#auditBody");
+      if (!box) return;
+      if (!rows.length) { box.innerHTML = `<div class="imp-auto">لا توجد تعديلات مسجّلة بعد.</div>`; return; }
+      let html = `<table class="health-tbl"><thead><tr><th>متى</th><th>من</th><th>الفئة</th><th>الأسئلة</th></tr></thead><tbody>`;
+      rows.forEach(r => {
+        const delta = (Number(r.after) || 0) - (Number(r.before) || 0);
+        const sign = delta > 0 ? `+${toArabicDigits(delta)}` : (delta < 0 ? `−${toArabicDigits(Math.abs(delta))}` : "—");
+        // A publish that REMOVED questions is the one worth spotting quickly.
+        const cls = delta < 0 ? "crit" : "";
+        html += `<tr class="${cls}">`
+          + `<td class="clean-number">${escapeHtml(auditWhen(r.at))}</td>`
+          + `<td>${escapeHtml(r.email || r.uid || "—")}</td>`
+          + `<td>${escapeHtml(r.name || r.cat || "—")}</td>`
+          + `<td class="h-games clean-number">${escapeHtml(sign)} <span class="h-tag">${toArabicDigits(r.after || 0)}</span></td>`
+          + `</tr>`;
+      });
+      box.innerHTML = html + `</tbody></table>`;
+    }
+    function openAuditLog() {
+      if (!state.isAdmin) return;
+      const m = $("#auditModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      $("#auditBody").innerHTML = `<div class="imp-auto">جارٍ التحميل…</div>`;
+      const load = window.IZZBAH && window.IZZBAH.loadAuditLog;
+      if (!load) { $("#auditBody").innerHTML = `<div class="imp-errs"><div>غير متاح — سجّل الدخول كمشرف</div></div>`; return; }
+      load(150).then(renderAuditRows)
+        .catch(() => { $("#auditBody").innerHTML = `<div class="imp-errs"><div>تعذّر تحميل السجل — تحقّق من نشر القواعد</div></div>`; });
+    }
+    function closeAuditLog() {
+      const m = $("#auditModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+    }
+
     function openHealthBoard() {
       // ⚠️ ADMIN, not canEditContent(). The editor role grants exactly five
       // things by the owner's instruction ("he can't do anything else"), and
@@ -29516,11 +29586,66 @@
                 // the next load refetches this category once and re-caches it,
                 // and bump the catalog revision so every OTHER device notices
                 // the change from a single cheap read.
-                .then(r => { catCache.remove(cat.id); return bumpCatalogRev().then(() => r); });
+                .then(r => {
+                  catCache.remove(cat.id);
+                  // Audit trail. Best-effort and deliberately fire-and-forget:
+                  // a log write must NEVER be able to fail a publish, so it is
+                  // not in the promise chain and swallows its own errors. An
+                  // editor writing here is fine — the rules let admins and
+                  // editors create, and only admins read.
+                  writeAuditLog({
+                    cat: cat.id, name: String(cat.name || "").slice(0, 80),
+                    before: existing.length, after: list.length,
+                    wrote: ops.filter(o => !o.del).length - 1, // minus the parent doc
+                    removed: ops.filter(o => o.del).length
+                  });
+                  return bumpCatalogRev().then(() => r);
+                });
             });
             // NOTE: no full re-download here — both callers already update the
             // local publishedCategories via upsertPublished, so re-reading every
             // category's images from the server after each publish is wasted work.
+          };
+          // ---- Audit log ------------------------------------------------
+          // One tiny doc per publish: who, which category, how it changed. There
+          // was NO record of any of this before — `updatedAt` was the only trace
+          // — which is why the August media wipe took a day to understand. It
+          // matters more now that editors can write too.
+          // ⚠️ Never blocks and never throws outward. A catalogue that cannot be
+          // audited is a nuisance; a publish that fails because its logging did
+          // is a real problem.
+          window.IZZBAH.writeAuditLog = function (entry) {
+            try {
+              if (!db || !currentUser) return;
+              db.collection("logs").add({
+                uid: currentUser.uid,
+                email: String(currentUser.email || "").slice(0, 320),
+                cat: String(entry.cat || "").slice(0, 128),
+                name: String(entry.name || "").slice(0, 80),
+                action: String(entry.action || "publish").slice(0, 20),
+                before: Math.max(0, Number(entry.before) || 0),
+                after: Math.max(0, Number(entry.after) || 0),
+                wrote: Math.max(0, Number(entry.wrote) || 0),
+                removed: Math.max(0, Number(entry.removed) || 0),
+                at: firebase.firestore.FieldValue.serverTimestamp()
+              }).catch(() => {});
+            } catch (e) {}
+          };
+          function writeAuditLog(entry) { window.IZZBAH.writeAuditLog(entry); }
+          // Admin-only: the most recent entries, newest first.
+          window.IZZBAH.loadAuditLog = function (limit) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("logs").orderBy("at", "desc").limit(Math.min(300, Math.max(1, limit || 150))).get()
+              .then(s => s.docs.map(d => Object.assign({ id: d.id }, d.data())));
+          };
+          window.IZZBAH.clearAuditLog = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("logs").orderBy("at", "desc").limit(400).get().then(snap => {
+              if (snap.empty) return 0;
+              const batch = db.batch();
+              snap.docs.forEach(d => batch.delete(d.ref));
+              return batch.commit().then(() => snap.size);
+            });
           };
           window.IZZBAH.cloudDelete = function (id) {
             const catRef = db.collection("categories").doc(id);
