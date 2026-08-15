@@ -1035,6 +1035,30 @@ Single self-contained page, same palette and type system as the game. Marked
   below; the shortage is now concentrated in FOUR categories, and several
   healthy-LOOKING ones are starved at a single tier.
 
+- **«صحة الكتالوج» — the whole catalogue on one screen (build .320).**
+  «فحص المحتوى» → «صحة الكتالوج». Every category ranked by how many games it
+  lasts before repeating, with its limiting tier, blanks, missing cover and
+  hidden state. `repeatDepth()` from .312 did the arithmetic but only inside an
+  OPEN category, so judging the catalogue meant opening forty of them — or
+  measuring it from outside the app, which is what actually happened all
+  through the 14 August session.
+  - ⚠️ Uses the same bank-vs-sample rule as `renderAdminCategoryList`. With no
+    cloud override `cat` IS the built-in, and `refreshBuiltinQuestions()` sets
+    its `.questions` to `buildQuestionSet()` — ONE per tier, a sampled BOARD.
+    Reading that reports every bundled category as lasting a single game.
+  - ⚠️ **`games === 0` means "not written yet", NOT "repeats immediately".**
+    Those never reach the picker and have no tier to top up, so they sort LAST
+    and are tagged «فارغة» rather than burying the categories actually running
+    dry. Sorting them first was the first cut and it was wrong.
+  - ⚠️ **ADMIN ONLY, deliberately.** The first cut gated it on
+    `canEditContent()`, which quietly made it a SIXTH editor capability;
+    `tests/editorrole.mjs` counts the gates and caught it. A read-only board
+    arguably helps an editor find work, but widening that role is the owner's
+    call.
+  - Found immediately on the built-ins: **`emojis` ships one question per tier**,
+    so it repeats on game 2 — the same shape as دين and ميمز in the cloud
+    catalogue. `tests/cathealth.mjs`.
+
 - **⚠️ «نسخة احتياطية» IS TEXT-ONLY, and «استعادة من نسخة» (build .316).**
   `buildCatalogBackup()` exports `state.publishedCategories`, which is
   media-LITE since .209 — every question `image`/`answerImage` is `""`. Category
