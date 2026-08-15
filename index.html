@@ -8450,6 +8450,8 @@
             <button class="secondary af-tool" id="adminBuildIndex" type="button" title="يبني فهرس الفئات (meta/index) الذي تقرأه اللعبة عند الإقلاع — أسرع بكثير من قراءة كل الفئات. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-folder"/></svg><span class="af-label">بناء فهرس الفئات</span></button>
             <button class="secondary af-tool" id="adminShrinkCovers" type="button" title="يضغط صور أغلفة كل الفئات المنشورة — يجعل قائمة الفئات أسرع بكثير في التحميل. آمن التكرار."><svg class="af-ico" aria-hidden="true"><use href="#i-bolt"/></svg><span class="af-label">ضغط صور الفئات</span></button>
             <button class="secondary af-tool" id="adminExportAll" type="button" title="ينزّل نسخة JSON كاملة من كل الفئات والأسئلة — احتفظ بها كنسخة احتياطية"><svg class="af-ico" aria-hidden="true"><use href="#i-backup"/></svg><span class="af-label">نسخة احتياطية</span></button>
+            <button class="secondary af-tool" id="adminRestoreAll" type="button" title="يقرأ ملف نسخة احتياطية ويعيد الأسئلة الناقصة فقط — يعرض ما سيتغيّر قبل الكتابة، ولا يحذف ولا يعدّل شيئاً موجوداً"><svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg><span class="af-label">استعادة من نسخة</span></button>
+            <input type="file" id="adminRestoreFile" accept="application/json,.json" hidden>
             <button class="secondary af-tool" id="adminReseedBuiltin" type="button" hidden title="يستبدل أسئلة هذه الفئة بالنسخة الأصلية المدمجة في اللعبة — استخدمه إذا كانت النسخة المنشورة أقدم"><svg class="af-ico" aria-hidden="true"><use href="#i-refresh"/></svg><span class="af-label">إعادة تحميل من الأصل</span></button>
             <span class="af-spacer"></span>
             <button class="secondary admin-clear-btn af-danger" id="adminDeleteSelected" type="button" hidden><svg class="af-ico" aria-hidden="true"><use href="#i-trash"/></svg><span class="af-label">حذف المحدد</span></button>
@@ -8579,6 +8581,19 @@
         <div class="actions">
           <button class="ghost" id="importCancel" type="button">إلغاء</button>
           <button class="primary" id="importRun" type="button" disabled>استيراد</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="restoreModal" aria-hidden="true">
+      <div class="question-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
+        <h3 class="preview-title" id="restoreTitle">استعادة من نسخة احتياطية</h3>
+        <p class="import-help">تُقارَن النسخة بالمحتوى الحالي، ويُعرض ما سيُضاف قبل أي كتابة.</p>
+        <p class="import-note">تضيف الأسئلة الناقصة فقط. <b>لا تحذف</b> فئة أو سؤالاً، ولا تعدّل نصاً موجوداً، ولا تمسّ الصور.</p>
+        <div class="import-preview" id="restorePreview"></div>
+        <div class="actions">
+          <button class="ghost" id="restoreCancel" type="button">إلغاء</button>
+          <button class="primary" id="restoreRun" type="button" disabled>تنفيذ الاستعادة</button>
         </div>
       </div>
     </div>
@@ -12704,7 +12719,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.315";
+    const IZZBAH_BUILD = "2026-08-15.316";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17722,7 +17737,11 @@
       "adminUndo",
       // catalogue-wide maintenance, all of it the owner's
       "adminShrinkQMedia", "adminBuildIndex", "adminShrinkCovers",
-      "adminExportAll", "adminReseedBuiltin",
+      // «استعادة من نسخة» replays a whole backup across many categories and can
+      // recreate deleted ones — squarely the owner's. startCatalogRestore()
+      // re-checks state.isAdmin as well, since a hidden button is ergonomics
+      // and not a permission.
+      "adminExportAll", "adminRestoreAll", "adminReseedBuiltin",
       // the two the owner named directly
       "adminClearQuestions",
     ];
@@ -17755,6 +17774,8 @@
     window.IZZBAH_TEST.EDITOR_LOCKED_IDS = EDITOR_LOCKED_IDS;
     window.IZZBAH_TEST.repeatDepth = repeatDepth;
     window.IZZBAH_TEST.parseImport = (raw) => parseImport(raw);
+    window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
+    window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
     window.IZZBAH_TEST.gamesWord = gamesWord;
 
     function adminTabChip(id, name, color, active) {
@@ -26399,10 +26420,139 @@
         version: 1,
         build: IZZBAH_BUILD,
         exportedAt: new Date().toISOString(),
+        // ⚠️ MEDIA-LITE. state.publishedCategories is stripped of question and
+        // answer images at the state boundary (build .209), so this file holds
+        // TEXT plus the category covers, and no question pictures at all. It is
+        // stamped so the restore can never be fooled into treating an empty
+        // image as an instruction to delete a stored one. Question media is
+        // covered by Firestore's scheduled backups — see the ⛔ runbook.
+        mediaIncluded: false,
         published: state.publishedCategories || [],
         community: state.communityCategories || [],
         custom: state.customCategories || []
       };
+    }
+
+    // ---- Restoring from a backup file --------------------------------------
+    // The single most destructive thing an admin can press, so the rules are
+    // narrow and absolute:
+    //   • It only ever ADDS. Never deletes a category or a question, never
+    //     edits the text of one that already exists. A live catalogue that has
+    //     moved on since the backup keeps everything it has.
+    //   • Questions are matched on their CONTENT (points + question + answer),
+    //     never on their index. Question documents are keyed POSITIONALLY
+    //     (q0..qN), so an index match would happily restore a question over an
+    //     unrelated one — the same trap tools/restore-media.mjs guards against.
+    //   • It NEVER writes an image from the file. The file has none (see
+    //     mediaIncluded above); images come only from the live hydrated copy.
+    //   • Nothing is written until the plan has been shown and confirmed.
+    const restoreNorm = (s) => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+    const restoreQKey = (q) => [
+      Number(q && q.points) || 0,
+      restoreNorm(q && q.q),
+      restoreNorm(q && q.a)
+    ].join(" ");
+
+    // Pure: given a parsed backup file and the live categories, work out what
+    // WOULD be added. No side effects, so the preview and the write share one
+    // implementation and cannot disagree.
+    function restorePlan(backup, liveCats) {
+      const out = { ok: false, error: "", cats: [], newCats: [], totals: { cats: 0, questions: 0 }, meta: {} };
+      if (!backup || typeof backup !== "object") { out.error = "الملف غير صالح"; return out; }
+      if (backup.kind !== "izzbah-catalog-backup") { out.error = "هذا ليس ملف نسخة احتياطية من عِزبة"; return out; }
+      if (!Array.isArray(backup.published)) { out.error = "الملف لا يحتوي فئات"; return out; }
+      out.meta = {
+        exportedAt: String(backup.exportedAt || ""),
+        build: String(backup.build || ""),
+        // Absent on files written before the flag existed. Those are lite too —
+        // every export ever made has been — so default to false, which is the
+        // safe direction: it only ever means "do not trust images in here".
+        mediaIncluded: backup.mediaIncluded === true
+      };
+      const live = new Map((liveCats || []).map(c => [String(c.id), c]));
+      (backup.published || []).forEach(bc => {
+        if (!bc || !bc.id) return;
+        const id = String(bc.id);
+        const bq = Array.isArray(bc.questions) ? bc.questions.filter(q => q && (restoreNorm(q.q) || restoreNorm(q.a))) : [];
+        const cur = live.get(id);
+        if (!cur) {
+          // A category that no longer exists live. Restored whole.
+          if (!bq.length) return;
+          out.newCats.push({ id: id, name: String(bc.name || ""), add: bq.length, questions: bq });
+          out.totals.cats++; out.totals.questions += bq.length;
+          return;
+        }
+        const have = new Set((cur.questions || []).map(restoreQKey));
+        const seen = new Set();
+        const add = [];
+        bq.forEach(q => {
+          const k = restoreQKey(q);
+          if (have.has(k) || seen.has(k)) return; // already live, or a dupe inside the file
+          seen.add(k);
+          add.push(q);
+        });
+        if (add.length) {
+          out.cats.push({ id: id, name: String(cur.name || bc.name || ""), add: add.length, questions: add, liveCount: (cur.questions || []).length });
+          out.totals.cats++; out.totals.questions += add.length;
+        }
+      });
+      out.ok = true;
+      return out;
+    }
+
+    // Apply one category's additions. `report` collects a line per category so
+    // the admin sees exactly what happened, including anything skipped.
+    async function restoreOneCategory(entry, isNew, report) {
+      const cloud = window.IZZBAH && window.IZZBAH.cloudPublish;
+      if (!cloud) { report.push({ name: entry.name, skipped: "الحفظ السحابي غير متاح" }); return false; }
+      let target;
+      if (isNew) {
+        // Nothing live to protect — the category is gone. Its questions carry
+        // no images (the file has none), which is correct: there is no stored
+        // picture to lose.
+        target = { id: entry.id, name: entry.name, custom: false, published: true, order: 9999, questions: entry.questions.slice() };
+      } else {
+        const cur = (state.publishedCategories || []).find(c => String(c.id) === String(entry.id));
+        if (!cur) { report.push({ name: entry.name, skipped: "الفئة اختفت أثناء الاستعادة" }); return false; }
+        // ⚠️⚠️ THE CRITICAL STEP. cloudPublish's keepImg() falls back to the
+        // stored image BY POSITION (prevById.get("q" + i)). Adding questions
+        // renumbers everything after them, so publishing an UNHYDRATED category
+        // would hand each question the previous occupant's picture — silently,
+        // across the whole category. Hydrating first makes mediaTrusted true,
+        // and then every image travels on its own question object through any
+        // renumbering. Verify it actually worked; a failed hydrate must abort
+        // this category rather than publish a lite copy.
+        if (categoryNeedsMedia(cur)) {
+          try { await hydrateMediaInto([cur]); } catch (e) {}
+          if (!hydratedCats.has(cur.id)) {
+            report.push({ name: entry.name, skipped: "تعذّر تحميل صور الفئة — لم تُمس" });
+            return false;
+          }
+        }
+        target = Object.assign({}, cur, { questions: (cur.questions || []).concat(entry.questions) });
+      }
+      try {
+        await cloud(target);
+        report.push({ name: entry.name, added: entry.questions.length, isNew: isNew });
+        return true;
+      } catch (e) {
+        report.push({ name: entry.name, skipped: "فشل النشر — " + ((e && e.message) || "خطأ") });
+        return false;
+      }
+    }
+
+    async function runCatalogRestore(plan, onProgress) {
+      const report = [];
+      const all = plan.newCats.map(c => [c, true]).concat(plan.cats.map(c => [c, false]));
+      for (let i = 0; i < all.length; i++) {
+        if (onProgress) onProgress(i, all.length, all[i][0].name);
+        // Sequential ON PURPOSE: each category hydrates its own media, and
+        // running them in parallel would put the whole catalogue's pictures on
+        // the heap at once — the 541 MB crash that build .209 exists to prevent.
+        await restoreOneCategory(all[i][0], all[i][1], report);
+      }
+      if (onProgress) onProgress(all.length, all.length, "");
+      return report;
     }
     function exportCatalogBackup() {
       const data = buildCatalogBackup();
@@ -26415,6 +26565,102 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
       showToast(`تم تنزيل النسخة الاحتياطية — ${toArabicDigits(data.published.length)} فئة منشورة (${toArabicDigits(nQs(data.published))} سؤالاً)`);
     }
+    let restorePending = null;   // the plan awaiting confirmation
+    let restoreRunning = false;
+    function closeRestoreModal() {
+      const m = $("#restoreModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+      restorePending = null;
+    }
+    function renderRestorePlan(plan) {
+      const box = $("#restorePreview");
+      const run = $("#restoreRun");
+      if (!plan.ok) {
+        box.innerHTML = `<div class="imp-errs"><div>${escapeHtml(plan.error || "تعذّرت قراءة الملف")}</div></div>`;
+        run.disabled = true; return;
+      }
+      const when = plan.meta.exportedAt ? plan.meta.exportedAt.slice(0, 10) : "غير معروف";
+      let html = `<span class="imp-ok">نسخة بتاريخ <b>${escapeHtml(when)}</b>${plan.meta.build ? ` — بناء ${escapeHtml(plan.meta.build)}` : ""}</span>`;
+      if (!plan.totals.questions) {
+        html += `<div class="imp-auto">لا يوجد شيء ناقص — المحتوى الحالي يشمل كل ما في النسخة.</div>`;
+        box.innerHTML = html; run.disabled = true; return;
+      }
+      html += `<div class="imp-tiers">`
+        + `<span class="imp-tier"><b>${toArabicDigits(plan.totals.questions)}</b> سؤال سيُضاف</span>`
+        + `<span class="imp-tier"><b>${toArabicDigits(plan.totals.cats)}</b> فئة ستتأثر</span>`
+        + (plan.newCats.length ? `<span class="imp-tier"><b>${toArabicDigits(plan.newCats.length)}</b> فئة ستُعاد بالكامل</span>` : "")
+        + `</div>`;
+      // The media warning is not decoration. Every backup ever written is
+      // text-only, and an admin restoring after a picture loss must not walk
+      // away believing the pictures came back.
+      html += `<div class="imp-auto">🖼️ هذه النسخة <b>لا تحتوي صور الأسئلة</b> (النص فقط). الصور الحالية لن تتغيّر، ولن تُستعاد صورة مفقودة.</div>`;
+      const rows = plan.newCats.map(c => `<div>➕ <b>${escapeHtml(c.name || c.id)}</b> — فئة كاملة، ${toArabicDigits(c.add)} سؤالاً</div>`)
+        .concat(plan.cats.map(c => `<div>• ${escapeHtml(c.name || c.id)} — <b>${toArabicDigits(c.add)}</b> سؤالاً ناقصاً (لديك ${toArabicDigits(c.liveCount)})</div>`));
+      html += `<div class="imp-errs restore-list">${rows.slice(0, 40).join("")}${rows.length > 40 ? `<div>… و${toArabicDigits(rows.length - 40)} فئة أخرى</div>` : ""}</div>`;
+      box.innerHTML = html;
+      run.disabled = false;
+    }
+    function openRestoreModal(plan) {
+      restorePending = plan && plan.ok && plan.totals.questions ? plan : null;
+      renderRestorePlan(plan);
+      const m = $("#restoreModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+    }
+    function startCatalogRestore() {
+      // Admin only. An editor may add questions one at a time; replaying a whole
+      // backup over the catalogue is not theirs, and firestore.rules would
+      // refuse the new-category writes anyway.
+      if (!state.isAdmin) { showToast("الاستعادة للمشرف فقط"); return; }
+      $("#adminRestoreFile").value = "";
+      $("#adminRestoreFile").click();
+    }
+    $("#adminRestoreFile").addEventListener("change", (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const fr = new FileReader();
+      fr.onload = () => {
+        let parsed = null;
+        try { parsed = JSON.parse(String(fr.result || "")); }
+        catch (e) { openRestoreModal({ ok: false, error: "الملف ليس JSON صالحاً" }); return; }
+        openRestoreModal(restorePlan(parsed, state.publishedCategories || []));
+      };
+      fr.onerror = () => openRestoreModal({ ok: false, error: "تعذّرت قراءة الملف" });
+      fr.readAsText(file);
+    });
+    $("#restoreCancel").addEventListener("click", () => { if (!restoreRunning) closeRestoreModal(); });
+    $("#restoreModal").addEventListener("click", e => { if (e.target.id === "restoreModal" && !restoreRunning) closeRestoreModal(); });
+    $("#restoreRun").addEventListener("click", async () => {
+      if (!restorePending || restoreRunning) return;
+      const plan = restorePending;
+      restoreRunning = true;
+      const run = $("#restoreRun"), cancel = $("#restoreCancel");
+      run.disabled = true; cancel.disabled = true;
+      const box = $("#restorePreview");
+      try {
+        const report = await runCatalogRestore(plan, (done, total, name) => {
+          run.textContent = `جارٍ الاستعادة… ${toArabicDigits(done)}/${toArabicDigits(total)}`;
+          if (name) box.innerHTML = `<span class="imp-ok">جارٍ: ${escapeHtml(name)}</span>`;
+        });
+        const added = report.reduce((s, r) => s + (r.added || 0), 0);
+        const skipped = report.filter(r => r.skipped);
+        let html = `<span class="imp-ok">تمت الاستعادة — <b>${toArabicDigits(added)}</b> سؤالاً في ${toArabicDigits(report.length - skipped.length)} فئة.</span>`;
+        if (skipped.length) {
+          html += `<div class="imp-errs">${skipped.map(r => `<div>⚠️ ${escapeHtml(r.name)}: ${escapeHtml(r.skipped)}</div>`).join("")}</div>`;
+        }
+        box.innerHTML = html;
+        showToast(`تمت استعادة ${toArabicDigits(added)} سؤالاً`);
+        renderAdminCategoryList();
+      } catch (e) {
+        box.innerHTML = `<div class="imp-errs"><div>فشلت الاستعادة: ${escapeHtml((e && e.message) || "خطأ")}</div></div>`;
+      } finally {
+        restoreRunning = false;
+        cancel.disabled = false;
+        run.textContent = "تنفيذ الاستعادة";
+        run.disabled = true;
+        restorePending = null;
+      }
+    });
+    $("#adminRestoreAll").addEventListener("click", startCatalogRestore);
     $("#adminExportAll").addEventListener("click", exportCatalogBackup);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
     $("#adminFetchImages").addEventListener("click", fetchMissingImages);

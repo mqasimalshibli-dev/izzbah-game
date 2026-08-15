@@ -1035,6 +1035,40 @@ Single self-contained page, same palette and type system as the game. Marked
   below; the shortage is now concentrated in FOUR categories, and several
   healthy-LOOKING ones are starved at a single tier.
 
+- **⚠️ «نسخة احتياطية» IS TEXT-ONLY, and «استعادة من نسخة» (build .316).**
+  `buildCatalogBackup()` exports `state.publishedCategories`, which is
+  media-LITE since .209 — every question `image`/`answerImage` is `""`. Category
+  COVERS survive (they live on the parent doc); question pictures do not. So the
+  export would NOT have saved the August wipe; that recovery came from
+  Firestore's scheduled backups, and it still would. The file is now stamped
+  `mediaIncluded: false` so a restore can never mistake an empty image for an
+  instruction to delete a stored one.
+  - `restorePlan(backup, live)` is PURE and returns what WOULD be added; the
+    preview and the write share it, so they cannot disagree. Nothing is written
+    until the plan is shown and confirmed (`tests/restorebackup.mjs` counts
+    publishes during preview and fails on any).
+  - **It only ADDS.** Never deletes a category or question, never edits existing
+    text. A catalogue that moved on since the backup keeps everything.
+  - ⚠️ **Questions are matched on CONTENT (points + q + a), never on index.**
+    Question docs are keyed positionally (q0..qN), so an index match restores
+    over an unrelated question — the same trap `tools/restore-media.mjs` guards.
+  - ⚠️⚠️ **Each target category is HYDRATED before publishing, and skipped if
+    hydration fails.** `cloudPublish`'s `keepImg()` falls back to the stored
+    image BY POSITION (`prevById.get("q" + i)`), so adding a question renumbers
+    everything after it and an unhydrated publish would hand each question the
+    PREVIOUS occupant's picture, silently, across the whole category. Hydrating
+    makes `mediaTrusted` true so images travel on their own question objects.
+    Any new code that inserts or reorders questions must do the same.
+  - ⚠️ Categories are restored SEQUENTIALLY on purpose — each hydrates its own
+    media, and doing them in parallel puts the whole catalogue's pictures on the
+    heap at once (the 541 MB crash .209 exists to prevent).
+  - Admin-only: `adminRestoreAll` is in `EDITOR_LOCKED_IDS` **and**
+    `startCatalogRestore()` re-checks `state.isAdmin`, because a hidden button
+    is ergonomics, not a permission.
+  - **Still open:** the export carries no question media. Making it complete
+    means hydrating category-by-category and streaming, so the heap stays
+    bounded — worth doing, not done.
+
 - **Bulk import ignored the points column you supplied (fixed .313).** Reported
   from real use: fourteen history questions written for the 100 tier arrived
   spread 3/3/3/3/2 across all five. Not a parser bug — `openImportModal` hard-
