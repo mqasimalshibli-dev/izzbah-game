@@ -205,6 +205,45 @@ that is why the projection is a separate document.
   PWA installed to the home screen (16.4+). If the App Store app ships,
   revisit with native push.
 
+- **App Store release: IAP via REVENUECAT — decided 2026-08-16, not yet built.**
+  The owner will ship on the App Store and accepts Apple's 15–30% cut, on the
+  condition that **payment completes inside the app**. So the earlier
+  "sell nothing on iOS" route is OFF; IAP is the plan.
+  - **Half of it already exists and is provider-agnostic.** `functions/lib/packs.js`
+    and `functions/lib/grant.js` (26 unit tests in CI) plus `entitlements/{uid}`
+    being write-denied to every client and granted only by the Admin SDK — that
+    is exactly the shape IAP needs. What is NEW is the purchase side and receipt
+    validation, not the grant.
+  - **RevenueCat, not raw StoreKit.** Receipt validation is the security
+    boundary and getting it wrong hands out free games; RevenueCat does it
+    server-side, sends ONE webhook that plugs into the existing `grant.js`,
+    delivers REFUND events on the same channel (Apple refunds and the games must
+    come back), and carries over to Play later. Free below ~$2.5k/month, then
+    1%. There is a maintained Capacitor plugin.
+    ⚠️ **Keep the entitlement OURS.** RevenueCat may own the Apple mess; the
+    source of truth stays `entitlements/{uid}` in Firestore. That is what makes
+    migrating off them possible later, and what makes a reinstall keep its games.
+  - ⚠️ **Packs are CONSUMABLES** (games get spent), not subscriptions, so Apple
+    does not restore them — and does not need to, because the games live on the
+    ACCOUNT, not in the receipt. A reinstall keeps them via sign-in. If
+    «اشتراك مفتوح» ships as unlimited play, THAT one is an auto-renewable
+    subscription with extra requirements.
+  - ⚠️ **The long pole is paperwork, not code.** IAP cannot go live until the
+    **Paid Applications agreement** is signed and banking + tax details
+    (W-8BEN-E for the Omani entity) are accepted in App Store Connect. Start it
+    the day the developer account exists; teams routinely finish the build and
+    then wait weeks on this.
+  - **Build `.325` sits UNMERGED on `claude/zen-dirac-qg9ryh`.** It is the
+    "store build sells nothing" switch (`isStoreBuild()`, `?store=1` override,
+    `tests/storebuild.mjs`, 10 checks). With IAP it must be RESHAPED, not
+    dropped: the packs stay visible in the app and the purchase ACTION swaps to
+    StoreKit, while the code-redemption box and the `mailto` stay hidden — those
+    are the parts Apple objects to. The website keeps the manual/Thawani path
+    unchanged.
+  - Next session, in order: reshape `.325` into that seam; map each pack in
+    `packs.js` to an App Store product id; wire RevenueCat's webhook into
+    `grant.js` (testable in their sandbox without a live app).
+
 - **Automatic purchases via Thawani — backend BUILT, client flow FROZEN
   (owner, 2026-07-30).** Decided model: the player pays and **the games are
   granted to their account directly** — no code, no email. Activation codes
