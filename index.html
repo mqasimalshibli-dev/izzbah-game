@@ -4953,6 +4953,16 @@
     .health-sort { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
     .health-sort button { padding: 6px 14px !important; font-size: 13px !important; border-radius: 999px !important; }
     .health-sort button.is-on { background: rgba(169,119,42,.16) !important; color: #6a4d12 !important; }
+    /* The «ما الناقص؟» target picker. Reads as one sentence — «تدوم ١٠ لعبة
+       قبل التكرار» — so the number is a choice inside a phrase rather than a
+       bare control the reader has to interpret. */
+    .health-target { align-items: center; margin-top: 2px; }
+    .health-target .ht-lbl { font: 700 12.5px 'Cairo', sans-serif; color: #6a5a2f; }
+    :root[data-theme="dark"] .health-target .ht-lbl { color: #cdb488; }
+    .health-target button { min-width: 44px; }
+    .gap-tbl td:last-child { display: flex; flex-wrap: wrap; gap: 4px; }
+    .gap-chip { white-space: nowrap; }
+    .gap-actions { justify-content: flex-start; margin-top: 10px; }
     .health-body { max-height: 52vh; overflow-y: auto; margin-top: 8px; }
     .health-top { margin-bottom: 8px; }
     .imp-tier.hl-crit { color: #b23; border-color: rgba(178,51,51,.4); background: rgba(178,51,51,.08); }
@@ -8665,6 +8675,14 @@
           <button class="ghost is-on" type="button" data-sort="depth">الأقصر عمراً</button>
           <button class="ghost" type="button" data-sort="total">الأقل أسئلة</button>
           <button class="ghost" type="button" data-sort="name">الاسم</button>
+          <button class="ghost" type="button" data-sort="gaps">ما الناقص؟</button>
+        </div>
+        <div class="health-sort health-target" id="healthTarget" role="group" aria-label="هدف العمر" hidden>
+          <span class="ht-lbl">تدوم</span>
+          <button class="ghost" type="button" data-target="5">٥</button>
+          <button class="ghost is-on" type="button" data-target="10">١٠</button>
+          <button class="ghost" type="button" data-target="20">٢٠</button>
+          <span class="ht-lbl">لعبة قبل التكرار</span>
         </div>
         <div class="health-body" id="healthBody"></div>
         <div class="actions">
@@ -12847,7 +12865,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.332";
+    const IZZBAH_BUILD = "2026-08-16.333";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13689,6 +13707,42 @@
       return { games, tier, blanks };
     }
     // Arabic needs the dual, and "3 ألعاب" vs "11 لعبة" split at ten.
+    /* How many questions sit at each canonical tier. repeatDepth() answers
+       «how long does this last»; this answers «where exactly is it thin», which
+       is the only form the answer is actionable in — you cannot write «more
+       questions», you write ten at the 100 tier.
+       Counts blanks as absent, exactly as repeatDepth does: padding a category
+       with empty rows must never look like progress. */
+    function tierCounts(questions) {
+      const per = {};
+      pointValues.forEach(p => { per[p] = 0; });
+      (questions || []).forEach(q => {
+        if (!q) return;
+        const p = Number(q.points);
+        if (!pointValues.includes(p)) return;
+        if (!String(q.q || "").trim() && !String(q.a || "").trim()) return;
+        per[p]++;
+      });
+      return per;
+    }
+
+    /* The worklist for ONE category: which tiers are short of `target`, and by
+       how many. Sorted thinnest-first so the tier actually capping the category
+       comes first.
+       Takes a COUNTS map, because both callers already have one — the health
+       board keeps it per row, and rebuilding question arrays from counts just
+       to hand them back to a counter would be work done twice and a place for
+       the two to disagree. */
+    function tierGapsFromCounts(per, target) {
+      const want = Math.max(1, Math.floor(Number(target) || 0));
+      return pointValues
+        .map(p => ({ tier: p, have: (per && per[p]) || 0 }))
+        .map(g => ({ ...g, need: Math.max(0, want - g.have) }))
+        .filter(g => g.need > 0)
+        .sort((a, b) => (a.have - b.have) || (a.tier - b.tier));
+    }
+    const tierGaps = (questions, target) => tierGapsFromCounts(tierCounts(questions), target);
+
     function gamesWord(n) {
       if (n === 1) return "لعبة واحدة";
       if (n === 2) return "لعبتين";
@@ -17904,6 +17958,9 @@
     window.IZZBAH_TEST.parseImport = (raw) => parseImport(raw);
     window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
     window.IZZBAH_TEST.categoryHealthRows = () => categoryHealthRows();
+    window.IZZBAH_TEST.tierCounts = (qs) => tierCounts(qs);
+    window.IZZBAH_TEST.tierGaps = (qs, t) => tierGaps(qs, t);
+    window.IZZBAH_TEST.catalogueGaps = (t) => catalogueGaps(t);
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
     window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
@@ -26753,6 +26810,13 @@
       Array.from($("#healthSort").querySelectorAll("button")).forEach(x => x.classList.toggle("is-on", x === b));
       renderHealthBoard();
     });
+    $("#healthTarget").addEventListener("click", e => {
+      const b = e.target.closest("button[data-target]");
+      if (!b) return;
+      healthTarget = parseInt(b.getAttribute("data-target"), 10) || 10;
+      Array.from($("#healthTarget").querySelectorAll("button")).forEach(x => x.classList.toggle("is-on", x === b));
+      renderHealthBoard();
+    });
     $("#adminChoiceDist").addEventListener("click", () => { closeAdminChoice(); openDistModal(); });
     // Group collapse. Remembered per group, so an admin who only ever touches
     // «المحتوى» does not re-collapse the other four every time they open it.
@@ -26940,15 +27004,90 @@
         return {
           id: cat.id, name: cat.name || cat.id,
           total: qs.length, games: d.games, tier: d.tier, blanks: d.blanks,
+          per: tierCounts(qs),
           cover: !!(cat.image || "").trim(),
           hidden: isCategoryHidden(cat.id)
         };
       });
     }
+
+    /* «ما الناقص» — turn the health numbers into a list of things to WRITE.
+       The board already says a category is thin; this says where and how many,
+       which is the difference between a diagnosis and a task.
+       ⚠️ Two exclusions, both deliberate:
+       • EMPTY categories (no questions at all) are placeholders — they never
+         reach the picker, so no player is affected by them, and including them
+         would bury the categories that are actually being played and running
+         dry under a wall of «write 50 questions».
+       • HIDDEN categories reach nobody either. Writing for one is wasted work
+         until it is unhidden, so it is not a task.
+       Both are counted and reported, so the exclusion is visible rather than a
+       silent truncation. */
+    function catalogueGaps(target) {
+      const want = Math.max(1, Math.floor(Number(target) || 0));
+      const rows = categoryHealthRows();
+      const skippedEmpty = rows.filter(r => !r.total).length;
+      const skippedHidden = rows.filter(r => r.total && r.hidden).length;
+      const items = rows
+        .filter(r => r.total && !r.hidden)
+        .map(r => ({
+          id: r.id, name: r.name, games: r.games, total: r.total,
+          gaps: tierGapsFromCounts(r.per, want),
+        }))
+        .filter(r => r.gaps.length)
+        .sort((a, b) => (a.games - b.games) || (b.gaps[0].need - a.gaps[0].need));
+      const write = items.reduce((s, r) => s + r.gaps.reduce((t, g) => t + g.need, 0), 0);
+      return { target: want, items, write, skippedEmpty, skippedHidden, considered: rows.filter(r => r.total && !r.hidden).length };
+    }
     let healthSortKey = "depth";
+    // «ما الناقص؟» — the same numbers as the board, turned into a worklist.
+    // The board tells you a category is thin; this tells you what to write.
+    let healthTarget = 10;
+    function renderGapList() {
+      const box = $("#healthBody");
+      const g = catalogueGaps(healthTarget);
+      let html = `<div class="imp-tiers health-top">`
+        + `<span class="imp-tier${g.write ? " hl-warn" : ""}"><b>${toArabicDigits(g.write)}</b> سؤالاً للكتابة</span>`
+        + `<span class="imp-tier"><b>${toArabicDigits(g.items.length)}</b> فئة تحتاج</span>`
+        + (g.skippedEmpty ? `<span class="imp-tier"><b>${toArabicDigits(g.skippedEmpty)}</b> فارغة (غير محسوبة)</span>` : "")
+        + (g.skippedHidden ? `<span class="imp-tier"><b>${toArabicDigits(g.skippedHidden)}</b> مخفية (غير محسوبة)</span>` : "")
+        + `</div>`;
+      if (!g.items.length) {
+        html += `<div class="imp-auto">كل الفئات المعروضة تبلغ الهدف — لا شيء ناقص عند ${toArabicDigits(g.target)} ألعاب.</div>`;
+        box.innerHTML = html;
+        return;
+      }
+      html += `<table class="health-tbl gap-tbl"><thead><tr><th>الفئة</th><th>تدوم</th><th>اكتب</th></tr></thead><tbody>`;
+      g.items.forEach(r => {
+        const cls = r.games <= 2 ? "crit" : (r.games <= 5 ? "warn" : "");
+        html += `<tr class="${cls}">`
+          + `<td class="h-name">${escapeHtml(r.name)}</td>`
+          + `<td class="h-games clean-number">${toArabicDigits(r.games)}</td>`
+          + `<td>` + r.gaps.map(x =>
+              `<span class="imp-tier gap-chip">${toArabicDigits(x.tier)} <b>+${toArabicDigits(x.need)}</b></span>`).join("")
+          + `</td></tr>`;
+      });
+      html += `</tbody></table>`;
+      // Plain text, because the next thing that happens to this list is that it
+      // gets pasted somewhere — a note, a message, a prompt.
+      html += `<div class="actions gap-actions"><button class="secondary" type="button" id="healthCopyGaps">نسخ القائمة</button></div>`;
+      box.innerHTML = html;
+      const copy = $("#healthCopyGaps");
+      if (copy) copy.addEventListener("click", () => {
+        const text = g.items.map(r =>
+          `${r.name} — تدوم ${r.games}: ` + r.gaps.map(x => `${x.tier}: +${x.need}`).join("، ")).join("\n");
+        const done = () => showToast("تم نسخ القائمة");
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(done);
+        else done();
+      });
+    }
+
     function renderHealthBoard() {
       const box = $("#healthBody");
       if (!box) return;
+      const tgt = $("#healthTarget");
+      if (tgt) tgt.hidden = healthSortKey !== "gaps";
+      if (healthSortKey === "gaps") return renderGapList();
       const rows = categoryHealthRows();
       // ⚠️ games === 0 means "no questions written yet", NOT "repeats
       // immediately". Those are placeholders — they never reach the picker

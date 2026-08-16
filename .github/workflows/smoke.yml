@@ -993,3 +993,10 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node authlink.mjs
+
+      - name: Run catalogue gap-finder («ما الناقص؟») test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node catgaps.mjs
