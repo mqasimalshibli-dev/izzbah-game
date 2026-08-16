@@ -68,7 +68,16 @@ async function board(w, h, n) {
       name, helpers: ["fourChoices", "firstLetter", "doublePoints"], helpUsed: {}, score: 0,
     }));
     state.activeTeam = 0;
-    state.selectedCategories = activeCategories().slice(0, 6).map(c => c.id);
+    // ⚠️ `state.selectedCategories` is NOT what the game reads — `activeCategories()`
+    // filters `allCategories()` by the `state.selected` SET. This harness set the
+    // wrong field for a long time and got away with it, because renderGame() used
+    // to draw the team boxes onto an empty board without complaint. Build .324
+    // stopped it doing that (a blank board was a real player report) and bounces
+    // to the picker instead — at which point every layout assertion below was
+    // measuring the team boxes on a screen that was not showing. Select real
+    // categories, so this measures a real game.
+    state.selected = new Set(
+      visibleCategoryGroup().filter(categoryHasQuestions).map(c => c.id).slice(0, 6));
     showScreen("game");
     renderGame();
   }, n || 2);

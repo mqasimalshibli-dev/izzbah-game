@@ -47,18 +47,44 @@ const fontRefs = [...refs].filter(p => p.startsWith("assets/fonts/"));
 const fontBytes = fontRefs.reduce((t, p) => t + statSync(join(ROOT, p)).size, 0);
 check(`declared font files total under 340 KB (they are ${KB(fontBytes)})`, fontBytes < 340 * 1024);
 
+// No SINGLE referenced asset may be large, whatever it is. This is the check
+// that actually catches the regression the file exists for: the 892 KB logo was
+// one file, and it would trip this the moment it was dropped in — the type and
+// the extension are irrelevant, only the weight is. The biggest today is the
+// 94 KB logo, so 150 KB leaves room to re-export without hiding a blunder.
+const heavy = [...refs].filter(p => existsSync(join(ROOT, p)))
+  .map(p => [p, statSync(join(ROOT, p)).size])
+  .filter(([, s]) => s > 150 * 1024);
+check(`no single boot asset is over 150 KB${heavy.length ? " (" + heavy.map(([p, s]) => `${p} ${KB(s)}`).join(", ") + ")" : ""}`,
+  heavy.length === 0);
+
 // The shell itself. It is a single self-contained file by design, so it will
 // always be large — but it should not drift upward unnoticed either.
+//
+// ⚠️ This number is DRIFT DETECTION, not the real guard — the asset checks above
+// are. Raising it is legitimate when the growth is code; it is NOT the answer if
+// this ever fails because something binary landed inside the HTML.
+// History: 1.9 MB until .326. The shell crossed it at .320 and CI stayed red for
+// seven builds without anyone noticing, because the failure is silent-looking
+// (44 KB over on a file that gzips to 555 KB) while the steps AFTER it were
+// being skipped — see the `if: !cancelled()` on every step in smoke.yml, added
+// at the same time so one budget miss can never hide 39 real tests again.
+// The growth from .316–.326 is admin-only tooling: restore, health board, audit
+// log, diagnostics. Players download it and never run it, which is the true cost
+// of a single-file app and the thing to fix if this needs raising again.
 const shell = statSync(join(ROOT, "index.html")).size;
-check(`index.html is under 1.9 MB (it is ${KB(shell)})`, shell < 1.9 * 1024 * 1024);
+const SHELL_MAX = 2.1 * 1024 * 1024;
+check(`index.html is under 2.1 MB (it is ${KB(shell)}, ${KB(SHELL_MAX - shell)} spare)`,
+  shell < SHELL_MAX);
 
 // Whole-boot budget: shell + everything it references. The catalogue and the
 // Firebase SDK come from the cloud and are not counted here.
 const assetBytes = [...refs].filter(p => existsSync(join(ROOT, p)))
   .reduce((t, p) => t + statSync(join(ROOT, p)).size, 0);
 console.log(`      shell ${KB(shell)} + referenced assets ${KB(assetBytes)} = ${KB(shell + assetBytes)}`);
-check(`shell + its assets stay under 2.6 MB (they are ${KB(shell + assetBytes)})`,
-  shell + assetBytes < 2.6 * 1024 * 1024);
+const TOTAL_MAX = 2.8 * 1024 * 1024;
+check(`shell + its assets stay under 2.8 MB (they are ${KB(shell + assetBytes)}, ${KB(TOTAL_MAX - shell - assetBytes)} spare)`,
+  shell + assetBytes < TOTAL_MAX);
 
 const failed = checks.filter(x => !x).length;
 console.log(failed ? `\n${failed} check(s) FAILED` : `\nall ${checks.length} checks passed`);
