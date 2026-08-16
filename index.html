@@ -12789,7 +12789,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.323";
+    const IZZBAH_BUILD = "2026-08-16.324";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -23628,8 +23628,33 @@
     function renderGame() {
       renderScores();
       updateHelpBars();
-      const cats = activeCategories();
+      let cats = activeCategories();
       const board = $("#board");
+      // ⚠️ A game is ALREADY RUNNING by the time this draws — startGame() made
+      // this exact check and passed it. If the selection has been emptied
+      // since (a cloud write-back reverting localStorage mid-game, a category
+      // deleted or hidden under the player), the loop below adds nothing and
+      // the player is left staring at a BLANK BOARD with the team boxes still
+      // on it. That is a real report, and it is the worst possible failure:
+      // silent, with no way forward.
+      // The run's own saved-game record is the authoritative category list for
+      // THIS game, so rebuild from it before giving up.
+      if (!cats.length) {
+        const rec = activeSavedGameRecord();
+        const ids = (rec && Array.isArray(rec.categoryIds)) ? rec.categoryIds : [];
+        if (ids.length) {
+          ids.forEach(id => state.selected.add(id));
+          saveGameSettings();
+          cats = activeCategories();
+        }
+      }
+      // Still nothing playable — the categories are genuinely gone. Say so and
+      // hand the player back to the picker instead of drawing an empty screen.
+      if (!cats.length) {
+        showToast("تعذّر عرض اللوحة — اختر الفئات من جديد.");
+        showScreen("categories");
+        return;
+      }
       board.style.setProperty("--cat-count", cats.length);
       board.innerHTML = "";
       // Pin this RUN's questions onto its saved-game record — every game gets a

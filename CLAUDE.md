@@ -1301,6 +1301,14 @@ Single self-contained page, same palette and type system as the game. Marked
     the result back over `CLOUD_BUDGET` and the write fails outright.
   - ⚠️ `mergeBlob` is wrapped so a corrupt stored value can never throw away the
     write — any key whose merge throws falls back to the local value.
+  - ⚠️ **`renderGame()` NEVER draws an empty board (.324).** It clears `#board`
+    and loops `activeCategories()`, so an empty selection produced a BLANK
+    board with the team boxes still on it — reported live, and the worst kind
+    of failure: silent, with no way forward. `startGame()` guards this, but the
+    selection can be emptied AFTER it passes (the write-back below, a category
+    deleted or hidden mid-game). It now rebuilds from the run's own saved-game
+    record — `record.categoryIds` is the authoritative list for THAT game — and
+    only if that is empty too does it toast and return to the picker.
   - ⚠️⚠️ **THE WRITE-BACK MUST NOT REVERT WHAT THE PLAYER JUST DID (fixed
     .323).** Reported live: the category picker cleared itself a second after
     every tap, and pressing play in that window said «لا توجد فئات صالحة
