@@ -4956,13 +4956,24 @@
     /* The «ما الناقص؟» target picker. Reads as one sentence — «تدوم ١٠ لعبة
        قبل التكرار» — so the number is a choice inside a phrase rather than a
        bare control the reader has to interpret. */
+    /* ⚠️ `.health-sort` sets display:flex, which BEATS the UA's [hidden] rule —
+       so setting el.hidden = true left the target picker fully visible under
+       every view. The property said hidden, the screen said otherwise, and a
+       test asserting el.hidden passed the whole time. */
+    .health-sort[hidden] { display: none !important; }
     .health-target { align-items: center; margin-top: 2px; }
     .health-target .ht-lbl { font: 700 12.5px 'Cairo', sans-serif; color: #6a5a2f; }
     :root[data-theme="dark"] .health-target .ht-lbl { color: #cdb488; }
-    .health-target button { min-width: 44px; }
+    /* 44px is the touch-target floor, not a look — a bare «5» would otherwise
+       be a ~30px button on a phone. Same radius and height as the view chips
+       above so the two rows read as one toolbar. */
+    .health-target button[data-target] { min-width: 44px; }
+    /* Sits in the flow right after the sentence, not pushed to the far end —
+       margin-inline-start:auto stranded it across a gap where it read as a
+       stray control rather than part of the toolbar. */
+    .health-target .ht-copy { margin-inline-start: 6px; }
     .gap-tbl td:last-child { display: flex; flex-wrap: wrap; gap: 4px; }
     .gap-chip { white-space: nowrap; }
-    .gap-actions { justify-content: flex-start; margin-top: 10px; }
     .health-body { max-height: 52vh; overflow-y: auto; margin-top: 8px; }
     .health-top { margin-bottom: 8px; }
     .imp-tier.hl-crit { color: #b23; border-color: rgba(178,51,51,.4); background: rgba(178,51,51,.08); }
@@ -4991,10 +5002,16 @@
       border: 1px solid #bcd4f2; border-radius: 8px; color: #24507f; font-size: 12.5px; line-height: 1.6; }
     /* Where the batch will actually land, per tier. The single sample line
        could not show a spread, which is exactly what went wrong unnoticed. */
-    .import-preview .imp-tiers { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 5px; }
-    .import-preview .imp-tier { font: 600 12px 'Cairo', sans-serif; padding: 3px 9px; border-radius: 999px;
+    /* ⚠️ NOT scoped to .import-preview. These chips are a shared component —
+       the import preview uses them and so does «صحة الكتالوج», which is not
+       inside an import-preview. Scoped, the health board's chips rendered as
+       unstyled inline text with no pill and no gap, so the summary line read
+       as one run-on string («40 فئة4656 سؤالاً1 حرجة…»). It also meant the
+       .hl-crit / .hl-warn colours were painting onto nothing. */
+    .imp-tiers { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 5px; }
+    .imp-tier { font: 600 12px 'Cairo', sans-serif; padding: 3px 9px; border-radius: 999px;
       background: rgba(169,119,42,.10); border: 1px solid rgba(169,119,42,.28); color: #6a5a2f; white-space: nowrap; }
-    .import-preview .imp-tier b { color: #a9772a; margin-inline-end: 4px; }
+    .imp-tier b { color: #a9772a; margin-inline-end: 4px; }
     /* ---- Admin entry chooser (content vs subscriptions) ---- */
     /* Calmer frame than the shared 5px-red question-modal border — a control
        panel shouldn't read like an alert box. A thin gold edge on the cream
@@ -7905,9 +7922,9 @@
        they render as pale-on-pale. */
     :root[data-theme="dark"] .import-preview .imp-auto { background: rgba(90, 150, 220, .14) !important;
       border-color: rgba(140, 185, 235, .38) !important; color: #a9cdf0 !important; }
-    :root[data-theme="dark"] .import-preview .imp-tier { background: rgba(230, 199, 117, .12) !important;
+    :root[data-theme="dark"] .imp-tier { background: rgba(230, 199, 117, .12) !important;
       border-color: rgba(230, 199, 117, .3) !important; color: #d9c39c !important; }
-    :root[data-theme="dark"] .import-preview .imp-tier b { color: #e6c775 !important; }
+    :root[data-theme="dark"] .imp-tier b { color: #e6c775 !important; }
     :root[data-theme="dark"] .import-preview .imp-sample { color: #d9c39c !important; }
     :root[data-theme="dark"] .dup-occ-row { color: #d9c39c !important; }
     :root[data-theme="dark"] .dup-occ-cat { color: #f0a49c !important; }
@@ -8679,10 +8696,19 @@
         </div>
         <div class="health-sort health-target" id="healthTarget" role="group" aria-label="هدف العمر" hidden>
           <span class="ht-lbl">تدوم</span>
-          <button class="ghost" type="button" data-target="5">٥</button>
-          <button class="ghost is-on" type="button" data-target="10">١٠</button>
-          <button class="ghost" type="button" data-target="20">٢٠</button>
+          <!-- ⚠️ LATIN digits, like the rest of the app. toArabicDigits is an
+               identity function on purpose, so every other number on this panel
+               renders 5/10/20 — hand-writing ٥/١٠/٢٠ here put two digit systems
+               side by side in one sentence. -->
+          <button class="ghost clean-number" type="button" data-target="5">5</button>
+          <button class="ghost clean-number is-on" type="button" data-target="10">10</button>
+          <button class="ghost clean-number" type="button" data-target="20">20</button>
           <span class="ht-lbl">لعبة قبل التكرار</span>
+          <!-- Copying is a utility, so it wears the same ghost pill as the view
+               chips above. As a filled button at the foot of the modal it was a
+               second big red control arguing with «إغلاق» for the eye. It lives
+               in this row so it appears and disappears with the view it serves. -->
+          <button class="ghost ht-copy" type="button" id="healthCopyGaps">نسخ القائمة</button>
         </div>
         <div class="health-body" id="healthBody"></div>
         <div class="actions">
@@ -12865,7 +12891,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.333";
+    const IZZBAH_BUILD = "2026-08-16.334";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -26810,6 +26836,7 @@
       Array.from($("#healthSort").querySelectorAll("button")).forEach(x => x.classList.toggle("is-on", x === b));
       renderHealthBoard();
     });
+    $("#healthCopyGaps").addEventListener("click", copyGapList);
     $("#healthTarget").addEventListener("click", e => {
       const b = e.target.closest("button[data-target]");
       if (!b) return;
@@ -27068,18 +27095,21 @@
           + `</td></tr>`;
       });
       html += `</tbody></table>`;
-      // Plain text, because the next thing that happens to this list is that it
-      // gets pasted somewhere — a note, a message, a prompt.
-      html += `<div class="actions gap-actions"><button class="secondary" type="button" id="healthCopyGaps">نسخ القائمة</button></div>`;
       box.innerHTML = html;
-      const copy = $("#healthCopyGaps");
-      if (copy) copy.addEventListener("click", () => {
-        const text = g.items.map(r =>
-          `${r.name} — تدوم ${r.games}: ` + r.gaps.map(x => `${x.tier}: +${x.need}`).join("، ")).join("\n");
-        const done = () => showToast("تم نسخ القائمة");
-        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(done);
-        else done();
-      });
+    }
+    // Plain text, because the next thing that happens to this list is that it
+    // gets pasted somewhere — a note, a message, a prompt.
+    // Bound ONCE, and it recomputes on click rather than closing over the list
+    // that happened to be on screen when it was rendered: the button outlives
+    // any single render now that it lives in the toolbar.
+    function copyGapList() {
+      const g = catalogueGaps(healthTarget);
+      const text = g.items.map(r =>
+        `${r.name} — تدوم ${r.games}: ` + r.gaps.map(x => `${x.tier}: +${x.need}`).join("، ")).join("\n");
+      const done = () => showToast(text ? "تم نسخ القائمة" : "لا شيء ناقص");
+      if (text && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else done();
     }
 
     function renderHealthBoard() {
