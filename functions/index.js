@@ -277,3 +277,113 @@ exports.resolveEmails = onCall({ cors: true }, async (request) => {
   }
   return { emails };
 });
+
+// ---------------------------------------------------------------------------
+// deleteAccount — the player erases themselves, from inside the app.
+//
+// App Store guideline 5.1.1(v): an app that lets you create an account must let
+// you delete it in-app. A support email does not satisfy it and a "deactivate"
+// switch does not either. Review checks this by hand, so it is a hard blocker
+// for the iOS build.
+//
+// It has to be a Cloud Function rather than a batch of client writes for a
+// reason that is easy to miss: entitlements/{uid} is write-DENIED to every user
+// (that is what stops a player granting themselves games), so the browser
+// physically cannot remove it. A half-deleted account that keeps its paid
+// balance is worse than none — the uid is gone from Auth but the record is
+// still there, and if that uid were ever reissued it would inherit the games.
+// The Admin SDK bypasses rules, so NO firestore.rules change is needed here.
+//
+// ⚠️ Order matters. Firestore first, Auth LAST: if the data pass throws, the
+// account still exists and the player can try again. Delete the Auth user first
+// and a failure halfway through leaves orphaned data nobody can reach or clean.
+// ---------------------------------------------------------------------------
+const {
+  ERASE_DOCS, ERASE_SUBCOLLECTIONS, ANONYMISE,
+  VOTES_SUB, VOTES_PARENT, VOTES_COUNTER,
+  communityAction, anonymisePatch, mayErase,
+} = require("./lib/erasure");
+
+exports.deleteAccount = onCall({ cors: true }, async (request) => {
+  const gate = mayErase(request.auth && request.auth.uid, request.data && request.data.uid);
+  if (!gate.ok) {
+    throw new HttpsError(
+      gate.reason === "unauthenticated" ? "unauthenticated" : "permission-denied",
+      gate.reason === "unauthenticated" ? "Sign in required." : "You can only delete your own account.");
+  }
+  const uid = gate.uid;
+  const db = admin.firestore();
+  const report = { erased: [], anonymised: [], messages: 0 };
+
+  // 1. Documents whose id is the uid.
+  for (const collection of ERASE_DOCS) {
+    const ref = db.collection(collection).doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) continue;
+    await ref.delete();
+    report.erased.push(collection);
+  }
+
+  // 2. Per-uid subcollections. These can exist under a parent doc that does
+  //    not — Firestore allows it — so they are enumerated, never inferred.
+  for (const { parent, sub } of ERASE_SUBCOLLECTIONS) {
+    let cleared = 0;
+    // Page it: a chatty feedback thread or a long announcement history can run
+    // past the 500-write batch limit, and one oversized batch throws and takes
+    // the whole deletion with it.
+    for (;;) {
+      const page = await db.collection(parent).doc(uid).collection(sub).limit(400).get();
+      if (page.empty) break;
+      const batch = db.batch();
+      page.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      cleared += page.size;
+      if (page.size < 400) break;
+    }
+    if (cleared) { report.erased.push(`${parent}/${sub}`); report.messages += cleared; }
+    // The parent may hold nothing itself, but delete it so the console is clean.
+    await db.collection(parent).doc(uid).delete().catch(() => {});
+  }
+
+  // 3. Community up-votes. The uid is the LEAF here (community/{cat}/votes/{uid}),
+  //    so there is no one path to delete and a collection-group query cannot
+  //    filter on document id. Walk the categories instead — there are tens.
+  const cats = await db.collection(VOTES_PARENT).get();
+  let votes = 0;
+  for (const cat of cats.docs) {
+    const voteRef = cat.ref.collection(VOTES_SUB).doc(uid);
+    const vote = await voteRef.get();
+    if (!vote.exists) continue;
+    // One batch, so the vote doc and the public tally can never disagree.
+    const batch = db.batch();
+    batch.delete(voteRef);
+    batch.update(cat.ref, { [VOTES_COUNTER]: admin.firestore.FieldValue.increment(-1) });
+    await batch.commit();
+    votes++;
+  }
+  if (votes) { report.erased.push(`${VOTES_PARENT}/${VOTES_SUB}`); report.votes = votes; }
+
+  // 4. Records that survive with the identity overwritten.
+  for (const rule of ANONYMISE) {
+    const rows = await db.collection(rule.collection).where(rule.match, "==", uid).get();
+    if (rows.empty) continue;
+    const batch = db.batch();
+    let touched = 0;
+    rows.docs.forEach(d => {
+      // A community submission nobody has approved is not public content, so it
+      // is erased rather than kept with a blank author.
+      if (rule.collection === "community" && communityAction(d.data()) === "erase") {
+        batch.delete(d.ref);
+      } else {
+        batch.update(d.ref, anonymisePatch(rule));
+      }
+      touched++;
+    });
+    await batch.commit();
+    report.anonymised.push(`${rule.collection}:${touched}`);
+  }
+
+  // 5. The identity itself, last.
+  await admin.auth().deleteUser(uid);
+  return { ok: true, report };
+});

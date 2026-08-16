@@ -54,6 +54,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node functions/test/fulfilment.test.mjs
 
+      - name: Run account-erasure unit tests (Cloud Functions)
+        if: ${{ !cancelled() }}
+        run: node functions/test/erasure.test.mjs
+
       - name: Run smoke test
         if: ${{ !cancelled() }}
         working-directory: tests
@@ -964,3 +968,10 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node roothome.mjs
+
+      - name: Run in-app account deletion test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node accountdelete.mjs
