@@ -5929,6 +5929,11 @@
     body.is-store-build .settings-redeem,
     body.is-store-build .plans-redeem,
     body.is-store-build .plans-contact { display: none !important; }
+    /* The refund paragraph has two versions — ours (web, activation codes) and
+       the store's (Apple/Google hold the money). Exactly one shows. */
+    .legal-store-only { display: none; }
+    body.is-store-build .legal-web-only { display: none; }
+    body.is-store-build .legal-store-only { display: block; }
     .plans-redeem { justify-content: center; }
     .plans-redeem .redeem-label { color: #6a5a2f; }
     .wlc-webview-note {
@@ -9370,7 +9375,7 @@
             <h5>المشاركة</h5>
             <p>لا نبيع بياناتك ولا نشاركها لأغراض تسويقية. تُعالَج بياناتك عبر Google/Firebase وفق سياسات الخصوصية الخاصة بهم.</p>
             <h5>حقوقك</h5>
-            <p>يمكنك طلب الاطّلاع على بياناتك أو حذف حسابك وبياناتك بمراسلتنا عبر: <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a>.</p>
+            <p>يمكنك حذف حسابك وكل بياناتك <b>من داخل التطبيق</b>: الإعدادات ← «حذف الحساب نهائياً». الحذف فوري ولا يمكن التراجع عنه. ويمكنك أيضاً طلب الاطّلاع على بياناتك بمراسلتنا عبر: <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a>.</p>
             <h5>الأطفال</h5>
             <p>اللعبة مناسبة للعائلة، لكنها غير موجَّهة لجمع بيانات من الأطفال دون سن ١٣ عاماً؛ ويُفضَّل استخدام من هم دون هذا السن تحت إشراف وليّ الأمر.</p>
             <h5>التغييرات</h5>
@@ -9390,7 +9395,14 @@
             <h5>الباقات والمدفوعات</h5>
             <p>أول لعبة مجانية. بعدها تتوفّر باقات مدفوعة (ألعاب إضافية)، ويظهر سعر كل باقة ومحتواها بوضوح قبل الطلب. الأسعار نهائية بالريال العُماني. عند طلب باقة يصلك بريد تأكيد فيه طريقة الدفع، وبعد إتمام الدفع يصلك <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
             <h5>الاسترجاع والإلغاء</h5>
-            <p>كود التفعيل منتَج رقمي؛ بعد إرساله أو تفعيله يكون <b>غير قابل للاسترجاع</b>. ومع ذلك، إذا دفعتَ ولم يصلك كود صالح، أو حُصّلت منك قيمة بالخطأ أو مرّتين، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر (إعادة إرسال الكود أو ردّ المبلغ). ولك أن تُلغي أي طلب لم تدفع قيمته بعد بمراسلتنا.</p>
+            <p class="legal-web-only">كود التفعيل منتَج رقمي؛ بعد إرساله أو تفعيله يكون <b>غير قابل للاسترجاع</b>. ومع ذلك، إذا دفعتَ ولم يصلك كود صالح، أو حُصّلت منك قيمة بالخطأ أو مرّتين، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر (إعادة إرسال الكود أو ردّ المبلغ). ولك أن تُلغي أي طلب لم تدفع قيمته بعد بمراسلتنا.</p>
+            <!-- The store build's money is Apple's / Google's, not ours: we
+                 cannot see the card, cannot refund it, and telling a store
+                 customer to email us about payment is both wrong and the
+                 anti-steering rule. This paragraph replaces the one above, and
+                 the terms are reachable from right beside the buy button, so a
+                 reviewer WILL read it. -->
+            <p class="legal-store-only">تتم عمليات الشراء داخل التطبيق عبر متجر التطبيقات، ويُحصّل المتجر المبلغ ويحتفظ بسجلّ عملية الشراء. تُضاف الألعاب إلى حسابك تلقائياً فور تأكيد الشراء، وتبقى مرتبطة بحسابك على أي جهاز تسجّل الدخول منه. أما طلبات <b>استرداد المبالغ</b> فتُقدَّم إلى المتجر نفسه وفق سياسته، إذ لا نستلم بيانات الدفع ولا نملك استرداد قيمة دفعتها للمتجر. وإذا أتممت عملية شراء ولم تظهر الألعاب في رصيدك، فراسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنعالج الأمر.</p>
             <h5>الملكية الفكرية</h5>
             <p>اسم «عِزبة» وشعارها وتصميمها ومحتواها الأصلي مملوكة لنا، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
             <h5>إخلاء الضمان وحدود المسؤولية</h5>
@@ -12835,7 +12847,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.330";
+    const IZZBAH_BUILD = "2026-08-16.331";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -22568,7 +22580,8 @@
       document.body.classList.add("is-store-build");
       // Hidden in JS as well as CSS: a class can be dropped from devtools, and
       // the settings sheet rebuilds its rows on every open.
-      ["redeemInputSettings", "redeemBtnSettings"].forEach(id => {
+      ["redeemInputSettings", "redeemBtnSettings",
+       "redeemInputPlans", "redeemBtnPlans"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.hidden = true;
       });
@@ -22663,6 +22676,17 @@
       return (s && typeof s.purchase === "function") ? s : null;
     }
     async function storePurchase(p) {
+      // ⚠️ SIGN-IN FIRST, before the store sheet ever opens. The games are
+      // granted by RevenueCat's webhook against `app_user_id`, which the app
+      // sets to the Firebase uid at sign-in. Buy while signed OUT and RevenueCat
+      // reports one of its own anonymous ids instead: the webhook cannot match
+      // it to an account, refuses, and the player has paid Apple for nothing.
+      // orderPlan() has always guarded this on the web; the store path must too.
+      if (!state.signedIn) {
+        popNote("سجّل الدخول أولاً",
+          "سجّل الدخول بحسابك قبل الشراء حتى تُضاف الألعاب إلى حسابك مباشرة.");
+        return;
+      }
       const bridge = storeBridge();
       const productId = productIdFor(p.id);
       // A store build whose bridge never loaded must SAY so. Silence on a
@@ -22925,9 +22949,18 @@
         // Local-only preferences (theme, sound) go too — the player asked for
         // this account to be gone from this device, and a clean slate is the
         // honest reading of that.
+        // ⚠️ EXCEPT the free-game flag. Wiping it turned «delete my account»
+        // into a one-tap way to earn another free game, over and over: delete,
+        // reload, play free, repeat. Clearing site data has always done this —
+        // the flag is a soft client counter by design — but putting it behind a
+        // button in the app is a different thing entirely.
+        // Keeping it is not a privacy compromise: it is a bare boolean saying
+        // «this DEVICE has had its free game». It names nobody and survives no
+        // account, so there is nothing personal in it to erase.
+        const KEEP = ["izzbah-free-game-v1"];
         try {
           Object.keys(localStorage)
-            .filter(k => k.indexOf("izzbah-") === 0)
+            .filter(k => k.indexOf("izzbah-") === 0 && KEEP.indexOf(k) === -1)
             .forEach(k => localStorage.removeItem(k));
         } catch (e) {}
         closeDeleteAccount();

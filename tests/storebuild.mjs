@@ -76,6 +76,15 @@ try {
   check("web: the activation-code box is still there", w.redeemBox);
   check("web: the buy-by-email line is still there", w.mailto);
   check("web: «اشترِ الألعاب» stays in settings", w.buyRow);
+  // The web refund policy is OURS — codes, our inbox — and must be untouched.
+  const webRefund = await web.evaluate(async () => {
+    openLegal("terms", "review");
+    await new Promise(r => setTimeout(r, 250));
+    const vis = (el) => !!el && getComputedStyle(el).display !== "none";
+    return { web: vis(document.querySelector(".legal-web-only")),
+             store: vis(document.querySelector(".legal-store-only")) };
+  });
+  check("web: the activation-code refund policy is the one shown", webRefund.web && !webRefund.store);
   await web.close();
 
   // ---- the STORE build ------------------------------------------------------
@@ -128,6 +137,52 @@ try {
   check(`client product ids cover exactly the server's packs (${serverPacks})`,
     Object.keys(ids.map).sort().join(",") === serverPacks,
     Object.keys(ids.map).sort().join(","));
+
+  // ---- signed OUT: the store sheet must never open --------------------------
+  // ⚠️ The findings audit turned this up, and it is the worst kind of bug: the
+  // player pays and receives nothing. Games are granted by the webhook against
+  // app_user_id, which is the Firebase uid. Buy while signed out and RevenueCat
+  // reports one of its OWN anonymous ids, the webhook cannot match it to any
+  // account, and the money is gone with no delivery and no error anywhere.
+  const signedOut = await app.evaluate(async () => {
+    window.IZZBAH_STORE = { purchase: () => { window.__bought = true; return Promise.resolve({}); }, priceOf: () => "" };
+    window.__bought = false;
+    window.IZZBAH.applyAuth(false);
+    document.getElementById("notePop").classList.remove("open");
+    await window.IZZBAH_TEST.purchasePack({ id: "g5", name: "باقة ٥ ألعاب", games: 5 });
+    await new Promise(r => setTimeout(r, 250));
+    return {
+      bought: window.__bought,
+      note: document.getElementById("notePop").classList.contains("open"),
+      msg: (document.getElementById("notePopMsg") || {}).textContent || "",
+    };
+  });
+  check("store: a signed-OUT tap never reaches the store", !signedOut.bought);
+  check("...it asks them to sign in first", signedOut.note && /سجّل الدخول/.test(signedOut.msg),
+    signedOut.msg.slice(0, 50));
+  await app.evaluate(() => { window.IZZBAH.applyAuth(true, "buyer-1"); document.getElementById("notePop").classList.remove("open"); });
+
+  // ---- the refund text a reviewer will actually read ------------------------
+  // The terms link sits beside the buy button on purpose, so this paragraph is
+  // in front of App Review. Ours talks about activation codes and emailing us
+  // for refunds — wrong in a store build, and steering money off-store.
+  const refund = await app.evaluate(async () => {
+    openLegal("terms", "review");
+    await new Promise(r => setTimeout(r, 250));
+    const vis = (el) => !!el && getComputedStyle(el).display !== "none";
+    return {
+      web: vis(document.querySelector(".legal-web-only")),
+      store: vis(document.querySelector(".legal-store-only")),
+      text: (document.querySelector(".legal-store-only") || {}).textContent || "",
+    };
+  });
+  check("store: the activation-code refund paragraph is gone", !refund.web);
+  check("...replaced by one that names the STORE as the payer", refund.store);
+  check("...sending refunds to the store, not to our inbox",
+    /استرداد/.test(refund.text) && /المتجر/.test(refund.text));
+  check("...and not claiming we can refund a card we never see",
+    !/سنُصحّح|ردّ المبلغ/.test(refund.text));
+  await app.evaluate(() => closeLegal());
 
   // ---- the bridge is missing, which is today's reality ----------------------
   // Tapping buy in a build whose store bridge never loaded must SAY so. Silence

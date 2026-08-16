@@ -162,6 +162,33 @@ try {
   check("...and the button is usable again rather than stuck on «جارٍ»",
     afterFail.reArmed && !/جارٍ/.test(afterFail.btn), afterFail.btn);
 
+  // ---- deleting must not hand out a fresh free game -------------------------
+  // ⚠️ Found in the post-build audit. The wipe originally cleared every
+  // izzbah-* key, which includes the free-game flag — so «delete my account»
+  // became a one-tap way to earn another free game, on repeat. Clearing site
+  // data has always done this (the flag is a soft client counter by design),
+  // but a button inside the app is a different proposition entirely.
+  // Keeping the flag is not a privacy compromise: it is a bare boolean saying
+  // this DEVICE has had its free game. It names nobody.
+  const kept = await page.evaluate(() => {
+    localStorage.setItem("izzbah-free-game-v1", "1");
+    localStorage.setItem("izzbah-progress-v1", '{"x":1}');
+    // Run the real wipe the success path uses, without needing the cloud call.
+    const KEEP = ["izzbah-free-game-v1"];
+    Object.keys(localStorage).filter(k => k.indexOf("izzbah-") === 0 && KEEP.indexOf(k) === -1)
+      .forEach(k => localStorage.removeItem(k));
+    return {
+      free: localStorage.getItem("izzbah-free-game-v1"),
+      progress: localStorage.getItem("izzbah-progress-v1"),
+    };
+  });
+  check("the free-game flag SURVIVES deletion — no free-game farming loop",
+    kept.free === "1", String(kept.free));
+  check("...while real account data still goes", kept.progress === null);
+  // And the shipped code must carry the same exemption, not just this test.
+  const srcKeep = await page.evaluate(() => document.documentElement.innerHTML.indexOf('KEEP = ["izzbah-free-game-v1"]') > -1);
+  check("...and the exemption is in the shipped wipe, not only in this test", srcKeep);
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
