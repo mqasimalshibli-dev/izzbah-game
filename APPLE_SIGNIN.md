@@ -117,3 +117,19 @@ If the Apple credential already belongs to a **different** account, linking is
 refused and the player is pointed at support. Both accounts may hold purchases,
 and merging two paid balances is not a decision the app should make on its own.
 There is no admin merge tool yet; today it is a manual `entitlements` edit.
+
+---
+
+## ⚠️ The automatic link opens a popup with no user gesture behind it
+
+When the emails match, the catch handler opens a second sign-in popup by
+itself. **Safari and Firefox block popups that no tap opened**, so on those
+browsers the automatic path fails — not rarely, but always.
+
+It is handled rather than left to a generic error: the player is told which
+method opens their account («سجّل الدخول بـ Google …») so their NEXT tap is a
+real gesture and works. The alternative — looping on «sign-in failed» — is how
+a player concludes their games are gone.
+
+Nothing to fix, but do not be surprised when it shows up in testing on Safari,
+and do not "fix" it by retrying the popup: the second attempt is blocked too.

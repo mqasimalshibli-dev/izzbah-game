@@ -12847,7 +12847,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.331";
+    const IZZBAH_BUILD = "2026-08-16.332";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -30512,13 +30512,24 @@
           async function linkPendingCredential(err) {
             const pending = err && err.credential;
             const email = err && err.email;
-            if (!pending || !email) return false;
+            if (!pending || !email) return { ok: false };
             const methods = await auth.fetchSignInMethodsForEmail(email);
             const existing = enabledProviders().find(id => methods.indexOf(id) !== -1);
-            if (!existing) return false;
-            const res = await auth.signInWithPopup(AUTH_PROVIDERS[existing].make());
-            await res.user.linkWithCredential(pending);
-            return true;
+            if (!existing) return { ok: false };
+            const label = AUTH_PROVIDERS[existing].label;
+            try {
+              const res = await auth.signInWithPopup(AUTH_PROVIDERS[existing].make());
+              await res.user.linkWithCredential(pending);
+              return { ok: true, label };
+            } catch (e) {
+              // ⚠️ This popup opens from a CATCH handler, not from the player's
+              // tap, and Safari and Firefox block popups with no user gesture
+              // behind them. So this is a NORMAL path on two major browsers, not
+              // a rare one. Falling through to a generic «sign-in failed» would
+              // leave them looping: try Apple, fail, try Apple, fail.
+              // Name the method that WILL work — their next tap is a gesture.
+              return { ok: false, label, blocked: true };
+            }
           }
 
           /* PROACTIVE linking, from settings, while already signed in.
@@ -30573,10 +30584,17 @@
                 // The same person, arriving by a different door. Join the two
                 // rather than starting them a new, empty account.
                 if (code === "auth/account-exists-with-different-credential") {
-                  linkPendingCredential(err).then(ok => {
+                  linkPendingCredential(err).then(res => {
                     if (window.IZZBAH.releaseBootVeil) window.IZZBAH.releaseBootVeil();
-                    if (ok && typeof showToast === "function") showToast("تم ربط طريقة الدخول بحسابك");
-                    else if (!ok) onErr(err);
+                    if (res.ok) { if (typeof showToast === "function") showToast("تم ربط طريقة الدخول بحسابك"); return; }
+                    // Popup blocked: tell them WHICH method opens their account.
+                    if (res.blocked && res.label) {
+                      popNote("لديك حساب بالفعل",
+                        `سجّل الدخول بـ ${res.label} — هو الطريقة المرتبطة بحسابك وألعابك. `
+                        + "وبعدها يمكنك ربط الطريقة الأخرى من الإعدادات.");
+                      return;
+                    }
+                    onErr(err);
                   }).catch(e2 => {
                     if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
                     onErr(e2);
