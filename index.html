@@ -4946,6 +4946,14 @@
     .import-preview .imp-count { color: var(--red); font-weight: 800; }
     .import-preview .imp-errs { margin: 6px 0 0; padding: 8px 10px; background: #fbe9e9; border: 1px solid #e6b3b3; border-radius: 8px; color: #9a1c1c; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; }
     .import-preview .imp-errs div { margin-bottom: 2px; }
+    /* App-store build (Capacitor iOS/Android): nothing that sells, prices or
+       redeems may appear. See isStoreBuild(); the website never gets this class. */
+    body.is-store-build #settingsBuy,
+    body.is-store-build .settings-redeem,
+    body.is-store-build .plans-redeem,
+    body.is-store-build .plans-contact,
+    body.is-store-build .plans-fineprint,
+    body.is-store-build #plansModal { display: none !important; }
     .import-preview .imp-sample { margin: 6px 0 0; font-size: 12.5px; color: #6a5a2f; }
     /* Catalogue health board. Two colours only — crit and warn — so the eye
        goes straight to the categories that need questions. */
@@ -12789,7 +12797,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.324";
+    const IZZBAH_BUILD = "2026-08-16.325";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17843,6 +17851,8 @@
     window.IZZBAH_TEST.applyEditorLocks = applyEditorLocks;
     window.IZZBAH_TEST.EDITOR_LOCKED_IDS = EDITOR_LOCKED_IDS;
     window.IZZBAH_TEST.repeatDepth = repeatDepth;
+    window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
+    window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
     window.IZZBAH_TEST.parseImport = (raw) => parseImport(raw);
     window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
     window.IZZBAH_TEST.categoryHealthRows = () => categoryHealthRows();
@@ -22549,7 +22559,54 @@
       el.innerHTML = `<span class="pb-num">${toArabicDigits(total)}</span>`
         + `<span class="pb-lbl">${total === 1 ? "لعبة متبقية" : "ألعاب متبقية"}${bits.length ? "<br>" + bits.join(" + ") : ""}</span>`;
     }
+    // ---- App-store build: sells nothing, prices nothing, redeems nothing ----
+    // Apple 3.1.1 and Google Play both require digital goods to go through THEIR
+    // billing. Rather than build IAP, the store build simply does not sell: no
+    // packs, no prices, no «فعّل كوداً» box, and no mailto that could be read as
+    // an outbound purchase channel. A player's games appear because their
+    // ACCOUNT carries them — which 3.1.3(b) permits — and nothing in the app
+    // says where they came from.
+    // ⚠️ Applies to ANDROID too: Play's billing rule is the same, and treating
+    // this as an iOS-only concern is how the Play build gets pulled instead.
+    // ⚠️ The website is untouched. Keep this to HIDING — never fork game logic.
+    function isStoreBuild() {
+      try {
+        // Manual override so it can be previewed from a browser: ?store=1 once,
+        // then it sticks for the session; ?store=0 clears it.
+        if (/[?&]store=1/.test(location.search)) sessionStorage.setItem("izzbah-store-build", "1");
+        if (/[?&]store=0/.test(location.search)) sessionStorage.removeItem("izzbah-store-build");
+        if (sessionStorage.getItem("izzbah-store-build") === "1") return true;
+      } catch (e) {}
+      try {
+        const cap = window.Capacitor;
+        if (cap && typeof cap.isNativePlatform === "function") return !!cap.isNativePlatform();
+        if (cap && typeof cap.getPlatform === "function") return cap.getPlatform() !== "web";
+      } catch (e) {}
+      return false;
+    }
+    function applyStoreBuild() {
+      if (!isStoreBuild()) return;
+      document.body.classList.add("is-store-build");
+      // Hidden in JS as well as CSS: a class can be dropped from devtools, and
+      // openPlans() is reachable programmatically (the out-of-credits gate calls
+      // it), so the guard has to live in the function too.
+      ["settingsBuy", "redeemInputSettings", "redeemBtnSettings"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+      });
+      const row = document.querySelector(".settings-redeem");
+      if (row) row.hidden = true;
+    }
     function openPlans() {
+      // Nothing to show here on a store build, and showing it anyway IS the
+      // rejection. Tell the player where they stand without selling to them.
+      if (isStoreBuild()) {
+        popNote("انتهى رصيدك", "لا توجد ألعاب متبقية في حسابك الآن. إذا أُضيفت ألعاب إلى حسابك ستظهر هنا تلقائياً.");
+        return;
+      }
+      return openPlansReal();
+    }
+    function openPlansReal() {
       renderPlans();
       renderPlansBalance();
       const inp = $("#redeemInputPlans");
@@ -27701,6 +27758,9 @@
 
     syncGameViewport();
     loadTheme(); // apply the saved light/dark preference before the first paint
+    // Before anything paints: on a store build the buy row and code boxes must
+    // never be visible, not even for one frame.
+    applyStoreBuild();
     loadHiddenCategories();
     loadNoChoiceCategories();
     loadGameSettings();
