@@ -45,784 +45,921 @@ jobs:
         working-directory: tests
         run: npx playwright install chromium
 
+      # Every test step below carries `if: ${{ !cancelled() }}` so ONE failure
+      # reports and the run carries on. Without it GitHub skips every later step:
+      # the boot byte-budget went over at build .320 and quietly took 39 tests
+      # with it — including the media-wipe and restore guards — for seven builds.
+      # A red run should say everything that is wrong, not just the first thing.
       - name: Run purchase-fulfilment unit tests (Cloud Functions)
+        if: ${{ !cancelled() }}
         run: node functions/test/fulfilment.test.mjs
 
       - name: Run smoke test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node smoke.mjs
 
       - name: Run legal/consent gate test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node legal.mjs
 
       - name: Run question-health panel test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qhealth.mjs
 
       - name: Run community report/block test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commmod.mjs
 
       - name: Run in-game report test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node report.mjs
 
       - name: Run R2 direct-upload test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node r2upload.mjs
 
       - name: Run bulk-import test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node import.mjs
 
       - name: Run shared-game-link test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node sharegame.mjs
 
       - name: Run admin undo test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node undo.mjs
 
       - name: Run question-timer test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node timer.mjs
 
       - name: Run splash-screen test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node splash.mjs
 
       - name: Run results stats + share-card test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node results.mjs
 
       - name: Run final-screen staged-reveal test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node finalreveal.mjs
 
       - name: Run gameplay-correctness test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node gameplay.mjs
 
       - name: Run admin media-preview test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node mediapreview.mjs
 
       - name: Run player-subscriptions test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node premium.mjs
 
       - name: Run category-features test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node categoryfeatures.mjs
 
       - name: Run category-search test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catsearch.mjs
 
       - name: Run community-editor + private-gating test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node communityeditor.mjs
 
       - name: Run new-announcement launch-popup test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node annpopup.mjs
 
       - name: Run player↔dev feedback test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node feedback.mjs
 
       - name: Run duplicate-question scanner test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node dupes.mjs
 
       - name: Run nearest-wins margin test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node nearest.mjs
 
       - name: Run in-app-browser guidance test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node webview.mjs
 
       - name: Run settings-sheet test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node settings.mjs
 
       - name: Run PWA test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node pwa.mjs
 
       - name: Run viewport-lock + distractors test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node viewportlock.mjs
 
       - name: Run question help-bar overlap test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node helpbar.mjs
 
       - name: Run game-count (charge-on-finish) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node gamecount.mjs
 
       - name: Run saved-game question-freeze test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node savedgamefreeze.mjs
 
       - name: Run abandon-charge + resume test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node abandon.mjs
 
       - name: Run saved-game settings (teams-only) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node savedgamesettings.mjs
 
       - name: Run admin inline-edit test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node inlineedit.mjs
 
       - name: Run admin fetch-answer-images test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node fetchimages.mjs
 
       - name: Run distractor-quality + data-fix test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node datafix.mjs
 
       - name: Run publish commit-chunking test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node publishchunk.mjs
 
       - name: Run word-guess QR test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node wordqr.mjs
 
       - name: Run seerah-distractors data-fix test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node seerahdistractors.mjs
 
       - name: Run category-info description-fit test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catinfo.mjs
 
       - name: Run pack-orders test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node orders.mjs
 
       - name: Run oman-sites install test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node omansites.mjs
 
       - name: Run oman-sites twin-image test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node omanimages.mjs
 
       - name: Run «قول غيرها» category test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node sayanother.mjs
 
       - name: Run arabic-terms category test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node terms.mjs
 
       - name: Run emoji-category test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emojis.mjs
 
       - name: Run emoji-question image test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emojiimage.mjs
 
       - name: Run emoji flat-200 scoring test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emojipoints.mjs
 
       - name: Run admin insights (stats) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node stats.mjs
 
       - name: Run announcements test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node announcements.mjs
 
       - name: Run approval-reward inbox test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node inboxreward.mjs
 
       - name: Run category-filter test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catfilter.mjs
 
       - name: Run catalog-backup + App Check test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node backup.mjs
 
       - name: Run empty-category-hide + lazy-image test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emptyhide.mjs
 
       - name: Run subscription-panel search + live-orders test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node subs.mjs
 
       - name: Run per-player balance aggregate test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node aggregate.mjs
 
       - name: Run question-image loading (no-pictures fix) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node imgload.mjs
 
       - name: Run UI-polish (skeletons + optimistic + tooltips) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node uipolish.mjs
 
       - name: Run first-run coaching tour test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node coach.mjs
 
       - name: Run coaching-tips admin editor test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node coachadmin.mjs
 
       - name: Run hide-category (global, separate from delete) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node hidecat.mjs
 
       - name: Run UX-batch (setup sticky + counter + award glow + text-edit) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node uxbatch.mjs
 
       - name: Run gear red-dot (dev + player unread) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node reddot.mjs
 
       - name: Run welcome sign-in affordance (signed-in hides «أو») test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node welcomeauth.mjs
 
       - name: Run rotate-hint-over-modal (#7) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node layoutfix.mjs
 
       - name: Run recommended-sets (ألعابنا) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node featuredsets.mjs
 
       - name: Run 5-team layout (board helpers + centred trophy) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node teamlayout.mjs
 
       - name: Run progress-bar + «الأكثر لعباً» stat test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node progressstat.mjs
 
       - name: Run portrait results height (winner not dwarfed) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node resultsheight.mjs
 
       - name: Run perceived-speed (skeletons + warm empty states) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node perceived.mjs
 
       - name: Run boot-blocking test (no third-party render blocker)
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node bootblock.mjs
 
       - name: Run ×2 helper rule test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node x2rule.mjs
 
       - name: Run community lazy-media test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commlite.mjs
 
       - name: Run XSS guard (community names into innerHTML)
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node xssguard.mjs
 
       - name: Run question-media shrink test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qshrink.mjs
 
       - name: Run lazy question-media test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node lazymedia.mjs
 
       - name: Run sw.js/build lockstep check
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: node swsync.mjs
 
       - name: Run welcome boot-gate (veil) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node welcomegate.mjs
 
       - name: Run category-boot (skeletons, no stale covers) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catboot.mjs
 
       - name: Run «من الي سجل؟» sketch-filter test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node sketchvideo.mjs
 
       - name: Run catalogue cold-boot (meta/index) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catboot2.mjs
 
       - name: Run feedback-diagnostics test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node fbdiag.mjs
 
       - name: Run publish audit-log test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node auditlog.mjs
 
       - name: Run catalogue-health board test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node cathealth.mjs
 
       - name: Run backup-restore («استعادة من نسخة») safety test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node restorebackup.mjs
 
       - name: Run category repeat-depth («تكرار بعد N ألعاب») test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node repeatdepth.mjs
 
       - name: Run cloud-blob two-device merge test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node blobmerge.mjs
 
       - name: Run content-editor role test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node editorrole.mjs
 
       - name: Run category-index (meta/index) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catindex.mjs
 
       - name: Run cover-budget guard test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node coverbudget.mjs
 
       - name: Run category-cover compression test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node covershrink.mjs
 
       - name: Run dark-mode toggle test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node theme.mjs
 
       - name: Run boot byte-budget test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: node bootweight.mjs
 
       - name: Run Cairo variable-font weight test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node fontweight.mjs
 
       - name: Run per-category «أربعة خيارات» switch test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node nochoices.mjs
 
       - name: Run question-clipping (font fit) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qclip.mjs
 
       - name: Run emoji-question sizing test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node emojisize.mjs
 
       - name: Run media-wipe guard test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node mediawipe.mjs
 
       - name: Run media-recovery page test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node recover.mjs
 
       - name: Run restore-tool test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: node restoretool.mjs
 
       - name: Run full-game invariant test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node fullgame.mjs
 
       - name: Run admin-flows test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node adminflows.mjs
 
       - name: Run category-editor colour test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node editorcolors.mjs
 
       - name: Run settings-reachability test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node settingsreach.mjs
 
       - name: Run code-redemption paths test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node codepaths.mjs
 
       - name: Run activation-code boxes (end-to-end) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node redeemboxes.mjs
 
       - name: Run community-moderation flows test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commflows.mjs
 
       - name: Run question-font-cap test (all device shapes)
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qfontcap.mjs
 
       - name: Run glass-toggle test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node glasstoggle.mjs
 
       - name: Run score-buttons + turn-pulse + coach-sync test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node scorepulse.mjs
 
       - name: Run board-card + turn-pill test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node boardpill.mjs
 
       - name: Run video mute-option test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node mutevideo.mjs
 
       - name: Run category counter-ring test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catring.mjs
 
       - name: Run floating-back + library-density test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node backfloat.mjs
 
       - name: Run shared button-skin test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node btnskin.mjs
 
       - name: Run landing-page showcase carousel test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node showcase.mjs
 
       - name: Run board-shuffle (no locked sets) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qshuffle.mjs
 
       - name: Run admin players-by-email test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node adminemail.mjs
 
       - name: Run board point-size (legible, never clipped) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node cellsize.mjs
 
       - name: Run saved-game category names (never truncated) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node savedgamenames.mjs
 
       - name: Run helper turn-gating test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node helperturn.mjs
 
       - name: Run question/badge balance test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qbalance.mjs
 
       - name: Run welcome start button test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node welcomestart.mjs
 
       - name: Run answer colour test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node answercolor.mjs
 
       - name: Run picture-question layout test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node qimage.mjs
 
       - name: Run distractor scanner test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node distractors.mjs
 
       - name: Run admin category-toolbar test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node admintoolbar.mjs
 
       - name: Run admin centre organisation test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node adminorg.mjs
 
       - name: Run scan notification / health ranking test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node scannotice.mjs
 
       - name: Run cross-device scan sync test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node distsync.mjs
 
       - name: Run team box layout test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node teambox.mjs
 
       - name: Run root-home (game served at /) test
+        if: ${{ !cancelled() }}
         working-directory: tests
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
