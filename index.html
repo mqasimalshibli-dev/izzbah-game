@@ -12835,7 +12835,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.328";
+    const IZZBAH_BUILD = "2026-08-16.330";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17898,6 +17898,8 @@
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
     window.IZZBAH_TEST.STORE_PRODUCTS = () => STORE_PRODUCTS;
     window.IZZBAH_TEST.purchasePack = (p) => purchasePack(p);
+    window.IZZBAH_TEST.pendingLinkProviders = () => pendingLinkProviders();
+    window.IZZBAH_TEST.renderLinkRow = () => renderLinkRow();
     window.IZZBAH_TEST.openDeleteAccount = () => openDeleteAccount();
     // ⚠️ A FUNCTION, not the value. This bridge block runs thousands of lines
     // ABOVE the `const DELETE_CONFIRM_WORD` it names, and reading a const before
@@ -22827,6 +22829,66 @@
       else k.textContent = icon;
     }
 
+    // ---- Attaching a second sign-in method ----------------------------------
+    // Firebase issues a different uid per method and entitlements are keyed by
+    // uid, so two methods = two balances unless they are LINKED.
+    //
+    // The sign-in path links automatically when the emails match. This row is
+    // for when they do not — which is the normal case with Apple's «Hide My
+    // Email», where the relay address matches nothing and no collision can ever
+    // be detected. Attaching from INSIDE the account is the only thing that
+    // works there, so this is not a convenience; it is the fix.
+    //
+    // It renders only when there is genuinely something to attach, so today —
+    // with Apple still switched off — nobody sees a row offering them nothing.
+    function pendingLinkProviders() {
+      const B = window.IZZBAH || {};
+      if (!state.signedIn || typeof B.authProviders !== "function") return [];
+      const linked = (typeof B.linkedProviders === "function" ? B.linkedProviders() : []) || [];
+      return B.authProviders().filter(p => linked.indexOf(p.id) === -1);
+    }
+    function renderLinkRow() {
+      const host = $("#settingsAccount");
+      if (!host) return;
+      const old = host.querySelector(".sa-link"); if (old) old.remove();
+      const pending = pendingLinkProviders();
+      if (!pending.length) return;
+      const p = pending[0];
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary sa-btn sa-link";
+      btn.id = "settingsLinkProvider";
+      btn.dataset.provider = p.id;
+      btn.textContent = `اربط حساب ${p.label} بحسابك`;
+      btn.addEventListener("click", () => linkAnotherProvider(p, btn));
+      // Before «حذف الحساب», so the destructive button stays last.
+      const del = host.querySelector(".sa-danger");
+      if (del) host.insertBefore(btn, del); else host.appendChild(btn);
+    }
+    async function linkAnotherProvider(p, btn) {
+      const was = btn.textContent;
+      btn.disabled = true; btn.textContent = "جارٍ الربط…";
+      try {
+        await window.IZZBAH.linkProvider(p.id);
+        showToast(`تم ربط ${p.label} — كل ألعابك في حساب واحد`);
+        renderSettingsSheet();
+      } catch (err) {
+        const code = String((err && err.code) || "");
+        btn.disabled = false; btn.textContent = was;
+        if (/popup-closed|cancelled/.test(code)) return;   // they changed their mind
+        // The one worth explaining: that method already belongs to a DIFFERENT
+        // account. Merging two accounts that both hold purchases is not
+        // something the app may decide on its own.
+        if (/credential-already-in-use|email-already-in-use/.test(code)) {
+          popNote("هذه الطريقة مرتبطة بحساب آخر",
+            "لديك حساب آخر بهذه الطريقة. راسلنا على izzbahgame@gmail.com ليتم دمج الحسابين يدوياً.");
+          return;
+        }
+        console.warn("link provider failed", err);
+        popNote("تعذّر الربط", "لم يتغيّر شيء في حسابك. حاول مرة أخرى.");
+      }
+    }
+
     // ---- Account erasure (App Store guideline 5.1.1(v)) ---------------------
     // The word the player has to type. Kept as a constant because the test and
     // the placeholder both need it, and a mismatch would make the button
@@ -22894,6 +22956,7 @@
         }
         const authBtn = $("#settingsAuthBtn");
         if (authBtn) authBtn.addEventListener("click", () => { closeSettings(); const real = $("#authBtn"); if (real) real.click(); });
+        renderLinkRow();
         const del = $("#settingsDeleteAccount");
         if (del) del.addEventListener("click", () => { closeSettings(); openDeleteAccount(); });
         const uid = $("#settingsUid");
@@ -30367,8 +30430,80 @@
           // too would double the reads on every load, so we don't.
 
           try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
-          const provider = new firebase.auth.GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: "select_account" });
+
+          // ---- Sign-in methods, and keeping them on ONE account -------------
+          // Firebase issues a DIFFERENT uid per sign-in method. entitlements are
+          // keyed by uid, so a player who bought packs with Google and later
+          // taps Apple lands in a new, empty account and their paid games are —
+          // from where they are standing — gone. Linking is what stops that, and
+          // it has to exist before Sign in with Apple ships, not after.
+          //
+          // ⚠️ Apple is DECLARED but OFF until the Services ID exists (it needs
+          // the Developer Program). Everything below is provider-agnostic and
+          // works the day `enabled` flips.
+          const AUTH_PROVIDERS = {
+            "google.com": {
+              label: "Google", enabled: true,
+              make: () => {
+                const p = new firebase.auth.GoogleAuthProvider();
+                p.setCustomParameters({ prompt: "select_account" });
+                return p;
+              },
+            },
+            "apple.com": {
+              label: "Apple", enabled: false,
+              make: () => {
+                const p = new firebase.auth.OAuthProvider("apple.com");
+                p.addScope("email"); p.addScope("name");
+                return p;
+              },
+            },
+          };
+          const enabledProviders = () => Object.keys(AUTH_PROVIDERS).filter(id => AUTH_PROVIDERS[id].enabled);
+          window.IZZBAH.authProviders = () => enabledProviders().map(id => ({ id, label: AUTH_PROVIDERS[id].label }));
+          // Which methods the CURRENT account already answers to.
+          window.IZZBAH.linkedProviders = () =>
+            (currentUser && currentUser.providerData ? currentUser.providerData : [])
+              .map(p => p && p.providerId).filter(Boolean);
+
+          /* REACTIVE linking. Firebase raises account-exists-with-different-
+             credential when the new method's email already belongs to another
+             account: sign in with the method that account DOES have, then attach
+             the new one. The player sees one sign-in and keeps their games.
+             ⚠️ This error only fires when the Firebase project is set to
+             «One account per email address». On the other setting Firebase
+             silently creates a SECOND account, no error is thrown, this code
+             never runs, and the player quietly loses their balance. It is a
+             console setting, not something the app can enforce — see
+             APPLE_SIGNIN.md. */
+          async function linkPendingCredential(err) {
+            const pending = err && err.credential;
+            const email = err && err.email;
+            if (!pending || !email) return false;
+            const methods = await auth.fetchSignInMethodsForEmail(email);
+            const existing = enabledProviders().find(id => methods.indexOf(id) !== -1);
+            if (!existing) return false;
+            const res = await auth.signInWithPopup(AUTH_PROVIDERS[existing].make());
+            await res.user.linkWithCredential(pending);
+            return true;
+          }
+
+          /* PROACTIVE linking, from settings, while already signed in.
+             This is the ONLY thing that covers Apple's «Hide My Email»: the
+             relay address matches nothing, so no collision is ever detected and
+             the reactive path above never gets a chance to run. */
+          window.IZZBAH.linkProvider = async function (providerId) {
+            if (!currentUser) throw new Error("not-signed-in");
+            const spec = AUTH_PROVIDERS[providerId];
+            if (!spec || !spec.enabled) throw new Error("provider-unavailable");
+            await currentUser.linkWithPopup(spec.make());
+            // providerData only refreshes after a reload; without this the
+            // settings row still offers to attach what was just attached.
+            await currentUser.reload();
+            return window.IZZBAH.linkedProviders();
+          };
+
+          const provider = AUTH_PROVIDERS["google.com"].make();
           auth.getRedirectResult().catch(function () {});
           if (authBtn) {
             // Visibility is governed by setAuthUI (runs on the first auth-state
@@ -30400,6 +30535,19 @@
                 const code = err && err.code;
                 if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
                   if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
+                  return;
+                }
+                // The same person, arriving by a different door. Join the two
+                // rather than starting them a new, empty account.
+                if (code === "auth/account-exists-with-different-credential") {
+                  linkPendingCredential(err).then(ok => {
+                    if (window.IZZBAH.releaseBootVeil) window.IZZBAH.releaseBootVeil();
+                    if (ok && typeof showToast === "function") showToast("تم ربط طريقة الدخول بحسابك");
+                    else if (!ok) onErr(err);
+                  }).catch(e2 => {
+                    if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
+                    onErr(e2);
+                  });
                   return;
                 }
                 if (code === "auth/popup-blocked") {
