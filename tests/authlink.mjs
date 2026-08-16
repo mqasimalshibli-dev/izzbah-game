@@ -155,6 +155,21 @@ try {
   check("...and the button goes back to its label, not «جارٍ»",
     cancelled.usable && !/جارٍ/.test(cancelled.label), cancelled.label);
 
+  // ---- it works in BOTH directions ------------------------------------------
+  // Easy to build the Google→Apple case and assume the reverse follows. It only
+  // does because the row is computed as «every enabled method this account does
+  // not yet have» rather than being hardcoded to offer Apple. Someone
+  // simplifying that later would break Apple-first players — who, once Apple
+  // ships, are the NEW ones, i.e. the ones most likely to buy.
+  await page.evaluate(() => { window.__linked = null; });
+  await fakeBridge([GOOGLE, APPLE], ["apple.com"], "ok");
+  await page.evaluate(() => renderSettingsSheet());
+  const reverse = await openSettings();
+  check("an APPLE-only account is offered the Google link", !!reverse);
+  check("...naming Google, not Apple", reverse && reverse.provider === "google.com",
+    reverse && reverse.text);
+  await page.evaluate(() => closeSettings());
+
   // ---- an already-linked account is offered nothing -------------------------
   await fakeBridge([GOOGLE, APPLE], ["google.com", "apple.com"], "ok");
   await page.evaluate(() => renderSettingsSheet());
