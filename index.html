@@ -5727,6 +5727,22 @@
     .settings-account .sa-line { display: block; }
     .settings-account .sa-sub { font: 600 11.5px 'Cairo', sans-serif; color: #66491a; margin-top: 3px; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .settings-account .sa-btn { margin-top: 9px; width: 100%; }
+    /* Deleting the account is destructive and permanent, so it never wears the
+       same skin as «تسجيل الخروج» sitting directly above it — outlined, not
+       filled, so it reads as a way out rather than the thing to press. */
+    .settings-account .sa-danger {
+      background: transparent; color: var(--red, #9a1c1c);
+      border: 1.5px solid currentColor; font-weight: 700;
+    }
+    .da-warn { margin: 10px 0 4px; font-size: 14px; line-height: 1.7; }
+    .da-list { margin: 0 0 10px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.9; }
+    .da-input {
+      width: 100%; padding: 10px 12px; font: inherit; font-size: 16px; text-align: center;
+      border: 1.5px solid var(--line, #d8cfb4); border-radius: 10px; background: #fff; color: #111;
+    }
+    /* Disabled until the word is typed. Dimmed AND not-allowed, so the reason
+       it does nothing is visible before the tap, not after. */
+    .da-go[disabled] { opacity: .45; cursor: not-allowed; }
     .settings-balance { text-align: center; font: 800 14px 'Cairo', sans-serif; color: #9a1c1c; margin: 0 0 10px; }
     /* inline line-icons in the account/balance lines, sized to the text */
     .sa-ico { display: inline-block; vertical-align: -2px; margin-inline-end: 4px; }
@@ -9086,6 +9102,29 @@
         <h3 class="note-pop-title" id="notePopTitle"></h3>
         <p class="note-pop-msg" id="notePopMsg"></p>
         <div class="actions"><button class="primary" id="notePopOk" type="button">حسناً</button></div>
+      </div>
+    </div>
+
+    <!-- Account erasure. App Store 5.1.1(v) wants this reachable from inside
+         the app, and it is irreversible, so it states the consequence in full
+         and asks the player to TYPE the word — a «are you sure?» button is one
+         mis-tap away from destroying somebody's paid games. -->
+    <div class="modal-backdrop" id="deleteAccountModal" aria-hidden="true">
+      <div class="question-modal" role="alertdialog" aria-modal="true">
+        <h3 class="preview-title">حذف الحساب نهائياً</h3>
+        <p class="da-warn">هذا الإجراء <b>لا يمكن التراجع عنه</b>. سيُحذف حسابك وكل ما فيه:</p>
+        <ul class="da-list">
+          <li>ألعابك المحفوظة وسجلّ اللعب</li>
+          <li><b>الألعاب المدفوعة في رصيدك — ولن تُستردّ</b></li>
+          <li>رسائلك مع المطوّر</li>
+        </ul>
+        <p class="da-warn">للتأكيد، اكتب كلمة <b>حذف</b> في الحقل:</p>
+        <input id="deleteAccountConfirm" class="da-input" type="text" autocomplete="off"
+               inputmode="text" aria-label="اكتب كلمة حذف للتأكيد">
+        <div class="actions">
+          <button class="secondary" id="deleteAccountCancel" type="button">إلغاء</button>
+          <button class="primary da-go" id="deleteAccountGo" type="button" disabled>احذف حسابي</button>
+        </div>
       </div>
     </div>
 
@@ -12789,7 +12828,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.326";
+    const IZZBAH_BUILD = "2026-08-16.327";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17847,6 +17886,12 @@
     window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
     window.IZZBAH_TEST.categoryHealthRows = () => categoryHealthRows();
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
+    window.IZZBAH_TEST.openDeleteAccount = () => openDeleteAccount();
+    // ⚠️ A FUNCTION, not the value. This bridge block runs thousands of lines
+    // ABOVE the `const DELETE_CONFIRM_WORD` it names, and reading a const before
+    // its declaration is a ReferenceError that kills the whole script — the
+    // symptom is every window.IZZBAH.* helper silently missing.
+    window.IZZBAH_TEST.deleteConfirmWord = () => DELETE_CONFIRM_WORD;
     window.IZZBAH_TEST.gamesWord = gamesWord;
 
     function adminTabChip(id, name, color, active) {
@@ -22648,6 +22693,57 @@
       else k.textContent = icon;
     }
 
+    // ---- Account erasure (App Store guideline 5.1.1(v)) ---------------------
+    // The word the player has to type. Kept as a constant because the test and
+    // the placeholder both need it, and a mismatch would make the button
+    // permanently dead with nothing on screen explaining why.
+    const DELETE_CONFIRM_WORD = "حذف";
+    function openDeleteAccount() {
+      const m = $("#deleteAccountModal");
+      if (!m) return;
+      const input = $("#deleteAccountConfirm"), go = $("#deleteAccountGo");
+      // Reset every time: a modal reopened with the word still in it would be
+      // armed the instant it appears.
+      input.value = ""; go.disabled = true; go.textContent = "احذف حسابي";
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      input.oninput = () => { go.disabled = input.value.trim() !== DELETE_CONFIRM_WORD; };
+      $("#deleteAccountCancel").onclick = closeDeleteAccount;
+      go.onclick = () => runDeleteAccount(go);
+      setTimeout(() => { try { input.focus(); } catch (e) {} }, 60);
+    }
+    function closeDeleteAccount() {
+      const m = $("#deleteAccountModal");
+      if (!m) return;
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+    }
+    async function runDeleteAccount(go) {
+      go.disabled = true; go.textContent = "جارٍ الحذف…";
+      try {
+        if (!window.IZZBAH || typeof window.IZZBAH.deleteAccount !== "function") throw new Error("cloud-not-ready");
+        await window.IZZBAH.deleteAccount();
+        // The cloud copy is gone; wipe this device too, or the next boot
+        // restores the very games the player just asked to be rid of.
+        // ⚠️ Swept by PREFIX rather than against the sync's KEYS list, for two
+        // reasons: that list lives inside the Firebase closure and is not in
+        // scope here, and a key added later would silently survive a deletion.
+        // Local-only preferences (theme, sound) go too — the player asked for
+        // this account to be gone from this device, and a clean slate is the
+        // honest reading of that.
+        try {
+          Object.keys(localStorage)
+            .filter(k => k.indexOf("izzbah-") === 0)
+            .forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+        closeDeleteAccount();
+        location.reload();
+      } catch (err) {
+        console.warn("delete account failed", err);
+        go.disabled = false; go.textContent = "احذف حسابي";
+        popNote("تعذّر حذف الحساب",
+          "لم يكتمل الحذف ولم يتغيّر شيء في حسابك. تأكّد من اتصالك وحاول مرة أخرى.");
+      }
+    }
+
     function renderSettingsSheet() {
       // Account block: signed-in shows email/id + sign-out; else a sign-in CTA.
       const acc = $("#settingsAccount");
@@ -22655,7 +22751,8 @@
         if (state.signedIn) {
           acc.innerHTML = `<span class="sa-line"><svg class="sa-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="m8.3 12.2 2.6 2.6 4.8-5.2"/></svg> مسجّل الدخول</span>
             <span class="sa-sub" id="settingsUid" title="اضغط لنسخ معرّف حسابك">معرّف حسابك: ${escapeHtml(shortUid(state.myUid || ""))}</span>
-            <button class="secondary sa-btn" id="settingsAuthBtn" type="button">تسجيل الخروج</button>`;
+            <button class="secondary sa-btn" id="settingsAuthBtn" type="button">تسجيل الخروج</button>
+            <button class="sa-btn sa-danger" id="settingsDeleteAccount" type="button">حذف الحساب نهائياً</button>`;
         } else {
           acc.innerHTML = `<span class="sa-line">لم تسجّل الدخول</span>
             <span class="sa-sub" style="cursor:default">سجّل الدخول لحفظ تقدّمك وتفعيل الأكواد عبر أجهزتك.</span>
@@ -22663,6 +22760,8 @@
         }
         const authBtn = $("#settingsAuthBtn");
         if (authBtn) authBtn.addEventListener("click", () => { closeSettings(); const real = $("#authBtn"); if (real) real.click(); });
+        const del = $("#settingsDeleteAccount");
+        if (del) del.addEventListener("click", () => { closeSettings(); openDeleteAccount(); });
         const uid = $("#settingsUid");
         if (uid && state.myUid) uid.addEventListener("click", () => {
           const done = () => showToast("تم نسخ معرّف حسابك");
@@ -30080,6 +30179,24 @@
                   .catch(e => { console.warn("approval reward failed", e); return { rewarded: false, rewardError: true }; })
               );
             });
+          };
+          // Erase this account, everywhere. The heavy lifting is a Cloud
+          // Function (entitlements/{uid} is write-denied to every user, so the
+          // browser cannot remove its own paid balance) — this only calls it,
+          // then tears down the local copy so the device does not keep playing
+          // a signed-out ghost of the account it just deleted.
+          window.IZZBAH.deleteAccount = function () {
+            if (!currentUser) return Promise.reject(new Error("not signed in"));
+            if (typeof firebase.functions !== "function") return Promise.reject(new Error("cloud-not-ready"));
+            return firebase.functions().httpsCallable("deleteAccount")({})
+              .then(res => {
+                // ⚠️ Kill any pending push FIRST. schedulePush() guards on
+                // `currentUser`, which signOut() clears — but a timer armed
+                // moments before this call would fire in between and recreate
+                // users/{uid} for an account that no longer exists in Auth.
+                clearTimeout(pushTimer);
+                return auth.signOut().catch(() => {}).then(() => (res && res.data) || { ok: true });
+              });
           };
           window.IZZBAH.communityDelete = function (id) {
             if (!currentUser) return Promise.reject(new Error("not signed in"));
