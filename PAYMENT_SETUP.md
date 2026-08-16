@@ -70,3 +70,86 @@ Properties the tests pin down:
 
 If a "payment pending / failed" screen is added later, `purchases/{id}` will
 need a read rule (owner-only, never writable). Until then it stays server-only.
+
+---
+
+## App Store / Play: RevenueCat (build .329)
+
+The web flow above (Thawani) is unchanged and still frozen. This section is the
+NATIVE path, which is a separate channel end to end: the store takes the money,
+RevenueCat tells us, and `revenuecatWebhook` grants the games.
+
+### Wiring it up
+
+1. **Create the products in App Store Connect** as **consumables**, with these
+   exact ids — they are hardcoded in two places that a test compares
+   (`STORE_PRODUCTS` in `index.html`, `PRODUCT_PACKS` in
+   `functions/lib/revenuecat.js`):
+
+   | pack | product id | games |
+   |---|---|---|
+   | `g2`  | `com.izzbah.game.games2`  | 2 |
+   | `g5`  | `com.izzbah.game.games5`  | 5 |
+   | `g15` | `com.izzbah.game.games15` | 15 |
+
+   ⚠️ Products cannot be created — or tested — until the **Paid Applications
+   agreement** shows Active. Sandbox purchases fail with unhelpful errors
+   before that.
+
+2. **Pick the shared header value** (any long random string) and set it in both
+   places, identically:
+
+   ```
+   firebase functions:secrets:set REVENUECAT_WEBHOOK_SECRET
+   ```
+   RevenueCat dashboard → Integrations → Webhooks → *Authorization header*.
+
+   ⚠️ With no secret configured the endpoint refuses **everything** — it never
+   falls open. That is deliberate; a missing secret must not mean "allow all".
+
+3. **Deploy:** `firebase deploy --only functions:revenuecatWebhook --project izzbahgame`,
+   then paste the function URL into the RevenueCat webhook config.
+
+4. ⚠️ **`app_user_id` MUST be the Firebase uid.** The app has to call
+   RevenueCat's `logIn(uid)` right after sign-in. With RevenueCat's own
+   anonymous ids the webhook cannot tell whose account to credit and every
+   purchase lands in the `unknown-user` branch — money taken, nothing
+   delivered. This is the single most likely way to get the integration wrong.
+
+### Confirm the payload before going live
+
+⚠️ **The one piece not verified against a real request.** RevenueCat's docs were
+unreachable from the build environment, so the field names in
+`functions/lib/revenuecat.js` (`event.id`, `event.type`, `event.app_user_id`,
+`event.original_app_user_id`, `event.aliases`, `event.product_id`,
+`event.environment`) come from their published description of the format rather
+than from a captured request.
+
+Everything fails **closed**, so a wrong guess means a purchase that does not
+deliver — visible and refundable — never a free grant. Still: press **"Send test
+webhook"** in the RevenueCat dashboard once, read the function log, and compare.
+`parseRcEvent()` is the only place to correct.
+
+### What the webhook does and does not do
+
+- Grants on `NON_RENEWING_PURCHASE` and `INITIAL_PURCHASE`. Every other event
+  type is acknowledged and ignored.
+- **De-duplicates on `event.id`**, in the same transaction as the grant.
+  RevenueCat retries until it gets a 2xx, so a response lost on the wire is
+  normal — without this it would credit the same pack twice.
+- Returns **200 even when it grants nothing**. A refused event is handled;
+  retrying will not change the answer. Only a real failure (Firestore down)
+  returns 500, because that one might succeed next time.
+- **Sandbox purchases grant only to staff** (`admins/{uid}` or `editors/{uid}`).
+  Anyone can create an Apple sandbox account, so a sandbox grant open to the
+  public is unlimited free games. Test with the owner's own account.
+- **Refunds and chargebacks are recorded, not acted on.** Our games are
+  consumed; clawing back a balance someone has already played is a judgement
+  call, not arithmetic. They land in `rcEvents` for the admin to see.
+- **Books a sale**, so the admin revenue panel does not silently under-report
+  everything sold through the stores. ⚠️ `priceOMR` is our LIST price, not what
+  Apple charged — the store bills its own tier in the buyer's currency and takes
+  its cut. Treat store rows as gross-at-list, never as a payout figure.
+
+No `firestore.rules` change is needed: `entitlements` and the new `rcEvents`
+collection are denied to every client, and the Admin SDK bypasses rules.

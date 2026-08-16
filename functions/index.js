@@ -387,3 +387,126 @@ exports.deleteAccount = onCall({ cors: true }, async (request) => {
   await admin.auth().deleteUser(uid);
   return { ok: true, report };
 });
+
+// ---------------------------------------------------------------------------
+// revenuecatWebhook — an App Store / Play purchase becomes games in an account.
+//
+// The client NEVER grants. A player taps buy, Apple takes the money, RevenueCat
+// tells us here, and this function — the only thing with Admin SDK rights —
+// writes entitlements/{uid}. The game's existing onSnapshot puts the games on
+// screen. firestore.rules already denies every user write to entitlements, so
+// this endpoint is the sole path to paid content and is guarded accordingly.
+//
+// Set the shared header value once, in both places:
+//   firebase functions:secrets:set REVENUECAT_WEBHOOK_SECRET
+//   RevenueCat dashboard -> Integrations -> Webhooks -> Authorization header
+//
+// ⚠️ app_user_id MUST be the Firebase uid. The client has to call RevenueCat's
+// logIn(uid) after sign-in; with RevenueCat's own anonymous ids this function
+// has no idea whose account to credit and every purchase lands in the
+// unknown-user branch. That is the single most likely way to get this wrong.
+// ---------------------------------------------------------------------------
+const REVENUECAT_WEBHOOK_SECRET = defineSecret("REVENUECAT_WEBHOOK_SECRET");
+const { rcAuthorised, parseRcEvent, rcDecision } = require("./lib/revenuecat");
+
+exports.revenuecatWebhook = onRequest(
+  { secrets: [REVENUECAT_WEBHOOK_SECRET], cors: false },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("method-not-allowed"); return; }
+    if (!rcAuthorised(req.get("authorization"), REVENUECAT_WEBHOOK_SECRET.value())) {
+      console.warn("revenuecat webhook: bad authorization");
+      res.status(401).send("unauthorized");
+      return;
+    }
+
+    const parsed = parseRcEvent(req.body);
+    if (!parsed.ok) {
+      // 400, not 500: a shape we cannot read will never become readable, so
+      // there is nothing for RevenueCat to gain by retrying it.
+      console.error("revenuecat webhook unparsed:", parsed.reason, JSON.stringify(req.body || {}).slice(0, 400));
+      res.status(400).send(parsed.reason);
+      return;
+    }
+
+    const db = admin.firestore();
+    const eventRef = db.collection("rcEvents").doc(parsed.eventId);
+
+    try {
+      // Resolve the customer. RevenueCat's guidance is to try every id it gives
+      // us, so we take the first that is a real account here.
+      let uid = "";
+      for (const candidate of parsed.candidates) {
+        const ent = await db.collection("entitlements").doc(candidate).get();
+        if (ent.exists) { uid = candidate; break; }
+        try { await admin.auth().getUser(candidate); uid = candidate; break; } catch (e) { /* not ours */ }
+      }
+
+      // Sandbox purchases cost nothing and anyone can make one, so they only
+      // grant to staff. That keeps end-to-end testing possible without leaving
+      // a way to mint unlimited games in production.
+      let isStaff = false;
+      if (uid && parsed.sandbox) {
+        const [a, e] = await Promise.all([
+          db.collection("admins").doc(uid).get(),
+          db.collection("editors").doc(uid).get(),
+        ]);
+        isStaff = a.exists || e.exists;
+      }
+
+      const decision = rcDecision(parsed, uid, isStaff);
+      const pack = decision.grant ? getPack(decision.packId) : null;
+
+      // One transaction covers the idempotency record AND the grant, so a retry
+      // can never double-credit: RevenueCat resends until it sees a 2xx, and a
+      // response lost on the wire is the normal case, not the rare one.
+      const applied = await db.runTransaction(async (tx) => {
+        const seen = await tx.get(eventRef);
+        if (seen.exists) return { duplicate: true };
+
+        let granted = null;
+        if (decision.grant && pack) {
+          const entRef = db.collection("entitlements").doc(uid);
+          const cur = await tx.get(entRef);
+          const patch = entitlementUpdate(cur.exists ? cur.data() : null, pack);
+          patch.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+          tx.set(entRef, patch, { merge: true });
+          granted = patch.gamesAllowed;
+
+          // Book the revenue, or the admin's sales panel silently under-reports
+          // everything sold through the stores.
+          // ⚠️ priceOMR is our LIST price, not what Apple actually charged —
+          // the store bills its own tier in the buyer's currency and takes its
+          // cut. Treat store rows as gross-at-list, not as a payout figure.
+          tx.set(db.collection("sales").doc(), {
+            pack: pack.name, games: pack.games, premium: !!pack.premium,
+            priceOMR: Number(pack.amountOMR) || 0,
+            email: "", uid,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+
+        tx.set(eventRef, {
+          type: parsed.type, productId: parsed.productId, uid: uid || "",
+          sandbox: !!parsed.sandbox,
+          outcome: decision.grant ? "granted" : decision.reason,
+          at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { duplicate: false, granted };
+      });
+
+      if (applied.duplicate) console.log("revenuecat webhook: duplicate", parsed.eventId);
+      else if (decision.grant) console.log("revenuecat webhook: granted", decision.packId, "to", uid);
+      else console.warn("revenuecat webhook: no grant —", decision.reason, parsed.type, parsed.productId);
+
+      // 200 even when nothing was granted. A refused event is HANDLED — retrying
+      // it would not change the answer, and a non-2xx makes RevenueCat resend
+      // the same unusable notification for days.
+      res.status(200).json({ ok: true, outcome: decision.grant ? "granted" : decision.reason });
+    } catch (err) {
+      // A real failure — Firestore unavailable, say. 500 so RevenueCat DOES
+      // retry, because this one might succeed next time.
+      console.error("revenuecat webhook failed", err);
+      res.status(500).send("error");
+    }
+  }
+);

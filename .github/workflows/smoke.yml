@@ -58,6 +58,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node functions/test/erasure.test.mjs
 
+      - name: Run RevenueCat webhook unit tests (Cloud Functions)
+        if: ${{ !cancelled() }}
+        run: node functions/test/revenuecat.test.mjs
+
       - name: Run smoke test
         if: ${{ !cancelled() }}
         working-directory: tests
