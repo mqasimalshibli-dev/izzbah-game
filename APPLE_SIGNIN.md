@@ -56,16 +56,54 @@ app, so re-check it if the project is ever recreated or migrated.
    ⚠️ `tests/authlink.mjs` asserts Apple is DISABLED. That assertion is the
    reminder — flip it in the same commit, deliberately.
 7. **CSP** — add `https://appleid.apple.com` to `frame-src` and `connect-src`.
+8. **Register the sending address as an Email Source** — Apple Developer portal
+   → Certificates, Identifiers & Profiles → **Sign in with Apple for Email
+   Communication**. Add **izzbahgame@gmail.com**. Do this in the same sitting as
+   step 3; see the trap below for why.
 
 ---
 
-## Two things that will bite
+## Hide My Email — what it is, and three things it breaks
 
-**Private Relay breaks naming customers.** With "Hide My Email" the token's
-email is `…@privaterelay.appleid.com`. The admin centre names players by email
-(sales rows, the `usage` stamp, `resolveEmails`), so those players become
-unidentifiable in your own tooling and the manual activation-code flow cannot
-reach them at all. The uid still works; the email does not.
+Every person who taps Sign in with Apple is offered a choice:
+
+- **Share My Email** → you receive their real address, e.g. `ali@gmail.com`.
+- **Hide My Email** → you receive `k7m2p9x4qz@privaterelay.appleid.com`.
+
+The relay address is real and Apple forwards to their true inbox, but you never
+learn the real one, and it is **unique per app**. It cannot be turned off or
+opted out of by us — it is the player's choice, and a meaningful share take it.
+
+### 1. It is why linking cannot be automatic
+
+Google gave us `ali@gmail.com`; Apple gives us a relay address. The two strings
+have nothing in common, so Firebase cannot tell it is the same human, raises no
+error, and creates a second account. Nothing can detect this — which is the
+entire reason the «اربط حساب…» row exists in settings, pressed from inside an
+account the player is already signed in to, where no guessing is required.
+
+### 2. It makes a customer unnameable in the admin centre
+
+The players list, the sales rows and `resolveEmails` all name people by email.
+A Hide-My-Email player shows as `k7m2p9x4qz@privaterelay.appleid.com`, which
+identifies nobody. Their uid still works, so support is possible — just harder.
+
+### 3. ⚠️ You cannot email a relay address from an unregistered sender
+
+Apple **rejects** the forward unless the sending address is registered as an
+Email Source (step 8 above). This is the trap, because it is silent:
+
+Today every player is on Google, so the activation-code flow — which emails
+codes and payment instructions from `izzbahgame@gmail.com` — works fine. The day
+Apple sign-in ships, a Hide-My-Email player who needs a gift code or a fix
+receives **nothing at all**, and it looks exactly like the email went missing.
+
+Register the address before the first Apple sign-in reaches production, not
+after the first complaint.
+
+⚠️ Related: a player can later switch forwarding OFF in their Apple ID settings.
+Mail to that address then bounces permanently. Nothing to build for it, but it
+is worth recognising when an email to a relay address stops arriving.
 
 **Apple returns the display name exactly ONCE**, on first sign-in. Persist it in
 that callback or it is gone permanently — later sign-ins carry nothing and there
