@@ -5922,6 +5922,13 @@
     .plans-fineprint .wlc-legal-link { font: 700 11.5px 'Cairo', sans-serif; color: #9a1c1c; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
     :root[data-theme="dark"] .plans-fineprint { color: #cdb488 !important; }
     :root[data-theme="dark"] .plans-fineprint .wlc-legal-link { color: #f0a49c !important; }
+    /* App-store build (Capacitor iOS/Android). The packs stay — they are sold
+       through the store — but every OTHER route to paying goes: the activation
+       code box and the buy-by-email line. See isStoreBuild(). The website never
+       gets this class. */
+    body.is-store-build .settings-redeem,
+    body.is-store-build .plans-redeem,
+    body.is-store-build .plans-contact { display: none !important; }
     .plans-redeem { justify-content: center; }
     .plans-redeem .redeem-label { color: #6a5a2f; }
     .wlc-webview-note {
@@ -12828,7 +12835,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.327";
+    const IZZBAH_BUILD = "2026-08-16.328";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -17886,6 +17893,11 @@
     window.IZZBAH_TEST.restorePlan = (backup, live) => restorePlan(backup, live);
     window.IZZBAH_TEST.categoryHealthRows = () => categoryHealthRows();
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
+    window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
+    window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
+    window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
+    window.IZZBAH_TEST.STORE_PRODUCTS = () => STORE_PRODUCTS;
+    window.IZZBAH_TEST.purchasePack = (p) => purchasePack(p);
     window.IZZBAH_TEST.openDeleteAccount = () => openDeleteAccount();
     // ⚠️ A FUNCTION, not the value. This bridge block runs thousands of lines
     // ABOVE the `const DELETE_CONFIRM_WORD` it names, and reading a const before
@@ -22520,6 +22532,55 @@
     // The plans offered on the paywall. Edit names/descriptions/prices here —
     // the actual grant is the one-time code the admin generates and sends after
     // the player picks a plan (price shows only when set, e.g. "٢ ر.ع").
+    // ---- App-store build ----------------------------------------------------
+    // The packs ARE sold in the native app — through Apple's / Google's billing,
+    // taking their cut, which is the owner's decision (2026-08-16). What must
+    // NOT appear is any OTHER way to pay:
+    //   • the activation-code box — a non-store unlock path
+    //   • the «راسلنا لشراء» mailto — buying by email is an outside purchase
+    //     mechanism, and pointing at one is the anti-steering rule
+    // Everything else stays. Hiding the packs entirely (the earlier .325 plan,
+    // before IAP was chosen) would now be wrong: an app that shows a paywall and
+    // no way through it is its own rejection.
+    // ⚠️ Applies to ANDROID too. Play's billing rule is the same, and treating
+    // this as iOS-only is how the Play build gets pulled instead.
+    // ⚠️ The website is untouched. Keep this to HIDING and to the purchase seam
+    // — never fork game logic on it.
+    function isStoreBuild() {
+      try {
+        // Manual override so the build can be previewed from a browser: ?store=1
+        // sticks for the session, ?store=0 clears it.
+        if (/[?&]store=1/.test(location.search)) sessionStorage.setItem("izzbah-store-build", "1");
+        if (/[?&]store=0/.test(location.search)) sessionStorage.removeItem("izzbah-store-build");
+        if (sessionStorage.getItem("izzbah-store-build") === "1") return true;
+      } catch (e) {}
+      try {
+        const cap = window.Capacitor;
+        if (cap && typeof cap.isNativePlatform === "function") return !!cap.isNativePlatform();
+        if (cap && typeof cap.getPlatform === "function") return cap.getPlatform() !== "web";
+      } catch (e) {}
+      return false;
+    }
+    function applyStoreBuild() {
+      if (!isStoreBuild()) return;
+      document.body.classList.add("is-store-build");
+      // Hidden in JS as well as CSS: a class can be dropped from devtools, and
+      // the settings sheet rebuilds its rows on every open.
+      ["redeemInputSettings", "redeemBtnSettings"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+      });
+      // Apple wants terms reachable from the point of purchase, so the fineprint
+      // STAYS — but its web wording is about activation codes, which do not
+      // exist here.
+      const fine = document.querySelector(".plans-fineprint");
+      if (fine) {
+        const link = fine.querySelector(".wlc-legal-link");
+        fine.textContent = "الأسعار من المتجر · أول لعبة مجانية · تُضاف الألعاب إلى حسابك فور إتمام الشراء — ";
+        if (link) fine.appendChild(link);
+      }
+    }
+
     const PLAY_PLANS = [
       { id: "g2", icon: "🎲", name: "باقة لعبتين", desc: "جولتان — جرّب اللعبة مع أصحابك", price: "٠٫٩٠٠ ر.ع", priceOMR: 0.9, games: 2, premium: false },
       { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "١٫٥٠٠ ر.ع", priceOMR: 1.5, games: 5, premium: false },
@@ -22546,13 +22607,86 @@
         if (p.tag) { const t = document.createElement("div"); t.className = "plan-tag"; t.textContent = p.tag; card.appendChild(t); }
         const ico = document.createElement("div"); ico.className = "plan-ico"; ico.textContent = p.icon; card.appendChild(ico);
         const nm = document.createElement("div"); nm.className = "plan-name"; nm.textContent = p.name; card.appendChild(nm);
-        if (p.price) { const pr = document.createElement("div"); pr.className = "plan-price"; pr.textContent = p.price; card.appendChild(pr); }
+        // ⚠️ On a store build the price MUST come from the store. Apple bills in
+        // its own tiers, per storefront, in the viewer's currency — printing the
+        // hardcoded ٠٫٩٠٠ ر.ع there would show one number and charge another.
+        // If the bridge has no price yet, show nothing rather than a wrong one.
+        const price = isStoreBuild() ? storePriceFor(p.id) : p.price;
+        if (price) { const pr = document.createElement("div"); pr.className = "plan-price"; pr.textContent = price; card.appendChild(pr); }
         const ds = document.createElement("div"); ds.className = "plan-desc"; ds.textContent = p.desc; card.appendChild(ds);
-        const cta = document.createElement("div"); cta.className = "plan-cta"; cta.textContent = "اطلب هذه الباقة"; card.appendChild(cta);
-        card.addEventListener("click", () => orderPlan(p));
+        const cta = document.createElement("div"); cta.className = "plan-cta";
+        // On a store build the player pays right there and the games land in
+        // their account seconds later — «اطلب» (place an order) would describe
+        // the manual web flow, not what actually happens.
+        cta.textContent = isStoreBuild() ? "اشترِ الآن" : "اطلب هذه الباقة";
+        card.appendChild(cta);
+        card.addEventListener("click", () => purchasePack(p));
         grid.appendChild(card);
       });
     }
+    // ---- Where a pack purchase goes: ONE seam, two destinations -------------
+    // The website keeps the manual flow it has always had. A native build has
+    // to use Apple's / Google's billing (guideline 3.1.1, and Play's equivalent)
+    // — so the same tap means two different things, and this is the one place
+    // that knows which.
+    // ⚠️ orderPlan() below is UNCHANGED and stays the web behaviour verbatim.
+    // Do not fold store logic into it; the owner's instruction is that tapping a
+    // pack on the website keeps doing exactly what it does today.
+    function purchasePack(p) {
+      return isStoreBuild() ? storePurchase(p) : orderPlan(p);
+    }
+
+    // App Store / Play product ids, one per pack. Mirrors functions/lib/packs.js
+    // — same ids, same games — because the server is what actually grants, and a
+    // product id that maps to nothing there is a payment with no delivery.
+    const STORE_PRODUCTS = {
+      g2: "com.izzbah.game.games2",
+      g5: "com.izzbah.game.games5",
+      g15: "com.izzbah.game.games15",
+    };
+    function productIdFor(packId) { return STORE_PRODUCTS[String(packId || "")] || ""; }
+    function storePriceFor(packId) {
+      const s = window.IZZBAH_STORE;
+      if (!s || typeof s.priceOf !== "function") return "";
+      try { return String(s.priceOf(productIdFor(packId)) || ""); } catch (e) { return ""; }
+    }
+
+    /* The native side (Capacitor + RevenueCat) installs window.IZZBAH_STORE.
+       Keeping the contract this thin means the web build carries no store SDK
+       and the native build can be swapped without touching the game.
+         IZZBAH_STORE.purchase(productId) -> Promise
+         IZZBAH_STORE.priceOf(productId)  -> localized string, or "" */
+    function storeBridge() {
+      const s = window.IZZBAH_STORE;
+      return (s && typeof s.purchase === "function") ? s : null;
+    }
+    async function storePurchase(p) {
+      const bridge = storeBridge();
+      const productId = productIdFor(p.id);
+      // A store build whose bridge never loaded must SAY so. Silence on a
+      // purchase button is the worst outcome: the player taps, nothing happens,
+      // and they assume they have been charged.
+      if (!bridge || !productId) {
+        popNote("الشراء غير متاح", "تعذّر فتح المتجر الآن. أعد تشغيل التطبيق وحاول مرة أخرى.");
+        return;
+      }
+      try {
+        await bridge.purchase(productId);
+        track("pack_purchase", { pack: p.id });
+        // ⚠️ Nothing is granted here. The store confirms to RevenueCat, whose
+        // webhook writes entitlements/{uid} with the Admin SDK, and the game's
+        // existing onSnapshot unlocks the games on screen. A client that
+        // credited itself would be a client that can credit itself for free.
+        popNote("تم الشراء", "شكراً لك — ستظهر ألعابك في رصيدك خلال لحظات.", "✅");
+      } catch (err) {
+        // A cancel is not an error; the player closed Apple's sheet on purpose.
+        const code = String((err && (err.code || err.message)) || "");
+        if (/cancel/i.test(code)) return;
+        console.warn("store purchase failed", err);
+        popNote("لم تتم عملية الشراء", "لم يُخصم أي مبلغ. حاول مرة أخرى، وإذا تكرّر الأمر راسلنا.");
+      }
+    }
+
     // Tapping a pack places a purchase ORDER: it lands in the admin's
     // subscription panel, and the admin replies with a confirmation email
     // (prefilled: payment details + the activation code) to the buyer.
@@ -27807,6 +27941,10 @@
     loadFreeGameState();
     loadProgress();
     loadSeen();
+    // Before anything that sells is rendered — otherwise the code box and the
+    // buy-by-email line paint once and are hidden a frame later, which is a
+    // flash of exactly the thing App Review is looking for.
+    applyStoreBuild();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();
