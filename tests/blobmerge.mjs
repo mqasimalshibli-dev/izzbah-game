@@ -115,6 +115,32 @@ try {
     JSON.stringify(r.emptySide) === JSON.stringify(["g1","g2"]), r.emptySide.join(","));
   check("corrupt stored JSON neither throws nor loses the write", typeof r.corrupt === "string");
 
+  // ---- the write-back must not revert what the player just did ------------
+  // Reported live: picking categories cleared itself a second after every tap,
+  // and pressing play in that window said «لا توجد فئات صالحة للّعب». A push is
+  // a network round-trip and the player keeps playing during it; writing the
+  // merged snapshot back over a key they have since changed reverts it on
+  // screen, and reloadFromStorage() then pushes that revert into state.
+  const wb = await page.evaluate(() => {
+    const f = window.IZZBAH_TEST.writeBackKeys;
+    const K = "izzbah-trivia-settings-v1";
+    const G = "izzbah-trivia-saved-games-v1";
+    const sent = {}; sent[K] = '{"selected":["a"]}'; sent[G] = "[]";
+    const now1 = {}; now1[K] = '{"selected":["a","b","c"]}'; now1[G] = "[]";
+    const mg1 = {}; mg1[K] = '{"selected":["a"]}'; mg1[G] = "[]";
+    const now2 = {}; now2[K] = '{"selected":["a"]}'; now2[G] = "[]";
+    const mg2 = {}; mg2[K] = '{"selected":["a"]}'; mg2[G] = '[{"id":"g1"}]';
+    return { changed: f(sent, now1, mg1), untouched: f(sent, now2, mg2), noop: f(sent, sent, sent) };
+  });
+  check("A KEY CHANGED MID-FLIGHT IS NOT OVERWRITTEN — the picker keeps the new pick",
+    wb.changed.apply.indexOf("izzbah-trivia-settings-v1") === -1, JSON.stringify(wb.changed.apply));
+  check("...and it is reported stale so the change still gets pushed",
+    wb.changed.stale.indexOf("izzbah-trivia-settings-v1") !== -1, JSON.stringify(wb.changed.stale));
+  check("...while an untouched key still receives the other device's games",
+    wb.untouched.apply.indexOf("izzbah-trivia-saved-games-v1") !== -1, JSON.stringify(wb.untouched.apply));
+  check("an unchanged blob writes nothing at all (no needless re-render)",
+    wb.noop.apply.length === 0 && wb.noop.stale.length === 0);
+
   check("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
 } catch (e) {
   check(`threw: ${e && e.message}`, false);

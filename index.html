@@ -12789,7 +12789,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-15.322";
+    const IZZBAH_BUILD = "2026-08-15.323";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -27917,6 +27917,25 @@
         },
         // settings + preview-questions: per-device, last write is correct.
       };
+      /* Which keys the merged blob may be written back onto THIS device.
+         ⚠️ A push is a network round-trip, and the player keeps playing during
+         it. Writing the merged copy back over a key they have changed since
+         the snapshot REVERTS it on screen — which is exactly what made the
+         category picker clear itself a second after every tap (.311 → .323),
+         and then «لا توجد فئات صالحة للّعب» if they beat the revert to the
+         play button, because state.selected no longer matched anything.
+         So: apply a key only if its local value is still the one we SENT.
+         Anything that moved on is left alone and re-pushed. */
+      function writeBackKeys(sentRaw, nowRaw, merged) {
+        const apply = [], stale = [];
+        KEYS.forEach(k => {
+          const now = nowRaw ? nowRaw[k] : null;
+          const sent = sentRaw ? sentRaw[k] : null;
+          if (now !== sent) { stale.push(k); return; }   // changed in flight
+          if (merged && merged[k] != null && merged[k] !== now) apply.push(k);
+        });
+        return { apply: apply, stale: stale };
+      }
       function mergeBlob(mine, theirs) {
         mine = mine || {}; theirs = theirs || {};
         const out = {};
@@ -27932,12 +27951,20 @@
       }
       window.IZZBAH_TEST = window.IZZBAH_TEST || {};
       window.IZZBAH_TEST.mergeBlob = mergeBlob;
+      window.IZZBAH_TEST.writeBackKeys = writeBackKeys;
+    window.IZZBAH_TEST.writeBackKeys = writeBackKeys;
       function schedulePush() {
         if (!currentUser || !db || applying) return;
         clearTimeout(pushTimer);
         pushTimer = setTimeout(() => {
           const ref = db.collection("users").doc(currentUser.uid);
+          // Re-captured on every transaction ATTEMPT — runTransaction may run
+          // its body more than once on contention, and the write-back must
+          // compare against the snapshot that actually won.
+          let sentRaw = null;
           db.runTransaction(tx => tx.get(ref).then(snap => {
+            sentRaw = {};
+            KEYS.forEach(k => { sentRaw[k] = localStorage.getItem(k); });
             const theirs = (snap.exists && snap.data() && snap.data().data) || null;
             // No cloud copy yet — nothing to merge against, write ours.
             const merged = theirs ? mergeBlob(cloudBlob(), theirs) : cloudBlob();
@@ -27956,11 +27983,20 @@
                would sit in the cloud unseen until the next sign-in. `applying`
                suppresses the push this would otherwise trigger. */
             if (!merged) return;
+            const nowRaw = {};
+            KEYS.forEach(k => { nowRaw[k] = localStorage.getItem(k); });
+            const plan = writeBackKeys(sentRaw, nowRaw, merged);
             applying = true;
             try {
-              KEYS.forEach(k => { if (merged[k] != null && merged[k] !== localStorage.getItem(k)) origSet(k, merged[k]); });
-              reloadFromStorage();
+              plan.apply.forEach(k => origSet(k, merged[k]));
+              // Only re-read when something actually changed. reloadFromStorage
+              // re-renders the picker and the library, and doing that on every
+              // push is both wasted work and a visible flicker.
+              if (plan.apply.length) reloadFromStorage();
             } finally { applying = false; }
+            // A key the player changed mid-flight has NOT reached the cloud
+            // yet — push again so it still syncs.
+            if (plan.stale.length) schedulePush();
           }).catch(e => console.warn("cloud push failed", e));
         }, 900);
       }
