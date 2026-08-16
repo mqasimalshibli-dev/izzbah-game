@@ -1301,6 +1301,22 @@ Single self-contained page, same palette and type system as the game. Marked
     the result back over `CLOUD_BUDGET` and the write fails outright.
   - ⚠️ `mergeBlob` is wrapped so a corrupt stored value can never throw away the
     write — any key whose merge throws falls back to the local value.
+  - ⚠️⚠️ **THE WRITE-BACK MUST NOT REVERT WHAT THE PLAYER JUST DID (fixed
+    .323).** Reported live: the category picker cleared itself a second after
+    every tap, and pressing play in that window said «لا توجد فئات صالحة
+    للّعب». A push is a network round-trip and the player keeps playing during
+    it, so writing the merged snapshot back over a key they have SINCE changed
+    reverts it — and `reloadFromStorage()` then pushes that revert into state
+    via `loadGameSettings()` → `renderCategories()`. Only signed-in players
+    were affected, which is why it appeared new.
+    `writeBackKeys(sentRaw, nowRaw, merged)` now applies a key only when its
+    local value is still the one that was SENT; anything that moved on is left
+    alone and re-pushed. `sentRaw` is re-captured on every transaction ATTEMPT,
+    because `runTransaction` may run its body more than once on contention and
+    the comparison must use the snapshot that won.
+    ⚠️ `reloadFromStorage()` now runs only when something was actually
+    written — it re-renders the picker and the library, and doing that on every
+    push is both wasted work and a visible flicker.
   - This fixes divergence, not simultaneity: two devices playing the SAME game at
     the same moment still interleave. The owner has accepted that (friends sharing
     an account is fine); a single-device lock was considered and rejected.
