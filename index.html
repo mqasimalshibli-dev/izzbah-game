@@ -12789,7 +12789,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.324";
+    const IZZBAH_BUILD = "2026-08-16.326";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -29715,9 +29715,13 @@
                   // not in the promise chain and swallows its own errors. An
                   // editor writing here is fine — the rules let admins and
                   // editors create, and only admins read.
+                  // ⚠️ `existing` is a QuerySnapshot, NOT an array — `.length` is
+                  // undefined and floored to 0, so every entry read «+105» and a
+                  // publish that REMOVED questions could never show red, which is
+                  // the column's whole purpose. It is `.size`.
                   writeAuditLog({
                     cat: cat.id, name: String(cat.name || "").slice(0, 80),
-                    before: existing.length, after: list.length,
+                    before: existing.size, after: list.length,
                     wrote: ops.filter(o => !o.del).length - 1, // minus the parent doc
                     removed: ops.filter(o => o.del).length
                   });
@@ -29736,7 +29740,58 @@
           // ⚠️ Never blocks and never throws outward. A catalogue that cannot be
           // audited is a nuisance; a publish that fails because its logging did
           // is a real problem.
+          // Coalesced. autoPublishAdmin fires on EVERY question edit, so
+          // authoring a batch wrote a row per keystroke-save — sixteen
+          // near-identical «حنكة عمانية» rows in six minutes on the first real
+          // use, which made the log unreadable.
+          // One pending entry per category: the FIRST `before` is kept and the
+          // LATEST `after` replaces it, so the row that lands describes the
+          // whole editing session as one net change rather than each save.
+          const auditPending = new Map();
+          const AUDIT_IDLE = 12000;
+          function flushAuditLog(catId) {
+            const e = auditPending.get(catId);
+            if (!e) return;
+            auditPending.delete(catId);
+            clearTimeout(e.timer);
+            // Nothing actually moved (a re-publish of identical content) — do
+            // not spend a row saying so.
+            if (e.before === e.after && !e.wrote && !e.removed) return;
+            writeAuditNow(e);
+          }
+          function flushAllAuditLogs() { Array.from(auditPending.keys()).forEach(flushAuditLog); }
+          // A quick edit then closing the tab must not lose the entry.
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") flushAllAuditLogs();
+          });
+          window.addEventListener("pagehide", flushAllAuditLogs);
+
           window.IZZBAH.writeAuditLog = function (entry) {
+            try {
+              if (!db || !currentUser || !entry) return;
+              const id = String(entry.cat || "");
+              const prev = auditPending.get(id);
+              if (prev) {
+                clearTimeout(prev.timer);
+                prev.after = entry.after;                 // latest wins
+                prev.name = entry.name || prev.name;
+                prev.wrote += Math.max(0, Number(entry.wrote) || 0);
+                prev.removed += Math.max(0, Number(entry.removed) || 0);
+                prev.timer = setTimeout(() => flushAuditLog(id), AUDIT_IDLE);
+                return;
+              }
+              const e = {
+                cat: id, name: entry.name, action: entry.action,
+                before: Math.max(0, Number(entry.before) || 0),   // FIRST wins
+                after: Math.max(0, Number(entry.after) || 0),
+                wrote: Math.max(0, Number(entry.wrote) || 0),
+                removed: Math.max(0, Number(entry.removed) || 0)
+              };
+              e.timer = setTimeout(() => flushAuditLog(id), AUDIT_IDLE);
+              auditPending.set(id, e);
+            } catch (err) {}
+          };
+          function writeAuditNow(entry) {
             try {
               if (!db || !currentUser) return;
               db.collection("logs").add({

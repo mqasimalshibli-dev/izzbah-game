@@ -1108,19 +1108,18 @@ Single self-contained page, same palette and type system as the game. Marked
     exists. Create-only, uid pinned to the caller, shape closed with `hasOnly`,
     reading admin-only (it carries staff emails), `update` denied outright
     because an editable audit trail is not one.
-  - 🐞 **TWO OPEN BUGS, seen on the first real use (2026-08-16), both cosmetic —
-    no player or data impact, but the log is close to unreadable until fixed:**
-    1. **`before` is always 0**, so every row renders as «+105» and a publish
-       that REMOVED questions would NOT show red — which is the whole point of
-       the column. The entry sets `before: existing.length` inside
-       `cloudPublish`; `existing` is the `/questions` docs snapshot, and it is
-       coming back empty. Verify what `existing` actually holds at that point
-       before "fixing" the arithmetic.
-    2. **One row per auto-publish.** 16 near-identical «حنكة عمانية» rows in six
-       minutes while a batch was being authored. The entries need coalescing —
-       e.g. fold consecutive writes to the SAME category by the same uid inside
-       a few minutes into one row, or debounce the log write the way
-       `scheduleIndexRebuild` debounces at 4s.
+  - ⚠️ **`existing` in `cloudPublish` is a QuerySnapshot, not an array** —
+    `.length` is `undefined` and floored to 0, so `.321` logged every entry as
+    «+105» and a publish that REMOVED questions could never show red, which is
+    the column's whole purpose. It is `.size`. Fixed .326.
+  - ⚠️ **Entries are COALESCED per category (.326).** `autoPublishAdmin` fires
+    on every question edit, so the first real use wrote sixteen near-identical
+    rows in six minutes. One pending entry per category holds the FIRST `before`
+    and the LATEST `after`, flushed after 12s idle — so a whole editing session
+    lands as one row describing the net change. A publish that moved nothing at
+    all writes no row. Flushed on `visibilitychange`/`pagehide` so closing the
+    tab mid-edit does not lose it. ⚠️ The rules deny `update`, so entries cannot
+    be amended after the fact — coalescing has to happen BEFORE the write.
   - ⚠️ **`autoPublishAdmin` fires on every question edit**, so authoring a batch
     writes a row each. Rows are tiny, and «مسح السجل» clears up to 400 at a
     time — but do not add anything expensive to this path.
