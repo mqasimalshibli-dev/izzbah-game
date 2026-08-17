@@ -5104,6 +5104,10 @@
     .dup-tag { display: inline-block; font: 800 11px 'Cairo', sans-serif; padding: 2px 9px; border-radius: 999px; margin-inline-start: 6px; vertical-align: middle; }
     .dup-tag.dup { background: #fdeaea; color: #9e1322; }
     .dup-tag.conf { background: #fff0cf; color: #9a5a12; }
+    /* A photo series is NOT a fault, so it must not wear a warning colour —
+       neutral grey, and the whole group is dimmed so the eye skips it. */
+    .dup-tag.series { background: #ece7dc; color: #6a5a2f; font-weight: 700; }
+    .dup-group.series { border-color: #ded6c4; background: #fbf8f2; opacity: .62; }
     .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
     .app-notice {
       position: fixed; z-index: 9999; inset-inline: 12px; bottom: 16px; margin-inline: auto;
@@ -7932,6 +7936,8 @@
     :root[data-theme="dark"] .dup-tag.dup,
     :root[data-theme="dark"] .dup-del { background: rgba(158, 19, 34, .3) !important; color: #f2a89f !important; border-color: rgba(230, 130, 122, .4) !important; }
     :root[data-theme="dark"] .dup-tag.conf { background: rgba(230, 199, 117, .18) !important; color: #e6c775 !important; }
+    :root[data-theme="dark"] .dup-tag.series { background: rgba(255,255,255,.10) !important; color: #cdb488 !important; }
+    :root[data-theme="dark"] .dup-group.series { border-color: rgba(255,255,255,.12) !important; background: rgba(255,255,255,.03) !important; }
     :root[data-theme="dark"] .dup-del:hover { background: rgba(158, 19, 34, .46) !important; }
     /* danger tints (revoke / delete / error / guideline foot) */
     :root[data-theme="dark"] .prem-revoke,
@@ -12891,7 +12897,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-16.334";
+    const IZZBAH_BUILD = "2026-08-17.335";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19499,15 +19505,46 @@
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(item);
       });
+      /* ⚠️ Grouping by TEXT alone is why this panel could not be read.
+         «ما اسم هذا الموقع في سلطنة عُمان؟» is the prompt for 178 questions
+         whose PICTURE is the question; «وش معنى الايموجي» for 90, «علم أي
+         دولة؟» for 70. Identical text is correct there, not a fault. Measured
+         on the live catalogue: 40 groups, 604 questions, and 38 of them series.
+         Sorting «conflicts» first put all 604 false alarms ABOVE the two real
+         repeats, which landed at positions 39 and 40 — reported, and still
+         invisible.
+         So each text group is now split by ANSWER first. Same text AND same
+         answer is the real duplicate and comes out as its own entry; the rest
+         of the group is the series it was hiding inside.
+         ⚠️ This is what makes «وادي الحوقين» findable. It is two questions
+         inside a 178-strong photo series, and no amount of re-sorting whole
+         groups would ever have surfaced it — it had to be extracted. */
       const dups = [];
       groups.forEach(items => {
         if (items.length < 2) return;
-        const answers = new Set(items.map(i => dupNormText(i.a)));
-        const cats = new Set(items.map(i => i.catId));
-        dups.push({ items, conflict: answers.size > 1, sameCatOnly: cats.size < items.length });
+        const byAnswer = new Map();
+        items.forEach(i => {
+          const k = dupNormText(i.a);
+          if (!byAnswer.has(k)) byAnswer.set(k, []);
+          byAnswer.get(k).push(i);
+        });
+        byAnswer.forEach(same => {
+          if (same.length < 2) return;
+          const cats = new Set(same.map(i => i.catId));
+          dups.push({ items: same, conflict: false, series: false, sameCatOnly: cats.size < same.length });
+        });
+        // Whatever is left is one prompt over many different answers. Five or
+        // more of those is a series; two or three is more likely a real mistake
+        // and stays in the report where it can be looked at.
+        if (byAnswer.size > 1) {
+          const cats = new Set(items.map(i => i.catId));
+          dups.push({ items, conflict: true, series: items.length >= 5, sameCatOnly: cats.size < items.length });
+        }
       });
-      // Conflicts first (more urgent), then by how many copies exist.
-      dups.sort((a, b) => (Number(b.conflict) - Number(a.conflict)) || (b.items.length - a.items.length));
+      /* Real duplicates first, then small conflicts worth a look, then the photo
+         series last. Within each band, the biggest group first. */
+      const band = (g) => g.series ? 2 : (g.conflict ? 1 : 0);
+      dups.sort((a, b) => (band(a) - band(b)) || (b.items.length - a.items.length));
       return { total: all.length, dups };
     }
     function renderDupReport() {
@@ -19515,20 +19552,36 @@
       const sum = $("#dupSummary");
       const list = $("#dupList");
       list.innerHTML = "";
-      const copies = dups.reduce((n, g) => n + g.items.length, 0);
-      const conflicts = dups.filter(g => g.conflict).length;
+      const real = dups.filter(g => !g.conflict);
+      const conflicts = dups.filter(g => g.conflict && !g.series).length;
+      const series = dups.filter(g => g.series);
+      const copies = real.reduce((n, g) => n + g.items.length, 0);
       if (!dups.length) {
         sum.className = "dup-summary clean";
         sum.textContent = `✓ لا يوجد تكرار — فُحص ${toArabicDigits(total)} سؤالاً.`;
         list.innerHTML = `<div class="dup-group" style="text-align:center;color:#1f5237">كل الأسئلة فريدة 🎉</div>`;
         return;
       }
-      sum.className = "dup-summary";
-      sum.textContent = `وُجد ${toArabicDigits(dups.length)} مجموعة مكرّرة (${toArabicDigits(copies)} نسخة${conflicts ? `، منها ${toArabicDigits(conflicts)} تعارض` : ""}) من أصل ${toArabicDigits(total)} سؤال.`;
+      // Count the REAL repeats, not the series. The old line said «604 نسخة»
+      // and every one of them was fine, which reads as «this catalogue is a
+      // mess» and teaches you to ignore the panel.
+      sum.className = "dup-summary" + (real.length ? "" : " clean");
+      sum.textContent = real.length
+        ? `${toArabicDigits(real.length)} مجموعة مكرّرة فعلاً (${toArabicDigits(copies)} نسخة)`
+          + (conflicts ? ` · ${toArabicDigits(conflicts)} تعارض للمراجعة` : "")
+          + (series.length ? ` · ${toArabicDigits(series.length)} سلسلة صور (طبيعية)` : "")
+          + ` — من أصل ${toArabicDigits(total)} سؤال.`
+        : `✓ لا تكرار فعلي` + (conflicts ? ` · ${toArabicDigits(conflicts)} تعارض للمراجعة` : "")
+          + (series.length ? ` · ${toArabicDigits(series.length)} سلسلة صور (طبيعية)` : "")
+          + ` — فُحص ${toArabicDigits(total)} سؤالاً.`;
       dups.forEach(g => {
         const box = document.createElement("div");
-        box.className = "dup-group" + (g.conflict ? " conflict" : "");
-        const tag = g.conflict ? `<span class="dup-tag conf">تعارض</span>` : `<span class="dup-tag dup">مكرّر</span>`;
+        box.className = "dup-group" + (g.conflict && !g.series ? " conflict" : "") + (g.series ? " series" : "");
+        // Naming the series for what it is, rather than flagging it as a fault,
+        // is the difference between a report you act on and one you scroll past.
+        const tag = g.series
+          ? `<span class="dup-tag series">سلسلة صور — السؤال هو الصورة</span>`
+          : (g.conflict ? `<span class="dup-tag conf">تعارض</span>` : `<span class="dup-tag dup">مكرّر</span>`);
         box.insertAdjacentHTML("beforeend", `<div class="dup-q">${escapeHtml(toArabicDigits(g.items[0].q))}${tag}</div>`);
         const occ = document.createElement("div");
         occ.className = "dup-occ";

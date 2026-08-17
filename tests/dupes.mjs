@@ -53,6 +53,76 @@ try {
   check("finds the same-question/different-answer pair as a CONFLICT", res.confFound && res.confIsConflict === true);
   check("a conflict inside one category is flagged as same-category", res.confSameCat === true);
 
+  // ---- a photo SERIES must not drown the report -----------------------------
+  // «ما اسم هذا الموقع في سلطنة عُمان؟» is the prompt for 178 real questions
+  // whose PICTURE is the question; «من سجل هذا الهدف؟» for 24. Identical text
+  // is correct there. Grouping by text alone put 604 such rows ABOVE the two
+  // genuine repeats, which landed at positions 39 and 40 — reported, and still
+  // invisible. And a repeat INSIDE a series could never surface at all, because
+  // it was two items inside one 178-strong group.
+  const series = await page.evaluate(() => {
+    const shot = (a, points) => ({ q: "ما اسم هذا الموقع في الاختبار؟", a, points });
+    state.communityCategories = [{
+      id: "t_series", name: "سلسلة", questions: [
+        shot("موقع ١", 100), shot("موقع ٢", 200), shot("موقع ٣", 300),
+        shot("موقع ٤", 400), shot("موقع ٥", 500), shot("موقع ٦", 100),
+        shot("مكرر حقيقي", 200), shot("مكرر حقيقي", 300),   // ← buried inside it
+      ],
+    }];
+    const report = findDuplicateQuestions();
+    const mine = report.dups.filter(g => g.items.some(i => i.q.includes("الاختبار")));
+    const real = mine.filter(g => !g.conflict);
+    const ser = mine.filter(g => g.series);
+    return {
+      realCount: real.length,
+      realAnswer: real[0] ? real[0].items[0].a : "",
+      realSize: real[0] ? real[0].items.length : 0,
+      seriesCount: ser.length,
+      seriesSize: ser[0] ? ser[0].items.length : 0,
+      // position in the WHOLE report, which is what the admin actually scrolls
+      realRank: real[0] ? report.dups.indexOf(real[0]) : -1,
+      seriesRank: ser[0] ? report.dups.indexOf(ser[0]) : -1,
+    };
+  });
+  check("a repeat BURIED inside a photo series is extracted as its own entry",
+    series.realCount === 1 && series.realSize === 2, `${series.realCount} group(s)`);
+  check("...identified by its answer, since the text is shared with the series",
+    series.realAnswer === "مكرر حقيقي", series.realAnswer);
+  check("the series itself is recognised, not reported as a fault",
+    series.seriesCount === 1 && series.seriesSize === 8, `${series.seriesSize} items`);
+  check("⚠️ the real repeat sorts ABOVE the series — this is the whole fix",
+    series.realRank > -1 && series.seriesRank > -1 && series.realRank < series.seriesRank,
+    `real #${series.realRank + 1}, series #${series.seriesRank + 1}`);
+
+  // A SMALL group with differing answers is more likely a genuine mistake than
+  // a series, so it must stay visible between the two bands.
+  const small = await page.evaluate(() => {
+    state.communityCategories = [{ id: "t_small", name: "صغيرة", questions: [
+      { q: "سؤال صغير للاختبار؟", a: "جواب أ", points: 100 },
+      { q: "سؤال صغير للاختبار؟", a: "جواب ب", points: 200 },
+    ] }];
+    const report = findDuplicateQuestions();
+    const g = report.dups.find(x => x.items.some(i => i.q.includes("صغير للاختبار")));
+    return { conflict: g ? g.conflict : null, series: g ? g.series : null };
+  });
+  check("two same-text questions with different answers stay a CONFLICT, not a series",
+    small.conflict === true && small.series === false);
+
+  // ⚠️ Put the original fixtures back. The blocks above replaced
+  // state.communityCategories wholesale, and everything below reads the report
+  // built from the FIRST set — without this the UI checks measure a catalogue
+  // that no longer contains what they are looking for.
+  await page.evaluate((u) => {
+    state.communityCategories = [
+      { id: "t_a", name: "فئة أ", questions: [{ q: u.dup, a: "الجواب نفسه", points: 100 }] },
+      { id: "t_b", name: "فئة ب", questions: [{ q: u.dup + " ", a: "الجواب نفسه", points: 200 }] },
+      { id: "t_c", name: "فئة ج", questions: [
+        { q: u.conf, a: "جواب س", points: 300 },
+        { q: u.conf, a: "جواب مختلف", points: 400 },
+      ] },
+    ];
+  }, { dup: UNIQ_DUP, conf: UNIQ_CONF });
+
   // The modal renders the report with tags + a summary.
   const ui = await page.evaluate(() => {
     openDupModal();
