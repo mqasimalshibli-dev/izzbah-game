@@ -5107,6 +5107,10 @@
     /* A photo series is NOT a fault, so it must not wear a warning colour —
        neutral grey, and the whole group is dimmed so the eye skips it. */
     .dup-tag.series { background: #ece7dc; color: #6a5a2f; font-weight: 700; }
+    /* «نفس الإجابة» is a question for the owner, not a fault — blue, the colour
+       this app uses for information, never the red of a duplicate. */
+    .dup-tag.sameans { background: #e4eefb; color: #2a5a8a; font-weight: 700; }
+    .dup-group.sameans { border-color: #c3d6ea; background: #f6faff; }
     .dup-group.series { border-color: #ded6c4; background: #fbf8f2; opacity: .62; }
     .dup-occ { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
     .app-notice {
@@ -7937,6 +7941,8 @@
     :root[data-theme="dark"] .dup-del { background: rgba(158, 19, 34, .3) !important; color: #f2a89f !important; border-color: rgba(230, 130, 122, .4) !important; }
     :root[data-theme="dark"] .dup-tag.conf { background: rgba(230, 199, 117, .18) !important; color: #e6c775 !important; }
     :root[data-theme="dark"] .dup-tag.series { background: rgba(255,255,255,.10) !important; color: #cdb488 !important; }
+    :root[data-theme="dark"] .dup-tag.sameans { background: rgba(90, 150, 220, .18) !important; color: #9ec8f0 !important; }
+    :root[data-theme="dark"] .dup-group.sameans { border-color: rgba(90,150,220,.28) !important; background: rgba(90,150,220,.06) !important; }
     :root[data-theme="dark"] .dup-group.series { border-color: rgba(255,255,255,.12) !important; background: rgba(255,255,255,.03) !important; }
     :root[data-theme="dark"] .dup-del:hover { background: rgba(158, 19, 34, .46) !important; }
     /* danger tints (revoke / delete / error / guideline foot) */
@@ -12897,7 +12903,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-17.335";
+    const IZZBAH_BUILD = "2026-08-17.336";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19531,7 +19537,24 @@
         byAnswer.forEach(same => {
           if (same.length < 2) return;
           const cats = new Set(same.map(i => i.catId));
-          dups.push({ items: same, conflict: false, series: false, sameCatOnly: cats.size < same.length });
+          /* ⚠️ Same text AND same answer is a DUPLICATE only when the text is
+             what asks the question. Where the prompt is shared with others —
+             «من سجل هذا الهدف؟» is the prompt for 24 questions, «ما اسم هذا
+             الموقع؟» for 178 — the MEDIA asks it and the text says nothing.
+             Two different Neymar goals are two different questions that happen
+             to share an answer. Owner's report, and he is right.
+             ⚠️ Worse, this scanner CANNOT check the media even if it wanted to:
+             state.publishedCategories is media-LITE (build .209), so every
+             `image` here is "" and the clip lives in the /questions
+             subcollection this never reads. Measured on the live catalogue:
+             0 of 31 «من الي سجل؟» questions carry a media URL at this layer.
+             So it must not claim. A shared-prompt pair is reported as «نفس
+             الإجابة» for the owner to judge against the clip — worth a look,
+             since answering «نيمار» twice in one game is repetitive however
+             different the goals were — but it is never asserted as a duplicate. */
+          const sharedPrompt = same.length < items.length;
+          dups.push({ items: same, conflict: false, series: false,
+                      sameAnswer: sharedPrompt, sameCatOnly: cats.size < same.length });
         });
         // Whatever is left is one prompt over many different answers. Five or
         // more of those is a series; two or three is more likely a real mistake
@@ -19543,7 +19566,9 @@
       });
       /* Real duplicates first, then small conflicts worth a look, then the photo
          series last. Within each band, the biggest group first. */
-      const band = (g) => g.series ? 2 : (g.conflict ? 1 : 0);
+      /* Report order: things that are certainly wrong, then things worth a
+         look, then things that are fine. */
+      const band = (g) => g.series ? 3 : (g.conflict ? 2 : (g.sameAnswer ? 1 : 0));
       dups.sort((a, b) => (band(a) - band(b)) || (b.items.length - a.items.length));
       return { total: all.length, dups };
     }
@@ -19552,7 +19577,8 @@
       const sum = $("#dupSummary");
       const list = $("#dupList");
       list.innerHTML = "";
-      const real = dups.filter(g => !g.conflict);
+      const real = dups.filter(g => !g.conflict && !g.sameAnswer);
+      const sameAns = dups.filter(g => g.sameAnswer);
       const conflicts = dups.filter(g => g.conflict && !g.series).length;
       const series = dups.filter(g => g.series);
       const copies = real.reduce((n, g) => n + g.items.length, 0);
@@ -19568,20 +19594,28 @@
       sum.className = "dup-summary" + (real.length ? "" : " clean");
       sum.textContent = real.length
         ? `${toArabicDigits(real.length)} مجموعة مكرّرة فعلاً (${toArabicDigits(copies)} نسخة)`
+          + (sameAns.length ? ` · ${toArabicDigits(sameAns.length)} نفس الإجابة (تحقّق من المقطع)` : "")
           + (conflicts ? ` · ${toArabicDigits(conflicts)} تعارض للمراجعة` : "")
           + (series.length ? ` · ${toArabicDigits(series.length)} سلسلة صور (طبيعية)` : "")
           + ` — من أصل ${toArabicDigits(total)} سؤال.`
-        : `✓ لا تكرار فعلي` + (conflicts ? ` · ${toArabicDigits(conflicts)} تعارض للمراجعة` : "")
+        : `✓ لا تكرار فعلي`
+          + (sameAns.length ? ` · ${toArabicDigits(sameAns.length)} نفس الإجابة (تحقّق من المقطع)` : "")
+          + (conflicts ? ` · ${toArabicDigits(conflicts)} تعارض للمراجعة` : "")
           + (series.length ? ` · ${toArabicDigits(series.length)} سلسلة صور (طبيعية)` : "")
           + ` — فُحص ${toArabicDigits(total)} سؤالاً.`;
       dups.forEach(g => {
         const box = document.createElement("div");
-        box.className = "dup-group" + (g.conflict && !g.series ? " conflict" : "") + (g.series ? " series" : "");
+        box.className = "dup-group" + (g.conflict && !g.series ? " conflict" : "")
+          + (g.series ? " series" : "") + (g.sameAnswer ? " sameans" : "");
         // Naming the series for what it is, rather than flagging it as a fault,
         // is the difference between a report you act on and one you scroll past.
         const tag = g.series
           ? `<span class="dup-tag series">سلسلة صور — السؤال هو الصورة</span>`
-          : (g.conflict ? `<span class="dup-tag conf">تعارض</span>` : `<span class="dup-tag dup">مكرّر</span>`);
+          : g.conflict ? `<span class="dup-tag conf">تعارض</span>`
+          // Says exactly what is known and nothing more: the answers match, and
+          // the media — which is what actually asks these — cannot be seen here.
+          : g.sameAnswer ? `<span class="dup-tag sameans">نفس الإجابة — تحقّق من المقطع</span>`
+          : `<span class="dup-tag dup">مكرّر</span>`;
         box.insertAdjacentHTML("beforeend", `<div class="dup-q">${escapeHtml(toArabicDigits(g.items[0].q))}${tag}</div>`);
         const occ = document.createElement("div");
         occ.className = "dup-occ";

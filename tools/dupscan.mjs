@@ -90,7 +90,17 @@ const ansFreq = new Map();
 all.forEach(r => { if (r.na) ansFreq.set(r.na, (ansFreq.get(r.na) || 0) + 1); });
 const rarity = (x, y) => Math.max(ansFreq.get(x.na) || 0, ansFreq.get(y.na) || 0);
 
-const exact = [], near = [], inv = [];
+// How many questions share each prompt. A prompt used by many questions is a
+// MEDIA prompt — «من سجل هذا الهدف؟» for 24, «ما اسم هذا الموقع؟» for 178 —
+// and there the clip or photo asks the question, not the words. Two different
+// Neymar goals share an answer and are not duplicates.
+// ⚠️ This scanner cannot check the media either: the parent doc is media-lite,
+// so 0 of 31 «من الي سجل؟» questions carry a URL at this layer.
+const promptCount = new Map();
+all.forEach(r => { if (r.nq) promptCount.set(r.nq, (promptCount.get(r.nq) || 0) + 1); });
+const mediaPrompt = (r) => (promptCount.get(r.nq) || 0) > 2;
+
+const exact = [], sameAns = [], near = [], inv = [];
 for (let i = 0; i < all.length; i++) {
   const x = all[i];
   if (catFilter && !x.cat.includes(catFilter)) continue;
@@ -104,7 +114,10 @@ for (let i = 0; i < all.length; i++) {
     // differentiates them and the parent doc's text-only copy does not carry
     // it. Comparing text alone reported 29,674 "duplicates", which is the same
     // as reporting none. A real duplicate matches on the ANSWER too.
-    if (x.nq && x.nq === y.nq && x.na === y.na) { if (j > i) exact.push([x, y]); continue; }
+    if (x.nq && x.nq === y.nq && x.na === y.na) {
+      if (j > i) (mediaPrompt(x) ? sameAns : exact).push([x, y]);
+      continue;
+    }
     if (inverted(x, y)) { if (!catFilter ? j > i : true) inv.push([x, y]); continue; }
     const s = jac(x.qt, y.qt);
     // NEAR requires the same ANSWER. Similar wording with a different answer is
@@ -120,7 +133,9 @@ const show = (label, list, fmt) => {
   if (list.length > 40) console.log(`  … and ${list.length - 40} more`);
 };
 const line = (r) => `[${r.cat} ${r.p}] ${r.q} → ${r.a}`;
-show("EXACT duplicates", exact, ([x, y]) => `  ${line(x)}\n  ${line(y)}\n`);
+show("EXACT duplicates — the TEXT asks the question", exact, ([x, y]) => `  ${line(x)}\n  ${line(y)}\n`);
+show("SAME ANSWER on a shared MEDIA prompt — check the clip, not a duplicate", sameAns,
+  ([x, y]) => `  ${line(x)}\n  ${line(y)}\n`);
 inv.sort((a, b) => rarity(a[0], a[1]) - rarity(b[0], b[1]));
 const invReal = inv.filter(([x, y]) => rarity(x, y) <= 3);
 show("INVERTED — likely REAL (both answers rare in the catalogue)", invReal,

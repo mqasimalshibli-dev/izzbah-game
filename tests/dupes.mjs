@@ -94,6 +94,33 @@ try {
     series.realRank > -1 && series.seriesRank > -1 && series.realRank < series.seriesRank,
     `real #${series.realRank + 1}, series #${series.seriesRank + 1}`);
 
+  // ⚠️ …but it must NOT be called a duplicate. Owner's report: «من الي سجل؟»
+  // shows repeats that are different goals by the same player. The clip asks
+  // the question, and this scanner cannot even see it — the catalogue in memory
+  // is media-lite, so every image is "" (0 of 31 carry a URL). Two questions
+  // sharing a prompt AND an answer are «نفس الإجابة» for the owner to judge,
+  // never an asserted duplicate.
+  const media = await page.evaluate(() => {
+    const g = findDuplicateQuestions().dups
+      .find(x => x.items.some(i => i.q.includes("الاختبار")) && !x.conflict);
+    return { sameAnswer: g ? g.sameAnswer : null };
+  });
+  check("a shared-prompt pair is «نفس الإجابة», NOT asserted as a duplicate",
+    media.sameAnswer === true);
+
+  // The other side of the same rule: when the text is unique to the pair, the
+  // text IS the question and it really is a duplicate.
+  const textDup = await page.evaluate(() => {
+    state.communityCategories = [{ id: "t_txt", name: "نصية", questions: [
+      { q: "سؤال نصي فريد للاختبار؟", a: "نفس الجواب", points: 100 },
+      { q: "سؤال نصي فريد للاختبار؟", a: "نفس الجواب", points: 300 },
+    ] }];
+    const g = findDuplicateQuestions().dups.find(x => x.items.some(i => i.q.includes("نصي فريد")));
+    return { sameAnswer: g ? !!g.sameAnswer : null, conflict: g ? g.conflict : null };
+  });
+  check("...while a pair whose TEXT is unique to it stays a real duplicate",
+    textDup.sameAnswer === false && textDup.conflict === false);
+
   // A SMALL group with differing answers is more likely a genuine mistake than
   // a series, so it must stay visible between the two bands.
   const small = await page.evaluate(() => {
