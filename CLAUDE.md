@@ -838,6 +838,43 @@ that is why the projection is a separate document.
   an email from `orders` is PLAYER-written and only type-checked by the rules,
   so it is `escapeHtml`-ed. `tests/adminemail.mjs` covers all of it.
 
+## ⚠️ STANDING RULE: check EVERY question before proposing a new one
+
+Owner's instruction, 2026-08-16, for all future work: **take in all the
+questions to avoid duplicates.** Not the category being topped up — the whole
+catalogue, all ~4,650 across all 38 categories.
+
+This was earned. Asked for four questions at حنكة عمانية's 100 tier, I checked
+that category's 100 and 200 tiers, declared them clean, and one was a duplicate:
+
+    خريف ظفار 100   ما المنتج العماني المرتبط بظفار؟   → اللبان
+    حنكة عمانية 100  أي محافظة تشتهر بشجرة اللبان؟      → ظفار
+
+Same fact, opposite direction, no shared wording. The in-game «فحص المتكررات»
+compares question TEXT and would pass it. A player who plays both categories
+gets the fact twice.
+
+**Use `node tools/dupscan.mjs`** — it reads the live catalogue over the public
+REST API (no auth needed) and reports three kinds:
+  • EXACT     same question AND same answer
+  • INVERTED  each question contains the other's answer — the case above
+  • NEAR      same answer, ≥85% word overlap
+
+Two things it took several passes to get right, so do not "simplify" them back:
+  ⚠️ **Identical text is NOT a duplicate when the image is the question.**
+     «وش اسم المطعم؟» is the prompt for dozens of photo questions in كافيهات
+     ومطاعم, «ما اسم هذا الموقع؟» for مواقع في عمان. Comparing text alone
+     reported **29,674** duplicates, i.e. nothing. A real duplicate matches on
+     the ANSWER too.
+  ⚠️ **An inversion between two COMMON entities is coincidence.** «إيطاليا فازت
+     بأمم أوروبا» and «في أي قارة تقع إيطاليا» each name the other's answer and
+     are about nothing alike. Ranking by how rare each answer is in the
+     catalogue separates the real ones.
+
+Findings on the live catalogue at the time of writing, for the owner to judge —
+NOT all of them are bugs (براندات deliberately runs «which brand» / «which shoe
+from that brand» as a pair): 11 exact, 25 likely-real inversions, 7 near.
+
 ## Agent toolkit (connected — .claude/agents + .claude/workflows)
 
 Deliberately minimal, per the owner: ONLY the pictures and safety agents are
