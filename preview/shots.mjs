@@ -61,7 +61,7 @@ const SCENES = [
     teams: ["جروب الحارة", "تيم خلفان"] },
   // the Omani shelf — the library's real differentiator, so it gets a board
   { cats: ["khareef", "omaniFootball", "cafesRestaurants", "pub-1783170059396-601",
-           "pub-1783453062866-1028", "pub-1783189569201-313"],
+           "pub-1783453062866-1028", "pub-1784798503561-5271"],
     teams: ["أبطال صحار", "شباب نزوى"] },
   // pop culture and play
   { cats: ["foreignMoviesOnly", "pub-1783170356019-2501", "pub-1783510423551-6465",
@@ -274,9 +274,18 @@ for (let v = 0; v < SCENES.length; v++) {
       }, { v, attempt });
       if (!clicked) break;
       await page.waitForTimeout(1500);
-      const hasPhoto = await page.evaluate(() =>
-        [...document.querySelectorAll("#questionPage img, #questionPage video")]
-          .some(m => m.offsetParent !== null && m.getBoundingClientRect().height > 60));
+      /* ⚠️ "There is an image" is NOT the test. The word-guess categories hand
+         the word to one player as a QR CODE, and the question card is an empty
+         box with a QR in the middle — a perfectly true screenshot of the game
+         and a useless advertisement, which is exactly what shipped. The game
+         already knows which categories work that way, so ask it rather than
+         keeping a list here that drifts. */
+      const hasPhoto = await page.evaluate(() => {
+        const cat = state.activeQuestion && state.activeQuestion.cat;
+        if (cat && typeof usesSpecialAnswerMedia === "function" && usesSpecialAnswerMedia(cat)) return false;
+        return [...document.querySelectorAll("#questionPage img, #questionPage video")]
+          .some(m => m.offsetParent !== null && m.getBoundingClientRect().height > 60);
+      });
       if (hasPhoto || attempt === 5) { opened = true; break; }
       await page.evaluate(() => { state.used = new Set(); showScreen("game"); renderGame(); });
       await page.waitForTimeout(700);
