@@ -130,13 +130,45 @@ try {
     check(`${name}: it opens with a hint, not a description`,
       !g0.picked && g0.descVis === "hidden" && g0.hintVis === "visible");
 
-    /* ── pressing a card ─────────────────────────────────────────── */
+    /* ── pressing a card ─────────────────────────────────────────────
+       ⚠️ With a REAL pointer, never `el.click()`. Two shipped bugs hid behind
+       a synthetic click: the rail called `setPointerCapture` on pointerdown,
+       which retargets the click to the RAIL instead of the card, so pressing a
+       cover did nothing — and `el.click()` sails straight past that because it
+       dispatches at the node and skips the pointer stream entirely. If it can
+       be pressed with a finger, press it with a finger. */
     const before = g0.laid.map(c => c.z);
-    await page.evaluate(() => {
-      const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
-      const act = on.findIndex(c => c.classList.contains("is-active"));
-      (on[act + 1] || on[act]).click();
-    });
+    /* ⚠️ Do not tap the centre of a card's bounding rect. These cards are
+       rotated in 3D, and `getBoundingClientRect` returns the axis-aligned box
+       of the PROJECTED quad — bigger than the card, and on a short landscape
+       rail its centre lands on empty stage. Hit-test for a point that really
+       resolves to the card, exactly as the game's turn-pill test has to. */
+    const tapCard = async () => {
+      const box = await page.evaluate(() => {
+        const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+        const act = on.findIndex(c => c.classList.contains("is-active"));
+        // The neighbour if it is reachable, else the active card — on a narrow
+        // rail the neighbours are mostly behind the front card, and a reader
+        // drags one forward before pressing it.
+        for (const el of [on[act + 1], on[act]]) {
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.4, 0.6]) {
+            const x = r.left + r.width * fx, y = r.top + r.height * fy;
+            if (y < 4 || y > innerHeight - 4 || x < 4 || x > innerWidth - 4) continue;
+            const hit = document.elementFromPoint(x, y);
+            if (hit && hit.closest && hit.closest(".c3") === el) return { x, y };
+          }
+        }
+        return null;
+      });
+      if (!box) return false;
+      await page.mouse.move(box.x, box.y);
+      await page.mouse.down();
+      await page.mouse.up();
+      return true;
+    };
+    check(`${name}: a card is reachable by a real tap`, await tapCard());
     await page.waitForTimeout(700);
     const g1 = await geom(page);
 
@@ -169,7 +201,18 @@ try {
 
     // Pressing the forward card again puts it back — the copy is dismissable
     // without hunting for a close button.
-    await page.evaluate(() => document.querySelector(".c3.is-active").click());
+    const act = await page.evaluate(() => {
+      const el = document.querySelector(".c3.is-active"), r = el.getBoundingClientRect();
+      for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.4, 0.6]) {
+        const x = r.left + r.width * fx, y = r.top + r.height * fy;
+        if (y < 4 || y > innerHeight - 4) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (hit && hit.closest && hit.closest(".c3") === el) return { x, y };
+      }
+      return null;
+    });
+    check(`${name}: the front card is reachable by a real tap`, !!act);
+    if (act) { await page.mouse.move(act.x, act.y); await page.mouse.down(); await page.mouse.up(); }
     await page.waitForTimeout(600);
     const g2 = await geom(page);
     check(`${name}: pressing it again dismisses the description`,
@@ -245,6 +288,64 @@ try {
   });
   check("once the reader drives, page scroll stops moving the rail",
     handedOver.mine === handedOver.after, `${handedOver.mine} → ${handedOver.after}`);
+
+  /* ── a tap must not switch the scroll driver off ─────────────────
+     Reported from real use as "they don't scroll": `manual = true` ran on every
+     pointerdown, so the first touch anywhere on the rail — a tap on a cover, or
+     a touch that only meant to scroll the page — stopped page scroll ever
+     moving the rail again. Handover belongs to a real DRAG. */
+  // ⚠️ Reload first. The check above deliberately hands the rail over for good,
+  // and this one is about a page where that has NOT happened.
+  await load(390, 844);
+  const afterTap = await page.evaluate(async () => {
+    const sec = document.getElementById("cats");
+    sec.scrollIntoView(); await new Promise(r => setTimeout(r, 400));
+    return { top: window.scrollY,
+             i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")) };
+  });
+  const card = await page.evaluate(() => {
+    const r = document.querySelector(".c3.is-active").getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(card.x, card.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(400);
+  const tapped = await page.evaluate(() => document.getElementById("cats").classList.contains("is-picked"));
+  check("a real tap opens the description", tapped);
+  const stillSweeps = await page.evaluate(async (top) => {
+    window.scrollTo(0, top + innerHeight * 0.5);
+    await new Promise(r => setTimeout(r, 400));
+    return { i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")),
+             picked: document.getElementById("cats").classList.contains("is-picked") };
+  }, afterTap.top);
+  check("page scroll still sweeps the rail after a tap", stillSweeps.i > afterTap.i,
+    `${afterTap.i} → ${stillSweeps.i}`);
+  check("and scrolling on puts the description away", !stillSweeps.picked);
+
+  // A real DRAG, by contrast, does take the wheel — and must not be mistaken
+  // for a press on whichever card the finger lifted over.
+  const drag = await page.evaluate(async () => {
+    document.getElementById("cats").scrollIntoView();
+    await new Promise(r => setTimeout(r, 400));
+    // Start mid-rail: at index 0 a drag can only travel one way, and the test
+    // would be measuring the clamp rather than the drag.
+    window.scrollBy(0, innerHeight * 0.6);
+    await new Promise(r => setTimeout(r, 400));
+    const r = document.getElementById("catRail").getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2,
+             i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")) };
+  });
+  await page.mouse.move(drag.x, drag.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 6; k++) { await page.mouse.move(drag.x - k * 30, drag.y); await page.waitForTimeout(30); }
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const dragged = await page.evaluate(() => ({
+    i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")),
+    picked: document.getElementById("cats").classList.contains("is-picked"),
+  }));
+  check("a real drag moves the rail", dragged.i !== drag.i, `${drag.i} → ${dragged.i}`);
+  check("a drag is not mistaken for a press", !dragged.picked);
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
