@@ -751,11 +751,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         <div class="device rv" data-d="2" id="device"
              aria-roledescription="عرض متعاقب لشاشات اللعبة">
           <div class="screen">
-            <img src="shots/board-1.webp" data-shot="board" alt="لوحة اللعب — ست فئات وخمس مستويات نقاط"
+            <img src="shots/board-1.webp?v60725edc" data-shot="board" alt="لوحة اللعب — ست فئات وخمس مستويات نقاط"
                  width="1150" height="550" fetchpriority="high" decoding="async" class="on">
-            <img src="shots/question-1.webp" data-shot="question" alt="شاشة السؤال مع المؤقّت والنقاط"
+            <img src="shots/question-1.webp?v60725edc" data-shot="question" alt="شاشة السؤال مع المؤقّت والنقاط"
                  width="1150" height="550" decoding="async">
-            <img src="shots/answer-1.webp" data-shot="answer" alt="شاشة الإجابة وأزرار «من جاوب؟»"
+            <img src="shots/answer-1.webp?v60725edc" data-shot="answer" alt="شاشة الإجابة وأزرار «من جاوب؟»"
                  width="1150" height="550" decoding="async">
           </div>
         </div>
@@ -851,20 +851,20 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     <div class="steps">
       <div>
         <div class="shot tall rv">
-          <img src="shots/picker-2.webp" data-shot="picker" alt="شاشة اختيار الفئات في اللعبة" loading="lazy" decoding="async" width="620" height="1354">
+          <img src="shots/picker-2.webp?v60725edc" data-shot="picker" alt="شاشة اختيار الفئات في اللعبة" loading="lazy" decoding="async" width="620" height="1354">
         </div>
         <div class="step-cap"><b>١</b> اختاروا فئاتكم من ٤٠ فئة، وسمّوا الفرق</div>
       </div>
       <div class="wide-col">
         <div>
           <div class="shot rv" data-d="1">
-            <img src="shots/board-2.webp" data-shot="board" alt="لوحة اللعب — أربع فئات وخمس مستويات نقاط" loading="lazy" decoding="async" width="1150" height="550">
+            <img src="shots/board-2.webp?v60725edc" data-shot="board" alt="لوحة اللعب — أربع فئات وخمس مستويات نقاط" loading="lazy" decoding="async" width="1150" height="550">
           </div>
           <div class="step-cap"><b>٢</b> اختاروا خانة من اللوحة — كل ما غلت، صعبت</div>
         </div>
         <div>
           <div class="shot rv" data-d="2">
-            <img src="shots/answer-2.webp" data-shot="answer" alt="شاشة الإجابة — الصورة والإجابة الصحيحة وأزرار «من جاوب؟»" loading="lazy" decoding="async" width="1150" height="550">
+            <img src="shots/answer-2.webp?v60725edc" data-shot="answer" alt="شاشة الإجابة — الصورة والإجابة الصحيحة وأزرار «من جاوب؟»" loading="lazy" decoding="async" width="1150" height="550">
           </div>
           <div class="step-cap"><b>٣</b> اضغطوا «من جاوب؟» — والنقاط تُحتسب تلقائياً</div>
         </div>
@@ -1049,6 +1049,12 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
      file per slot and a reader with JS off still gets a complete page rather
      than four empty frames. */
   const SHOT_SETS = 3;
+  /* ⚠️ Cache-buster, rewritten by preview/shots.mjs from the bytes of the shots
+     themselves. Re-capturing keeps the same twelve FILENAMES, so without this
+     a browser that already has them shows the old pictures for as long as its
+     cache says to — the shots got replaced, the site kept serving the previous
+     ones, and it looked like the change had not deployed. It had. */
+  const SHOT_V = "v60725edc";
   const SHOT_SET = (() => {
     try {
       const n = (parseInt(localStorage.getItem("izzbah-shot-set") || "0", 10) + 1) % SHOT_SETS;
@@ -1056,7 +1062,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       return n;
     } catch (e) { return 0; }     // private mode: everyone gets the first set
   })();
-  const shotSrc = (name, set) => "shots/" + name + "-" + ((set % SHOT_SETS) + 1) + ".webp";
+  const shotSrc = (name, set) => "shots/" + name + "-" + ((set % SHOT_SETS) + 1) + ".webp?" + SHOT_V;
   /* ⚠️ The hero and the "how it works" strip both show a board, and both show
      an answer. Handing them the same set puts the SAME picture on screen twice
      on one page, which is the repetition this exists to remove — so the strip
