@@ -1000,3 +1000,10 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node catgaps.mjs
+
+      - name: Run team setup card sizing test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node teamsetup.mjs
