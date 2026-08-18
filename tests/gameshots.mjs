@@ -17,7 +17,7 @@
 // ⚠️ AND IT MUST WRAP. Three sets, then back to the first — not a counter that
 // climbs into `board-4.webp` and 404s on the fourth visit.
 import { chromium } from "playwright-core";
-import { spawn } from "child_process";
+import { spawn, execFileSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -48,6 +48,37 @@ for (const name of SCREENS) {
     const same = new Set(files.map(b => b.length + ":" + b.subarray(0, 512).toString("base64")));
     check(`${name}: the three are actually different captures`, same.size === SETS,
       files.map(b => (b.length / 1024).toFixed(0) + "KB").join(", "));
+  }
+}
+
+/* ── the question and answer cards must SHOW something ────────────
+   The owner asked for pictured questions only, and the capture aborts if it
+   cannot find one — but the capture is where the mistake would be made, so the
+   files are checked here independently. A text-only card is a wall of cream
+   with a line of type on it; a photographed one has a block of colour in the
+   middle. Measuring the spread of colour across the centre separates them
+   without needing to know what the picture is.
+   ⚠️ Not file size: a small photo and a long question can weigh the same. */
+const colourSpread = f => Number(execFileSync("python3", ["-c", `
+from PIL import Image, ImageStat
+im = Image.open(${JSON.stringify(f)}).convert("RGB")
+w, h = im.size
+im = im.crop((int(w*0.25), int(h*0.22), int(w*0.75), int(h*0.80)))
+print(round(sum(ImageStat.Stat(im).stddev) / 3, 1))
+`]).toString().trim());
+
+for (const name of ["question", "answer"]) {
+  for (let i = 1; i <= SETS; i++) {
+    const f = join(SHOTS, `${name}-${i}.webp`);
+    if (!existsSync(f)) continue;
+    const sd = colourSpread(f);
+    /* Calibrated against real shots rather than guessed: the text-only
+       «قديمك نديمك» card that shipped scores 30.8, the pictured ones 54–81.
+       ⚠️ This does NOT catch the word-guess QR screen — a QR is high-contrast
+       and scores well above any threshold that would let a photograph through.
+       That one is kept out at capture time, by asking the game which categories
+       behave that way. Two different mistakes, two different guards. */
+    check(`${name}-${i} shows a picture, not a wall of text`, sd >= 42, `colour spread ${sd}`);
   }
 }
 

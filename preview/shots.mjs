@@ -259,39 +259,37 @@ for (let v = 0; v < SCENES.length; v++) {
   if (want.includes("question") || want.includes("answer")) {
     // A different tier per scene, so the three question cards are not the same
     // points value three times.
-    /* Prefer a question that actually HAS a photo. A bare sentence on a card is
-       a true screenshot and a poor advertisement, and which cells carry media
-       is not knowable from the board — so open one, look, and try another if it
-       came up text-only. Resetting `state.used` puts the board back the way it
-       was, so a rejected try does not grey out a cell in the next shot. */
-    let opened = false;
-    for (let attempt = 0; attempt < 6 && !opened; attempt++) {
-      const clicked = await page.evaluate(({ v, attempt }) => {
-        const cells = [...document.querySelectorAll("#game .cell:not(.used)")];
-        if (!cells.length) return false;
-        cells[([7, 13, 20][v] + attempt * 3) % cells.length].click();
-        return true;
-      }, { v, attempt });
-      if (!clicked) break;
-      await page.waitForTimeout(1500);
-      /* ⚠️ "There is an image" is NOT the test. The word-guess categories hand
-         the word to one player as a QR CODE, and the question card is an empty
-         box with a QR in the middle — a perfectly true screenshot of the game
-         and a useless advertisement, which is exactly what shipped. The game
-         already knows which categories work that way, so ask it rather than
-         keeping a list here that drifts. */
-      const hasPhoto = await page.evaluate(() => {
-        const cat = state.activeQuestion && state.activeQuestion.cat;
-        if (cat && typeof usesSpecialAnswerMedia === "function" && usesSpecialAnswerMedia(cat)) return false;
-        return [...document.querySelectorAll("#questionPage img, #questionPage video")]
-          .some(m => m.offsetParent !== null && m.getBoundingClientRect().height > 60);
-      });
-      if (hasPhoto || attempt === 5) { opened = true; break; }
-      await page.evaluate(() => { state.used = new Set(); showScreen("game"); renderGame(); });
-      await page.waitForTimeout(700);
-    }
-    if (!opened) { console.error("  no board cell to open — skipping question/answer"); continue; }
-    await page.waitForTimeout(700);
+    /* Open a question that HAS a picture, by choosing it rather than by
+       clicking cells and hoping.
+       ⚠️ Clicking was the first approach and it mostly landed on text. The
+       board draws ONE question per tier at random out of a bank of a hundred
+       and something, and only a handful of those carry media — so a click is a
+       lottery, and the six retries it got were nowhere near enough. Worse, the
+       "did it get a picture?" test looked for a rendered <img>, and the
+       word-guess categories render a QR CODE, which passed.
+       `openQuestion` is the same function a cell click calls, so this is the
+       real screen, just not left to chance. */
+    const picked = await page.evaluate(() => {
+      const cats = (state.publishedCategories || []).filter(c => state.selected.has(c.id));
+      const usable = cats.filter(c => typeof usesSpecialAnswerMedia !== "function" || !usesSpecialAnswerMedia(c));
+      for (const c of usable) {
+        /* ⚠️ The in-memory question uses `q`/`a`, NOT `question`/`answer` — that
+           is the shape the parent doc stores and the game keeps. Checking
+           `x.question` matches nothing and every category looks pictureless. */
+        const q = (c.questions || []).find(x => x && x.image && String(x.q || x.question || "").trim());
+        if (!q) continue;
+        state.used = new Set();
+        openQuestion(c, q, "shot-" + c.id);
+        return { cat: c.name, points: q.points };
+      }
+      return null;
+    });
+    const opened = !!picked;
+    if (picked) console.log(`  question: ${picked.cat} · ${picked.points}`);
+    // Hard stop: a text-only question card is a poor advertisement and shipping
+    // one silently is how the QR screen survived a whole release.
+    if (!opened) { console.error(`  scene ${n}: no PICTURED question in any of its categories — aborting`); await browser.close(); server.kill(); process.exit(1); }
+    await page.waitForTimeout(1600);
     if (want.includes("question")) {
       const png = join(OUT, `question-${n}.png`);
       await page.screenshot({ path: png });
