@@ -37,7 +37,7 @@
 // spent and no saved game is written.
 import { chromium } from "playwright-core";
 import { spawn, execFileSync } from "child_process";
-import { writeFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -311,4 +311,30 @@ for (let v = 0; v < SCENES.length; v++) {
 
 await browser.close();
 server.kill();
-console.log("\nwrote", want.map(w => `${w}-1..3.webp`).join(", "), "to preview/shots/");
+
+/* Stamp the page with a version taken from the shots' own bytes.
+   ⚠️ Re-capturing reuses the same twelve FILENAMES, so a browser holding the
+   old ones keeps showing them until its cache expires — the site serves the
+   new pictures and the reader sees the old ones, which is indistinguishable
+   from a deploy that did not happen. Content-addressed, so an unchanged
+   capture does not churn the URL and throw away a warm cache for nothing. */
+{
+  const { createHash } = await import("crypto");
+  const h = createHash("sha256");
+  for (const name of ["picker", "board", "question", "answer"])
+    for (let i = 1; i <= 3; i++) {
+      const f = join(OUT, `${name}-${i}.webp`);
+      if (existsSync(f)) h.update(readFileSync(f));
+    }
+  const v = "v" + h.digest("hex").slice(0, 8);
+  const page = join(ROOT, "preview", "index.html");
+  let html = readFileSync(page, "utf8");
+  const before = html;
+  html = html.replace(/const SHOT_V = "[^"]*";/, `const SHOT_V = "${v}";`);
+  // …and the same version on the markup's own srcs, which JS never rewrites
+  // for set 1 — the whole point of shipping those defaults.
+  html = html.replace(/(src="shots\/[a-z]+-\d\.webp)(\?v[0-9a-f]+)?"/g, `$1?${v}"`);
+  if (html !== before) { writeFileSync(page, html); console.log(`\nstamped preview/index.html with ${v}`); }
+  else console.log(`\nversion unchanged (${v})`);
+}
+console.log("wrote", want.map(w => `${w}-1..3.webp`).join(", "), "to preview/shots/");

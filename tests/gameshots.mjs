@@ -70,16 +70,24 @@ try {
     await page.waitForTimeout(700);
     seen.push(await page.evaluate(() => {
       const of = sel => [...document.querySelectorAll(sel)]
-        .map(i => (i.getAttribute("src") || "").split("/").pop());
+        .map(i => (i.getAttribute("src") || "").split("/").pop());   // keeps the ?version
       return { hero: of("#device img[data-shot]"), strip: of("img[data-shot]:not(#device img)") };
     }));
   }
 
   check("every shot on the page is a numbered set",
-    seen.every(v => [...v.hero, ...v.strip].every(f => /-[123]\.webp$/.test(f))),
+    seen.every(v => [...v.hero, ...v.strip].every(f => /-[123]\.webp(\?|$)/.test(f))),
     seen[0].hero.join(", "));
 
-  const setOf = f => Number((f.match(/-(\d)\.webp$/) || [])[1]);
+  /* ⚠️ Every shot URL carries the version `preview/shots.mjs` stamps from the
+     files' own bytes. Re-capturing keeps the same twelve FILENAMES, so without
+     it a browser that already has them keeps showing the old pictures — the
+     shots were replaced, the site served the new ones, and it read as a deploy
+     that had not happened. It had. */
+  const stamped = seen.every(v => [...v.hero, ...v.strip].every(f => /\?v[0-9a-f]{8}$/.test(f)));
+  check("each shot URL carries the capture's version", stamped, seen[0].hero[0]);
+
+  const setOf = f => Number((f.match(/-(\d)\.webp/) || [])[1]);
   const heroSets = seen.map(v => setOf(v.hero[0]));
   check("a visit moves to the next set", heroSets[1] !== heroSets[0], heroSets.join(" → "));
   check("it wraps after the third rather than running off the end",
