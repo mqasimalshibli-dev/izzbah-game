@@ -297,6 +297,12 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   -webkit-tap-highlight-color:transparent;
 }
 .cat-rail:active{cursor:grabbing}
+/* ⚠️ Kill the native image drag. A cover is an <img>, and images are draggable
+   by default — so a mouse drag across the rail started a drag-and-drop, the
+   browser fired `pointercancel` after the FIRST pointermove, and the rest of
+   the gesture was thrown away. The rail advanced one card for a drag of any
+   length and felt broken. */
+.cat-rail,.c3,.c3 img{-webkit-user-drag:none; user-select:none; -webkit-user-select:none}
 .cat-rail:focus-visible{outline:2px solid var(--gold); outline-offset:6px; border-radius:20px}
 .c3{
   position:absolute; top:50%; left:50%; margin:0; padding:0; border:0; background:none;
@@ -312,10 +318,39 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   opacity:var(--o,1);
   transition:transform .62s cubic-bezier(.19,.83,.28,1), opacity .45s ease;
 }
+/* ⚠️ No border and no background here. `.cat-art` carries a 1px `--rule` and a
+   `--maroon-lo` fill for the flat grid, and on a fanned rail those turn into
+   hairlines: the covers overlap by about half, so what shows of the card behind
+   is a thin strip of ITS border and backdrop — read as "a red line behind the
+   category covers". Nothing to draw, nothing to see. */
 .c3 .cat-art{width:100%; height:auto; aspect-ratio:4/5; max-height:none; margin:0;
-  border-radius:18px; box-shadow:0 26px 50px -22px rgba(0,0,0,.95)}
-.c3.is-active .cat-art{border-color:rgba(231,195,115,.6);
-  box-shadow:0 30px 60px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(231,195,115,.45)}
+  border:0; background:transparent; border-radius:26px;
+  box-shadow:0 30px 58px -24px rgba(0,0,0,.9)}
+/* The veil is a scrim for a caption. The rail has no caption on the card — the
+   panel below names it — so all it did was darken the lower half of every
+   cover. */
+.c3 .veil{display:none}
+/* Feather all four edges so the covers sit IN the scene rather than being cut
+   out of it with scissors.
+   ⚠️ Guarded on mask-composite. With one mask only a single axis feathers,
+   which reads as a mistake rather than a soft edge — better to keep the plain
+   rounded corner where the compositing operator is not available. */
+@supports (mask-composite: intersect) or (-webkit-mask-composite: source-in){
+  .c3 .cat-art{
+    /* ⚠️ Keep the feather narrow. At 6% the covers stopped reading as objects
+       and started reading as smudges — softening an edge is not the same as
+       dissolving it. 3% is a soft edge you notice only if you look for it. */
+    -webkit-mask-image:linear-gradient(to right,transparent,#000 3%,#000 97%,transparent),
+                       linear-gradient(to bottom,transparent,#000 2.5%,#000 97.5%,transparent);
+            mask-image:linear-gradient(to right,transparent,#000 3%,#000 97%,transparent),
+                       linear-gradient(to bottom,transparent,#000 2.5%,#000 97.5%,transparent);
+    -webkit-mask-composite:source-in; mask-composite:intersect;
+  }
+}
+/* The front card is already forward, larger and brighter than the rest — a ring
+   on top of that is a hard crisp edge doing a job three softer signals already
+   do. Depth instead. */
+.c3.is-active .cat-art{box-shadow:0 38px 76px -26px rgba(0,0,0,.95)}
 @media(prefers-reduced-motion:reduce){
   .c3{transition:none}
 }
@@ -1140,6 +1175,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       b.innerHTML = '<span class="cat-art"><span class="haze"></span><span class="veil"></span></span>';
       const art = b.querySelector(".cat-art");
       const im = new Image(); im.alt = ""; im.decoding = "async";
+      im.draggable = false;      // belt and braces with the CSS above
       // A 4/5 frame filled by `cover` throws away everything outside it — fine
       // for a square cover, ruinous for a 480x270 where the subject lives in
       // the part that goes. Those show whole over a blurred copy of themselves.
