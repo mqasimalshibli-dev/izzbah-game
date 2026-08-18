@@ -5,10 +5,15 @@ WHY THIS EXISTS, AND WHAT IT CAN AND CANNOT DO
 ----------------------------------------------
 The masters are gone. Every category's artwork now lives ONLY as the `image`
 field of its Firestore `categories/{id}` doc, and the game's own publish path
-caps that at a 95 KB JPEG — measured 2026-08-08, the largest is 480x480 and
-NOTHING in the catalogue exceeds 480px on either side. So there is no such
-thing as "export the covers at a higher resolution": the resolution ceiling is
-480px and this script cannot invent detail that was thrown away upstream.
+caps that at a 95 KB JPEG. Re-measured 2026-08-19 by decoding all forty: the
+median is 480x480 and 32 of them sit exactly there, so for almost the whole
+catalogue the resolution ceiling really is 480px and this script cannot invent
+detail that was thrown away upstream.
+⚠️ TWO ARE NOT — charadesArabic and charadesSeries are 1254x1254. The earlier
+note here said nothing exceeded 480px, which was wrong, and it mattered: it is
+the reason to keep reading the ORIGINAL bytes and to let the target be a
+DOWNSCALE where the source allows one, rather than assuming every output is an
+upscale of a 480px file.
 
 What it CAN fix, and what was actually wrong with the old files:
 
@@ -82,9 +87,30 @@ FALLBACK = {
 # crop to 4/5 AND stretch 960 -> 1116. The files it replaced were already 4/5
 # (819x1024, 1000x1250) and needed no browser scaling at all. A file must be
 # built for the box it is drawn into, not for its own proportions.
-L_W, L_H = 1080, 1350              # showcase target, 4/5
+# Showcase target, 4/5.
+# ⚠️ DO NOT "RIGHT-SIZE" THIS TO THE DISPLAY BOX. It looks wrong — the rail caps
+# a cover at 252 CSS px, so 1080 is four times what a 2x screen asks for, and
+# delivering 512 would mean the browser downscales an upscale instead of two
+# resamples becoming one. Tried it on 2026-08-19 and MEASURED the result on
+# screen, pressed card, three different covers:
+#
+#     card A   old 1080px  detail 14.59   new 512px  12.83   -12.1%
+#     card B   old 1080px  detail 11.44   new 512px   9.73   -14.9%
+#     card C   old 1080px  detail 10.48   new 512px  10.25    -2.2%
+#
+# Every one got SOFTER. Handing the browser more pixels than it needs is worth
+# something after all: it downsamples with a good filter and the extra detail
+# survives into the result, which a file built at exactly the display size has
+# nothing left to give. The 5 MB saved was real and the picture was worse, so
+# the trade was refused. Revisit only with a measurement, not with reasoning.
+L_W, L_H = 1080, 1350
 L_MAX_SCALE = 3.0                  # never stretch a source further than this
 T_W, T_H = 420, 560                # grid tile, 3:4
+# ⚠️ Encode quality is not the lever it looks like. Measured at the rail's
+# display size, q88 / q92 / q95 scored 24.58 / 24.57 / 24.55 — indistinguishable
+# — while q95 cost 43% more bytes than q88. It is kept high anyway because the
+# supersampling above is what carries the sharpness, and this is where those
+# extra pixels either survive the encoder or do not.
 L_Q, T_Q = 95, 90
 
 # Mirrors the CSS in preview/index.html: a wide (or very tall) cover is drawn
@@ -134,10 +160,18 @@ def source_image(cid, fields):
 def sharpen(im, factor):
     """Unsharp mask scaled to how hard we just stretched the pixels.
 
-    A plain Lanczos upscale is soft — correct, but soft. The mask is what
-    makes 2x look deliberate instead of blurry. Radius grows with the scale
-    so the halo stays proportional; percent stays modest so faces and skies
-    do not go crunchy.
+    A plain Lanczos upscale is soft — correct, but soft. The mask is what makes
+    2x look deliberate instead of blurry.
+
+    Radius grows with the scale so the halo stays proportional; percent stays
+    modest so faces and skies do not go crunchy.
+
+    ⚠️ "Modest" is deliberate and was re-tested. On a near-1:1 output, pushing
+    the mask from 48% to 75% raises Laplacian detail from 24.6 to 28.3 and to
+    31.9 at 100% — but that metric REWARDS HALOS. Side by side on faces and
+    fabric, 75% is genuinely crisper and 100% looks etched. None of it shipped:
+    at the sizes this actually builds (see L_W) the upscale branch is the one
+    that runs, and it was already tuned.
     """
     if factor <= 1.02:
         return im.filter(ImageFilter.UnsharpMask(radius=0.7, percent=45, threshold=3))
