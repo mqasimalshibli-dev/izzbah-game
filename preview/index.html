@@ -361,8 +361,12 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 /* `position:relative` + a stacking order of its own: the rail establishes a
    stacking context (it has `perspective`), and without this the copy sat under
    whichever card happened to overhang it. */
+/* ⚠️ The gap has to clear the PRESSED card, not the resting one. Perspective
+   magnifies whatever steps forward, so the front cover grows both ways out of
+   the rail's box — raising the pop without raising this puts the artwork on
+   top of the description it just opened. */
 .sc-detail{position:relative; z-index:2;
-  margin-top:clamp(10px,2.4vh,22px); min-height:clamp(122px,17vh,168px);
+  margin-top:clamp(16px,5.4vh,62px); min-height:clamp(122px,17vh,168px);
   text-align:center; max-width:60ch; margin-inline:auto}
 .sc-detail h3{font-size:clamp(21px,3.1vw,34px); margin-bottom:8px}
 .sc-swap{display:grid}
@@ -1144,9 +1148,9 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     // +150px against a 1150px perspective is a 15% blow-up before the scale is
     // applied — and on a short landscape rail that was enough for the chosen
     // cover to swallow the copy underneath it.
-    const FWD = () => Math.max(46, Math.min(150, rail.clientHeight * 0.42));
-    const BACK = () => Math.max(30, Math.min(85, rail.clientHeight * 0.24));
-    const POP = () => 1 + Math.min(0.1, rail.clientHeight / 4600);
+    const FWD = () => Math.max(46, Math.min(190, rail.clientHeight * 0.52));
+    const BACK = () => Math.max(30, Math.min(95, rail.clientHeight * 0.26));
+    const POP = () => 1 + Math.min(0.18, rail.clientHeight / 2600);
     // Roughly half a card, so neighbours overlap like a dealt hand rather than
     // sitting in a line with gaps.
     const SX = () => Math.max(64, Math.min(150, rail.clientWidth * 0.21));
@@ -1202,7 +1206,12 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       const sx = SX(), sgn = dir();
       // The card is sized from the rail so the fan always fits inside it: 4/5
       // artwork means the height is 1.25x the width, hence the 0.72 factor.
-      const cw = Math.max(92, Math.min(rail.clientWidth * 0.44, rail.clientHeight * 0.72, 244));
+      /* ⚠️ The 300px cap is not arbitrary. Every cover's TRUE resolution is
+         480px or less — the masters are gone and `-l` is an unsharp-masked
+         upscale of what Firestore holds (see COVERS notes in CLAUDE.md). Drawn
+         much past 300 CSS px the browser is enlarging detail that was never
+         there, and the picture gets softer, not better. */
+      const cw = Math.max(92, Math.min(rail.clientWidth * 0.46, rail.clientHeight * 0.78, 300));
       rail.style.setProperty("--cw", Math.round(cw) + "px");
       const sy = SY(), fwd = FWD(), back = BACK(), pop = POP();
       cards.forEach((el, i) => {

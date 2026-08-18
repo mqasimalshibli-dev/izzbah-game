@@ -217,10 +217,12 @@ try {
     const clear = await page.evaluate(() => {
       const a = document.querySelector(".c3.is-active").getBoundingClientRect();
       const n = document.getElementById("cdName").getBoundingClientRect();
-      return { covers: a.bottom > n.top + 4, cardBottom: Math.round(a.bottom), nameTop: Math.round(n.top) };
+      return { gap: Math.round(n.top - a.bottom), cardBottom: Math.round(a.bottom), nameTop: Math.round(n.top) };
     });
-    check(`${name}: the chosen cover does not cover the copy it introduces`,
-      !clear.covers, `card ends ${clear.cardBottom}, name starts ${clear.nameTop}`);
+    // A real gap, not merely "did not overlap". Clearance of a few pixels is a
+    // near miss that the next tweak to the pop turns into a hit.
+    check(`${name}: the chosen cover leaves room above the copy`,
+      clear.gap >= 12, `gap ${clear.gap}px (card ends ${clear.cardBottom}, name starts ${clear.nameTop})`);
 
     // Pressing the forward card again puts it back — the copy is dismissable
     // without hunting for a close button.
