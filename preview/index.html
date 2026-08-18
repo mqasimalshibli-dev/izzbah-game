@@ -751,11 +751,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         <div class="device rv" data-d="2" id="device"
              aria-roledescription="عرض متعاقب لشاشات اللعبة">
           <div class="screen">
-            <img src="shots/board.webp" alt="لوحة اللعب — ست فئات وخمس مستويات نقاط"
+            <img src="shots/board-1.webp" data-shot="board" alt="لوحة اللعب — ست فئات وخمس مستويات نقاط"
                  width="1150" height="550" fetchpriority="high" decoding="async" class="on">
-            <img src="shots/question.webp" alt="شاشة السؤال مع المؤقّت والنقاط"
+            <img src="shots/question-1.webp" data-shot="question" alt="شاشة السؤال مع المؤقّت والنقاط"
                  width="1150" height="550" decoding="async">
-            <img src="shots/answer.webp" alt="شاشة الإجابة وأزرار «من جاوب؟»"
+            <img src="shots/answer-1.webp" data-shot="answer" alt="شاشة الإجابة وأزرار «من جاوب؟»"
                  width="1150" height="550" decoding="async">
           </div>
         </div>
@@ -851,20 +851,20 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     <div class="steps">
       <div>
         <div class="shot tall rv">
-          <img src="shots/picker.webp" alt="شاشة اختيار الفئات في اللعبة" loading="lazy" decoding="async" width="620" height="1354">
+          <img src="shots/picker-2.webp" data-shot="picker" alt="شاشة اختيار الفئات في اللعبة" loading="lazy" decoding="async" width="620" height="1354">
         </div>
         <div class="step-cap"><b>١</b> اختاروا فئاتكم من ٤٠ فئة، وسمّوا الفرق</div>
       </div>
       <div class="wide-col">
         <div>
           <div class="shot rv" data-d="1">
-            <img src="shots/board.webp" alt="لوحة اللعب — أربع فئات وخمس مستويات نقاط" loading="lazy" decoding="async" width="1150" height="550">
+            <img src="shots/board-2.webp" data-shot="board" alt="لوحة اللعب — أربع فئات وخمس مستويات نقاط" loading="lazy" decoding="async" width="1150" height="550">
           </div>
           <div class="step-cap"><b>٢</b> اختاروا خانة من اللوحة — كل ما غلت، صعبت</div>
         </div>
         <div>
           <div class="shot rv" data-d="2">
-            <img src="shots/answer.webp" alt="شاشة الإجابة — الصورة والإجابة الصحيحة وأزرار «من جاوب؟»" loading="lazy" decoding="async" width="1150" height="550">
+            <img src="shots/answer-2.webp" data-shot="answer" alt="شاشة الإجابة — الصورة والإجابة الصحيحة وأزرار «من جاوب؟»" loading="lazy" decoding="async" width="1150" height="550">
           </div>
           <div class="step-cap"><b>٣</b> اضغطوا «من جاوب؟» — والنقاط تُحتسب تلقائياً</div>
         </div>
@@ -1040,6 +1040,35 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     board.style.setProperty("--rx", (3 - dy * 7).toFixed(2) + "deg");
   }, { passive: true });
 
+  /* ── which set of game screens this visit gets ───────────
+     `preview/shots.mjs` writes THREE of every screen — three boards, three
+     questions, three answers, three pickers, each from a different game. A
+     visit steps to the next set and wraps after the third, so a reader who
+     comes back does not meet the same four pictures.
+     ⚠️ The markup ships the set-1 defaults, so the common case downloads one
+     file per slot and a reader with JS off still gets a complete page rather
+     than four empty frames. */
+  const SHOT_SETS = 3;
+  const SHOT_SET = (() => {
+    try {
+      const n = (parseInt(localStorage.getItem("izzbah-shot-set") || "0", 10) + 1) % SHOT_SETS;
+      localStorage.setItem("izzbah-shot-set", String(n));
+      return n;
+    } catch (e) { return 0; }     // private mode: everyone gets the first set
+  })();
+  const shotSrc = (name, set) => "shots/" + name + "-" + ((set % SHOT_SETS) + 1) + ".webp";
+  /* ⚠️ The hero and the "how it works" strip both show a board, and both show
+     an answer. Handing them the same set puts the SAME picture on screen twice
+     on one page, which is the repetition this exists to remove — so the strip
+     runs one set ahead of the hero. The markup ships the matching defaults
+     (`-1` in the hero, `-2` in the strip) so set 1 costs no extra download. */
+  const shotOffset = im => (im.closest("#device") ? 0 : 1);
+  if (SHOT_SET > 0) {
+    document.querySelectorAll("img[data-shot]").forEach(im => {
+      im.src = shotSrc(im.dataset.shot, SHOT_SET + shotOffset(im));
+    });
+  }
+
   /* ── hero device: cycles the game's real screens ────────── */
   (() => {
     const dev = document.getElementById("device");
@@ -1047,9 +1076,18 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const shots = [...dev.querySelectorAll("img")];
     const steps = [...document.querySelectorAll(".dstep")];
     if (shots.length < 2) return;
-    let i = 0, timer = 0;
+    let i = 0, timer = 0, set = SHOT_SET;
     const show = n => {
-      i = (n + shots.length) % shots.length;
+      const next = (n + shots.length) % shots.length;
+      /* Each completed lap moves to the NEXT set, so someone watching sees three
+         different games rather than the same three stills forever.
+         ⚠️ Only on the wrap — swapping mid-lap would follow a board from one
+         game with a question from another. */
+      if (next === 0 && n !== 0) {
+        set = (set + 1) % SHOT_SETS;
+        shots.forEach(im => { if (im.dataset.shot) im.src = shotSrc(im.dataset.shot, set); });
+      }
+      i = next;
       shots.forEach((s, k) => s.classList.toggle("on", k === i));
       steps.forEach((s, k) => s.classList.toggle("on", k === i));
     };
