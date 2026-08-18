@@ -6346,6 +6346,53 @@
       border-radius: 13px !important; padding: 12px 14px !important; outline: none;
     }
     #setup .team-card input.team-name-input:focus { box-shadow: 0 0 0 3px rgba(201, 168, 95, .25) !important; }
+    /* Phones and small tablets: the team card was 529px TALL — three category
+       cards stacked — because the avatar, the label, the name field and the six
+       lifeline chips each claimed a full-width row of their own. Three teams put
+       1630px of card on a screen showing ~700px, which is the "the team boxes are
+       huge, they're bigger than the categories" report. Same parts, packed: the
+       avatar sits BESIDE the name, and the chips run three across instead of two.
+       Measured 529 → ~250px, i.e. about 1.5 category cards.
+       ⚠️ Use the CHILD combinator for `.field-label` and the name input. The
+       helper picker has a `.field-label` of its own inside `.helpers-head`, and a
+       descendant selector would hand it a grid-area and left-align it — invisible
+       on desktop, wrong on every phone.
+       ⚠️ `.team-bar` is a full-bleed strip drawn with a negative margin equal to
+       the card's side padding. The padding shrinks here, so the margin has to
+       shrink with it or the bar hangs over the rounded corners. */
+    @media (max-width: 800px), (max-height: 560px) {
+      #setup .team-fields { gap: 14px !important; }
+      #setup .team-card {
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr) !important;
+        grid-template-areas: "bar bar" "avatar label" "avatar input" "helpers helpers";
+        column-gap: 14px; padding: 0 14px 16px !important; border-radius: 20px !important;
+      }
+      #setup .team-card > .team-bar { grid-area: bar; margin: 0 -14px; border-radius: 20px 20px 0 0; }
+      #setup .team-card > .avatar-wrap { grid-area: avatar; align-self: center; }
+      #setup .team-card .avatar-inner { margin-top: 14px; }
+      #setup .team-card .image-picker { width: 66px !important; height: 66px !important; border-width: 2px !important; }
+      #setup .team-card .image-picker .plus { font-size: 28px !important; }
+      #setup .team-card .team-badge { font-size: 10px; padding: 2px 9px; bottom: -6px; border-width: 1.5px; }
+      #setup .team-card > .field-label {
+        grid-area: label; align-self: end; margin: 14px 0 0 !important; text-align: start !important;
+      }
+      #setup .team-card > input.team-name-input {
+        grid-area: input; align-self: start; margin-top: 6px !important;
+        text-align: start !important; font-size: 16px !important; padding: 10px 12px !important;
+      }
+      #setup .team-card .team-helpers { grid-area: helpers; margin-top: 12px; gap: 6px; }
+      /* The helpers head has a `.field-label` of its own, and the card-level rule
+         gives every label a 20px top margin — dead space above a row that is only
+         27px tall to begin with. */
+      #setup .team-card .helpers-head .field-label { margin: 0 !important; }
+      #setup .team-card .helper-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+      #setup .team-card .helper-chip {
+        min-height: 52px; padding: 7px 4px; gap: 3px; border-radius: 10px; font-size: 11px;
+      }
+      #setup .team-card .helper-chip .hc-ico { width: 18px; height: 18px; }
+      #setup .team-card .helper-chip .hc-ico svg { width: 15px; height: 15px; }
+    }
     /* ===================== Library / Question / Answer — Izzbah handoff ===================== */
     /* ---- shared page background (cream + lattice) ---- */
     #gameLibrary, #questionPage, #answerPage {
@@ -12903,7 +12950,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-17.336";
+    const IZZBAH_BUILD = "2026-08-18.337";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
