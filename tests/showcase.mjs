@@ -144,6 +144,26 @@ try {
       parseFloat(skin.bw) === 0 && !skin.opaqueBg, `border ${skin.bw}, bg ${skin.bg}`);
     check(`${name}: and their corners are not sharp`, skin.radius >= 18, `${skin.radius}px`);
 
+    /* ⚠️ Every frame the same size, measured as LAYOUT size (offsetWidth), not
+       the transformed rect — the whole point of the rail is that depth changes
+       the projected size, so bounding rects legitimately differ.
+       `aspect-ratio` only wins when nothing in flow says otherwise, and the
+       cover <img> was in flow: each frame took its own picture's ratio, so a
+       4/5 cover came out 300x375 and a 1080x720 one 300x200. */
+    const frames = await page.evaluate(() =>
+      [...document.querySelectorAll(".c3")]
+        .filter(c => getComputedStyle(c).display !== "none")
+        .map(c => { const a = c.querySelector(".cat-art"), im = c.querySelector("img");
+                    return { w: a.offsetWidth, h: a.offsetHeight, loaded: im.naturalWidth > 0 }; }));
+    const shapes = new Set(frames.map(f => f.w + "x" + f.h));
+    check(`${name}: every cover is drawn at the same size`,
+      shapes.size === 1 && frames[0].w > 40 && frames[0].h > 40, [...shapes].join(", "));
+    // ⚠️ And every card that is LAID OUT has its picture. The source was being
+    // attached for ±3 while layout places ±WINDOW, so six of thirteen visible
+    // cards were empty frames and the fan looked half-populated.
+    check(`${name}: every laid-out cover has actually loaded`,
+      frames.every(f => f.loaded), `${frames.filter(f => f.loaded).length}/${frames.length}`);
+
     // Roving tabindex: forty buttons would be forty tab stops before the reader
     // ever reached the rest of the page.
     check(`${name}: only the active card is a tab stop`, g0.tabbable === 1, `${g0.tabbable} tabbable`);
