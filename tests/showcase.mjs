@@ -1,28 +1,30 @@
-// The landing page's category showcase (preview/index.html) is a horizontal
-// carousel on a PINNED stage, driven by page scroll for a bounded distance.
+// The landing page's category showcase — now a 3D rail (preview/index.html).
 //
-// It used to be scroll-driven with no bound: the section was `CATS.length * 34`
-// svh tall — 1360svh at 40 categories — so reading anything BELOW the showcase
-// meant scrolling nearly fourteen screen-heights of it first. The scroll drive
-// is wanted; the fourteen screens are not. This test pins both halves:
+// It used to be a horizontal scroll-snap track of full-width slides. The owner
+// asked for the effect in a reference clip instead: the covers laid along ONE
+// diagonal axis receding into the screen, near and large at one end, small and
+// far at the other, every card turned by the same angle so the row reads as a
+// fanned-out deck. Pressing a card shows that category's description, brings it
+// toward the reader, and pushes the rest back.
 //
-//   1. every category is a slide, and they all render,
-//   2. the stage is ONE screen and the whole section costs only a few — the
-//      budget is `SPOT` categories, not all forty,
-//   3. page scroll advances the carousel while the stage is pinned, and the
-//      pin releases at the end of the budget,
-//   4. taking hold of the carousel by hand stops the scroll driver, so the
-//      two never fight over the track,
-//   5. the track is a scroll-snap scroller with `overscroll-behavior-x:
-//      contain` — without that, a swipe running off the end of the track
-//      chains into the page and, on iOS, into the browser's back gesture,
-//   6. the arrows and the Home/End keys move the focused slide, and the
-//      counter / progress bar / disabled state follow it,
-//   7. covers attach lazily but the focused one is never blank,
-//   8. the page loads with no JS error and no 4xx.
+// Three things here are load-bearing and easy to break silently:
 //
-// Run:  IZZBAH_CHROMIUM=/path/to/chrome node tests/showcase.mjs
-
+// ⚠️ THE SCENE MUST STAY 3D. `perspective` belongs on the rail and
+// `transform-style: preserve-3d` on the cards. Put perspective on an ancestor
+// that also clips or filters and the browser FLATTENS everything onto one
+// plane — the page still renders, the cards still move, and the effect is
+// quietly gone. So this asserts that laid-out cards occupy DISTINCT depths,
+// not merely that a perspective property is set somewhere.
+//
+// ⚠️ THE SECTION'S COST MUST NOT SCALE WITH THE CATALOGUE. The old drive spent
+// `(n-1) × 6svh`, so every category published made the pinned section longer —
+// 3.4 screens at forty, and the owner's note on it was "you can't bypass the
+// scroller without scrolling all the categories". The budget is now a constant
+// number of screens whatever the catalogue does. The test pins the total height
+// in screens, which is the number a reader actually pays.
+//
+// ⚠️ A PINNED SECTION IS A TOLL GATE, SO IT NEEDS A WAY OUT. `.sc-skip` jumps
+// straight to #all. Any future change that keeps the pin must keep an escape.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -31,354 +33,225 @@ import { dirname, join } from "path";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8207;
 const checks = [];
-const check = (name, ok, extra) => {
-  checks.push({ name, ok: !!ok });
-  console.log(`${ok ? "PASS ✅" : "FAIL ❌"}  ${name}${extra ? "  — " + extra : ""}`);
+const check = (n, ok, extra) => {
+  checks.push(!!ok);
+  console.log(`${ok ? "PASS ✅" : "FAIL ❌"}  ${n}${extra ? "  — " + extra : ""}`);
 };
 
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
+const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
+const errs = [];
 
-const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM || undefined });
-const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
-const jsErrors = [], badStatus = [];
-page.on("pageerror", e => jsErrors.push(e.message));
-page.on("response", r => { if (r.status() >= 400) badStatus.push(r.status() + " " + r.url()); });
+const VIEWPORTS = [
+  ["phone   390×844", 390, 844, true],
+  ["phone   320×568", 320, 568, true],
+  ["landscape 844×390", 844, 390, false],
+  ["desktop 1440×900", 1440, 900, false],
+];
+
+let PAGE = null;
+async function load(w, h) {
+  if (!PAGE) {
+    PAGE = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    PAGE.on("pageerror", e => errs.push(e.message));
+    await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  } else {
+    await PAGE.setViewportSize({ width: w, height: h });
+    await PAGE.reload({ waitUntil: "load", timeout: 30000 });
+  }
+  await PAGE.waitForTimeout(1000);
+  await PAGE.evaluate(() => document.getElementById("cats").scrollIntoView());
+  await PAGE.waitForTimeout(700);
+  return PAGE;
+}
+
+// Read the rail's geometry straight off the custom properties the driver sets.
+const geom = page => page.evaluate(() => {
+  const rail = document.getElementById("catRail");
+  const cards = [...rail.querySelectorAll(".c3")];
+  const on = cards.filter(c => getComputedStyle(c).display !== "none");
+  const num = (el, p) => parseFloat(el.style.getPropertyValue(p)) || 0;
+  const activeEl = rail.querySelector(".c3.is-active");
+  return {
+    total: cards.length,
+    laidOut: on.length,
+    active: cards.indexOf(activeEl),
+    perspective: getComputedStyle(rail).perspective,
+    preserve3d: getComputedStyle(cards[0]).transformStyle,
+    tabbable: cards.filter(c => c.tabIndex === 0).length,
+    // ordered by index so a monotonic walk is meaningful
+    laid: on.map(c => ({ i: cards.indexOf(c), x: num(c, "--x"), y: num(c, "--y"), z: num(c, "--z") }))
+          .sort((a, b) => a.i - b.i),
+    picked: document.getElementById("cats").classList.contains("is-picked"),
+    descVis: getComputedStyle(document.getElementById("cdDesc")).visibility,
+    hintVis: getComputedStyle(document.getElementById("cdHint")).visibility,
+    name: document.getElementById("cdName").textContent.trim(),
+    playHref: document.getElementById("cdPlay").getAttribute("href") || "",
+  };
+});
 
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
-  await page.waitForTimeout(1200);
+  for (const [name, w, h, phone] of VIEWPORTS) {
+    const page = await load(w, h);
 
-  const base = await page.evaluate(() => {
-    const t = document.getElementById("catTrack");
-    const sec = document.getElementById("cats");
-    if (!t || !sec) return null;
-    const cs = getComputedStyle(t);
-    return {
-      // the all-categories grid is built from the same list, so it is an
-      // independent count of how many categories the page knows about
-      cats: document.querySelectorAll("#allGrid .gcard").length,
-      slides: t.children.length,
-      secH: Math.round(sec.getBoundingClientRect().height),
-      stageH: Math.round(document.getElementById("catStage").getBoundingClientRect().height),
-      stagePos: getComputedStyle(document.getElementById("catStage")).position,
-      vh: innerHeight,
-      pageH: document.documentElement.scrollHeight,
-      // the track is 43,000px of content and the ambient glow overhangs the
-      // section by 25% each side — neither may widen the PAGE
-      docScrollW: document.documentElement.scrollWidth,
-      docClientW: document.documentElement.clientWidth,
-      snap: cs.scrollSnapType,
-      overX: cs.overscrollBehaviorX,
-      overflowX: cs.overflowX,
-      count: document.getElementById("scCount").textContent.trim(),
-      prevDis: document.getElementById("scPrev").disabled,
-      nextDis: document.getElementById("scNext").disabled,
-      prevX: Math.round(document.getElementById("scPrev").getBoundingClientRect().left),
-      nextX: Math.round(document.getElementById("scNext").getBoundingClientRect().left),
-      prevGlyph: document.getElementById("scPrev").textContent.trim(),
-      nextGlyph: document.getElementById("scNext").textContent.trim(),
-      // the first slide must be fully populated, not an empty shell
-      firstTitle: t.children[0].querySelector("h3").textContent.trim(),
-      firstDesc: t.children[0].querySelector("p").textContent.trim().length,
-      firstTag: t.children[0].querySelector(".cat-tag").textContent.trim().length,
-      firstPlay: t.children[0].querySelector(".cat-play").getAttribute("href") || "",
-      pending: [...t.querySelectorAll("img[data-src]")].length,
-    };
-  });
+    const g0 = await geom(page);
+    check(`${name}: the rail holds every category`, g0.total === 40, `${g0.total} cards`);
 
-  check("the showcase carousel is present", !!base);
-  if (!base) throw new Error("no #catTrack — the showcase did not build");
+    // Only a window is laid out — forty composited layers of blur-backed art is
+    // a lot of work for a phone, and the far ones are under a pixel of opacity.
+    check(`${name}: only a window of cards is laid out`,
+      g0.laidOut > 3 && g0.laidOut < g0.total, `${g0.laidOut} of ${g0.total}`);
 
-  check("one slide per category", base.slides > 0 && base.slides === base.cats,
-    `${base.slides} slides / ${base.cats} categories`);
-  check("the first slide is fully populated",
-    base.firstTitle.length > 0 && base.firstDesc > 0 && base.firstTag > 0
-    && base.firstPlay.includes("#g="),
-    base.firstTitle);
+    // THE 3D CHECK. Not "is perspective set" — "do the cards actually occupy
+    // different depths", which is what a flattened scene loses.
+    const depths = new Set(g0.laid.map(c => Math.round(c.z)));
+    check(`${name}: the scene is genuinely 3D — cards sit at distinct depths`,
+      depths.size >= 3 && g0.perspective !== "none" && g0.preserve3d === "preserve-3d",
+      `${depths.size} depths, perspective ${g0.perspective}`);
 
-  // (2) the scroll budget is bounded. 40 categories × 34svh was 1360svh; the
-  // stage itself must stay one screen, and the section only a few.
-  check("the stage is pinned", base.stagePos === "sticky", base.stagePos);
-  check("the stage is one screen tall",
-    base.stageH <= base.vh + 2, `${base.stageH}px vs ${base.vh}px viewport`);
-  check("the scroll budget is bounded, not a screen-third per category",
-    base.secH > base.vh * 1.5 && base.secH < base.vh * 7,
-    `${base.secH}px = ${(base.secH / base.vh).toFixed(1)} screens (was 13.6)`);
-  check("the page is not dominated by the showcase",
-    base.pageH < base.vh * 18, `page ${base.pageH}px`);
-  check("the showcase does not widen the page",
-    base.docScrollW <= base.docClientW + 1, `${base.docScrollW} vs ${base.docClientW}`);
+    // ONE diagonal axis: x and y both walk monotonically with the index, so the
+    // row reads as a single receding line rather than a scatter or an arc.
+    const xs = g0.laid.map(c => c.x), ys = g0.laid.map(c => c.y);
+    const mono = a => a.every((v, i) => i === 0 || v > a[i - 1]) || a.every((v, i) => i === 0 || v < a[i - 1]);
+    check(`${name}: the cards lie on one straight diagonal`, mono(xs) && mono(ys),
+      `x ${xs[0]}→${xs[xs.length - 1]}, y ${ys[0]}→${ys[ys.length - 1]}`);
+    // …and depth peaks at the active card and falls away on both sides.
+    const zActive = g0.laid.find(c => c.i === g0.active);
+    check(`${name}: the active card is the nearest one`,
+      g0.laid.every(c => c.z <= zActive.z + 0.5), `active z ${zActive.z}`);
 
-  // (3) the gesture must stay inside the track
-  check("the track is a horizontal scroller", /auto|scroll/.test(base.overflowX), base.overflowX);
-  check("the track snaps horizontally", /x/.test(base.snap) && /mandatory|proximity/.test(base.snap), base.snap);
-  check("the swipe cannot chain into the page", base.overX === "contain", base.overX);
+    // Roving tabindex: forty buttons would be forty tab stops before the reader
+    // ever reached the rest of the page.
+    check(`${name}: only the active card is a tab stop`, g0.tabbable === 1, `${g0.tabbable} tabbable`);
 
-  // (4) controls
-  check("it starts on the first category", base.prevDis === true && base.nextDis === false);
-  check("«السابق» sits on the right, RTL-style",
-    base.prevX > base.nextX, `prev@${base.prevX} next@${base.nextX}`);
-  // ‹ › (U+2039/U+203A) are Bidi_Mirrored: inside an RTL run the browser flips
-  // them, so the right-hand «previous» arrow ends up pointing left and the
-  // left-hand «next» arrow points right — both backwards. Only non-mirroring
-  // glyphs are safe here.
-  check("the arrows do not use bidi-mirrored glyphs",
-    !/[‹›❬❭❮❯❰❱<>]/.test(base.prevGlyph + base.nextGlyph),
-    `${base.prevGlyph} ${base.nextGlyph}`);
-  check("the counter reads the position", base.count.length > 0, base.count);
+    // Before a press: a hint, no description. The press is not discoverable on
+    // a phone otherwise — there is no hover to reveal it.
+    check(`${name}: it opens with a hint, not a description`,
+      !g0.picked && g0.descVis === "hidden" && g0.hintVis === "visible");
 
-  const stepped = await page.evaluate(async () => {
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-    const t = document.getElementById("catTrack");
-    const read = () => ({
-      count: document.getElementById("scCount").textContent.trim(),
-      bar: document.querySelector("#pips i").style.width,
-      prevDis: document.getElementById("scPrev").disabled,
-      nextDis: document.getElementById("scNext").disabled,
-      accent: document.getElementById("catStage").style.getPropertyValue("--accent").trim(),
-      // which slide sits under the track's centre, measured from rects
-      focus: (() => {
-        const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
-        let best = 0, bd = Infinity;
-        [...t.children].forEach((s, i) => {
-          const r = s.getBoundingClientRect();
-          const d = Math.abs(r.left + r.width / 2 - mid);
-          if (d < bd) { bd = d; best = i; }
-        });
-        return best;
-      })(),
+    /* ── pressing a card ─────────────────────────────────────────── */
+    const before = g0.laid.map(c => c.z);
+    await page.evaluate(() => {
+      const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+      const act = on.findIndex(c => c.classList.contains("is-active"));
+      (on[act + 1] || on[act]).click();
     });
-    const out = { at0: read() };
-    document.getElementById("scNext").click();
-    await wait(900);
-    out.at1 = read();
-    document.getElementById("scPrev").click();
-    await wait(900);
-    out.back = read();
-    t.focus();
-    t.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }));
-    await wait(1400);
-    out.end = read();
-    t.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true, cancelable: true }));
-    await wait(1400);
-    out.home = read();
-    out.blankFocused = (() => {
-      const im = t.children[read().focus].querySelector("img");
-      return !im || !im.src || (im.complete && im.naturalWidth === 0);
-    })();
-    out.last = t.children.length - 1;
-    return out;
-  });
+    await page.waitForTimeout(700);
+    const g1 = await geom(page);
 
-  check("«التالي» advances one category",
-    stepped.at1.focus === 1, `focus ${stepped.at0.focus} → ${stepped.at1.focus}`);
-  check("«السابق» goes back",
-    stepped.back.focus === 0 && stepped.back.prevDis === true,
-    `focus ${stepped.back.focus}`);
-  check("the progress bar follows the position",
-    parseFloat(stepped.at1.bar) > parseFloat(stepped.at0.bar),
-    `${stepped.at0.bar} → ${stepped.at1.bar}`);
-  check("the counter changes with the position",
-    stepped.at1.count !== stepped.at0.count, `${stepped.at0.count} → ${stepped.at1.count}`);
-  check("End jumps to the last category",
-    stepped.end.focus === stepped.last && stepped.end.nextDis === true,
-    `focus ${stepped.end.focus} / last ${stepped.last}`);
-  check("Home jumps back to the first",
-    stepped.home.focus === 0 && stepped.home.prevDis === true, `focus ${stepped.home.focus}`);
-  check("the ambient accent tracks the category", stepped.end.accent.length > 0, stepped.end.accent);
+    check(`${name}: pressing a card reveals its description`,
+      g1.picked && g1.descVis === "visible" && g1.hintVis === "hidden");
+    check(`${name}: the description belongs to the card that was pressed`,
+      g1.name.length > 0 && g1.playHref.includes("#g="), g1.name);
+    // The two halves of the requested motion. Moving one card forward on its
+    // own reads as a rendering glitch; pushing the rest back on its own reads
+    // as the whole rail retreating. Both, or neither.
+    const zAct = g1.laid.find(c => c.i === g1.active).z;
+    const others = g1.laid.filter(c => c.i !== g1.active);
+    check(`${name}: the chosen cover steps forward`, zAct > Math.max(...before),
+      `z ${zAct} vs ${Math.max(...before)} before`);
+    check(`${name}: the rest step back`,
+      others.every(c => c.z < -Math.abs(c.i - g1.active) * 50), `${others.length} cards`);
 
-  // A pinned section holds the page until its budget is spent, so there has to
-  // be a way out that is not "scroll through all forty categories".
-  const skip = await page.evaluate(() => {
-    const a = document.getElementById("scSkip");
-    if (!a) return null;
-    const sec = document.getElementById("cats");
-    const target = document.querySelector(a.getAttribute("href"));
-    const cs = getComputedStyle(a);
-    return {
-      href: a.getAttribute("href"),
-      visible: cs.display !== "none" && cs.visibility !== "hidden" && parseFloat(cs.opacity) > 0.1,
-      inStage: !!a.closest("#catStage"),
-      // it has to land BELOW the whole pinned section, not inside it
-      pastSection: !!target && (scrollY + target.getBoundingClientRect().top)
-        >= (scrollY + sec.getBoundingClientRect().top + sec.getBoundingClientRect().height) - 2,
-    };
-  });
-  check("there is a way past the showcase without scrolling it", !!skip && skip.visible,
-    skip ? skip.href : "no #scSkip");
-  check("the skip rides along on the pinned stage", !!skip && skip.inStage);
-  check("the skip lands past the whole section", !!skip && skip.pastSection);
-
-  // (3)/(4) the scroll drive, and handing control over.
-  // Fresh load: the arrow clicks above deliberately hand control to the reader
-  // and switch the scroll driver off for the rest of that page's life.
-  await page.reload({ waitUntil: "load" });
-  await page.waitForTimeout(1000);
-  const driven = await page.evaluate(async () => {
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-    const t = document.getElementById("catTrack");
-    const sec = document.getElementById("cats");
-    const stage = document.getElementById("catStage");
-    const focus = () => {
-      const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
-      let best = 0, bd = Infinity;
-      [...t.children].forEach((s, i) => {
-        const r = s.getBoundingClientRect();
-        const d = Math.abs(r.left + r.width / 2 - mid);
-        if (d < bd) { bd = d; best = i; }
-      });
-      return best;
-    };
-    const top = () => scrollY + sec.getBoundingClientRect().top;
-    const out = {};
-    const secTop = top();
-    scrollTo({ top: secTop, behavior: "instant" }); await wait(250);
-    out.atStart = focus();
-    out.pinnedAtStart = Math.abs(stage.getBoundingClientRect().top) < 3;
-
-    // a third of the way through the budget
-    const budget = sec.getBoundingClientRect().height - innerHeight;
-    scrollTo({ top: secTop + budget * 0.5, behavior: "instant" });
-    await wait(250);
-    out.atHalf = focus();
-    out.pinnedAtHalf = Math.abs(stage.getBoundingClientRect().top) < 3;
-
-    scrollTo({ top: secTop + budget, behavior: "instant" }); await wait(250);
-    out.atEnd = focus();
-    out.budgetPx = Math.round(budget);
-    out.last = t.children.length - 1;
-
-    // past the budget the pin must let go
-    scrollTo({ top: secTop + budget + innerHeight * 0.8, behavior: "instant" }); await wait(250);
-    out.releasedAfter = stage.getBoundingClientRect().top < -10;
-
-    // now take hold by hand: a touch on the track, then a manual scroll
-    scrollTo({ top: secTop, behavior: "instant" }); await wait(250);
-    t.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-    const kids = [...t.children];
-    const tr = t.getBoundingClientRect(), r = kids[5].getBoundingClientRect();
-    t.style.scrollSnapType = "none";
-    t.scrollBy({ left: (r.left + r.width / 2) - (tr.left + tr.width / 2), behavior: "auto" });
-    t.style.scrollSnapType = "";
-    // the re-snap is a SMOOTH animation — read it too early and you catch the
-    // track in flight, which looks exactly like the driver fighting back
-    await wait(900);
-    out.afterHand = focus();
-    // page scroll must NOT drag it back now
-    scrollTo({ top: secTop + budget * 0.5, behavior: "instant" }); await wait(600);
-    out.afterHandThenScroll = focus();
-    return out;
-  });
-
-  check("the stage pins while the budget lasts",
-    driven.pinnedAtStart && driven.pinnedAtHalf);
-  check("page scroll advances the carousel",
-    driven.atHalf > driven.atStart && driven.atEnd > driven.atHalf,
-    `${driven.atStart} → ${driven.atHalf} → ${driven.atEnd} over ${driven.budgetPx}px`);
-  // it must walk the WHOLE catalogue, not a spotlight of the first few — the
-  // budget is short because the RATE is fast, not because categories are
-  // dropped from the drive
-  check("the scroll reaches the last category",
-    driven.atEnd === driven.last, `ended on ${driven.atEnd + 1} of ${driven.last + 1}`);
-  check("the scroll passes the halfway category too",
-    Math.abs(driven.atHalf - driven.last / 2) <= 1,
-    `halfway showed ${driven.atHalf + 1}, expected ~${Math.round(driven.last / 2) + 1}`);
-  check("the pin releases at the end of the budget", driven.releasedAfter === true);
-  check("a hand on the carousel stops the scroll driver",
-    driven.afterHand === 5 && driven.afterHandThenScroll === 5,
-    `hand→${driven.afterHand}, then page scroll→${driven.afterHandThenScroll}`);
-
-  // Covers: a 4/5 frame filled by `cover` keeps only 0.8/aspect of a wide
-  // image — 45% of a 480x270 — and the subject is usually in the part that
-  // goes. Wide covers must switch to the whole-picture treatment; square and
-  // portrait ones must NOT (they lose little, and letterboxing them all would
-  // fill the page with blur).
-  const crops = await page.evaluate(async () => {
-    const t = document.getElementById("catTrack");
-    t.querySelectorAll("img[data-src]").forEach(i => { i.src = i.dataset.src; delete i.dataset.src; });
-    await new Promise(r => setTimeout(r, 5000));
-    const rows = [...t.children].map(s => {
-      const im = s.querySelector("img"), art = s.querySelector(".cat-art");
-      return {
-        ar: im.naturalWidth ? im.naturalWidth / im.naturalHeight : 0,
-        fit: art.classList.contains("fit"),
-        haze: !!(art.querySelector(".haze") || {}).style?.backgroundImage,
-        w: im.naturalWidth,
-      };
+    // ⚠️ The chosen card comes toward the reader, and perspective magnifies
+    // whatever comes forward — so on a short rail the pop can grow the card
+    // straight over the copy it is supposed to be introducing. This caught it
+    // twice: once when the card was sized from the viewport instead of the
+    // rail, and once when the forward step was a fixed 150px.
+    const clear = await page.evaluate(() => {
+      const a = document.querySelector(".c3.is-active").getBoundingClientRect();
+      const n = document.getElementById("cdName").getBoundingClientRect();
+      return { covers: a.bottom > n.top + 4, cardBottom: Math.round(a.bottom), nameTop: Math.round(n.top) };
     });
-    return {
-      loaded: rows.filter(r => r.w).length,
-      total: rows.length,
-      wrongWide: rows.filter(r => r.w && r.ar > 1.2 && !r.fit).length,
-      wrongSquare: rows.filter(r => r.w && r.ar >= 0.75 && r.ar <= 1.05 && r.fit).length,
-      fitted: rows.filter(r => r.fit).length,
-      hazeMissing: rows.filter(r => r.fit && !r.haze).length,
-      tiny: rows.filter(r => r.w && r.w < 500).length,
-    };
-  });
-  check("every cover loads", crops.loaded === crops.total, `${crops.loaded}/${crops.total}`);
-  check("wide covers show the whole picture instead of being cropped",
-    crops.wrongWide === 0 && crops.fitted > 0, `${crops.fitted} fitted, ${crops.wrongWide} still cropped`);
-  check("square and portrait covers still fill the frame",
-    crops.wrongSquare === 0, `${crops.wrongSquare} needlessly letterboxed`);
-  check("every fitted cover has its blurred backdrop", crops.hazeMissing === 0);
-  // the showcase art is ~446 CSS px wide = ~892 device px at 2x; a file under
-  // 500px across is being blown up more than twice by the browser
-  check("no showcase cover is under 500px across",
-    crops.tiny === 0, `${crops.tiny} too small`);
+    check(`${name}: the chosen cover does not cover the copy it introduces`,
+      !clear.covers, `card ends ${clear.cardBottom}, name starts ${clear.nameTop}`);
 
-  // (7) lazy covers, but never a blank focused one
-  check("covers attach lazily, not all at once", base.pending > 0, `${base.pending} deferred at load`);
-  check("the focused cover is never blank", stepped.blankFocused === false);
+    // Pressing the forward card again puts it back — the copy is dismissable
+    // without hunting for a close button.
+    await page.evaluate(() => document.querySelector(".c3.is-active").click());
+    await page.waitForTimeout(600);
+    const g2 = await geom(page);
+    check(`${name}: pressing it again dismisses the description`,
+      !g2.picked && g2.descVis === "hidden");
 
-  // (6) hygiene
-  check("no uncaught JS error", jsErrors.length === 0, jsErrors.slice(0, 2).join(" | "));
-  const real4xx = badStatus.filter(s => !/favicon/.test(s));
-  check("no failed requests", real4xx.length === 0, real4xx.slice(0, 3).join(" | "));
+    /* ── the section's cost ──────────────────────────────────────── */
+    const cost = await page.evaluate(() =>
+      +(document.getElementById("cats").getBoundingClientRect().height / innerHeight).toFixed(2));
+    check(`${name}: the section costs a fixed, small number of screens`, cost <= 2.7, `${cost} screens`);
 
-  // narrow phone: the arrows are hidden (the swipe is the affordance) but the
-  // slides must still be one-per-screen and the track still scrollable
-  await page.setViewportSize({ width: 390, height: 780 });
-  await page.waitForTimeout(500);
-  const phone = await page.evaluate(() => {
-    const t = document.getElementById("catTrack");
+    const noSide = await page.evaluate(() =>
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+    check(`${name}: the page still does not scroll sideways`, noSide);
+
+    // The way out of a pinned section.
+    // ⚠️ "Displayed" is not the test. The stage is PINNED, so anything that
+    // falls outside the viewport cannot be reached while the pin holds. On a
+    // landscape phone the skip button sat 96px BELOW the fold — present,
+    // styled, and completely unreachable, which is the one failure this
+    // control must never have.
+    const skip = await page.evaluate(() => {
+      const a = document.getElementById("scSkip");
+      if (!a) return null;
+      const r = a.getBoundingClientRect();
+      return { href: a.getAttribute("href"), h: Math.round(r.height), bottom: Math.round(r.bottom),
+               vh: window.innerHeight, shown: getComputedStyle(a).display !== "none" };
+    });
+    check(`${name}: there is a way past the showcase`,
+      skip && skip.href === "#all" && skip.shown && skip.h >= 44, skip && `${skip.h}px`);
+    check(`${name}: and it is on screen while the section is pinned`,
+      skip && skip.bottom <= skip.vh + 1, skip && `bottom ${skip.bottom} of ${skip.vh}`);
+
+    if (!phone) {
+      // ‹ › are Bidi_Mirrored: in an RTL run the browser flips them and both
+      // arrows end up pointing the wrong way. Geometric triangles are not.
+      const arrows = await page.evaluate(() => ({
+        prev: document.getElementById("scPrev").textContent.trim(),
+        next: document.getElementById("scNext").textContent.trim(),
+      }));
+      check(`${name}: the arrows are not bidi-mirrored characters`,
+        arrows.prev === "▸" && arrows.next === "◂", `${arrows.prev} ${arrows.next}`);
+    }
+  }
+
+  /* ── page scroll drives the rail, then gets out of the way ──────── */
+  const page = await load(390, 844);
+  const swept = await page.evaluate(async () => {
     const sec = document.getElementById("cats");
-    const s0 = t.children[0].getBoundingClientRect();
-    return {
-      secH: Math.round(sec.getBoundingClientRect().height),
-      vh: innerHeight,
-      vw: innerWidth,
-      slideW: Math.round(s0.width),
-      trackW: Math.round(t.clientWidth),
-      arrowsHidden: getComputedStyle(document.getElementById("scNext")).display === "none",
-      scrollable: t.scrollWidth > t.clientWidth + 10,
-      overX: getComputedStyle(t).overscrollBehaviorX,
-      docScrollW: document.documentElement.scrollWidth,
-      docClientW: document.documentElement.clientWidth,
-    };
+    sec.scrollIntoView(); await new Promise(r => setTimeout(r, 350));
+    const top = window.scrollY, seen = [];
+    for (let k = 0; k <= 6; k++) {
+      window.scrollTo(0, top + k * innerHeight * 0.25);
+      await new Promise(r => setTimeout(r, 200));
+      seen.push([...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")));
+    }
+    return seen;
   });
-  // `slideW === trackW` alone passes happily when BOTH are stuck at the
-  // desktop width (a grid item whose min-content refuses to shrink), and the
-  // section's `overflow-x: clip` hides the damage — so pin the track to the
-  // viewport too.
-  check("phone: one slide fills the track",
-    Math.abs(phone.slideW - phone.trackW) <= 2, `${phone.slideW} vs ${phone.trackW}`);
-  check("phone: the track fits the phone",
-    phone.trackW <= phone.vw, `track ${phone.trackW}px in a ${phone.vw}px window`);
-  check("phone: the track still scrolls", phone.scrollable === true);
-  check("phone: the gesture is still contained", phone.overX === "contain");
-  check("phone: the arrows give way to the swipe", phone.arrowsHidden === true);
-  check("phone: the scroll budget is still bounded",
-    phone.secH > phone.vh * 1.5 && phone.secH < phone.vh * 7,
-    `${phone.secH}px = ${(phone.secH / phone.vh).toFixed(1)} screens`);
-  check("phone: the page still does not scroll sideways",
-    phone.docScrollW <= phone.docClientW + 1, `${phone.docScrollW} vs ${phone.docClientW}`);
+  check("page scroll sweeps the whole rail", swept[0] === 0 && swept[swept.length - 1] >= 30,
+    swept.join(" → "));
+
+  // Once the reader takes hold themselves the scroll driver must step aside for
+  // good, or the next scroll event yanks the rail back and the two fight.
+  const handedOver = await page.evaluate(async () => {
+    const rail = document.getElementById("catRail");
+    rail.focus();
+    rail.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    const mine = [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active"));
+    window.scrollBy(0, innerHeight * 0.4);
+    await new Promise(r => setTimeout(r, 350));
+    const after = [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active"));
+    return { mine, after };
+  });
+  check("once the reader drives, page scroll stops moving the rail",
+    handedOver.mine === handedOver.after, `${handedOver.mine} → ${handedOver.after}`);
+
+  check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
   await browser.close();
   server.kill();
 }
 
-const failed = checks.filter(c => !c.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
-process.exit(failed.length ? 1 : 0);
+const failed = checks.filter(x => !x).length;
+console.log(failed ? `\n${failed} check(s) FAILED` : `\n${checks.length}/${checks.length} checks passed`);
+process.exit(failed ? 1 : 0);
