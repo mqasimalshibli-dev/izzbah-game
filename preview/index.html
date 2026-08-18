@@ -283,6 +283,13 @@ section{padding-block:clamp(66px,7.4vw,108px)}
    ⚠️ `touch-action: pan-y` — the rail handles horizontal drags itself, but a
    vertical swipe has to stay page scroll or the section becomes a trap on a
    phone. */
+/* Touch: no pin, so the section is an ordinary block and the page scrolls past
+   it at its own pace. `.sc-skip` goes with the pin — it exists to escape a toll
+   gate, and without one it is a button that scrolls you somewhere you were
+   already heading. */
+.showcase.no-pin .sc-stage{position:static; min-height:auto; height:auto;
+  padding-block:clamp(40px,7vh,64px) clamp(20px,4vh,40px)}
+.showcase.no-pin .sc-skip{display:none}
 .cat-rail{
   position:relative; height:clamp(250px,50svh,470px);
   perspective:1150px; perspective-origin:52% 46%;
@@ -1169,7 +1176,15 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         // <button> whose tabIndex reads 0, and the day this hides cards by some
         // other means (opacity, clip, visibility) they all come back as tab
         // stops at once.
-        if (ad > WINDOW) { el.tabIndex = -1; el.style.display = "none"; return; }
+        // ⚠️ Clear `is-active` BEFORE the early return. A card that leaves the
+        // window kept the class, so the gold ring stayed on a cover far off in
+        // the distance and `querySelector(".c3.is-active")` returned that stale
+        // one rather than the real front card.
+        if (ad > WINDOW) {
+          el.tabIndex = -1; el.classList.remove("is-active");
+          el.setAttribute("aria-selected", "false");
+          el.style.display = "none"; return;
+        }
         el.style.display = "";
         // The pressed card comes toward the reader and the rest give way. Both
         // halves matter: lifting one card alone reads as a glitch, pushing the
@@ -1302,13 +1317,44 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
        in SWEEP screens whatever the catalogue does, which is the difference
        between "scroll past the showcase" and "scroll through all forty".
        `.sc-skip` is still there to leave immediately. */
+    /* ⚠️ The pinned, scroll-driven sweep is for MICE ONLY.
+       Holding the page while a wheel drives an animation is a desktop idiom: a
+       mouse scrolls in small deliberate notches and the reader can stop on a
+       frame. A thumb cannot — a flick is one gesture that means "take me past
+       this", and hijacking it makes the page feel stuck and unresponsive, which
+       is what was reported. On touch the section is an ordinary block: it
+       scrolls past like anything else and the rail is swiped instead.
+       `(hover:hover) and (pointer:fine)` is the honest test — a laptop with a
+       touchscreen still reports a fine pointer, and a large tablet is not a
+       desktop just because it is wide. */
+    const mouseDriven = matchMedia("(hover: hover) and (pointer: fine)");
+    let pinned = mouseDriven.matches;
     const SWEEP = 1.35;                       // screens of page scroll, total
     const budget = () => SWEEP * innerHeight;
-    const sizeSection = () => { sec.style.height = "calc(100svh + " + (SWEEP * 100) + "svh)"; };
+    const sizeSection = () => {
+      sec.classList.toggle("no-pin", !pinned);
+      sec.style.height = pinned ? "calc(100svh + " + (SWEEP * 100) + "svh)" : "";
+    };
+    const onDeviceChange = () => {
+      pinned = mouseDriven.matches;
+      sizeSection();
+      // The two devices are driven differently, so they cannot share one hint.
+      // With no scroll drive on touch, the swipe is the ONLY way to move the
+      // rail — saying so is the difference between a live carousel and a
+      // picture of one.
+      const hint = document.getElementById("cdHint");
+      if (hint) hint.textContent = pinned
+        ? "اضغط الفئة لعرض وصفها"
+        : "اسحب لتصفّح الفئات، واضغط وحدة لعرض وصفها";
+      if (pinned) onPageScroll();
+    };
+    mouseDriven.addEventListener
+      ? mouseDriven.addEventListener("change", onDeviceChange)
+      : mouseDriven.addListener(onDeviceChange);
 
     let pticking = false;
     const onPageScroll = () => {
-      if (manual || pticking) return;
+      if (!pinned || manual || pticking) return;
       pticking = true;
       requestAnimationFrame(() => {
         pticking = false;
@@ -1325,9 +1371,8 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
     addEventListener("scroll", onPageScroll, { passive: true });
     addEventListener("resize", () => { sizeSection(); layout(); });
-    sizeSection();
+    onDeviceChange();
     paint();
-    onPageScroll();
   }
 
   /* ── every category in the game ─────────────────────────── */

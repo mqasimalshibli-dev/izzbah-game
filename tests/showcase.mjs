@@ -43,23 +43,28 @@ await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
 const errs = [];
 
+/* ⚠️ The touch rows must really be emulated as touch. The pinned scroll drive
+   is gated on `(hover:hover) and (pointer:fine)`, and a plain narrow window
+   still reports a fine pointer — so a phone-sized page WITHOUT touch emulation
+   silently exercises the desktop path and proves nothing about phones.
+   [label, w, h, touch] */
 const VIEWPORTS = [
-  ["phone   390×844", 390, 844, true],
-  ["phone   320×568", 320, 568, true],
-  ["landscape 844×390", 844, 390, false],
-  ["desktop 1440×900", 1440, 900, false],
+  ["phone     390×844", 390, 844, true],
+  ["phone     320×568", 320, 568, true],
+  ["landscape 844×390", 844, 390, true],
+  ["desktop  1440×900", 1440, 900, false],
 ];
 
-let PAGE = null;
-async function load(w, h) {
-  if (!PAGE) {
-    PAGE = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-    PAGE.on("pageerror", e => errs.push(e.message));
-    await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
-  } else {
-    await PAGE.setViewportSize({ width: w, height: h });
-    await PAGE.reload({ waitUntil: "load", timeout: 30000 });
-  }
+// A fresh CONTEXT per case, because touch emulation is a context-level setting
+// and the whole point is that the two devices take different paths.
+let CTX = null, PAGE = null;
+async function load(w, h, touch) {
+  if (CTX) await CTX.close();
+  CTX = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1,
+                                   isMobile: !!touch, hasTouch: !!touch });
+  PAGE = await CTX.newPage();
+  PAGE.on("pageerror", e => errs.push(e.message));
+  await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
   await PAGE.waitForTimeout(1000);
   await PAGE.evaluate(() => document.getElementById("cats").scrollIntoView());
   await PAGE.waitForTimeout(700);
@@ -92,8 +97,9 @@ const geom = page => page.evaluate(() => {
 });
 
 try {
-  for (const [name, w, h, phone] of VIEWPORTS) {
-    const page = await load(w, h);
+  for (const [name, w, h, touch] of VIEWPORTS) {
+    const page = await load(w, h, touch);
+    const phone = touch;
 
     const g0 = await geom(page);
     check(`${name}: the rail holds every category`, g0.total === 40, `${g0.total} cards`);
@@ -227,6 +233,44 @@ try {
       document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
     check(`${name}: the page still does not scroll sideways`, noSide);
 
+    /* ── the two devices take different paths ─────────────────────
+       A mouse scrolls in small deliberate notches and can stop on a frame, so
+       holding the page while the wheel drives the rail is a reasonable desktop
+       idiom. A thumb cannot: a flick is one gesture meaning "take me past
+       this", and hijacking it makes the page feel stuck. Touch therefore gets
+       an ordinary block that scrolls past, and the rail is swiped. */
+    const mode = await page.evaluate(() => ({
+      noPin: document.getElementById("cats").classList.contains("no-pin"),
+      stage: getComputedStyle(document.getElementById("catStage")).position,
+      hint: document.getElementById("cdHint").textContent.trim(),
+    }));
+    check(`${name}: ${phone ? "touch is NOT pinned" : "a mouse gets the pinned sweep"}`,
+      phone ? (mode.noPin && mode.stage === "static") : (!mode.noPin && mode.stage === "sticky"),
+      `${mode.stage}${mode.noPin ? ", no-pin" : ""}`);
+    check(`${name}: the hint names a gesture that works here`,
+      phone ? mode.hint.includes("اسحب") : !mode.hint.includes("اسحب"), mode.hint);
+
+    if (phone) {
+      const gone = await page.evaluate(() => {
+        const a = document.getElementById("scSkip");
+        return !a || getComputedStyle(a).display === "none";
+      });
+      check(`${name}: no escape button where there is no toll gate`, gone);
+      const past = await page.evaluate(async () => {
+        const on = () => [...document.querySelectorAll(".c3")].findIndex(c => c.classList.contains("is-active"));
+        document.getElementById("cats").scrollIntoView();
+        await new Promise(r => setTimeout(r, 350));
+        const i0 = on(), y0 = window.scrollY;
+        window.scrollBy(0, window.innerHeight * 1.2);
+        await new Promise(r => setTimeout(r, 400));
+        return { i0, i1: on(), moved: window.scrollY - y0 };
+      });
+      check(`${name}: scrolling goes past the section instead of driving it`,
+        past.i0 === past.i1 && past.moved > 100,
+        `index ${past.i0}→${past.i1}, page +${Math.round(past.moved)}px`);
+      continue;
+    }
+
     // The way out of a pinned section.
     // ⚠️ "Displayed" is not the test. The stage is PINNED, so anything that
     // falls outside the viewport cannot be reached while the pin holds. On a
@@ -258,7 +302,7 @@ try {
   }
 
   /* ── page scroll drives the rail, then gets out of the way ──────── */
-  const page = await load(390, 844);
+  let page = await load(1440, 900, false);
   const swept = await page.evaluate(async () => {
     const sec = document.getElementById("cats");
     sec.scrollIntoView(); await new Promise(r => setTimeout(r, 350));
@@ -286,6 +330,25 @@ try {
     const after = [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active"));
     return { mine, after };
   });
+  /* ⚠️ A JUMP larger than the window is the only way a card gets stranded.
+     `layout()` skips everything past the window, so a card that is more than
+     WINDOW steps away in ONE move never runs the branch that would take its
+     `is-active` off — and it keeps the gold ring, out in the distance, while
+     the real front card has one too. Stepping one at a time never shows it,
+     which is why nothing caught this for two builds. End/Home jump the lot. */
+  const jumped = await page.evaluate(async () => {
+    const rail = document.getElementById("catRail");
+    rail.focus();
+    rail.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const end = document.querySelectorAll(".c3.is-active").length;
+    rail.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    return { end, home: document.querySelectorAll(".c3.is-active").length };
+  });
+  check("a far jump leaves exactly one card marked active",
+    jumped.end === 1 && jumped.home === 1, `End ${jumped.end}, Home ${jumped.home}`);
+
   check("once the reader drives, page scroll stops moving the rail",
     handedOver.mine === handedOver.after, `${handedOver.mine} → ${handedOver.after}`);
 
@@ -296,7 +359,10 @@ try {
      moving the rail again. Handover belongs to a real DRAG. */
   // ⚠️ Reload first. The check above deliberately hands the rail over for good,
   // and this one is about a page where that has NOT happened.
-  await load(390, 844);
+  // ⚠️ `load()` closes the previous CONTEXT and returns a NEW page, so the
+  // handle has to be rebound. Reusing the old one throws "Target page, context
+  // or browser has been closed" several checks later, nowhere near the cause.
+  page = await load(1440, 900, false);
   const afterTap = await page.evaluate(async () => {
     const sec = document.getElementById("cats");
     sec.scrollIntoView(); await new Promise(r => setTimeout(r, 400));
