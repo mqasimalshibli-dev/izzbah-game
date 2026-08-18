@@ -1007,3 +1007,10 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node teamsetup.mjs
+
+      - name: Run landing-page «كل الفئات» grid test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node allcats.mjs
