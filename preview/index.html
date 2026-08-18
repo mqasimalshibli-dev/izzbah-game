@@ -1221,8 +1221,10 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
          480px or less — the masters are gone and `-l` is an unsharp-masked
          upscale of what Firestore holds (see COVERS notes in CLAUDE.md). Drawn
          much past 300 CSS px the browser is enlarging detail that was never
-         there, and the picture gets softer, not better. */
-      const cw = Math.max(92, Math.min(rail.clientWidth * 0.46, rail.clientHeight * 0.78, 300));
+         there, and the picture gets softer, not better. The cap sits under
+         that ceiling by choice — the owner asked for a smaller card than the
+         300 this started at, so the limit is now taste, not resolution. */
+      const cw = Math.max(92, Math.min(rail.clientWidth * 0.41, rail.clientHeight * 0.70, 252));
       rail.style.setProperty("--cw", Math.round(cw) + "px");
       const sy = SY(), fwd = FWD(), back = BACK(), pop = POP();
       cards.forEach((el, i) => {
