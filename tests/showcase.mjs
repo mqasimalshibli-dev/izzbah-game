@@ -127,6 +127,23 @@ try {
     check(`${name}: the active card is the nearest one`,
       g0.laid.every(c => c.z <= zActive.z + 0.5), `active z ${zActive.z}`);
 
+    /* ⚠️ No border, no opaque fill on a rail cover. `.cat-art` carries a 1px
+       `--rule` and a `--maroon-lo` background for the flat grid, and on a
+       fanned rail the covers overlap by about half — so what shows of the card
+       behind is a thin strip of ITS border and backdrop, which reads as a line
+       drawn between the covers. Reported as "there is a red line behind the
+       category covers". */
+    const skin = await page.evaluate(() => {
+      const art = document.querySelector(".c3 .cat-art"), cs = getComputedStyle(art);
+      const a = (cs.backgroundColor.match(/[\d.]+\)$/) || ["1)"])[0];
+      return { bw: cs.borderTopWidth, bg: cs.backgroundColor,
+               opaqueBg: cs.backgroundColor !== "rgba(0, 0, 0, 0)" && parseFloat(a) > 0.05,
+               radius: parseFloat(cs.borderTopLeftRadius) };
+    });
+    check(`${name}: covers draw no hairline where they overlap`,
+      parseFloat(skin.bw) === 0 && !skin.opaqueBg, `border ${skin.bw}, bg ${skin.bg}`);
+    check(`${name}: and their corners are not sharp`, skin.radius >= 18, `${skin.radius}px`);
+
     // Roving tabindex: forty buttons would be forty tab stops before the reader
     // ever reached the rest of the page.
     check(`${name}: only the active card is a tab stop`, g0.tabbable === 1, `${g0.tabbable} tabbable`);
@@ -303,18 +320,28 @@ try {
 
   /* ── page scroll drives the rail, then gets out of the way ──────── */
   let page = await load(1440, 900, false);
+  /* ⚠️ `behavior: "instant"`. The page sets `html{scroll-behavior:smooth}`, so a
+     plain `scrollTo` ANIMATES — every sample was being read mid-flight and the
+     sweep looked like it stopped early. It failed about one run in three, which
+     is the worst kind of red: real enough to chase, rare enough to dismiss.
+     The last stop is deliberately past the end of the budget, so the answer is
+     the last category or the assertion is about something real. */
   const swept = await page.evaluate(async () => {
+    const SWEEP = 1.35;
+    const at = () => [...document.querySelectorAll(".c3")].findIndex(c => c.classList.contains("is-active"));
     const sec = document.getElementById("cats");
-    sec.scrollIntoView(); await new Promise(r => setTimeout(r, 350));
-    const top = window.scrollY, seen = [];
-    for (let k = 0; k <= 6; k++) {
-      window.scrollTo(0, top + k * innerHeight * 0.25);
-      await new Promise(r => setTimeout(r, 200));
-      seen.push([...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")));
+    sec.scrollIntoView({ behavior: "instant" });
+    await new Promise(r => setTimeout(r, 400));
+    const top = window.scrollY, seen = [at()];
+    for (const f of [0.3, 0.6, 0.9, 1.2]) {
+      window.scrollTo({ top: top + f * innerHeight * SWEEP, behavior: "instant" });
+      await new Promise(r => setTimeout(r, 350));
+      seen.push(at());
     }
     return seen;
   });
-  check("page scroll sweeps the whole rail", swept[0] === 0 && swept[swept.length - 1] >= 30,
+  const rising = swept.every((v, i) => i === 0 || v >= swept[i - 1]);
+  check("page scroll sweeps the whole rail", swept[0] === 0 && rising && swept[swept.length - 1] >= 38,
     swept.join(" → "));
 
   // Once the reader takes hold themselves the scroll driver must step aside for
@@ -391,26 +418,38 @@ try {
   // A real DRAG, by contrast, does take the wheel — and must not be mistaken
   // for a press on whichever card the finger lifted over.
   const drag = await page.evaluate(async () => {
-    document.getElementById("cats").scrollIntoView();
-    await new Promise(r => setTimeout(r, 400));
-    // Start mid-rail: at index 0 a drag can only travel one way, and the test
+    // Start mid-rail: at index 0 a drag can only travel one way and the test
     // would be measuring the clamp rather than the drag.
-    window.scrollBy(0, innerHeight * 0.6);
-    await new Promise(r => setTimeout(r, 400));
+    // ⚠️ `behavior: "instant"` again, and the rail's box is read AFTER the page
+    // has settled. With smooth scrolling the rect was measured mid-animation,
+    // the rail had moved on by the time the mouse arrived, and the pointerdown
+    // landed off it — so the drag simply never started.
+    document.getElementById("cats").scrollIntoView({ behavior: "instant" });
+    await new Promise(r => setTimeout(r, 300));
+    window.scrollBy({ top: innerHeight * 0.6, behavior: "instant" });
+    await new Promise(r => setTimeout(r, 450));
     const r = document.getElementById("catRail").getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2,
-             i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")) };
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2),
+             onRail: document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) !== null,
+             i: [...document.querySelectorAll(".c3")].findIndex(c => c.classList.contains("is-active")) };
   });
   await page.mouse.move(drag.x, drag.y);
   await page.mouse.down();
-  for (let k = 1; k <= 6; k++) { await page.mouse.move(drag.x - k * 30, drag.y); await page.waitForTimeout(30); }
+  for (let k = 1; k <= 8; k++) { await page.mouse.move(drag.x - k * 30, drag.y); await page.waitForTimeout(40); }
   await page.mouse.up();
   await page.waitForTimeout(500);
   const dragged = await page.evaluate(() => ({
     i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")),
     picked: document.getElementById("cats").classList.contains("is-picked"),
   }));
-  check("a real drag moves the rail", dragged.i !== drag.i, `${drag.i} → ${dragged.i}`);
+  /* ⚠️ Assert the drag moves PROPORTIONALLY, not merely that it moved. A cover
+     is an <img>, and images are draggable by default: a mouse drag started a
+     native drag-and-drop, the browser fired `pointercancel` after the FIRST
+     pointermove, and everything after it was discarded. The rail then advanced
+     exactly one card for a drag of any length — which passes "it moved" while
+     feeling completely broken. 240px at 46px per card is five. */
+  check("a real drag moves the rail by the distance dragged",
+    Math.abs(dragged.i - drag.i) >= 3, `${drag.i} → ${dragged.i}`);
   check("a drag is not mistaken for a press", !dragged.picked);
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
