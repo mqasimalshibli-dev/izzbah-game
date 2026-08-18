@@ -323,9 +323,20 @@ section{padding-block:clamp(66px,7.4vw,108px)}
    hairlines: the covers overlap by about half, so what shows of the card behind
    is a thin strip of ITS border and backdrop — read as "a red line behind the
    category covers". Nothing to draw, nothing to see. */
-.c3 .cat-art{width:100%; height:auto; aspect-ratio:4/5; max-height:none; margin:0;
-  border:0; background:transparent; border-radius:26px;
+/* ⚠️ The image must NOT size this box. `aspect-ratio` only wins when the box
+   has no in-flow content telling it otherwise — and `.cat-art img` is in flow,
+   so every frame took its own picture's ratio instead: 4/5 covers came out
+   300x375 and a 1080x720 one came out 300x200. The covers were visibly
+   different sizes and it looked like a mistake, because it was one. Taking the
+   image out of flow leaves the ratio in charge and every frame identical. */
+/* ⚠️ `display:block`. The rail's `.cat-art` is a <span>, and an inline box
+   ignores width and aspect-ratio — it was only getting a size at all from the
+   in-flow <img>, so the moment that image went out of flow every frame
+   collapsed to 0x0 and the rail rendered nothing. */
+.c3 .cat-art{display:block; width:100%; height:auto; aspect-ratio:4/5; max-height:none; margin:0;
+  border:0; background:transparent; border-radius:26px; position:relative;
   box-shadow:0 30px 58px -24px rgba(0,0,0,.9)}
+.c3 .cat-art img{position:absolute; inset:0; width:100%; height:100%}
 /* The veil is a scrim for a caption. The rail has no caption on the card — the
    panel below names it — so all it did was darken the lower half of every
    cover. */
@@ -1271,7 +1282,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const paint = () => {
       // Attach the covers around the active card only — a rail of forty full
       // covers is several megabytes nobody has scrolled to yet.
-      for (let k = active - 3; k <= active + 3; k++) {
+      // ⚠️ The whole laid-out window, not a narrower slice of it. This attached
+      // only ±3 while `layout()` places ±WINDOW, so six of the thirteen visible
+      // cards had no image — and with the frame now driven by aspect-ratio they
+      // are simply empty rectangles. The fan looked half-populated.
+      for (let k = active - WINDOW; k <= active + WINDOW; k++) {
         const im = cards[k] && cards[k].querySelector("img[data-src]");
         if (im) { im.src = im.dataset.src; delete im.dataset.src; }
       }
