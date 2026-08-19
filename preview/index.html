@@ -571,6 +571,11 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .stat b{display:block; font-family:var(--num); font-size:clamp(40px,6vw,66px); color:var(--gold);
   font-variant-numeric:tabular-nums; line-height:1}
 .stat span{display:block; margin-top:10px; font:700 14px var(--body); color:var(--muted)}
+/* The freshness line. Quiet on purpose — it is reassurance, not a headline. */
+.fresh{margin:18px 0 0; text-align:center; font:700 13.5px/1.7 var(--body); color:var(--muted)}
+.fresh b{color:var(--gold); font-weight:800}
+.fresh .sep{opacity:.45; margin-inline:9px}
+@media(max-width:520px){ .fresh .sep{display:block; height:0; margin:0; overflow:hidden} }
 
 /* ── plans ────────────────────────────────────────────────── */
 .plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:18px; align-items:stretch}
@@ -950,6 +955,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="stat rv" data-d="2"><b data-count="omani">0</b><span>فئة عُمانية خالصة</span></div>
       <div class="stat rv" data-d="3"><b data-count="1">0</b><span>لعبة مجانية للتجربة</span></div>
     </div>
+    <!-- ⚠️ Filled from `preview/data.js`, and REMOVED if the sync has not
+         emitted the dates. A freshness line is a claim about the product being
+         alive; a hard-coded or empty one is the opposite of the thing it is
+         for. See the `fresh` block in preview/sync.mjs. -->
+    <p class="fresh rv" data-d="4" id="fresh" hidden></p>
   </section>
 
   <!-- ── PLANS ────────────────────────────────────────────── -->
@@ -1958,6 +1968,36 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     requestAnimationFrame(step);
   }), { threshold: .6 });
   document.querySelectorAll("[data-count]").forEach(el => cio.observe(el));
+
+  /* ── «آخر تحديث» ─────────────────────────────────────────
+     A visitor deciding whether to install something wants to know it is still
+     alive, and the page had no signal for that at all — a catalogue published
+     last week and one abandoned two years ago read exactly the same.
+     ⚠️ Both halves come from `preview/data.js`, which `preview/sync.mjs` fills
+     from Firestore's own document timestamps. Nothing here is written by hand,
+     and if the sync has not emitted them the line REMOVES ITSELF: a freshness
+     claim is worth having only while something guarantees it is true. */
+  (() => {
+    const el = document.getElementById("fresh");
+    if (!el) return;
+    const f = DATA.fresh || {};
+    /* ⚠️ Built from NODES, not an innerHTML template. The category name is
+       admin-authored rather than player-authored, so this is not the hazard the
+       codes list had — but it arrives from Firestore through a generated file,
+       and "it happens to be trusted today" is a poor reason to interpolate a
+       remote string into markup. */
+    const bits = [];
+    if (f.updated) bits.push(["آخر تحديث للمحتوى: ", f.updated]);
+    if (f.newest) bits.push(["أحدث فئة: ", f.newest]);
+    if (!bits.length) { el.remove(); return; }
+    bits.forEach(([label, value], i) => {
+      if (i) { const sep = document.createElement("span"); sep.className = "sep"; sep.textContent = "·"; el.append(sep); }
+      const b = document.createElement("b");
+      b.textContent = value;
+      el.append(document.createTextNode(label), b);
+    });
+    el.hidden = false;
+  })();
 
   /* ── final CTA: drifting embers on canvas ───────────────── */
   const cv = document.getElementById("sparks");

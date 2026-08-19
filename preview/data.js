@@ -6,6 +6,12 @@ window.IZZBAH_DATA = {
   "questions": 4748,
   "omani": 9
  },
+ "fresh": {
+  "updatedISO": "2026-08-18T20:28:12.692313Z",
+  "updated": "١٨ أغسطس ٢٠٢٦",
+  "newest": "تطبيقات",
+  "newestISO": "2026-08-04T04:53:32.835008Z"
+ },
  "cats": [
   {
    "id": "pub-1783170084646-5700",
