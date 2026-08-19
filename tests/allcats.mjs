@@ -1,25 +1,20 @@
-// The landing page's «كل الفئات» grid, and the fold that keeps it off the floor.
+// The landing page's «كل الفئات» grid — every category, shown whole.
 //
-// The section lists every category the game has. At 40 of them in two columns
-// it ran to 5065px on a 390×844 phone — SIX screens of the twenty the page was
-// tall, sitting between the pitch and the footer. It now opens with six ROWS
-// and a button for the rest: 1827px, and the whole page drops 20.4 → 16.6
-// screens.
+// ⚠️ THIS SECTION USED TO FOLD. At 40 tiles in two columns it ran to ~5000px on
+// a 390×844 phone, so it opened at six rows behind a «شوف كل الفئات (٤٠)»
+// button. The owner's verdict on seeing it: *"the display all categories button
+// is useless as the full categories are there."* The button is gone and the
+// grid is whole at every width.
 //
-// ⚠️ Six ROWS, not twelve TILES. The grid is `auto-fill`, so the column count
-// is a function of the viewport, the wrap's max-width and even the font — six
-// rows is 12 tiles on a phone and the entire library on a laptop. A fixed tile
-// count would leave a ragged half-row on desktop and would silently stop
-// matching the layout the day the tile size changes.
+// The reasoning is worth keeping, because "the phone page is long" is a real
+// observation that will invite this fix again: the SIZE of the library is the
+// page's pitch. A visitor scrolling past forty covers learns something a
+// number in a button never tells them, and the section sits at the bottom
+// where scrolling past it is free. Length was never the cost it looked like.
 //
-// ⚠️ The fold is gated to grids of three columns or fewer. Above that the
-// section is ~2.4 screens and reads fine whole; folding there would put a
-// button in front of ten tiles for nothing, and the SIZE of the library is the
-// page's pitch — hiding it works against the copy right above it.
-//
-// What this test pins is the promise, not the pixels: nothing is unreachable,
-// the count in the button is the true total, and expanding really does show
-// every category. The heading says «كل الفئات» and that has to stay true.
+// So what this test pins is the promise the heading makes: «كل الفئات» means
+// all of them, on every screen, reachable by pointer and by keyboard, with
+// nothing in front of them.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -36,11 +31,11 @@ const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROM
 const errs = [];
 
 const VIEWPORTS = [
-  ["iPhone SE  320×568", 320, 568, true],
-  ["iPhone 12  390×844", 390, 844, true],
-  ["Galaxy S20 360×800", 360, 800, true],
-  ["iPad      768×1024", 768, 1024, false],
-  ["desktop   1440×900", 1440, 900, false],
+  ["iPhone SE  320×568", 320, 568],
+  ["iPhone 12  390×844", 390, 844],
+  ["Galaxy S20 360×800", 360, 800],
+  ["iPad      768×1024", 768, 1024],
+  ["desktop   1440×900", 1440, 900],
 ];
 
 let PAGE = null;
@@ -58,7 +53,7 @@ async function load(w, h) {
 }
 
 const read = page => page.evaluate(() => {
-  const g = document.getElementById("allGrid"), m = document.getElementById("allMore");
+  const g = document.getElementById("allGrid");
   const cards = [...g.children];
   return {
     total: cards.length,
@@ -66,12 +61,17 @@ const read = page => page.evaluate(() => {
     // visitor can actually see, not what the class list claims.
     visible: cards.filter(c => c.offsetParent !== null).length,
     tabbable: cards.filter(c => c.tabIndex === 0).length,
+    // The links have to go somewhere real: each tile deep-links into the game
+    // with that category preselected.
+    linked: cards.filter(c => (c.getAttribute("href") || "").length > 2).length,
     cols: getComputedStyle(g).gridTemplateColumns.split(" ").filter(Boolean).length,
-    btnHidden: m.hidden,
-    btnText: m.textContent,
-    btnBox: (() => { const r = m.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; })(),
-    expanded: m.getAttribute("aria-expanded"),
-    controls: m.getAttribute("aria-controls"),
+    // ⚠️ The fold left two traces — a button and a `data-fold` attribute. Either
+    // one coming back hides tiles, so both are checked by their effect AND by
+    // their absence: `[data-fold]{display:none}` with no JS to set it would
+    // pass an "everything is visible" test while lying dormant.
+    folder: !!document.getElementById("allMore") || !!document.querySelector(".more"),
+    folded: document.querySelectorAll("#allGrid [data-fold]").length,
+    heading: (document.querySelector("#all h2") || {}).textContent || "",
     sectionH: Math.round(document.getElementById("all").getBoundingClientRect().height),
     pageH: Math.round(document.documentElement.scrollHeight),
     vh: window.innerHeight,
@@ -79,56 +79,39 @@ const read = page => page.evaluate(() => {
 });
 
 try {
-  for (const [name, w, h, phone] of VIEWPORTS) {
+  for (const [name, w, h] of VIEWPORTS) {
     const page = await load(w, h);
     const m = await read(page);
     console.log(`      ${name}  ${m.cols} cols · ${m.visible}/${m.total} shown · section ${m.sectionH}px · page ${(m.pageH / m.vh).toFixed(1)} screens`);
 
     check(`${name}: every category is in the grid (${m.total})`, m.total === 40);
-
-    if (phone) {
-      check(`${name}: opens folded to six rows (${m.visible} of ${m.total})`,
-        m.visible === m.cols * 6 && m.visible < m.total);
-      check(`${name}: the button is offered`, m.btnHidden === false);
-      // A folded tile is display:none, so it is out of the tab order for free —
-      // but only while it stays display:none. Assert it, because a later
-      // `display:` on `.gcard` would revive 28 invisible links.
-      check(`${name}: folded tiles are out of the tab order (${m.tabbable} tabbable)`,
-        m.tabbable === m.visible);
-      // The point of the exercise — asserted as the fold's own effect rather
-      // than as a count of screens. ⚠️ Screens is the wrong unit here: an SE is
-      // 568px tall, so it scores WORSE per screen than an iPhone 12 while
-      // having the shorter section in pixels. Compare folded against expanded
-      // and the viewport drops out.
-      // The button must be honest about how many are behind it — it is the only
-      // place the reader learns the library did not stop at twelve.
-      check(`${name}: the button names the true total (${m.btnText.trim()})`,
-        m.btnText.includes("٤٠"));
-      check(`${name}: the button is a real tap target (${m.btnBox.w}×${m.btnBox.h})`,
-        m.btnBox.h >= 44 && m.btnBox.w >= 44);
-      check(`${name}: it says what it controls`, m.controls === "allGrid" && m.expanded === "false");
-
-      await page.click("#allMore");
-      await page.waitForTimeout(250);
-      const after = await read(page);
-      const cut = 1 - m.sectionH / after.sectionH;
-      console.log(`        folded ${m.sectionH}px vs expanded ${after.sectionH}px — ${(cut * 100).toFixed(0)}% shorter`);
-      check(`${name}: folding cuts the section by at least half (${(cut * 100).toFixed(0)}%)`,
-        cut >= 0.5);
-      check(`${name}: expanding reveals all ${after.total}`,
-        after.visible === after.total && after.tabbable === after.total);
-      check(`${name}: the spent button gets out of the way`,
-        after.btnHidden === true && after.expanded === "true");
-      // Nothing may be left unreachable — «كل الفئات» has to mean it.
-      const reachable = await page.evaluate(() =>
-        [...document.getElementById("allGrid").children].every(c => c.offsetParent !== null && c.tabIndex === 0));
-      check(`${name}: no category is left unreachable`, reachable);
-    } else {
-      // Desktop: the whole library, no button, exactly as before the fold existed.
-      check(`${name}: the full grid is shown whole above three columns`, m.visible === m.total);
-      check(`${name}: no button in front of a section that reads fine`, m.btnHidden === true);
-    }
+    check(`${name}: and every one of them is on screen (${m.visible}/${m.total})`,
+      m.visible === m.total);
+    check(`${name}: every tile is reachable by keyboard (${m.tabbable} tabbable)`,
+      m.tabbable === m.total);
+    check(`${name}: every tile links into the game (${m.linked})`, m.linked === m.total);
+    check(`${name}: nothing stands in front of the grid`, m.folder === false);
+    check(`${name}: no tile is folded away (${m.folded})`, m.folded === 0);
+    check(`${name}: the heading still promises all of them`, m.heading.includes("كل الفئات"));
   }
+
+  /* ── one honest look at the cost ───────────────────────────────
+     Reported, not asserted. The section IS long on a phone and that is the
+     accepted trade; a threshold here would only tempt the next reader to fold
+     it again to make a number go green. What must not happen is the page
+     becoming unnavigable, which is what the anchor nav is for. */
+  const page = await load(390, 844);
+  const nav = await page.evaluate(() => {
+    const foot = document.querySelector(".foot-links");
+    return {
+      // «كل الفئات» is the last section before the footer, so the way back up
+      // is the only thing between a reader at the bottom and a long scroll.
+      toTop: !!document.querySelector('a[href="#top"]'),
+      footLinks: foot ? foot.querySelectorAll("a").length : 0,
+    };
+  });
+  check("a reader at the bottom of the grid can get back to the top", nav.toTop);
+  check("and the footer offers its own way around the page", nav.footLinks >= 5);
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {

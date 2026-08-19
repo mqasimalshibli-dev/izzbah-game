@@ -380,21 +380,15 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   margin-top:clamp(16px,5.4vh,62px); min-height:clamp(122px,17vh,168px);
   text-align:center; max-width:60ch; margin-inline:auto}
 .sc-detail h3{font-size:clamp(21px,3.1vw,34px); margin-bottom:8px}
-.sc-swap{display:grid}
-.sc-swap > *{grid-area:1/1}
-.sc-detail p{color:var(--muted); font-size:clamp(13.5px,1.5vw,16px); margin-inline:auto;
-  opacity:0; visibility:hidden; transition:opacity .45s ease, visibility .45s}
-.sc-hint{opacity:.62 !important; visibility:visible !important; font-size:13.5px !important;
-  transition:opacity .35s ease, visibility .35s}
-.showcase.is-picked .sc-hint{opacity:0 !important; visibility:hidden !important}
-.sc-detail .cat-foot{justify-content:center; margin-top:14px;
-  opacity:0; visibility:hidden; transition:opacity .45s ease .06s, visibility .45s}
-.showcase.is-picked .sc-detail p,
-.showcase.is-picked .sc-detail .cat-foot{opacity:1; visibility:visible}
+/* ⚠️ The description is ALWAYS shown, for whichever category is in the centre.
+   It used to appear only after a press, behind a «اضغط الفئة لعرض وصفها» hint —
+   which made the reader work to find out what they were looking at, and left
+   the rail meaningless to anyone who never guessed to tap. */
+.sc-detail p{color:var(--muted); font-size:clamp(13.5px,1.5vw,16px); margin-inline:auto}
+.sc-detail .cat-foot{justify-content:center; margin-top:14px}
+
 .sc-detail .cat-index{margin-bottom:8px}
-@media(prefers-reduced-motion:reduce){
-  .sc-detail p,.sc-detail .cat-foot{transition:none}
-}
+
 
 .cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
 .cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
@@ -483,7 +477,7 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   .sc-detail{min-height:0; margin-top:6px}
   .sc-detail h3{font-size:clamp(17px,2.2vw,22px); margin-bottom:3px}
   .sc-detail .cat-index{margin-bottom:3px; font-size:12px}
-  .sc-detail p,.sc-hint{font-size:12.5px !important; line-height:1.45}
+  .sc-detail p{font-size:12.5px !important; line-height:1.45}
   .sc-detail .cat-foot{margin-top:8px; gap:7px}
   .sc-bar{margin-top:10px}
   .sc-skip{margin-top:8px}
@@ -721,18 +715,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
      the tappable area; the negative margin keeps the row looking identical. */
   display:inline-flex; align-items:center; min-height:44px; padding-inline:2px; margin-block:-9px}
 .foot-links a:hover{color:var(--gold)}
-/* «كل الفئات» ran to 40 tiles — six phone screens of the twenty the page is
-   tall, and the last thing before the footer. It opens with six ROWS and a
-   button for the rest. Rows, not a fixed count of tiles, because the grid is
-   auto-fill: six rows is 12 tiles on a phone (2 columns) and the whole library
-   on a laptop, so the section only collapses where it was actually a problem
-   and a desktop reader never meets a ragged half-row. */
-.more{display:flex; align-items:center; gap:9px; min-height:44px; margin:22px auto 0; cursor:pointer;
-  padding:10px 22px; border-radius:999px; font:800 14px var(--body); color:var(--cream);
-  border:1px solid var(--rule); background:rgba(255,255,255,.05);
-  transition:background .2s, border-color .2s, color .2s}
-.more:hover{border-color:var(--gold); color:var(--gold); background:rgba(231,195,115,.07)}
-.gcard[data-fold]{display:none}
+/* ⚠️ «كل الفئات» shows ALL of them, and there is no «شوف كل الفئات» button any
+   more. It briefly folded to six rows to shorten the phone page; the owner's
+   verdict was that the button was useless because the tiles are right there.
+   The library's SIZE is the pitch — forty covers scrolling past says more than
+   a number ever does — so do not put it back behind a fold. */
 .copy{margin-top:30px; font:600 12.5px var(--body); color:var(--muted); opacity:.75}
 
 @media (prefers-reduced-motion:reduce){
@@ -839,18 +826,17 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
    <div class="sc-stage" id="catStage">
     <div class="wrap sc-inner">
       <div class="cat-rail" id="catRail" role="listbox" tabindex="0"
-           aria-label="استعراض الفئات — اسحب أو استخدم الأسهم، واضغط فئة لعرض وصفها"></div>
+           aria-label="استعراض الفئات — اسحب أو استخدم الأسهم لتصفّح الفئات"></div>
+      <!-- ⚠️ The description belongs to whatever is in the CENTRE, and it is
+           always on. It used to be revealed by pressing a card, which meant the
+           panel opened on a hint instead — a reader who never pressed learned
+           nothing about any category. The centre card is the near, large one
+           for the same reason: the thing being described has to be obvious
+           without a gesture. -->
       <div class="sc-detail" id="catDetail" aria-live="polite">
         <div class="cat-index" id="cdIndex"></div>
         <h3 id="cdName"></h3>
-        <!-- The hint and the description occupy the SAME grid cell, so the
-             panel keeps one height and nothing below it jumps when a card is
-             pressed. The hint also has to exist: a rail you can press is not
-             discoverable on a phone, where there is no hover to reveal it. -->
-        <div class="sc-swap">
-          <p class="sc-hint" id="cdHint">اضغط الفئة لعرض وصفها</p>
-          <p id="cdDesc"></p>
-        </div>
+        <p id="cdDesc"></p>
         <div class="cat-foot">
           <span class="cat-tag" id="cdTag"></span>
           <span class="cat-n" id="cdCount"></span>
@@ -888,7 +874,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       </p>
     </div>
     <div class="grid" id="allGrid"></div>
-    <button type="button" class="more" id="allMore" hidden aria-expanded="false" aria-controls="allGrid"></button>
   </section>
 
   <!-- ── WHY ──────────────────────────────────────────────── -->
@@ -1373,14 +1358,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       });
       im.dataset.src = c.img;
       art.prepend(im);
-      // No `manual` here: pressing a cover reads its description, it does not
+      // No `manual` here: pressing a cover brings it to the centre, it does not
       // mean "I am steering now". Scrolling on afterwards keeps browsing.
       b.addEventListener("click", () => pick(i));
       rail.appendChild(b);
       return b;
     });
 
-    let active = 0, picked = false, manual = false;
+    let active = 0, manual = false;
 
     const layout = () => {
       const sx = SX(), sgn = dir();
@@ -1416,16 +1401,17 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         // The pressed card comes toward the reader and the rest give way. Both
         // halves matter: lifting one card alone reads as a glitch, pushing the
         // others back alone reads as the whole rail retreating.
-        const bump = !picked ? 0 : (d === 0 ? fwd : -back);
+        // The centre cover is always the near one — no press required.
+        const bump = d === 0 ? fwd : -back;
         el.style.setProperty("--x", (sgn * d * sx) + "px");
         el.style.setProperty("--y", (-d * sy) + "px");
         el.style.setProperty("--z", (-ad * DZ + bump) + "px");
         el.style.setProperty("--r", TILT + "deg");
-        el.style.setProperty("--s", (d === 0 && picked ? pop : 1).toFixed(3));
+        el.style.setProperty("--s", (d === 0 ? pop : 1).toFixed(3));
         // Dimming the rest is half of what makes a press read as a choice —
         // moving one card forward on its own looks like a rendering glitch.
         const fade = Math.max(0, 1 - ad / (WINDOW + 1.2));
-        el.style.setProperty("--o", (picked && d !== 0 ? fade * 0.55 : fade).toFixed(3));
+        el.style.setProperty("--o", (d === 0 ? fade : fade * 0.62).toFixed(3));
         el.style.zIndex = String(600 - ad * 10 + (d === 0 ? 40 : 0));
         el.classList.toggle("is-active", d === 0);
         // Roving tabindex: forty buttons would be forty tab stops before the
@@ -1473,21 +1459,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     // Moving the rail by ANY means — drag, arrows, page scroll — puts an open
     // description away. One place, so drag and scroll cannot drift apart.
     // `keepPick` is for pick() itself, which moves the rail on purpose.
-    const setActive = (i, keepPick) => {
+    const setActive = i => {
       i = Math.max(0, Math.min(CATS.length - 1, i));
       if (i === active) return;
-      if (picked && !keepPick) { picked = false; sec.classList.remove("is-picked"); }
       active = i; paint();
     };
-    // Pressing a card is what reveals its description; pressing the one that is
-    // already forward puts it back, so the copy is dismissable without hunting
-    // for a close button.
-    const pick = i => {
-      if (i === active && picked) { picked = false; sec.classList.remove("is-picked"); layout(); return; }
-      picked = true; sec.classList.add("is-picked");
-      if (i === active) { layout(); return; }
-      setActive(i, true);
-    };
+    // A press just brings that cover to the centre, where its description
+    // already is. Nothing to reveal, so nothing to dismiss.
+    const pick = i => setActive(i);
     const step = d => { manual = true; setActive(active + d); };
 
     if (prevBtn) prevBtn.addEventListener("click", () => step(-1));
@@ -1569,14 +1548,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const onDeviceChange = () => {
       pinned = mouseDriven.matches;
       sizeSection();
-      // The two devices are driven differently, so they cannot share one hint.
-      // With no scroll drive on touch, the swipe is the ONLY way to move the
-      // rail — saying so is the difference between a live carousel and a
-      // picture of one.
-      const hint = document.getElementById("cdHint");
-      if (hint) hint.textContent = pinned
-        ? "اضغط الفئة لعرض وصفها"
-        : "اسحب لتصفّح الفئات، واضغط وحدة لعرض وصفها";
       if (pinned) onPageScroll();
     };
     mouseDriven.addEventListener
@@ -1646,49 +1617,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const cEl = document.getElementById("allCount");
     if (cEl) cEl.textContent = ar(ALL.length);
 
-    // Fold everything past the sixth row away behind one button. The column
-    // count comes from the resolved grid rather than a breakpoint, so it stays
-    // correct through `auto-fill`, a rotation, or a font that changes the wrap.
-    const moreBtn = document.getElementById("allMore");
-    if (moreBtn) {
-      const cards = [...gridEl.children];
-      const ROWS = 6;
-      let open = false;
-      const cols = () => getComputedStyle(gridEl).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
-      function fold() {
-        if (open) return;
-        const n = cols();
-        // Only phones. At four columns or more the section is ~2.4 screens and
-        // reads fine whole — folding there would put a button in front of ten
-        // tiles for no gain, and the library's SIZE is the pitch.
-        const keep = n <= 3 ? Math.max(n * ROWS, n * 2) : cards.length;
-        const hiding = cards.length - keep;
-        cards.forEach((c, i) => {
-          // `data-fold` rather than `hidden`: `.gcard` is a display:block anchor
-          // and a future `display:` on it would beat the UA `[hidden]` rule
-          // silently — the exact trap the game's health board hit.
-          if (i >= keep) c.setAttribute("data-fold", "");
-          else c.removeAttribute("data-fold");
-          // A folded tile must leave the tab order too, or a keyboard reader
-          // walks 28 invisible links.
-          c.tabIndex = i >= keep ? -1 : 0;
-        });
-        moreBtn.hidden = hiding <= 0;
-        moreBtn.textContent = "شوف كل الفئات (" + ar(cards.length) + ") ↓";
-      }
-      moreBtn.addEventListener("click", () => {
-        const first = cards.findIndex(c => c.hasAttribute("data-fold"));
-        open = true;
-        cards.forEach(c => { c.removeAttribute("data-fold"); c.tabIndex = 0; });
-        moreBtn.setAttribute("aria-expanded", "true");
-        moreBtn.hidden = true;
-        // Land the reader on the first tile that just appeared, not back at the
-        // top of the section.
-        if (first >= 0) cards[first].focus({ preventScroll: true });
-      });
-      fold();
-      addEventListener("resize", fold);
-    }
   }
 
   /* ── phones: gentle tilt toward the pointer ─────────────── */

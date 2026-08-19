@@ -4,10 +4,19 @@
 // asked for the effect in a reference clip instead: the covers laid along ONE
 // diagonal axis receding into the screen, near and large at one end, small and
 // far at the other, every card turned by the same angle so the row reads as a
-// fanned-out deck. Pressing a card shows that category's description, brings it
-// toward the reader, and pushes the rest back.
+// fanned-out deck. The CENTRE card is the near, large one and its description
+// sits under it — at rest, with nothing pressed. Pressing another cover brings
+// that one to the centre, and the copy follows.
 //
-// Three things here are load-bearing and easy to break silently:
+// ⚠️ THE COPY IS NOT BEHIND A GESTURE. This used to open on the hint «اضغط
+// الفئة لعرض وصفها» and reveal a description only on a press, so a reader who
+// swept the whole rail without pressing saw forty names and no idea what any of
+// them held. The owner's correction — *"the description under the center
+// category… the center category should be the bigger one without having to
+// press it"* — is the contract now. A press moves the centre; it does not
+// reveal, and pressing the front card does nothing at all.
+//
+// Three more things here are load-bearing and easy to break silently:
 //
 // ⚠️ THE SCENE MUST STAY 3D. `perspective` belongs on the rail and
 // `transform-style: preserve-3d` on the cards. Put perspective on an ancestor
@@ -88,9 +97,21 @@ const geom = page => page.evaluate(() => {
     // ordered by index so a monotonic walk is meaningful
     laid: on.map(c => ({ i: cards.indexOf(c), x: num(c, "--x"), y: num(c, "--y"), z: num(c, "--z") }))
           .sort((a, b) => a.i - b.i),
-    picked: document.getElementById("cats").classList.contains("is-picked"),
+    // ⚠️ Read the description as RENDERED TEXT with a real box, not as a
+    // `visibility` value. It used to be revealed by a press, so the old test
+    // watched `visibility` flip — and a panel that is `visible` while empty,
+    // or laid out to zero height, would satisfy that happily.
+    desc: document.getElementById("cdDesc").textContent.trim(),
+    descBox: Math.round(document.getElementById("cdDesc").getBoundingClientRect().height),
+    // …and `visibility` on top of the box, because a hidden element keeps its
+    // height. That is precisely how the old press-to-reveal worked, so it is
+    // the shape this most plausibly regresses into.
     descVis: getComputedStyle(document.getElementById("cdDesc")).visibility,
-    hintVis: getComputedStyle(document.getElementById("cdHint")).visibility,
+    descOpacity: +getComputedStyle(document.getElementById("cdDesc")).opacity,
+    scale: (() => {
+      const a = rail.querySelector(".c3.is-active");
+      return a ? +(a.style.getPropertyValue("--s") || 1) : 0;
+    })(),
     name: document.getElementById("cdName").textContent.trim(),
     playHref: document.getElementById("cdPlay").getAttribute("href") || "",
   };
@@ -168,10 +189,46 @@ try {
     // ever reached the rest of the page.
     check(`${name}: only the active card is a tab stop`, g0.tabbable === 1, `${g0.tabbable} tabbable`);
 
-    // Before a press: a hint, no description. The press is not discoverable on
-    // a phone otherwise — there is no hover to reveal it.
-    check(`${name}: it opens with a hint, not a description`,
-      !g0.picked && g0.descVis === "hidden" && g0.hintVis === "visible");
+    /* ── the centre card, before anything is pressed ──────────────────
+       ⚠️ THIS REPLACES A PRESS-TO-REVEAL CONTRACT, and the reason is worth
+       keeping. The panel used to open on the hint «اضغط الفئة لعرض وصفها» and
+       show a description only once a card had been pressed — so a reader who
+       scrolled through the whole rail without pressing anything learned the
+       NAME of forty categories and what none of them contained. The owner's
+       words: *"the scroller should have the description under the center
+       category. the center category should be the bigger one without having to
+       press it."*
+       So the centre card is the near, large one at rest, and its description is
+       under it at rest. Do not put either behind a gesture again. */
+    check(`${name}: the centre card's description is there before anything is pressed`,
+      g0.desc.length > 10 && g0.descBox > 0 && g0.descVis === "visible" && g0.descOpacity > 0.9,
+      `${g0.descBox}px, ${g0.descVis}, «${g0.desc.slice(0, 34)}…»`);
+    check(`${name}: and it is the centre card's own name above it`,
+      g0.name.length > 0 && g0.playHref.includes("#g="), g0.name);
+    // The other half of the same request: bigger WITHOUT a press. Both the pop
+    // and the forward step, because either alone reads as an accident.
+    const z0 = g0.laid.find(c => c.i === g0.active).z;
+    check(`${name}: the centre card is already the large one`, g0.scale > 1.02,
+      `scale ${g0.scale}`);
+    /* ⚠️ "The centre is the nearest card" is NOT the claim, and asserting it
+       proves nothing: the fan already recedes by a fixed step per card, so the
+       centre comes out in front whether or not it is given its forward bump.
+       Verified — removing the bump entirely leaves that check green. The claim
+       is that it STANDS OUT OF the deck, so compare the gap it opens against
+       the gap between two ordinary neighbours behind it. */
+    const zs = g0.laid.slice().sort((a, b) => a.i - b.i).map(c => c.z);
+    const ai = g0.laid.findIndex(c => c.i === g0.active);
+    const frontGap = Math.abs(zs[ai] - zs[ai + 1]);
+    const deckGap = Math.abs(zs[ai + 1] - zs[ai + 2]);
+    check(`${name}: and it stands out of the deck rather than merely leading it`,
+      zs[ai] > zs[ai + 1] && frontGap > deckGap * 1.4,
+      `front gap ${Math.round(frontGap)}px vs deck gap ${Math.round(deckGap)}px`);
+    // The hint is gone with the state it explained; a stray copy of it left in
+    // the markup would tell a reader to press for something already on screen.
+    const noHint = await page.evaluate(() =>
+      !document.getElementById("cdHint") && !document.querySelector(".sc-hint")
+      && !document.body.textContent.includes("اضغط الفئة لعرض وصفها"));
+    check(`${name}: no leftover "press to see the description" hint`, noHint);
 
     /* ── pressing a card ─────────────────────────────────────────────
        ⚠️ With a REAL pointer, never `el.click()`. Two shipped bugs hid behind
@@ -186,46 +243,52 @@ try {
        of the PROJECTED quad — bigger than the card, and on a short landscape
        rail its centre lands on empty stage. Hit-test for a point that really
        resolves to the card, exactly as the game's turn-pill test has to. */
-    const tapCard = async () => {
-      const box = await page.evaluate(() => {
-        const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
-        const act = on.findIndex(c => c.classList.contains("is-active"));
-        // The neighbour if it is reachable, else the active card — on a narrow
-        // rail the neighbours are mostly behind the front card, and a reader
-        // drags one forward before pressing it.
-        for (const el of [on[act + 1], on[act]]) {
-          if (!el) continue;
-          const r = el.getBoundingClientRect();
-          for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.4, 0.6]) {
-            const x = r.left + r.width * fx, y = r.top + r.height * fy;
-            if (y < 4 || y > innerHeight - 4 || x < 4 || x > innerWidth - 4) continue;
-            const hit = document.elementFromPoint(x, y);
-            if (hit && hit.closest && hit.closest(".c3") === el) return { x, y };
-          }
+    const tapNeighbour = async () => page.evaluate(() => {
+      const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+      const act = on.findIndex(c => c.classList.contains("is-active"));
+      // A card that is NOT already the centre one — pressing the centre card is
+      // now a no-op by design, so tapping it would prove nothing.
+      for (const el of [on[act + 1], on[act + 2], on[act - 1]]) {
+        if (!el || el.classList.contains("is-active")) continue;
+        const r = el.getBoundingClientRect();
+        for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.4, 0.6]) {
+          const x = r.left + r.width * fx, y = r.top + r.height * fy;
+          if (y < 4 || y > innerHeight - 4 || x < 4 || x > innerWidth - 4) continue;
+          const hit = document.elementFromPoint(x, y);
+          if (hit && hit.closest && hit.closest(".c3") === el)
+            return { x, y, label: el.getAttribute("aria-label") || "" };
         }
-        return null;
-      });
-      if (!box) return false;
-      await page.mouse.move(box.x, box.y);
-      await page.mouse.down();
-      await page.mouse.up();
-      return true;
-    };
-    check(`${name}: a card is reachable by a real tap`, await tapCard());
+      }
+      return null;
+    });
+    const target = await tapNeighbour();
+    check(`${name}: a card behind the front one is reachable by a real tap`, !!target,
+      target ? target.label.slice(0, 24) : "none hit-testable");
+    if (target) { await page.mouse.move(target.x, target.y); await page.mouse.down(); await page.mouse.up(); }
     await page.waitForTimeout(700);
     const g1 = await geom(page);
 
-    check(`${name}: pressing a card reveals its description`,
-      g1.picked && g1.descVis === "visible" && g1.hintVis === "hidden");
-    check(`${name}: the description belongs to the card that was pressed`,
-      g1.name.length > 0 && g1.playHref.includes("#g="), g1.name);
+    // Pressing a cover BRINGS IT TO THE CENTRE. That is the whole meaning of a
+    // press now: the description follows the centre card, so moving the centre
+    // is how a reader reads a different one.
+    check(`${name}: pressing a cover brings it to the centre`,
+      g1.active !== g0.active && (!target || target.label.startsWith(g1.name)),
+      `${g0.name} → ${g1.name}`);
+    check(`${name}: and the copy under it follows`,
+      g1.desc.length > 10 && g1.desc !== g0.desc && g1.playHref.includes("#g="),
+      g1.desc.slice(0, 34));
     // The two halves of the requested motion. Moving one card forward on its
     // own reads as a rendering glitch; pushing the rest back on its own reads
     // as the whole rail retreating. Both, or neither.
     const zAct = g1.laid.find(c => c.i === g1.active).z;
     const others = g1.laid.filter(c => c.i !== g1.active);
-    check(`${name}: the chosen cover steps forward`, zAct > Math.max(...before),
-      `z ${zAct} vs ${Math.max(...before)} before`);
+    /* ⚠️ Measure THAT card's own depth before and after, not the front of the
+       rail before and after. The front is always at the same depth now that the
+       centre is forward at rest, so `zAct > max(before)` compares 190 with 190
+       and passes on any build — including one where pressing does nothing. */
+    const zWas = (g0.laid.find(c => c.i === g1.active) || { z: -1e9 }).z;
+    check(`${name}: the chosen cover steps forward`, zAct > zWas,
+      `z ${zWas} → ${zAct}`);
     check(`${name}: the rest step back`,
       others.every(c => c.z < -Math.abs(c.i - g1.active) * 50), `${others.length} cards`);
 
@@ -244,8 +307,9 @@ try {
     check(`${name}: the chosen cover leaves room above the copy`,
       clear.gap >= 12, `gap ${clear.gap}px (card ends ${clear.cardBottom}, name starts ${clear.nameTop})`);
 
-    // Pressing the forward card again puts it back — the copy is dismissable
-    // without hunting for a close button.
+    /* Pressing the front card is now a NO-OP, and that is the point: there is
+       nothing to dismiss, so a second press must not empty the panel or throw
+       the reader back to a hint. It used to toggle. */
     const act = await page.evaluate(() => {
       const el = document.querySelector(".c3.is-active"), r = el.getBoundingClientRect();
       for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.4, 0.6]) {
@@ -260,8 +324,8 @@ try {
     if (act) { await page.mouse.move(act.x, act.y); await page.mouse.down(); await page.mouse.up(); }
     await page.waitForTimeout(600);
     const g2 = await geom(page);
-    check(`${name}: pressing it again dismisses the description`,
-      !g2.picked && g2.descVis === "hidden");
+    check(`${name}: pressing the front card changes nothing`,
+      g2.active === g1.active && g2.desc === g1.desc && g2.descBox > 0, g2.name);
 
     /* ── the section's cost ──────────────────────────────────────── */
     const cost = await page.evaluate(() =>
@@ -281,13 +345,18 @@ try {
     const mode = await page.evaluate(() => ({
       noPin: document.getElementById("cats").classList.contains("no-pin"),
       stage: getComputedStyle(document.getElementById("catStage")).position,
-      hint: document.getElementById("cdHint").textContent.trim(),
+      // The rail's own accessible name is the only place the gesture is still
+      // described, now that the visible hint is gone.
+      label: document.getElementById("catRail").getAttribute("aria-label") || "",
     }));
     check(`${name}: ${phone ? "touch is NOT pinned" : "a mouse gets the pinned sweep"}`,
       phone ? (mode.noPin && mode.stage === "static") : (!mode.noPin && mode.stage === "sticky"),
       `${mode.stage}${mode.noPin ? ", no-pin" : ""}`);
-    check(`${name}: the hint names a gesture that works here`,
-      phone ? mode.hint.includes("اسحب") : !mode.hint.includes("اسحب"), mode.hint);
+    // ⚠️ It must not promise a description behind a press any more — that is
+    // exactly the instruction the sighted hint used to carry, and a screen
+    // reader following it would press and hear nothing new.
+    check(`${name}: the rail describes a gesture that works, and not a press-to-reveal`,
+      mode.label.includes("اسحب") && !mode.label.includes("وصفها"), mode.label);
 
     if (phone) {
       const gone = await page.evaluate(() => {
@@ -425,17 +494,19 @@ try {
   await page.mouse.move(card.x, card.y);
   await page.mouse.down(); await page.mouse.up();
   await page.waitForTimeout(400);
-  const tapped = await page.evaluate(() => document.getElementById("cats").classList.contains("is-picked"));
-  check("a real tap opens the description", tapped);
   const stillSweeps = await page.evaluate(async (top) => {
     window.scrollTo(0, top + innerHeight * 0.5);
     await new Promise(r => setTimeout(r, 400));
     return { i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")),
-             picked: document.getElementById("cats").classList.contains("is-picked") };
+             desc: document.getElementById("cdDesc").textContent.trim() };
   }, afterTap.top);
   check("page scroll still sweeps the rail after a tap", stillSweeps.i > afterTap.i,
     `${afterTap.i} → ${stillSweeps.i}`);
-  check("and scrolling on puts the description away", !stillSweeps.picked);
+  // The panel keeps up with the sweep. It follows the CENTRE card, so a rail
+  // that has moved on while the copy still describes the card the reader
+  // tapped is worse than no copy at all.
+  check("and the copy keeps up with the sweep rather than sticking",
+    stillSweeps.desc.length > 10, stillSweeps.desc.slice(0, 34));
 
   // A real DRAG, by contrast, does take the wheel — and must not be mistaken
   // for a press on whichever card the finger lifted over.
@@ -458,11 +529,15 @@ try {
   await page.mouse.move(drag.x, drag.y);
   await page.mouse.down();
   for (let k = 1; k <= 8; k++) { await page.mouse.move(drag.x - k * 30, drag.y); await page.waitForTimeout(40); }
+  // Where the drag had got to at the moment the finger lifted. Read BEFORE the
+  // release, because the whole question below is whether the release changes it.
+  const midDrag = await page.evaluate(() =>
+    [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")));
   await page.mouse.up();
   await page.waitForTimeout(500);
   const dragged = await page.evaluate(() => ({
     i: [...document.querySelectorAll(".c3")].indexOf(document.querySelector(".c3.is-active")),
-    picked: document.getElementById("cats").classList.contains("is-picked"),
+    desc: document.getElementById("cdDesc").textContent.trim(),
   }));
   /* ⚠️ Assert the drag moves PROPORTIONALLY, not merely that it moved. A cover
      is an <img>, and images are draggable by default: a mouse drag started a
@@ -472,7 +547,17 @@ try {
      feeling completely broken. 240px at 46px per card is five. */
   check("a real drag moves the rail by the distance dragged",
     Math.abs(dragged.i - drag.i) >= 3, `${drag.i} → ${dragged.i}`);
-  check("a drag is not mistaken for a press", !dragged.picked);
+  /* ⚠️ And the RELEASE must not be read as a press. A press centres whatever
+     was pressed, so a drag whose lift-off also fired the card's click handler
+     would snap the rail onto whichever cover the pointer happened to be over —
+     undoing part of the drag, at a distance that depends on where the finger
+     stopped. Asserting "the release changed nothing" catches that whatever the
+     geometry, where comparing against a predicted index would only pin today's
+     `DRAG_PX`. */
+  check("a drag is not mistaken for a press", dragged.i === midDrag,
+    `${midDrag} at lift-off → ${dragged.i} after`);
+  check("and the copy under the rail followed the drag", dragged.desc.length > 10,
+    dragged.desc.slice(0, 34));
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
