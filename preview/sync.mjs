@@ -121,7 +121,18 @@ const SAMPLE_SKIP = new Set([
   "pub-1783170084646-5700", "pub-1784043823835-6035",                 // photo/video prompts
   "emojis", "pub-1784240484235-8039", "sayAnother",                   // the prompt is the media
 ]);
-const SAMPLE_WANT = ["pub-1783453062866-1028", "history", "geo", "culture", "science", "cars"];
+/* One taster is shown per DAY, so this list is also the length of the cycle
+   before a returning visitor sees a repeat. Ordered so consecutive days are
+   from different corners of the catalogue — an Omani one, then general, then
+   pop culture — rather than three history questions in a row. Categories whose
+   question is a picture or a QR are skipped by the filter below, so listing one
+   costs nothing but buys nothing either. */
+const SAMPLE_WANT = [
+  "pub-1783453062866-1028", "history", "pub-1784486305049-7855", "geo",
+  "pub-1785323313470-2876", "science", "khareef", "culture",
+  "pub-1784571861226-6942", "cars", "omaniFootball", "seerah",
+  "footballMix", "whoAmI", "foreignSeries", "pub-1783510423551-6465",
+];
 const samples = [];
 for (const id of SAMPLE_WANT) {
   if (SAMPLE_SKIP.has(id)) continue;
@@ -133,10 +144,46 @@ for (const id of SAMPLE_WANT) {
   const q = new URLSearchParams({ key: KEY });
   q.append("mask.fieldPaths", "questions");
   let doc;
+  // ⚠️ Say so. A silent `continue` here quietly shortens the daily rotation and
+  // looks identical to a category that simply had no usable question.
   try { doc = await get(`${ROOT}/categories/${encodeURIComponent(id)}?${q}`); }
-  catch (e) { continue; }
+  catch (e) { process.stderr.write(`  taster: ${id} doc failed — ${e.message}\n`); continue; }
+  /* ⚠️ Which questions have a PICTURE cannot be read from the parent doc.
+     Question media lives in the `/questions` subcollection — the parent's copy
+     is text-only by design (the media-lite boot path) — so `f.image` here is
+     empty even for a question whose whole subject is a photograph. Without
+     this, «ما اسم هذه الشخصية؟» qualified as a fine text question and would
+     have been served to a visitor with nothing to look at. */
+  const withMedia = new Set();
+  try {
+    const mq = new URLSearchParams({ key: KEY, pageSize: "300" });
+    // ⚠️ `image` only, NOT `answerImage`. The taster shows the question and its
+    // four choices and never reveals the answer's picture, so a question with an
+    // answer photo reads perfectly as text. Excluding those took the rotation
+    // from fifteen days to seven and dropped تاريخ, علوم and سيارات entirely.
+    ["idx", "image"].forEach(f => mq.append("mask.fieldPaths", f));
+    let tok = null;
+    do {
+      if (tok) mq.set("pageToken", tok);
+      const md = await get(`${ROOT}/categories/${encodeURIComponent(id)}/questions?${mq}`);
+      for (const d of (md.documents || [])) {
+        const f = d.fields || {};
+        if ((f.image || {}).stringValue)
+          withMedia.add(Number((f.idx || {}).integerValue ?? -1));
+      }
+      tok = md.nextPageToken;
+    } while (tok);
+  } catch (e) {
+    // Falling through means media cannot be detected for this category, and a
+    // picture question would be served as a bare sentence — skip it instead.
+    process.stderr.write(`  taster: ${id} media read failed — ${e.message}\n`);
+    continue;
+  }
+
   const list = (((doc.fields || {}).questions || {}).arrayValue || {}).values || [];
-  for (const v of list) {
+  for (let n = 0; n < list.length; n++) {
+    const v = list[n];
+    if (withMedia.has(n)) continue;
     const f = (v.mapValue || {}).fields || {};
     const text = (f.q || {}).stringValue || "", answer = (f.a || {}).stringValue || "";
     const wrong = (((f.distractors || {}).arrayValue || {}).values || [])
@@ -149,6 +196,8 @@ for (const id of SAMPLE_WANT) {
                    points: Number((f.points || {}).integerValue || 0) });
     break;                                             // one per category
   }
+  if (!samples.some(x => x.cat === cat.name))
+    process.stderr.write(`  taster: ${cat.name} had no text-only question with 3 distractors\n`);
 }
 process.stderr.write(`\n  ${samples.length} taster questions\n`);
 
