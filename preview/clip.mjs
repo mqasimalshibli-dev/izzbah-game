@@ -45,10 +45,17 @@ const OUT = join(ROOT, "preview", "shots");
 const TMP = join(ROOT, "preview", ".cliptmp");
 const PORT = 8615;
 
-/* The device frame on the page is 1150×550. The game is laid out at 900×430 so
-   the clip matches the stills beside it — a different viewport is a different
-   set of clamp() values and the two would not look like the same game. */
-const CSS = { width: 900, height: 430 };
+/* ⚠️ THE VIEWPORT AND THE RECORDING MUST BE THE SAME SIZE, and that size is the
+   device frame the page draws: 1150×550.
+   Playwright's `recordVideo.size` only ever scales a page DOWN to fit. A 900×430
+   viewport asked to record at 1150×550 is therefore placed at 1:1 and PADDED —
+   the first version of this clip sat in the middle of the hero filling about 78%
+   of the frame each way with grey margins all round it, which is what the owner
+   saw. Matching them is also the sharper answer: nothing is resampled at any
+   stage.
+   The stills are still captured at 900×430; the aspect matches to within a
+   thousandth (2.093 vs 2.091), so the clip and the stills read as one game. */
+const CSS = { width: 1150, height: 550 };
 const VIDEO = { width: 1150, height: 550 };
 
 /* One scene, deliberately the Omani shelf: it is the library's real
@@ -331,7 +338,9 @@ const mp4 = join(OUT, "turn.mp4"), webm = join(OUT, "turn.webm");
    duration they disagree about — which shows up as a loop that stutters. */
 const common = ["-y", "-i", raw, "-ss", start.toFixed(3), "-t", endedAt.toFixed(3),
                 "-an", "-vsync", "cfr", "-r", "25",
-                "-vf", `scale=${VIDEO.width}:${VIDEO.height}:flags=lanczos`];
+                // No scale filter: the capture is already the target size,
+                // and a lanczos pass over identical dimensions only softens it.
+                ];
 sh("ffmpeg", [...common, "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
               "-crf", "27", "-preset", "slow", "-movflags", "+faststart", mp4]);
 sh("ffmpeg", [...common, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "42",
