@@ -934,6 +934,83 @@ Single self-contained page, same palette and type system as the game. Marked
   green-lit the bad version fitted both files with `contain`, which is not how
   the page draws them, so it showed an improvement that did not exist on
   screen. Emulate `object-fit: cover` into the true device-pixel box.
+- **The showcase is a 3D RAIL, and the CENTRE card describes itself
+  (2026-08-19).** The scroll-snap track was replaced by a fanned deck along one
+  diagonal — `perspective` on `.cat-rail`, `preserve-3d` on the `.c3` cards,
+  each placed from ONE number (`d`, its signed distance from the active index).
+  ⚠️ **Nothing is behind a press.** It first shipped opening on the hint «اضغط
+  الفئة لعرض وصفها», revealing a description only once a cover was pressed — so
+  a reader who swept forty categories without pressing learned forty NAMES and
+  nothing else. The owner's correction is the contract: the centre card is the
+  near, larger one and its description is under it, both at rest. A press means
+  "bring this cover to the centre"; pressing the FRONT card does nothing.
+  ⚠️ Two assertions about this have a vacuous form that passes on any build, and
+  `tests/showcase.mjs` was corrected for both — verified by sabotage:
+  "the chosen cover steps forward" must compare THAT card's own depth across the
+  press (the front of the rail is at the same depth either way now), and "the
+  centre is the nearest card" is true from the fan's own falloff even with the
+  forward bump deleted — measure the gap it opens against an ordinary gap.
+  ⚠️ Desktop and touch take different paths: `(hover:hover) and (pointer:fine)`
+  gets the pinned scroll sweep, a thumb gets an ordinary block it can scroll
+  past and swipes the rail instead. A flick means "take me past this".
+  ⚠️ Do NOT `setPointerCapture` on the rail — it retargets the subsequent
+  `click` to the rail, so pressing a cover silently does nothing, and `el.click()`
+  in a test sails past the whole failure. Press with a real pointer.
+  ⚠️ Covers are `<img>`, which are draggable by default: a mouse drag fired
+  `pointercancel` after the FIRST move and the rail advanced exactly one card
+  for a drag of any length. `-webkit-user-drag:none` + `draggable=false`.
+  ⚠️ `layout()` must clear `is-active` BEFORE its early return for cards outside
+  the window, or a far jump leaves the gold ring on a distant cover and
+  `querySelector(".c3.is-active")` returns the stale one.
+
+- **«كل الفئات» shows all 40 — the fold is GONE (2026-08-19).** It briefly
+  opened at six rows behind «شوف كل الفئات (٤٠)». The owner: *"the display all
+  categories button is useless as the full categories are there."* The section
+  IS long on a phone (≈5000px) and that is the accepted trade — the SIZE of the
+  library is the pitch, and it sits last before the footer where scrolling past
+  costs nothing. Do not put it back. `tests/allcats.mjs` fails on either trace
+  the fold left (a `.more` button, or a `[data-fold]` tile).
+
+- **The privacy policy and terms are a REAL PAGE, generated (2026-08-19).**
+  `preview/legal.html`, built by `node preview/legal.mjs` from the `.legal-doc`
+  blocks in the game's `index.html`; `--check` fails if it is out of date and CI
+  runs it. The footer used to link both to `../` with a title saying they open
+  inside the game — not readable before installing, and not a URL a store can be
+  given. ⚠️ NEVER hand-edit `legal.html`: two copies of a privacy policy drift,
+  and then one of them is a false statement about a player's data.
+  ⚠️ It uses the FULL faces in `assets/fonts/`, not `preview/fonts/` — those are
+  subset to the 59 Arabic codepoints the landing page uses and the legal text
+  needs four more (ٌ ٍ َ ←), which would render as .notdef boxes. Any new copy in
+  a new script needs the same check; `tests/legalpage.mjs` width-probes every
+  distinct character against U+FFFF.
+  ⚠️ The game shows ONE of two payment paragraphs by build (`.legal-web-only` /
+  `.legal-store-only`). The site publishes BOTH, each under a heading naming
+  which purchase it describes; the generator throws rather than emitting one
+  unlabelled.
+
+- **ONE router into the game — `STORE` in `preview/index.html` (2026-08-19).**
+  Owner: *"the site only way to take to the game is to the store correspondent
+  to the users phone or to the users game if its downloaded."*
+  ⚠️ **NEITHER STORE LISTING EXISTS YET**, so shipping that literally would make
+  every button a 404. The two URLs are one constant, empty today, and while a
+  slot is empty that platform falls back to the web game. Filling one in
+  switches every button, all forty category tiles and that platform's badge at
+  once — there is deliberately nowhere else to change.
+  - iPhone → App Store, Android → Play, desktop → the web build (a phone app is
+    not for a laptop). ⚠️ iPadOS 13+ reports itself as a Mac, so the
+    `maxTouchPoints > 1` probe is not optional or every iPad takes the desktop
+    path.
+  - "their own copy if it is downloaded" is mostly the OS's job — a universal /
+    app link opens an installed app by itself and nothing can be asked about it.
+    `getInstalledRelatedApps()` (Android Chrome only) answers for the PWA; it
+    resolves late and may reject, so it must never gate a route.
+  - ⚠️ **The COPY moves with the route.** The hero promises «بدون حساب ولا
+    تنزيل», true of the web fallback and false the moment a store is the only
+    way in. Each affected line carries its store wording in `data-store-text`,
+    swapped by the same function that sets the hrefs. `tests/storeroute.mjs`
+    fails if that promise survives a store route — and if it is swapped away on
+    desktop, where the route did not change.
+
 - **The showcase is a PINNED, BOUNDED scroll carousel (2026-08-08).** It was
   scroll-driven with `sec.style.height = CATS.length * 34 + "svh"` — 1360svh at
   40 categories, i.e. fourteen screens of showcase before the rest of the page.
@@ -998,6 +1075,12 @@ Single self-contained page, same palette and type system as the game. Marked
      players see. Don't set it.
   Question images live only in the CLOUD copy of a question, so a question
   screenshot taken offline has no photo.
+  ⚠️ **No Pillow in CI.** `tests/gameshots.mjs` measured colour spread through
+  `python3 -c "from PIL import …"`; a GitHub runner has no Pillow, so the step
+  crashed on import and was red on every push while passing locally. It measures
+  in Chromium now (canvas + `getImageData`), which the test already launches.
+  Before adding any shell-out to a test, check the runner has it — and read CI
+  rather than your own terminal.
 - Type system is the game's, verbatim: Cairo for all text, Lalezar for display
   numbers only, Aref Ruqaa for the عِزبة wordmark only. The faces are
   SELF-HOSTED in `preview/fonts/`, subset to the glyphs the page uses (212 KB,
