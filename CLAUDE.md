@@ -1122,12 +1122,17 @@ Single self-contained page, same palette and type system as the game. Marked
      players see. Don't set it.
   Question images live only in the CLOUD copy of a question, so a question
   screenshot taken offline has no photo.
-  ⚠️ **No Pillow in CI.** `tests/gameshots.mjs` measured colour spread through
-  `python3 -c "from PIL import …"`; a GitHub runner has no Pillow, so the step
-  crashed on import and was red on every push while passing locally. It measures
-  in Chromium now (canvas + `getImageData`), which the test already launches.
-  Before adding any shell-out to a test, check the runner has it — and read CI
-  rather than your own terminal.
+  ⚠️ **A GitHub runner has NO Pillow and NO ffmpeg/ffprobe**, and this repo has
+  now been bitten by both, one commit apart. `tests/gameshots.mjs` measured
+  colour spread through `python3 -c "from PIL import …"`; `tests/heroclip.mjs`
+  read the clip's codec and duration through `ffprobe`. Each crashed on the
+  runner and was red on every push while passing locally. Both measure without
+  the dependency now — canvas + `getImageData` for the pixels, a byte-scan of
+  the container header (`avc1`, `V_VP9`, `mp4a`, `A_OPUS`) plus the browser's own
+  `duration`/`videoWidth` for the clip. A TEST may use only node_modules, the
+  browser, `node`, `git` and `python3` itself; an AUTHORING script under
+  `preview/` or `tools/` may use anything, because it never runs in CI. And read
+  CI, not your own terminal.
 - Type system is the game's, verbatim: Cairo for all text, Lalezar for display
   numbers only, Aref Ruqaa for the عِزبة wordmark only. The faces are
   SELF-HOSTED in `preview/fonts/`, subset to the glyphs the page uses (212 KB,
