@@ -595,6 +595,57 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .plans-note b{color:var(--cream)}
 
 /* ── quotes ───────────────────────────────────────────────── */
+/* The quotes section was REMOVED before release: it was three placeholders that
+   showed their own authoring instructions to visitors («ضع هنا رأياً حقيقياً من
+   لاعب»). The styles stay because real quotes are still wanted — the markup is
+   in git at 0360d3c — and because the alternative on offer was inventing
+   reviews, which is not on offer at all.
+   ⚠️ Whatever goes back here must be a real quote, used with permission. */
+/* ── the taster: one real question, playable ───────────────────────────
+   The strongest thing a page like this can do is stop describing the game and
+   let someone play a turn of it. The question, its four choices and its points
+   all come from `preview/data.js`, which comes from Firestore — nothing here is
+   written by hand, so the taste cannot drift from the product. */
+.try-card{max-width:720px; margin-inline:auto; padding:clamp(20px,3vw,32px);
+  border-radius:24px; border:1px solid var(--rule); background:rgba(255,255,255,.04);
+  box-shadow:var(--shadow)}
+.try-top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px}
+.try-cat{font:800 12.5px var(--body); color:var(--cream); padding:6px 14px; border-radius:999px;
+  border:1px solid var(--rule); background:rgba(255,255,255,.05)}
+.try-pts{font:400 15px var(--num); color:var(--gold)}
+.try-q{font:800 clamp(18px,2.4vw,26px)/1.45 var(--body); color:var(--cream); margin-bottom:18px}
+.try-choices{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:10px}
+.try-choice{min-height:52px; padding:12px 16px; border-radius:14px; cursor:pointer; text-align:start;
+  font:700 15px var(--body); color:var(--cream); border:1px solid var(--rule);
+  background:rgba(255,255,255,.05); transition:background .2s, border-color .2s, transform .12s}
+.try-choice:hover:not(:disabled){border-color:var(--gold); transform:translateY(-1px)}
+.try-choice:disabled{cursor:default}
+/* Right and wrong are not carried by colour alone — a mark goes with each, so
+   the result survives a colour-blind reader and a greyscale screenshot. */
+.try-choice.right{background:rgba(60,140,90,.22); border-color:#5fbf88; color:#dff6e6}
+.try-choice.wrong{background:rgba(160,40,48,.22); border-color:#d2646c; color:#ffdfe1}
+.try-choice .mark{float:inline-end; font-weight:900}
+.try-after{margin-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.try-verdict{flex:1 1 220px; font:700 15px var(--body); color:var(--muted); margin:0}
+.try-next{min-height:44px; padding:10px 18px; border-radius:999px; cursor:pointer;
+  font:800 13.5px var(--body); color:var(--cream);
+  border:1px solid var(--rule); background:rgba(255,255,255,.05)}
+.try-next:hover{border-color:var(--gold); color:var(--gold)}
+
+/* ── the free game, said once and loudly ──────────────────────────────
+   It was a stat and a line in the pricing table. It is the entire gateway: a
+   visitor who plays a full game is a different person from one who read about
+   one, and `canStartNewGame()` really does let them — no account, no download,
+   no payment. Claim it where it is seen. */
+.free-badge{display:inline-flex; align-items:center; gap:10px; margin-bottom:16px;
+  padding:9px 16px 9px 12px; border-radius:999px;
+  border:1px solid rgba(231,195,115,.45); background:rgba(231,195,115,.10)}
+.free-badge i{font-style:normal; font-size:15px}
+.free-badge b{font:900 14px var(--body); color:var(--gold-hi)}
+.free-badge span{font:700 12.5px var(--body); color:var(--muted)}
+@media(max-width:520px){.free-badge{gap:7px; padding:8px 13px}
+  .free-badge b{font-size:13px} .free-badge span{font-size:11.5px}}
+
 .quotes{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr)); gap:18px}
 .quote{padding:28px 26px; border-radius:20px; border:1px solid var(--rule);
   background:linear-gradient(165deg, rgba(255,255,255,.05), rgba(255,255,255,.012)); font-size:15.5px;
@@ -730,8 +781,9 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
           فئات عمانية أصيلة، تمثيل صامت، إيموجي، وألغاز —
           وتقدرون تسوّون فئاتكم بأسئلتكم أنتم.
         </p>
+        <div class="free-badge rv" data-d="3"><i>🎁</i><b>لعبة كاملة مجاناً</b><span>بدون حساب ولا تنزيل</span></div>
         <div class="cta-row rv" data-d="3">
-          <a class="btn magnetic" href="../">العب الآن — مجاناً</a>
+          <a class="btn magnetic" href="../">العب لعبة كاملة — مجاناً</a>
           <a class="btn ghost magnetic" href="#cats">شوف الفئات</a>
         </div>
         <div class="store-row rv" data-d="4">
@@ -764,6 +816,24 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
           <button type="button" class="dstep" data-i="1"><i></i>جاوبوا</button>
           <button type="button" class="dstep" data-i="2"><i></i>خذوا النقاط</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TRY ONE ──────────────────────────────────────────── -->
+  <section id="try" class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow rv">جرّب بنفسك</div>
+      <h2 class="rv" data-d="1">سؤال حقيقي من اللعبة</h2>
+    </div>
+    <div class="try-card rv" data-d="2" id="tryCard">
+      <div class="try-top"><span class="try-cat" id="tryCat"></span><span class="try-pts" id="tryPts"></span></div>
+      <p class="try-q" id="tryQ"></p>
+      <div class="try-choices" id="tryChoices"></div>
+      <div class="try-after" id="tryAfter" hidden>
+        <p class="try-verdict" id="tryVerdict"></p>
+        <a class="btn magnetic" href="../">كمّل اللعبة — مجاناً</a>
+        <button type="button" class="try-next" id="tryNext">سؤال ثاني ↻</button>
       </div>
     </div>
   </section>
@@ -907,21 +977,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     <p class="plans-note rv" data-d="3"><b>اللعبة الوحدة = لوحة كاملة.</b> تختار فئاتك، وتنخصم لعبة وحدة عند البداية — وبعدها تقدر تعيدها مع ربع ثانين بدون ما تدفع مرة ثانية.</p>
   </section>
 
-  <!-- ── QUOTES ───────────────────────────────────────────── -->
-  <section class="wrap">
-    <div class="sec-head">
-      <div class="eyebrow rv">من اللاعبين</div>
-      <h2 class="rv" data-d="1">الجلسة ما تخلص</h2>
-    </div>
-    <div class="quotes">
-      <div class="quote placeholder rv"><p>ضع هنا رأياً حقيقياً من لاعب — من رسائل «اقتراحاتكم» أو من إنستقرام.</p>
-        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
-      <div class="quote placeholder rv" data-d="1"><p>ضع هنا رأياً حقيقياً ثانياً. لا تستخدم آراء مُختلقة — الأفضل اقتباس فعلي بإذن صاحبه.</p>
-        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
-      <div class="quote placeholder rv" data-d="2"><p>ضع هنا رأياً حقيقياً ثالثاً، ويفضّل يذكر موقفاً محدداً من الجلسة.</p>
-        <div class="who"><i>؟</i><div><b>اسم اللاعب</b><span>المدينة</span></div></div></div>
-    </div>
-  </section>
 
   <!-- ── FAQ ──────────────────────────────────────────────── -->
   <section id="faq" class="wrap">
@@ -1160,6 +1215,67 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   const DATA = window.IZZBAH_DATA || { totals:{categories:0,questions:0,omani:0}, cats:[] };
   const FALLBACK = ["فئة", "فئة جديدة — جرّبوها مع ربعكم."];
   // Every category, factual half from Firestore + editorial half from COPY.
+  /* ⚠️ Placed AFTER `DATA` and `ar` are declared, not with the other UI blocks
+     higher up. Both are `const`, so touching them earlier in the file is a
+     temporal-dead-zone ReferenceError that kills the WHOLE script — the page
+     still renders, and every interactive thing on it silently stops. It cost a
+     build in the game for exactly the same reason. */
+  /* ── the taster: one real question, playable ─────────────
+     Everything shown comes from `preview/data.js`, so it cannot drift from the
+     game. If the sync has not emitted any samples the whole section removes
+     itself rather than sitting there empty — an interactive element with
+     nothing in it reads as broken, and a page with one fewer section does not.
+     ⚠️ Choices are SHUFFLED. They arrive answer-first out of Firestore, and a
+     taster whose first button is always right teaches the visitor the wrong
+     thing about the game and looks rigged the second time they meet it. */
+  (() => {
+    const card = document.getElementById("tryCard");
+    const pool = (DATA.samples || []).filter(s => s && s.q && (s.choices || []).length >= 2);
+    const sec = document.getElementById("try");
+    if (!card || !pool.length) { if (sec) sec.remove(); return; }
+
+    const els = {
+      cat: document.getElementById("tryCat"), pts: document.getElementById("tryPts"),
+      q: document.getElementById("tryQ"), choices: document.getElementById("tryChoices"),
+      after: document.getElementById("tryAfter"), verdict: document.getElementById("tryVerdict"),
+      next: document.getElementById("tryNext"),
+    };
+    let i = Math.floor(Math.random() * pool.length);
+
+    const draw = () => {
+      const s = pool[i % pool.length];
+      els.cat.textContent = s.cat;
+      els.pts.textContent = s.points ? ar(s.points) + " نقطة" : "";
+      els.q.textContent = s.q;
+      els.after.hidden = true;
+      els.choices.innerHTML = "";
+      const order = s.choices.map((c, k) => ({ c, k, r: Math.random() })).sort((a, b) => a.r - b.r);
+      for (const { c } of order) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "try-choice"; b.textContent = c;
+        b.addEventListener("click", () => answer(b, c, s));
+        els.choices.appendChild(b);
+      }
+    };
+
+    const answer = (btn, choice, s) => {
+      const right = choice === s.a;
+      [...els.choices.children].forEach(b => {
+        b.disabled = true;
+        if (b.textContent === s.a) { b.classList.add("right"); b.insertAdjacentHTML("beforeend", '<span class="mark">✓</span>'); }
+        else if (b === btn) { b.classList.add("wrong"); b.insertAdjacentHTML("beforeend", '<span class="mark">✕</span>'); }
+      });
+      els.verdict.textContent = right
+        ? "صحيح! وهذي وحدة من " + ar(DATA.totals.questions) + " سؤال."
+        : "الإجابة: " + s.a + " — وفي " + ar(DATA.totals.questions) + " سؤال غيرها.";
+      els.after.hidden = false;
+    };
+
+    els.next.addEventListener("click", () => { i = (i + 1) % pool.length; draw(); els.q.focus?.(); });
+    draw();
+  })();
+
+
   const CATS = DATA.cats.map(c => {
     const e = COPY[c.id] || FALLBACK;
     return { id:c.id, n:c.name, count:c.n, img:c.big, thumb:c.cover,
