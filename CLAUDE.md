@@ -934,6 +934,53 @@ Single self-contained page, same palette and type system as the game. Marked
   green-lit the bad version fitted both files with `contain`, which is not how
   the page draws them, so it showed an improvement that did not exist on
   screen. Emulate `object-fit: cover` into the true device-pixel box.
+- **The hero PLAYS one real turn (2026-08-19).** `preview/clip.mjs` records the
+  loop a still cannot show — pick a square, read the photo, reveal, take the
+  points — from the real game, and `#heroClip` plays it muted and looping
+  (11.4s, ~230 KB each in webm and mp4). The three «اختاروا خانة / جاوبوا /
+  خذوا النقاط» labels became a scrubber; their cue times are WRITTEN INTO THE
+  PAGE by the recorder (`CLIP_CUES`) from the real choreography.
+  - **The stills stay as poster and fallback.** Reduced motion, a refused
+    autoplay and a 404 all land back on the three-screen slideshow.
+    `tests/heroclip.mjs` exercises all three — none is visible on a working page.
+  - ⚠️ **Measure the FILE, never the clock.** The trim point was computed as
+    `cueTime − pageCreateTime` and was 2.5s out: the video does not begin at
+    `newPage()`. The clip opened on blank cream AND lost its last 2.5s, i.e. the
+    payoff. The recorder covers the page in MAGENTA during setup and finds the
+    last covered frame — a colour the game cannot produce, so it is a test on one
+    pixel and not a judgement call. Find the LAST covered frame, not the first
+    clear one: the recording opens on a blank white page before the cover exists.
+  - ⚠️ **`frozen` pins do nothing here.** Seeding the question through the
+    saved-game record is the obvious route and fails SILENTLY: the scene is
+    seated straight into `state` and `startGame()` is never called, so
+    `activeSavedGameRecord()` is null. The board drew a photo-less question while
+    the console reported the pictured one. The tier's POOL is narrowed instead,
+    and the recorder asserts the question that played is the one it chose.
+  - ⚠️ **mp4 alone is UNVERIFIABLE.** H.264 is proprietary and the open-source
+    Chromium does not ship it, so the test saw `videoWidth 0` on a clip real
+    Chrome plays fine. Both formats, webm first (also the smaller download for
+    Chrome/Firefox); mp4 serves Safari.
+  - ⚠️ **`python3 -m http.server` serves no Range**, so a video is not seekable
+    under it — `currentTime = 8.5` snapped back to 0.5 and the step-button checks
+    failed against a correct page. `tests/heroclip.mjs` runs its own Range-capable
+    server. GitHub Pages serves ranges, so the site was always fine.
+  - The tap ripple is the one thing on the clip that is not the game: Playwright
+    draws no cursor, so without it the board just mutates and nobody learns that
+    a square was TAPPED.
+  - `preview/gamedata.mjs` holds the capture plumbing both `shots.mjs` and
+    `clip.mjs` need — the Firestore reader, the media hydrator, and the four
+    guards (no catalogue → bundled fallback, no fonts → Tahoma, dark theme, no
+    question photos). Do not inline it into a third caller.
+
+- **«آخر تحديث للمحتوى … أحدث فئة …» (2026-08-19).** One quiet line under the
+  counters, from Firestore's own document metadata via `sync.mjs`: `updateTime`
+  (moves on any publish, including one question edit) and `createTime` (the
+  honest answer to "what is new"). ⚠️ Nothing hand-written — a typed date on a
+  marketing page is a lie with a timer on it — and if the sync emits no dates the
+  line REMOVES itself rather than rendering an empty label, which reads as
+  broken. Formatted in `sync.mjs`, not the page: `Intl.DateTimeFormat('ar', …)`
+  is engine-dependent in both month names and digit shape. `tests/freshline.mjs`.
+
 - **The showcase is a 3D RAIL, and the CENTRE card describes itself
   (2026-08-19).** The scroll-snap track was replaced by a fanned deck along one
   diagonal — `perspective` on `.cat-rail`, `preserve-3d` on the `.c3` cards,
