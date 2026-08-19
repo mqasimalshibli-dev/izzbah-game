@@ -12,3 +12,4 @@ package-lock.json
 # Python bytecode from tools/covers.py — regenerated on every run.
 __pycache__/
 *.pyc
+preview/.cliptmp/
