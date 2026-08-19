@@ -627,10 +627,6 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .try-choice .mark{float:inline-end; font-weight:900}
 .try-after{margin-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
 .try-verdict{flex:1 1 220px; font:700 15px var(--body); color:var(--muted); margin:0}
-.try-next{min-height:44px; padding:10px 18px; border-radius:999px; cursor:pointer;
-  font:800 13.5px var(--body); color:var(--cream);
-  border:1px solid var(--rule); background:rgba(255,255,255,.05)}
-.try-next:hover{border-color:var(--gold); color:var(--gold)}
 
 /* ── the free game, said once and loudly ──────────────────────────────
    It was a stat and a line in the pricing table. It is the entire gateway: a
@@ -824,7 +820,8 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   <section id="try" class="wrap">
     <div class="sec-head">
       <div class="eyebrow rv">جرّب بنفسك</div>
-      <h2 class="rv" data-d="1">سؤال حقيقي من اللعبة</h2>
+      <h2 class="rv" data-d="1">سؤال اليوم</h2>
+      <p class="lede rv" data-d="2">سؤال حقيقي من اللعبة، يتغيّر كل يوم.</p>
     </div>
     <div class="try-card rv" data-d="2" id="tryCard">
       <div class="try-top"><span class="try-cat" id="tryCat"></span><span class="try-pts" id="tryPts"></span></div>
@@ -833,7 +830,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="try-after" id="tryAfter" hidden>
         <p class="try-verdict" id="tryVerdict"></p>
         <a class="btn magnetic" href="../">كمّل اللعبة — مجاناً</a>
-        <button type="button" class="try-next" id="tryNext">سؤال ثاني ↻</button>
       </div>
     </div>
   </section>
@@ -1238,9 +1234,23 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       cat: document.getElementById("tryCat"), pts: document.getElementById("tryPts"),
       q: document.getElementById("tryQ"), choices: document.getElementById("tryChoices"),
       after: document.getElementById("tryAfter"), verdict: document.getElementById("tryVerdict"),
-      next: document.getElementById("tryNext"),
     };
-    let i = Math.floor(Math.random() * pool.length);
+    /* ── ONE QUESTION PER DAY ────────────────────────────────────────
+       The taster used to draw at random on every load, which meant reloading
+       the page was a way to shop for an easy one and nobody had a reason to
+       come back. It is now a function of the DATE: everyone sees the same
+       question on the same day, it does not change on reload, and after
+       `pool.length` days it comes round again — which the owner is happy with.
+       ⚠️ The day flips at LOCAL midnight, so the offset is subtracted before
+       the division. Using UTC would roll the question over at 4am in Muscat.
+       ⚠️ Exposed on `window` because that is the only honest way to test a
+       date-dependent choice — the alternative is a test that agrees with the
+       code because it repeats the same arithmetic. */
+    const dayNumber = d => Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
+    const pickFor = d => (((dayNumber(d) % pool.length) + pool.length) % pool.length);
+    window.IZZBAH_TRY = { pool: pool.length, dayNumber, pickFor };
+
+    let i = pickFor(new Date());
 
     const draw = () => {
       const s = pool[i % pool.length];
@@ -1271,7 +1281,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       els.after.hidden = false;
     };
 
-    els.next.addEventListener("click", () => { i = (i + 1) % pool.length; draw(); els.q.focus?.(); });
     draw();
   })();
 

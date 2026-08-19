@@ -99,24 +99,67 @@ try {
     !match || after.verdict.includes(match.a), after.verdict.slice(0, 46));
   check("and the free game is offered right there", after.cta === "../", after.cta);
 
+  /* ── one question per day ──────────────────────────────────────
+     Asked of the page's own chooser rather than recomputed here: a test that
+     repeats the implementation's arithmetic agrees with it by construction and
+     would pass just as happily if both were wrong. */
+  const daily = await page.evaluate(() => {
+    const T = window.IZZBAH_TRY;
+    if (!T) return null;
+    const at = iso => T.pickFor(new Date(iso + "T12:00:00"));
+    const week = [];
+    for (let d = 0; d < 21; d++) {
+      const dt = new Date("2026-08-19T12:00:00");
+      dt.setDate(dt.getDate() + d);
+      week.push(T.pickFor(dt));
+    }
+    return {
+      pool: T.pool,
+      sameDayTwice: at("2026-08-19") === at("2026-08-19"),
+      nextDayDiffers: at("2026-08-19") !== at("2026-08-20"),
+      // midnight is LOCAL: 23:59 and 00:01 must land either side of the flip
+      beforeMidnight: T.pickFor(new Date("2026-08-19T23:59:00")),
+      afterMidnight: T.pickFor(new Date("2026-08-20T00:01:00")),
+      week,
+    };
+  });
+  check("the page exposes its day chooser", !!daily);
+  if (daily) {
+    check("the same date always gives the same question", daily.sameDayTwice);
+    check("the next day gives a different one", daily.nextDayDiffers,
+      `${daily.week[0]} → ${daily.week[1]}`);
+    check("the question turns over at midnight", daily.beforeMidnight !== daily.afterMidnight,
+      `${daily.beforeMidnight} → ${daily.afterMidnight}`);
+    // Every question gets its turn before any repeats — that is what makes the
+    // rotation worth having rather than a hash that favours a few.
+    const cycle = daily.week.slice(0, daily.pool);
+    check("every question in the pool comes up before any repeats",
+      new Set(cycle).size === daily.pool, `${new Set(cycle).size}/${daily.pool}`);
+    check("and it comes round again after that, rather than running out",
+      daily.week[daily.pool] === daily.week[0],
+      `day 1 → ${daily.week[0]}, day ${daily.pool + 1} → ${daily.week[daily.pool]}`);
+    check("the pool is long enough to be worth returning for",
+      daily.pool >= 7, `${daily.pool} days`);
+  }
+
   /* ── the shuffle ───────────────────────────────────────────────
-     Eight draws. If the answer were never moved it would sit at index 0 every
-     time; with four choices the chance of a healthy shuffle producing that is
-     about 1 in 65,000, so this cannot fail by luck. */
+     The QUESTION is fixed for the day; the ORDER of its choices is not, so a
+     visitor cannot learn "it is always the second one". Eight reloads: if the
+     answer were never moved it would sit at index 0 every time, which a healthy
+     shuffle would produce about once in 65,000 runs. */
   const positions = [];
   for (let k = 0; k < 8; k++) {
-    await page.click("#tryNext");
-    await page.waitForTimeout(160);
+    await page.reload({ waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(260);
     positions.push(await page.evaluate(() => {
       const q = document.getElementById("tryQ").textContent.trim();
       const s = (window.IZZBAH_DATA.samples || []).find(x => x.q === q);
       return [...document.querySelectorAll(".try-choice")].findIndex(b => b.textContent.trim() === s.a);
     }));
   }
-  check("the answer is not always the first button", new Set(positions).size > 1, positions.join(","));
-  check("«سؤال ثاني» moves through more than one question",
-    (await page.evaluate(() => document.getElementById("tryQ").textContent.trim())) !== shown.q
-    || samples.length === 1);
+  check("the answer is not always in the same position", new Set(positions).size > 1, positions.join(","));
+  check("but the question itself does not change on reload",
+    (await page.evaluate(() => document.getElementById("tryQ").textContent.trim())) === shown.q);
 
   // The hero's promise, which is what the taster is feeding.
   const hero = await page.evaluate(() => ({
@@ -132,6 +175,32 @@ try {
   // The placeholder reviews that used to ship.
   const quotes = await page.evaluate(() => document.body.textContent.includes("ضع هنا رأياً"));
   check("no placeholder review text is on the page", !quotes);
+
+  /* ── LOCAL midnight, not UTC ───────────────────────────────────
+     ⚠️ This needs a non-UTC timezone to mean anything. CI runs in UTC, where
+     the local-time formula and a naive UTC one are IDENTICAL — reverting the
+     offset subtraction failed zero checks until this context existed. Muscat is
+     UTC+4, so 01:00 local on the 20th is still 21:00 UTC on the 19th: under a
+     UTC formula the question would not have turned over yet, and a player in
+     Oman would meet the new one at 4am. */
+  const muscat = await browser.newContext({ viewport: { width: 900, height: 800 }, timezoneId: "Asia/Muscat" });
+  const mp = await muscat.newPage();
+  await mp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await mp.waitForTimeout(700);
+  const tz = await mp.evaluate(() => {
+    const T = window.IZZBAH_TRY;
+    return {
+      offset: new Date().getTimezoneOffset(),
+      lateOn19: T.pickFor(new Date("2026-08-19T22:00:00")),   // 18:00 UTC, still the 19th everywhere
+      earlyOn20: T.pickFor(new Date("2026-08-20T01:00:00")),  // 21:00 UTC on the 19th — UTC has not flipped
+      noonOn20: T.pickFor(new Date("2026-08-20T12:00:00")),
+    };
+  });
+  await muscat.close();
+  check("the timezone is really emulated", tz.offset === -240, `offset ${tz.offset} min`);
+  check("just after LOCAL midnight it is already the next day's question",
+    tz.earlyOn20 !== tz.lateOn19 && tz.earlyOn20 === tz.noonOn20,
+    `22:00 on the 19th → ${tz.lateOn19}, 01:00 on the 20th → ${tz.earlyOn20}`);
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
