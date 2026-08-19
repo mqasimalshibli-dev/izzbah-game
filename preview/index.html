@@ -380,21 +380,15 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   margin-top:clamp(16px,5.4vh,62px); min-height:clamp(122px,17vh,168px);
   text-align:center; max-width:60ch; margin-inline:auto}
 .sc-detail h3{font-size:clamp(21px,3.1vw,34px); margin-bottom:8px}
-.sc-swap{display:grid}
-.sc-swap > *{grid-area:1/1}
-.sc-detail p{color:var(--muted); font-size:clamp(13.5px,1.5vw,16px); margin-inline:auto;
-  opacity:0; visibility:hidden; transition:opacity .45s ease, visibility .45s}
-.sc-hint{opacity:.62 !important; visibility:visible !important; font-size:13.5px !important;
-  transition:opacity .35s ease, visibility .35s}
-.showcase.is-picked .sc-hint{opacity:0 !important; visibility:hidden !important}
-.sc-detail .cat-foot{justify-content:center; margin-top:14px;
-  opacity:0; visibility:hidden; transition:opacity .45s ease .06s, visibility .45s}
-.showcase.is-picked .sc-detail p,
-.showcase.is-picked .sc-detail .cat-foot{opacity:1; visibility:visible}
+/* ⚠️ The description is ALWAYS shown, for whichever category is in the centre.
+   It used to appear only after a press, behind a «اضغط الفئة لعرض وصفها» hint —
+   which made the reader work to find out what they were looking at, and left
+   the rail meaningless to anyone who never guessed to tap. */
+.sc-detail p{color:var(--muted); font-size:clamp(13.5px,1.5vw,16px); margin-inline:auto}
+.sc-detail .cat-foot{justify-content:center; margin-top:14px}
+
 .sc-detail .cat-index{margin-bottom:8px}
-@media(prefers-reduced-motion:reduce){
-  .sc-detail p,.sc-detail .cat-foot{transition:none}
-}
+
 
 .cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
 .cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
@@ -483,7 +477,7 @@ section{padding-block:clamp(66px,7.4vw,108px)}
   .sc-detail{min-height:0; margin-top:6px}
   .sc-detail h3{font-size:clamp(17px,2.2vw,22px); margin-bottom:3px}
   .sc-detail .cat-index{margin-bottom:3px; font-size:12px}
-  .sc-detail p,.sc-hint{font-size:12.5px !important; line-height:1.45}
+  .sc-detail p{font-size:12.5px !important; line-height:1.45}
   .sc-detail .cat-foot{margin-top:8px; gap:7px}
   .sc-bar{margin-top:10px}
   .sc-skip{margin-top:8px}
@@ -721,18 +715,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
      the tappable area; the negative margin keeps the row looking identical. */
   display:inline-flex; align-items:center; min-height:44px; padding-inline:2px; margin-block:-9px}
 .foot-links a:hover{color:var(--gold)}
-/* «كل الفئات» ran to 40 tiles — six phone screens of the twenty the page is
-   tall, and the last thing before the footer. It opens with six ROWS and a
-   button for the rest. Rows, not a fixed count of tiles, because the grid is
-   auto-fill: six rows is 12 tiles on a phone (2 columns) and the whole library
-   on a laptop, so the section only collapses where it was actually a problem
-   and a desktop reader never meets a ragged half-row. */
-.more{display:flex; align-items:center; gap:9px; min-height:44px; margin:22px auto 0; cursor:pointer;
-  padding:10px 22px; border-radius:999px; font:800 14px var(--body); color:var(--cream);
-  border:1px solid var(--rule); background:rgba(255,255,255,.05);
-  transition:background .2s, border-color .2s, color .2s}
-.more:hover{border-color:var(--gold); color:var(--gold); background:rgba(231,195,115,.07)}
-.gcard[data-fold]{display:none}
+/* ⚠️ «كل الفئات» shows ALL of them, and there is no «شوف كل الفئات» button any
+   more. It briefly folded to six rows to shorten the phone page; the owner's
+   verdict was that the button was useless because the tiles are right there.
+   The library's SIZE is the pitch — forty covers scrolling past says more than
+   a number ever does — so do not put it back behind a fold. */
 .copy{margin-top:30px; font:600 12.5px var(--body); color:var(--muted); opacity:.75}
 
 @media (prefers-reduced-motion:reduce){
@@ -752,7 +739,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <a href="#social">تابعونا</a>
       <a href="#faq">أسئلة شائعة</a>
     </nav>
-    <a class="btn magnetic" href="../">العب الآن</a>
+    <a class="btn magnetic" href="../" data-game data-store-text="نزّلها الآن">العب الآن</a>
   </div>
 </header>
 
@@ -777,22 +764,22 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
           فئات عمانية أصيلة، تمثيل صامت، إيموجي، وألغاز —
           وتقدرون تسوّون فئاتكم بأسئلتكم أنتم.
         </p>
-        <div class="free-badge rv" data-d="3"><i>🎁</i><b>لعبة كاملة مجاناً</b><span>بدون حساب ولا تنزيل</span></div>
+        <div class="free-badge rv" data-d="3"><i>🎁</i><b data-store-text="أول لعبة مجاناً">لعبة كاملة مجاناً</b><span data-store-text="نزّلها وابدأ على طول">بدون حساب ولا تنزيل</span></div>
         <div class="cta-row rv" data-d="3">
-          <a class="btn magnetic" href="../">العب لعبة كاملة — مجاناً</a>
+          <a class="btn magnetic" href="../" data-game data-store-text="نزّل اللعبة — أول لعبة مجاناً">العب لعبة كاملة — مجاناً</a>
           <a class="btn ghost magnetic" href="#cats">شوف الفئات</a>
         </div>
         <div class="store-row rv" data-d="4">
-          <span class="store" aria-disabled="true" title="قريباً">
+          <span class="store" aria-disabled="true" title="قريباً" data-store="ios">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8s-1.6-.8-2.7-.8c-1.4 0-2.7.8-3.4 2.700-1.5 2.5-.4 6.2 1 8.2.7 1 1.5 2.1 2.6 2.1 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7 1.8-1 2.5-2c.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.2-.8-2.2-3.2zM15.5 6.3c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
             <span class="t"><b>App Store</b><span>قريباً</span></span>
           </span>
-          <span class="store" aria-disabled="true" title="قريباً">
+          <span class="store" aria-disabled="true" title="قريباً" data-store="android">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 2.3c-.3.3-.5.8-.5 1.4v16.6c0 .6.2 1.1.5 1.4l.1.1 9.3-9.3v-.2L3.6 2.3zM16.2 15.6l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1 .6 1 1.6 0 2.2l-3.8 2zM15.3 16.5l-3.2-3.2-9 9c.4.3 1 .4 1.6 0l10.6-5.8zM15.3 7.5L4.7 1.7c-.6-.4-1.2-.3-1.6 0l9 9 3.2-3.2z"/></svg>
             <span class="t"><b>Google Play</b><span>قريباً</span></span>
           </span>
         </div>
-        <div class="hero-note rv" data-d="5"><span class="dot"></span> تشتغل من المتصفح مباشرة — والتقدّم محفوظ بحسابك</div>
+        <div class="hero-note rv" data-d="5"><span class="dot"></span> <span data-store-text="تنزيل واحد — والتقدّم محفوظ بحسابك على أي جهاز">تشتغل من المتصفح مباشرة — والتقدّم محفوظ بحسابك</span></div>
       </div>
 
       <div class="rv" data-d="2">
@@ -829,7 +816,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <div class="try-choices" id="tryChoices"></div>
       <div class="try-after" id="tryAfter" hidden>
         <p class="try-verdict" id="tryVerdict"></p>
-        <a class="btn magnetic" href="../">كمّل اللعبة — مجاناً</a>
+        <a class="btn magnetic" href="../" data-game data-store-text="نزّل اللعبة وكمّل">كمّل اللعبة — مجاناً</a>
       </div>
     </div>
   </section>
@@ -839,18 +826,17 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
    <div class="sc-stage" id="catStage">
     <div class="wrap sc-inner">
       <div class="cat-rail" id="catRail" role="listbox" tabindex="0"
-           aria-label="استعراض الفئات — اسحب أو استخدم الأسهم، واضغط فئة لعرض وصفها"></div>
+           aria-label="استعراض الفئات — اسحب أو استخدم الأسهم لتصفّح الفئات"></div>
+      <!-- ⚠️ The description belongs to whatever is in the CENTRE, and it is
+           always on. It used to be revealed by pressing a card, which meant the
+           panel opened on a hint instead — a reader who never pressed learned
+           nothing about any category. The centre card is the near, large one
+           for the same reason: the thing being described has to be obvious
+           without a gesture. -->
       <div class="sc-detail" id="catDetail" aria-live="polite">
         <div class="cat-index" id="cdIndex"></div>
         <h3 id="cdName"></h3>
-        <!-- The hint and the description occupy the SAME grid cell, so the
-             panel keeps one height and nothing below it jumps when a card is
-             pressed. The hint also has to exist: a rail you can press is not
-             discoverable on a phone, where there is no hover to reveal it. -->
-        <div class="sc-swap">
-          <p class="sc-hint" id="cdHint">اضغط الفئة لعرض وصفها</p>
-          <p id="cdDesc"></p>
-        </div>
+        <p id="cdDesc"></p>
         <div class="cat-foot">
           <span class="cat-tag" id="cdTag"></span>
           <span class="cat-n" id="cdCount"></span>
@@ -888,7 +874,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       </p>
     </div>
     <div class="grid" id="allGrid"></div>
-    <button type="button" class="more" id="allMore" hidden aria-expanded="false" aria-controls="allGrid"></button>
   </section>
 
   <!-- ── WHY ──────────────────────────────────────────────── -->
@@ -1028,11 +1013,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <canvas id="sparks" aria-hidden="true"></canvas>
       <div class="inner">
         <h2>جمّع الربع… وابدأ</h2>
-        <p class="lede" style="margin:20px auto 0; text-align:center">أول لعبة مجانية — افتحها من المتصفح وابدأ على طول.</p>
-        <div class="cta-row"><a class="btn magnetic" href="../">افتح اللعبة الحين</a></div>
+        <p class="lede" style="margin:20px auto 0; text-align:center" data-store-text="أول لعبة مجانية — نزّلها وابدأ على طول.">أول لعبة مجانية — افتحها من المتصفح وابدأ على طول.</p>
+        <div class="cta-row"><a class="btn magnetic" href="../" data-game data-store-text="نزّل اللعبة الحين">افتح اللعبة الحين</a></div>
         <div class="store-row">
-          <span class="store" aria-disabled="true"><span class="t"><b>App Store</b><span>قريباً</span></span></span>
-          <span class="store" aria-disabled="true"><span class="t"><b>Google Play</b><span>قريباً</span></span></span>
+          <span class="store" aria-disabled="true" data-store="ios"><span class="t"><b>App Store</b><span>قريباً</span></span></span>
+          <span class="store" aria-disabled="true" data-store="android"><span class="t"><b>Google Play</b><span>قريباً</span></span></span>
         </div>
       </div>
     </div>
@@ -1043,15 +1028,22 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   <div class="foot">
     <a class="brand" href="#top"><img src="../assets/brand/png/app-icon/icon-192.png" alt=""> عِزبة</a>
     <nav class="foot-links" aria-label="روابط">
-      <a href="../">اللعبة</a>
+      <a href="../" data-game>اللعبة</a>
       <a href="#cats">الفئات</a>
       <a href="#price">الباقات</a>
       <a href="#faq">أسئلة شائعة</a>
       <a href="mailto:izzbahgame@gmail.com">تواصل معنا</a>
       <a href="https://instagram.com/izzbahgame" rel="noopener" target="_blank">إنستقرام</a>
       <a href="https://tiktok.com/@izzbahgame" rel="noopener" target="_blank">تيك توك</a>
-      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">سياسة الخصوصية</a>
-      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">شروط الاستخدام</a>
+      <!-- ⚠️ Real pages, at a real URL. These used to point at `../` with a
+           title explaining that the documents open inside the game — which is
+           not a policy a visitor can read before deciding to install anything,
+           and not a URL an app store can be given. `preview/legal.html` is
+           GENERATED from the game's own text by `preview/legal.mjs`; never
+           hand-edit it, or the two copies drift and one of them becomes a false
+           statement about a player's data. -->
+      <a href="legal.html#privacy">سياسة الخصوصية</a>
+      <a href="legal.html#terms">شروط الاستخدام</a>
     </nav>
   </div>
   <p class="copy">© <span id="yr">٢٠٢٦</span> عِزبة — جميع الحقوق محفوظة.</p>
@@ -1160,7 +1152,101 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
   /* ── category showcase, driven by scroll ────────────────── */
   const ar = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  /* ── the ONE route into the game ──────────────────────────────────────
+     Owner's instruction: the site's only way into the game is the store for
+     the visitor's own phone, or the copy they already have installed.
+
+     ⚠️ NEITHER STORE LISTING EXISTS YET — both badges on this page still read
+     «قريباً», and a gateway whose every button leads to a 404 is worse than one
+     that opens the web build. So the two store URLs live in `STORE` below, and
+     while a slot is empty that platform falls back to the web game. Filling one
+     in switches every button, every category tile and that platform's badge
+     over at once; there is deliberately nowhere else to change.
+
+     ⚠️ WHOEVER FILLS THEM IN MUST ALSO REWRITE THE HERO. It promises «بدون
+     حساب ولا تنزيل» and offers a full free game in the browser, which stops
+     being true the moment the only route is a store. `tests/storeroute.mjs`
+     fails while a store URL is set and that promise is still on the page — the
+     contradiction must not ship quietly. */
+  const STORE = {
+    ios: "",       // e.g. https://apps.apple.com/om/app/izzbah/id0000000000
+    android: "",   // e.g. https://play.google.com/store/apps/details?id=com.izzbah.game
+  };
   const GAME = "../";
+
+  /* ⚠️ iPadOS 13+ reports itself as a Mac, so the touch probe is not optional:
+     without it every iPad takes the desktop path and is never offered the App
+     Store. `maxTouchPoints > 1` because a Mac with a trackpad reports 0 or 1. */
+  const platformOf = () => {
+    const ua = navigator.userAgent || "";
+    if (/android/i.test(ua)) return "android";
+    if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+    if (/Mac/.test(navigator.platform || "") && navigator.maxTouchPoints > 1) return "ios";
+    return "other";
+  };
+  const PLATFORM = platformOf();
+
+  /* «or to their own copy if it is downloaded». On iOS and Android that is the
+     operating system's job and not ours: once the apps exist with the domain
+     associated, a link to izzbah.com opens the installed app by itself, and no
+     API can be asked whether it is there. What CAN be asked — Android Chrome
+     only — is whether the PWA is installed, and for that visitor the web URL
+     already opens their own copy, so sending them to a store would be a step
+     backwards. Everything about this is best-effort and must never block a
+     route: the promise resolves late, or never, and the page still works. */
+  let hasApp = matchMedia("(display-mode: standalone)").matches;
+
+  const storeUrl = () => (hasApp ? "" : STORE[PLATFORM] || "");
+  /* A desktop visitor is not sent to a phone store whatever the constants say —
+     the app is not for their machine — so `PLATFORM === "other"` keeps the web
+     build by construction, without a second rule to keep in step. */
+  const gameUrl = payload => storeUrl() || GAME + (payload || "");
+
+  const routeAll = () => {
+    const store = storeUrl();
+    /* ⚠️ THE COPY MOVES WITH THE ROUTE, or the page lies. The hero sells a full
+       free game «بدون حساب ولا تنزيل» — true while the fallback is the web
+       build, false the moment a store is the only way in. Each affected line
+       carries its store-mode wording in `data-store-text`, swapped here, so the
+       two halves of one decision cannot drift apart. `tests/storeroute.mjs`
+       fails if that promise survives a store route. */
+    document.querySelectorAll("[data-store-text]").forEach(el => {
+      if (!el.dataset.webText) el.dataset.webText = el.textContent;
+      const want = store ? el.dataset.storeText : el.dataset.webText;
+      if (el.textContent !== want) el.textContent = want;
+    });
+    document.querySelectorAll("[data-game]").forEach(a => {
+      a.href = gameUrl(a.dataset.game || "");
+      // A store link leaves the site. Say so, rather than surprising someone
+      // who expected the game and got the App Store in a new tab.
+      if (store) { a.rel = "noopener"; a.target = "_blank"; }
+      else { a.removeAttribute("target"); a.removeAttribute("rel"); }
+    });
+    // The badges and the buttons read from the same constants, so a live badge
+    // over a dead route (or the reverse) is not a state that can exist.
+    document.querySelectorAll("[data-store]").forEach(el => {
+      const url = STORE[el.dataset.store] || "";
+      if (!url || el.tagName === "A") return;
+      // A <span aria-disabled> cannot become a link by adding an href — it is
+      // not focusable and has no activation behaviour — so it is replaced by a
+      // real <a>. The «قريباً» sub-label goes with it.
+      const a = document.createElement("a");
+      a.className = el.className; a.href = url; a.rel = "noopener"; a.target = "_blank";
+      a.dataset.store = el.dataset.store;
+      a.innerHTML = el.innerHTML;
+      const s = a.querySelector(".t span");
+      // Just «نزّلها الآن»: the store's name is already the badge's headline,
+      // and «نزّلها من App Store» under «App Store» reads as a stutter.
+      if (s) s.textContent = "نزّلها الآن";
+      el.replaceWith(a);
+    });
+  };
+  routeAll();
+  if (navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps()
+      .then(apps => { if (apps && apps.length) { hasApp = true; routeAll(); } })
+      .catch(() => {});
+  }
   // Accent per category, sampled from its own artwork by preview/sync notes —
   // so the ambient light always matches the cover on screen.
   const ACCENT = {"arabicTerms": "rgba(102,71,38,.60)", "cafesRestaurants": "rgba(102,73,41,.60)", "cars": "rgba(54,29,102,.60)", "charades": "rgba(102,62,42,.60)", "charadesArabic": "rgba(102,65,33,.60)", "charadesMovies": "rgba(102,62,29,.60)", "charadesSeries": "rgba(102,57,29,.60)", "culture": "rgba(102,64,29,.60)", "emojis": "rgba(102,81,29,.60)", "footballMix": "rgba(102,31,33,.60)", "foreignMoviesOnly": "rgba(102,32,29,.60)", "foreignSeries": "rgba(102,37,51,.60)", "geo": "rgba(102,100,40,.60)", "history": "rgba(102,55,29,.60)", "khareef": "rgba(64,102,35,.60)", "omaniFootball": "rgba(102,32,29,.60)", "pub-1783170059396-601": "rgba(102,74,36,.60)", "pub-1783170084646-5700": "rgba(102,66,39,.60)", "pub-1783170306877-1440": "rgba(102,61,29,.60)", "pub-1783170356019-2501": "rgba(102,63,29,.60)", "pub-1783189569201-313": "rgba(102,74,51,.60)", "pub-1783189666048-7547": "rgba(102,74,46,.60)", "pub-1783189684453-7350": "rgba(102,37,29,.60)", "pub-1783425758108-102": "rgba(29,102,93,.60)", "pub-1783453062866-1028": "rgba(102,57,37,.60)", "pub-1783510423551-6465": "rgba(102,47,43,.60)", "pub-1783684233589-5608": "rgba(29,47,102,.60)", "pub-1784043823835-6035": "rgba(29,55,102,.60)", "pub-1784240484235-8039": "rgba(102,79,29,.60)", "pub-1784486305049-7855": "rgba(102,53,29,.60)", "pub-1784503983714-3987": "rgba(29,33,102,.60)", "pub-1784571861226-6942": "rgba(29,45,102,.60)", "pub-1784798503561-5271": "rgba(102,56,29,.60)", "pub-1785323313470-2876": "rgba(102,61,29,.60)", "pub-1785819195566-4471": "rgba(51,72,102,.60)", "sayAnother": "rgba(102,66,29,.60)", "science": "rgba(49,57,102,.60)", "seerah": "rgba(102,67,29,.60)", "sports": "rgba(102,32,29,.60)", "whoAmI": "rgba(102,29,30,.60)"};
@@ -1298,7 +1384,12 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   };
-  const playLink = id => GAME + "#g=" + b64url(JSON.stringify({ c: [id] }));
+  /* ⚠️ Through `gameUrl`, so a category tile obeys the same routing as every
+     other button. A store URL cannot carry a `#g=` payload, so the preselected
+     category is simply lost on that path — which is the right trade: the store
+     is where the owner wants the visitor, and there is nowhere else to put a
+     deep link that a store page would honour. */
+  const playLink = id => gameUrl("#g=" + b64url(JSON.stringify({ c: [id] })));
   const rail = document.getElementById("catRail");
   const pips = document.getElementById("pips");
 
@@ -1373,14 +1464,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       });
       im.dataset.src = c.img;
       art.prepend(im);
-      // No `manual` here: pressing a cover reads its description, it does not
+      // No `manual` here: pressing a cover brings it to the centre, it does not
       // mean "I am steering now". Scrolling on afterwards keeps browsing.
       b.addEventListener("click", () => pick(i));
       rail.appendChild(b);
       return b;
     });
 
-    let active = 0, picked = false, manual = false;
+    let active = 0, manual = false;
 
     const layout = () => {
       const sx = SX(), sgn = dir();
@@ -1416,16 +1507,17 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         // The pressed card comes toward the reader and the rest give way. Both
         // halves matter: lifting one card alone reads as a glitch, pushing the
         // others back alone reads as the whole rail retreating.
-        const bump = !picked ? 0 : (d === 0 ? fwd : -back);
+        // The centre cover is always the near one — no press required.
+        const bump = d === 0 ? fwd : -back;
         el.style.setProperty("--x", (sgn * d * sx) + "px");
         el.style.setProperty("--y", (-d * sy) + "px");
         el.style.setProperty("--z", (-ad * DZ + bump) + "px");
         el.style.setProperty("--r", TILT + "deg");
-        el.style.setProperty("--s", (d === 0 && picked ? pop : 1).toFixed(3));
+        el.style.setProperty("--s", (d === 0 ? pop : 1).toFixed(3));
         // Dimming the rest is half of what makes a press read as a choice —
         // moving one card forward on its own looks like a rendering glitch.
         const fade = Math.max(0, 1 - ad / (WINDOW + 1.2));
-        el.style.setProperty("--o", (picked && d !== 0 ? fade * 0.55 : fade).toFixed(3));
+        el.style.setProperty("--o", (d === 0 ? fade : fade * 0.62).toFixed(3));
         el.style.zIndex = String(600 - ad * 10 + (d === 0 ? 40 : 0));
         el.classList.toggle("is-active", d === 0);
         // Roving tabindex: forty buttons would be forty tab stops before the
@@ -1473,21 +1565,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     // Moving the rail by ANY means — drag, arrows, page scroll — puts an open
     // description away. One place, so drag and scroll cannot drift apart.
     // `keepPick` is for pick() itself, which moves the rail on purpose.
-    const setActive = (i, keepPick) => {
+    const setActive = i => {
       i = Math.max(0, Math.min(CATS.length - 1, i));
       if (i === active) return;
-      if (picked && !keepPick) { picked = false; sec.classList.remove("is-picked"); }
       active = i; paint();
     };
-    // Pressing a card is what reveals its description; pressing the one that is
-    // already forward puts it back, so the copy is dismissable without hunting
-    // for a close button.
-    const pick = i => {
-      if (i === active && picked) { picked = false; sec.classList.remove("is-picked"); layout(); return; }
-      picked = true; sec.classList.add("is-picked");
-      if (i === active) { layout(); return; }
-      setActive(i, true);
-    };
+    // A press just brings that cover to the centre, where its description
+    // already is. Nothing to reveal, so nothing to dismiss.
+    const pick = i => setActive(i);
     const step = d => { manual = true; setActive(active + d); };
 
     if (prevBtn) prevBtn.addEventListener("click", () => step(-1));
@@ -1569,14 +1654,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const onDeviceChange = () => {
       pinned = mouseDriven.matches;
       sizeSection();
-      // The two devices are driven differently, so they cannot share one hint.
-      // With no scroll drive on touch, the swipe is the ONLY way to move the
-      // rail — saying so is the difference between a live carousel and a
-      // picture of one.
-      const hint = document.getElementById("cdHint");
-      if (hint) hint.textContent = pinned
-        ? "اضغط الفئة لعرض وصفها"
-        : "اسحب لتصفّح الفئات، واضغط وحدة لعرض وصفها";
       if (pinned) onPageScroll();
     };
     mouseDriven.addEventListener
@@ -1646,49 +1723,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const cEl = document.getElementById("allCount");
     if (cEl) cEl.textContent = ar(ALL.length);
 
-    // Fold everything past the sixth row away behind one button. The column
-    // count comes from the resolved grid rather than a breakpoint, so it stays
-    // correct through `auto-fill`, a rotation, or a font that changes the wrap.
-    const moreBtn = document.getElementById("allMore");
-    if (moreBtn) {
-      const cards = [...gridEl.children];
-      const ROWS = 6;
-      let open = false;
-      const cols = () => getComputedStyle(gridEl).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
-      function fold() {
-        if (open) return;
-        const n = cols();
-        // Only phones. At four columns or more the section is ~2.4 screens and
-        // reads fine whole — folding there would put a button in front of ten
-        // tiles for no gain, and the library's SIZE is the pitch.
-        const keep = n <= 3 ? Math.max(n * ROWS, n * 2) : cards.length;
-        const hiding = cards.length - keep;
-        cards.forEach((c, i) => {
-          // `data-fold` rather than `hidden`: `.gcard` is a display:block anchor
-          // and a future `display:` on it would beat the UA `[hidden]` rule
-          // silently — the exact trap the game's health board hit.
-          if (i >= keep) c.setAttribute("data-fold", "");
-          else c.removeAttribute("data-fold");
-          // A folded tile must leave the tab order too, or a keyboard reader
-          // walks 28 invisible links.
-          c.tabIndex = i >= keep ? -1 : 0;
-        });
-        moreBtn.hidden = hiding <= 0;
-        moreBtn.textContent = "شوف كل الفئات (" + ar(cards.length) + ") ↓";
-      }
-      moreBtn.addEventListener("click", () => {
-        const first = cards.findIndex(c => c.hasAttribute("data-fold"));
-        open = true;
-        cards.forEach(c => { c.removeAttribute("data-fold"); c.tabIndex = 0; });
-        moreBtn.setAttribute("aria-expanded", "true");
-        moreBtn.hidden = true;
-        // Land the reader on the first tile that just appeared, not back at the
-        // top of the section.
-        if (first >= 0) cards[first].focus({ preventScroll: true });
-      });
-      fold();
-      addEventListener("resize", fold);
-    }
   }
 
   /* ── phones: gentle tilt toward the pointer ─────────────── */
