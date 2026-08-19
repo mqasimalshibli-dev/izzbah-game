@@ -17,7 +17,7 @@
 // ⚠️ AND IT MUST WRAP. Three sets, then back to the first — not a counter that
 // climbs into `board-4.webp` and 404s on the fourth visit.
 import { chromium } from "playwright-core";
-import { spawn, execFileSync } from "child_process";
+import { spawn } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -51,37 +51,6 @@ for (const name of SCREENS) {
   }
 }
 
-/* ── the question and answer cards must SHOW something ────────────
-   The owner asked for pictured questions only, and the capture aborts if it
-   cannot find one — but the capture is where the mistake would be made, so the
-   files are checked here independently. A text-only card is a wall of cream
-   with a line of type on it; a photographed one has a block of colour in the
-   middle. Measuring the spread of colour across the centre separates them
-   without needing to know what the picture is.
-   ⚠️ Not file size: a small photo and a long question can weigh the same. */
-const colourSpread = f => Number(execFileSync("python3", ["-c", `
-from PIL import Image, ImageStat
-im = Image.open(${JSON.stringify(f)}).convert("RGB")
-w, h = im.size
-im = im.crop((int(w*0.25), int(h*0.22), int(w*0.75), int(h*0.80)))
-print(round(sum(ImageStat.Stat(im).stddev) / 3, 1))
-`]).toString().trim());
-
-for (const name of ["question", "answer"]) {
-  for (let i = 1; i <= SETS; i++) {
-    const f = join(SHOTS, `${name}-${i}.webp`);
-    if (!existsSync(f)) continue;
-    const sd = colourSpread(f);
-    /* Calibrated against real shots rather than guessed: the text-only
-       «قديمك نديمك» card that shipped scores 30.8, the pictured ones 54–81.
-       ⚠️ This does NOT catch the word-guess QR screen — a QR is high-contrast
-       and scores well above any threshold that would let a photograph through.
-       That one is kept out at capture time, by asking the game which categories
-       behave that way. Two different mistakes, two different guards. */
-    check(`${name}-${i} shows a picture, not a wall of text`, sd >= 42, `colour spread ${sd}`);
-  }
-}
-
 /* ── in the page ─────────────────────────────────────────────── */
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
@@ -104,6 +73,53 @@ try {
         .map(i => (i.getAttribute("src") || "").split("/").pop());   // keeps the ?version
       return { hero: of("#device img[data-shot]"), strip: of("img[data-shot]:not(#device img)") };
     }));
+  }
+
+  /* ── the question and answer cards must SHOW something ────────────
+     The owner asked for pictured questions only, and the capture aborts if it
+     cannot find one — but the capture is where the mistake would be made, so
+     the files are checked here independently. A text-only card is a wall of
+     cream with a line of type on it; a photographed one has a block of colour
+     in the middle. Measuring the spread of colour across the centre separates
+     them without needing to know what the picture is.
+     ⚠️ Not file size: a small photo and a long question can weigh the same.
+     ⚠️ IN THE BROWSER, not through Pillow. This was a `python3 -c "from PIL
+     import …"`, which works on any machine that has happened to install it and
+     fails on a GitHub runner, which has not — so the step crashed on import and
+     the whole test was red in CI while passing locally. Chromium is already a
+     dependency here and decodes WebP; a second one is not worth having. */
+  const spread = await page.evaluate(async files => {
+    const out = {};
+    for (const f of files) {
+      const im = new Image();
+      im.src = f;
+      await im.decode();
+      const c = document.createElement("canvas");
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const g = c.getContext("2d");
+      g.drawImage(im, 0, 0);
+      const x = Math.round(c.width * 0.25), y = Math.round(c.height * 0.22);
+      const w = Math.round(c.width * 0.5), h = Math.round(c.height * 0.58);
+      const d = g.getImageData(x, y, w, h).data;
+      const n = d.length / 4;
+      let sum = [0, 0, 0], sq = [0, 0, 0];
+      for (let i = 0; i < d.length; i += 4)
+        for (let k = 0; k < 3; k++) { sum[k] += d[i + k]; sq[k] += d[i + k] * d[i + k]; }
+      out[f] = +([0, 1, 2].reduce((a, k) =>
+        a + Math.sqrt(Math.max(0, sq[k] / n - (sum[k] / n) ** 2)), 0) / 3).toFixed(1);
+    }
+    return out;
+  }, SCREENS.slice(2).flatMap(n => [1, 2, 3].map(i => `shots/${n}-${i}.webp`)));
+
+  for (const [f, sd] of Object.entries(spread)) {
+    /* Calibrated against real shots rather than guessed: the text-only
+       «قديمك نديمك» card that shipped scores 30.8, the pictured ones 54–81.
+       ⚠️ This does NOT catch the word-guess QR screen — a QR is high-contrast
+       and scores well above any threshold that would let a photograph through.
+       That one is kept out at capture time, by asking the game which categories
+       behave that way. Two different mistakes, two different guards. */
+    check(`${f.split("/").pop()} shows a picture, not a wall of text`, sd >= 42,
+      `colour spread ${sd}`);
   }
 
   check("every shot on the page is a numbered set",
