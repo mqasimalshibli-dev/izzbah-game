@@ -8,26 +8,11 @@
 // picture four times. This writes `<screen>-1..3.webp` and the page steps to
 // the next set on every entry, repeating after the third.
 //
-// ⚠️ FOUR WAYS TO GET A PLAUSIBLE BUT WRONG SCREENSHOT. Every one of them
-// produces a picture that looks fine and is not the game:
-//
-// 1. NO CATALOGUE. Firebase is fetched from gstatic, which is not reachable
-//    from every network (it is not from CI), and the game then falls back to
-//    the 20 BUNDLED categories with their old artwork. The published catalogue
-//    is fetched here over Firestore's REST API — which is public, because every
-//    player's browser reads the same data — and injected before anything is
-//    captured. The run ABORTS if the count comes back low.
-// 2. NO FONTS. The faces are self-hosted in `assets/fonts/` since build .216,
-//    so serving the repo is enough — but that is a property of the build, not a
-//    law, and if it ever regresses the game renders in Tahoma and the shots
-//    look subtly cheap. `document.fonts.check()` is useless (it returns true
-//    for a fallback), so this WIDTH-PROBES Cairo against a nonsense family and
-//    aborts if they match.
-// 3. THE WRONG THEME. The game's default is LIGHT. Do not set `data-theme`.
-// 4. NO QUESTION PHOTOS. Question media lives only in the `/questions`
-//    subcollection, not in the parent doc's text-only copy, so a question shot
-//    taken without it is a bare sentence on a card. Hydrated here for the
-//    categories each variant actually plays.
+// ⚠️ FOUR WAYS TO GET A PLAUSIBLE BUT WRONG SCREENSHOT — no catalogue, no
+// fonts, the wrong theme, no question photos. Every one produces a picture that
+// looks fine and is not the game. They are cleared by `preview/gamedata.mjs`,
+// which is shared with `preview/clip.mjs`; the reasoning lives there, with the
+// code, rather than in two copies that drift.
 //
 // ⚠️ The board is driven through `state` + `renderGame()` rather than by
 // clicking through the welcome/teams flow. Clicking is what the throwaway
@@ -37,15 +22,15 @@
 // spent and no saved game is written.
 import { chromium } from "playwright-core";
 import { spawn, execFileSync } from "child_process";
-import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
+import { mkdirSync, existsSync, unlinkSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { catalogue, hydrate, assertFonts, assertLightTheme, injectCatalogue, seatScene, stampVersion }
+  from "./gamedata.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "preview", "shots");
 const PORT = 8611;
-const REST = "https://firestore.googleapis.com/v1/projects/izzbahgame/databases/(default)/documents";
-
 // The page declares these dimensions on the <img>, so the files have to match
 // or the layout shifts as they load.
 const SIZE = { picker: [620, 1354], board: [1150, 550], question: [1150, 550], answer: [1150, 550] };
@@ -69,73 +54,11 @@ const SCENES = [
     teams: ["فريق ظفار", "بنات مسقط"] },
 ];
 
-const V = v => {
-  if (!v) return null;
-  if ("stringValue" in v) return v.stringValue;
-  if ("integerValue" in v) return Number(v.integerValue);
-  if ("doubleValue" in v) return v.doubleValue;
-  if ("booleanValue" in v) return v.booleanValue;
-  if ("nullValue" in v) return null;
-  if ("arrayValue" in v) return (v.arrayValue.values || []).map(V);
-  if ("mapValue" in v) { const o = {}; for (const k in (v.mapValue.fields || {})) o[k] = V(v.mapValue.fields[k]); return o; }
-  return null;
-};
-
-async function catalogue() {
-  let docs = [], tok = null;
-  do {
-    const u = new URL(REST + "/categories");
-    u.searchParams.set("pageSize", "50");
-    if (tok) u.searchParams.set("pageToken", tok);
-    const r = await fetch(u);
-    if (!r.ok) throw new Error("catalogue " + r.status);
-    const j = await r.json();
-    docs.push(...(j.documents || []));
-    tok = j.nextPageToken;
-  } while (tok);
-  return docs.map(d => {
-    const f = d.fields || {}, o = { id: d.name.split("/").pop() };
-    for (const k in f) o[k] = V(f[k]);
-    return o;
-  });
-}
-
-/* Question media for ONE category, capped.
-   ⚠️ These are base64 JPEGs on the question documents — the whole catalogue is
-   about 160 MB of them. Fetching eighteen categories' worth and handing it to
-   `page.evaluate` in one go killed the renderer outright ("Target page, context
-   or browser has been closed"), which is a confusing way to learn that a
-   serialized argument has a practical size limit. Only questions that actually
-   carry a picture are kept, only the first `CAP` of them, and only for the six
-   categories of the scene being shot. */
-const CAP = 10;
-async function media(id) {
-  let out = [], tok = null;
-  do {
-    const u = new URL(`${REST}/categories/${encodeURIComponent(id)}/questions`);
-    u.searchParams.set("pageSize", "300");
-    if (tok) u.searchParams.set("pageToken", tok);
-    const r = await fetch(u);
-    if (!r.ok) return out;
-    const j = await r.json();
-    for (const d of (j.documents || [])) {
-      const f = d.fields || {};
-      const image = V(f.image) || "", answerImage = V(f.answerImage) || "";
-      if (!image && !answerImage) continue;
-      out.push({ idx: V(f.idx), image, answerImage });
-      if (out.length >= CAP) return out;
-    }
-    tok = j.nextPageToken;
-  } while (tok);
-  return out;
-}
-
 const only = process.argv[2];
 const want = only ? [only] : ["picker", "board", "question", "answer"];
 
 console.log("fetching the published catalogue…");
 const cats = await catalogue();
-if (cats.length < 20) { console.error(`only ${cats.length} categories came back — refusing to shoot the bundled fallback`); process.exit(1); }
 console.log(`  ${cats.length} categories`);
 
 mkdirSync(OUT, { recursive: true });
@@ -159,80 +82,26 @@ await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consen
 await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 40000 });
 await page.waitForTimeout(2500);
 
-// TRAP 2 — a width probe, because `document.fonts.check()` returns true for a
-// fallback and would wave a Tahoma render straight through.
-const fonts = await page.evaluate(async () => {
-  await document.fonts.ready;
-  const probe = (fam, w) => {
-    const s = document.createElement("span");
-    s.textContent = "عِزبة اختبار الخط";
-    s.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${w} 40px ${fam}`;
-    document.body.appendChild(s); const x = s.offsetWidth; s.remove(); return x;
-  };
-  return { cairo: probe("'Cairo',sans-serif", 900), fake: probe("'NoSuchFace123',sans-serif", 900) };
+const fonts = await assertFonts(page).catch(async e => {
+  console.error(e.message + " — aborting."); await browser.close(); server.kill(); process.exit(1);
 });
-if (fonts.cairo === fonts.fake) {
-  console.error("Cairo did not render — the shots would be in the fallback face. Aborting.");
-  await browser.close(); server.kill(); process.exit(1);
-}
 console.log(`fonts ok (Cairo ${fonts.cairo}px vs fallback ${fonts.fake}px)`);
 
-await page.evaluate((cats) => {
-  state.publishedCategories = cats;
-  if (typeof applyPublished === "function") applyPublished(cats);
-}, cats);
+await injectCatalogue(page, cats);
 await page.waitForTimeout(600);
 
-// Merge media onto the text-only copy by position, exactly as
-// hydrateCategoryMedia does at play time — one category at a time.
-const hydrate = async (ids) => {
-  for (const id of ids) {
-    const rows = await media(id);
-    if (!rows.length) continue;
-    await page.evaluate(({ id, rows }) => {
-      const c = (state.publishedCategories || []).find(x => x.id === id);
-      if (!c || !c.questions) return;
-      for (const row of rows) {
-        const q = c.questions[row.idx];
-        if (!q) continue;
-        if (row.image) q.image = row.image;
-        if (row.answerImage) q.answerImage = row.answerImage;
-      }
-    }, { id, rows });
-  }
-};
-
-const theme = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
-if (theme === "dark") { console.error("the page is in dark mode — the game's default is light. Aborting."); await browser.close(); server.kill(); process.exit(1); }
+await assertLightTheme(page).catch(async e => {
+  console.error(e.message + " — aborting."); await browser.close(); server.kill(); process.exit(1);
+});
 
 for (let v = 0; v < SCENES.length; v++) {
   const scene = SCENES[v];
   const n = v + 1;
   console.log(`\nscene ${n}: ${scene.teams.join(" · ")}`);
 
-  const chosen = await page.evaluate(({ scene }) => {
-    const all = (typeof allCategories === "function" ? allCategories() : state.publishedCategories) || [];
-    const has = id => all.find(c => c.id === id && (typeof categoryHasQuestions !== "function" || categoryHasQuestions(c)));
-    let ids = scene.cats.filter(has);
-    // Top the scene up rather than draw a short board: a five-column board is a
-    // different picture from the six the copy promises.
-    if (ids.length < 6) {
-      const extra = all.filter(c => !ids.includes(c.id) && (typeof categoryHasQuestions !== "function" || categoryHasQuestions(c)));
-      ids = ids.concat(extra.slice(0, 6 - ids.length).map(c => c.id));
-    }
-    ids = ids.slice(0, 6);
-    state.selected = new Set(ids);
-    state.teamCount = scene.teams.length;
-    state.teams = scene.teams.map(name => ({
-      name, helpers: ["fourChoices", "firstLetter", "doublePoints"], helpUsed: {}, score: 0,
-    }));
-    state.activeTeam = 0;
-    state.used = new Set();
-    if (typeof coachMarkAll === "function") coachMarkAll();
-    return ids;
-  }, { scene });
+  const chosen = await seatScene(page, scene);
   console.log(`  categories: ${chosen.join(", ")}`);
-  await hydrate(chosen);
+  await hydrate(page, chosen);
 
   if (want.includes("picker")) {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -310,29 +179,20 @@ for (let v = 0; v < SCENES.length; v++) {
 await browser.close();
 server.kill();
 
-/* Stamp the page with a version taken from the shots' own bytes.
-   ⚠️ Re-capturing reuses the same twelve FILENAMES, so a browser holding the
-   old ones keeps showing them until its cache expires — the site serves the
-   new pictures and the reader sees the old ones, which is indistinguishable
-   from a deploy that did not happen. Content-addressed, so an unchanged
-   capture does not churn the URL and throw away a warm cache for nothing. */
+// Content-addressed cache-buster — see `stampVersion` in gamedata.mjs for why.
 {
-  const { createHash } = await import("crypto");
-  const h = createHash("sha256");
+  const files = [];
   for (const name of ["picker", "board", "question", "answer"])
     for (let i = 1; i <= 3; i++) {
       const f = join(OUT, `${name}-${i}.webp`);
-      if (existsSync(f)) h.update(readFileSync(f));
+      if (existsSync(f)) files.push(f);
     }
-  const v = "v" + h.digest("hex").slice(0, 8);
-  const page = join(ROOT, "preview", "index.html");
-  let html = readFileSync(page, "utf8");
-  const before = html;
-  html = html.replace(/const SHOT_V = "[^"]*";/, `const SHOT_V = "${v}";`);
-  // …and the same version on the markup's own srcs, which JS never rewrites
-  // for set 1 — the whole point of shipping those defaults.
-  html = html.replace(/(src="shots\/[a-z]+-\d\.webp)(\?v[0-9a-f]+)?"/g, `$1?${v}"`);
-  if (html !== before) { writeFileSync(page, html); console.log(`\nstamped preview/index.html with ${v}`); }
-  else console.log(`\nversion unchanged (${v})`);
+  const { v, changed } = stampVersion(join(ROOT, "preview", "index.html"), files, {
+    constant: "SHOT_V",
+    // …and the same version on the markup's own srcs, which JS never rewrites
+    // for set 1 — the whole point of shipping those defaults.
+    srcPattern: /(src="shots\/[a-z]+-\d\.webp)(?:\?v[0-9a-f]+)?"/g,
+  });
+  console.log(changed ? `\nstamped preview/index.html with ${v}` : `\nversion unchanged (${v})`);
 }
 console.log("wrote", want.map(w => `${w}-1..3.webp`).join(", "), "to preview/shots/");
