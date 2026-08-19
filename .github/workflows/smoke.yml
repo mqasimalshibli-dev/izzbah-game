@@ -1028,3 +1028,10 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node tryone.mjs
+
+      - name: Run landing-page privacy/terms page test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node legalpage.mjs

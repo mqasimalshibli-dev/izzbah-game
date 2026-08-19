@@ -1035,8 +1035,15 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       <a href="mailto:izzbahgame@gmail.com">تواصل معنا</a>
       <a href="https://instagram.com/izzbahgame" rel="noopener" target="_blank">إنستقرام</a>
       <a href="https://tiktok.com/@izzbahgame" rel="noopener" target="_blank">تيك توك</a>
-      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">سياسة الخصوصية</a>
-      <a href="../" title="تفتح داخل اللعبة من الإعدادات → الخصوصية والشروط">شروط الاستخدام</a>
+      <!-- ⚠️ Real pages, at a real URL. These used to point at `../` with a
+           title explaining that the documents open inside the game — which is
+           not a policy a visitor can read before deciding to install anything,
+           and not a URL an app store can be given. `preview/legal.html` is
+           GENERATED from the game's own text by `preview/legal.mjs`; never
+           hand-edit it, or the two copies drift and one of them becomes a false
+           statement about a player's data. -->
+      <a href="legal.html#privacy">سياسة الخصوصية</a>
+      <a href="legal.html#terms">شروط الاستخدام</a>
     </nav>
   </div>
   <p class="copy">© <span id="yr">٢٠٢٦</span> عِزبة — جميع الحقوق محفوظة.</p>
