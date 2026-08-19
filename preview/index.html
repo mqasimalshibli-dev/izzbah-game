@@ -194,6 +194,11 @@ header.stuck{background:rgba(22,6,10,.82); backdrop-filter:blur(14px); border-bo
 .device img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
   opacity:0; transform:scale(1.03); transition:opacity .7s ease, transform 1.1s ease}
 .device img.on{opacity:1; transform:none}
+/* The motion clip sits over the stills, which stay as its poster and its
+   fallback. It fades in only once it is really playing — see the driver. */
+.device video.clip{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  opacity:0; transition:opacity .55s ease; z-index:2; pointer-events:none; background:transparent}
+.device video.clip.on{opacity:1}
 .device::after{content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
   background:linear-gradient(115deg, rgba(255,255,255,.14), transparent 44%)}
 @media(max-width:1100px){.device{transform:none}}
@@ -792,6 +797,19 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
                  width="1150" height="550" decoding="async">
             <img src="shots/answer-1.webp?v84498733" data-shot="answer" alt="شاشة الإجابة وأزرار «من جاوب؟»"
                  width="1150" height="550" decoding="async">
+            <!-- One real turn, recorded from the game by `preview/clip.mjs`.
+                 ⚠️ The `src`s are on `data-src` and armed by the driver, not
+                 here: this is the hero, and a video that downloads on every
+                 cold boot would undo the whole boot-weight discipline for
+                 something most readers scroll past. The stills above are the
+                 poster AND the fallback, so nothing is lost if it never loads.
+                 ⚠️ `muted` is what makes autoplay legal; `playsinline` is what
+                 stops iOS taking it fullscreen. -->
+            <video class="clip" id="heroClip" muted loop playsinline preload="none"
+                   width="1150" height="550" tabindex="-1" aria-hidden="true">
+              <source data-src="shots/turn.webm" type="video/webm">
+              <source data-src="shots/turn.mp4" type="video/mp4">
+            </video>
           </div>
         </div>
         <div class="device-steps" aria-hidden="true">
@@ -1118,14 +1136,31 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     });
   }
 
-  /* ── hero device: cycles the game's real screens ────────── */
+  /* ── the hero's motion clip ───────────────────────────────
+     ⚠️ Rewritten by `preview/clip.mjs` from the clip's own bytes, same reason
+     as SHOT_V: `turn.mp4` keeps its filename across a re-record, so without
+     this a browser holding the old one plays it until its cache expires. */
+  const CLIP_V = "v24dddd3b";
+  /* Where the three `.device-steps` buttons seek to, in seconds — «اختاروا
+     خانة», «جاوبوا», «خذوا النقاط».
+     ⚠️ WRITTEN BY `preview/clip.mjs` FROM THE REAL CHOREOGRAPHY. Hand-typed
+     numbers would be right until the first time a hold changed, and a button
+     that lands mid-reveal is worse than one that does nothing. */
+  const CLIP_CUES = [0.00, 2.44, 8.05];
+
+  /* ── hero device: the real game, moving ───────────────────
+     The three stills are the poster, the fallback and the reduced-motion
+     experience; the clip plays over them once it is genuinely playing. ONE
+     block owns both, because they share the step buttons, the hover behaviour
+     and the off-screen pause — and two owners would fight over all three. */
   (() => {
     const dev = document.getElementById("device");
     if (!dev) return;
     const shots = [...dev.querySelectorAll("img")];
     const steps = [...document.querySelectorAll(".dstep")];
+    const clip = dev.querySelector("video.clip");
     if (shots.length < 2) return;
-    let i = 0, timer = 0, set = SHOT_SET;
+    let i = 0, timer = 0, set = SHOT_SET, live = false;
     const show = n => {
       const next = (n + shots.length) % shots.length;
       /* Each completed lap moves to the NEXT set, so someone watching sees three
@@ -1140,14 +1175,64 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       shots.forEach((s, k) => s.classList.toggle("on", k === i));
       steps.forEach((s, k) => s.classList.toggle("on", k === i));
     };
+    const markStep = k => steps.forEach((s, n) => s.classList.toggle("on", n === k));
     const stop = () => { clearInterval(timer); timer = 0; };
-    const play = () => { if (!reduce && !timer) timer = setInterval(() => show(i + 1), 3600); };
-    steps.forEach(s => s.addEventListener("click", () => { stop(); show(+s.dataset.i); play(); }));
-    // don't animate off-screen, and let a reader stop it by hovering
-    dev.addEventListener("pointerenter", stop);
-    dev.addEventListener("pointerleave", play);
-    new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? play() : stop()),
-      { threshold: .25 }).observe(dev);
+    const play = () => { if (!reduce && !live && !timer) timer = setInterval(() => show(i + 1), 3600); };
+
+    steps.forEach(s => s.addEventListener("click", () => {
+      const k = +s.dataset.i;
+      // While the clip is running the buttons are a scrubber, not a slideshow.
+      if (live) { clip.currentTime = CLIP_CUES[k] || 0; clip.play().catch(() => {}); markStep(k); return; }
+      stop(); show(k); play();
+    }));
+    // Let a reader stop the SLIDESHOW by hovering to study a frame. Pausing a
+    // playing clip on hover would do the opposite of what a hover means here.
+    dev.addEventListener("pointerenter", () => { if (!live) stop(); });
+    dev.addEventListener("pointerleave", () => { if (!live) play(); });
+
+    /* The clip. Everything about it is conditional and reversible: if it is
+       refused, errors, or never arrives, `live` stays false and the page is
+       exactly the page that shipped before it existed. */
+    const armClip = () => {
+      /* ⚠️ `reduce` is checked HERE, not only where the listeners are bound.
+         The IntersectionObserver calls this unconditionally, so a reader who
+         has asked their system for less motion was still downloading a quarter
+         of a megabyte of video they would never be shown. */
+      if (!clip || reduce || clip.dataset.armed) return;
+      clip.dataset.armed = "1";
+      clip.querySelectorAll("source").forEach(s => { s.src = s.dataset.src + "?" + CLIP_V; });
+      clip.load();
+      /* ⚠️ `.play()` returns a promise that REJECTS when autoplay is refused —
+         a data-saver setting, a battery-saver mode, some in-app browsers. An
+         unhandled rejection there would be an uncaught error on the hero. */
+      clip.play().catch(() => {});
+    };
+    if (clip && !reduce) {
+      clip.addEventListener("playing", () => {
+        if (live) return;
+        live = true; stop();
+        clip.classList.add("on");
+        dev.classList.add("has-clip");
+      });
+      // Any failure hands the screen back to the stills rather than leaving a
+      // black rectangle where the hero was.
+      const fallBack = () => { live = false; clip.classList.remove("on"); dev.classList.remove("has-clip"); play(); };
+      clip.addEventListener("error", fallBack);
+      clip.querySelectorAll("source").forEach(s => s.addEventListener("error", fallBack));
+      // Follow the clip with the step labels so the three words stay true.
+      clip.addEventListener("timeupdate", () => {
+        if (!live) return;
+        let k = 0;
+        for (let n = 0; n < CLIP_CUES.length; n++) if (clip.currentTime >= CLIP_CUES[n]) k = n;
+        markStep(k);
+      });
+    }
+
+    new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) { stop(); if (live) clip.pause(); return; }
+      armClip();
+      if (live) clip.play().catch(() => {}); else play();
+    }), { threshold: .25 }).observe(dev);
   })();
 
   /* ── category showcase, driven by scroll ────────────────── */
