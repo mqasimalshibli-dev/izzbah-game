@@ -23,7 +23,6 @@
 // would be wrong the first time a hold changed.
 import { chromium } from "playwright-core";
 import { readFileSync, existsSync, statSync, createReadStream } from "fs";
-import { execFileSync } from "child_process";
 import { createServer } from "http";
 import { fileURLToPath } from "url";
 import { dirname, join, extname, normalize } from "path";
@@ -53,26 +52,27 @@ const CLIP = MP4;
    the encoder settings trips it and ordinary variation between takes does not. */
 check(`it is small enough to be a hero asset (${kb.toFixed(0)} KB each)`, kb < 600);
 
-const probe = (...args) => execFileSync("ffprobe", ["-v", "error", ...args]).toString().trim();
-const meta = probe("-select_streams", "v:0", "-show_entries",
-  "stream=width,height,codec_name,nb_frames:format=duration", "-of", "default=nw=1", CLIP)
-  .split("\n").reduce((o, l) => { const [k, v] = l.split("="); o[k] = v; return o; }, {});
-check("it is H.264 in MP4 — the one format every browser decodes",
-  meta.codec_name === "h264", meta.codec_name);
-check("it matches the device frame the page draws", meta.width === "1150" && meta.height === "550",
-  `${meta.width}×${meta.height}`);
-/* Long enough to show the whole loop, short enough to loop without becoming
-   wallpaper. The recorder's holds add up to about eleven seconds. */
-const dur = Number(meta.duration);
-check(`it is a loop, not a film (${dur.toFixed(1)}s)`, dur > 6 && dur < 20);
-const wmeta = probe("-select_streams", "v:0", "-show_entries", "stream=codec_name:format=duration",
-  "-of", "default=nw=1", WEBM).split("\n").reduce((o, l) => { const [k, v] = l.split("="); o[k] = v; return o; }, {});
-check("the webm is VP9 and the same length", wmeta.codec_name === "vp9"
-  && Math.abs(Number(wmeta.duration) - Number(meta.duration)) < 0.3,
-  `${wmeta.codec_name}, ${Number(wmeta.duration).toFixed(1)}s vs ${Number(meta.duration).toFixed(1)}s`);
-// No audio track at all — not muted, absent. A muted track is bytes nobody hears.
-const audio = probe("-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", CLIP);
-check("it carries no audio track", audio === "", audio);
+/* ── what the files ARE ───────────────────────────────────────────
+   ⚠️ NO ffprobe, AND NO SHELLING OUT AT ALL. This called `ffprobe` first and
+   the step died on the runner with a bare spawn error — GitHub's image has no
+   ffmpeg, exactly as it has no Pillow, which is the same mistake this repo made
+   one commit earlier in `tests/gameshots.mjs`. Anything a test needs must be in
+   node_modules or in the browser.
+   Codec identity is a byte-scan of the container instead: an MP4 names its
+   sample format in the `stsd` box (`avc1`) and an audio track's handler would
+   appear as `mp4a`; a WebM names its track codecs as ASCII (`V_VP9`, and
+   `A_OPUS`/`A_VORBIS` if there were sound). Both strings sit in the header, so
+   only the first chunk is read. Dimensions and duration come from the browser,
+   which is the authority on them anyway. */
+const head = f => readFileSync(f).subarray(0, 65536).toString("latin1");
+const mp4Head = head(MP4), webmHead = head(WEBM);
+check("the mp4 is H.264 — what Safari needs", mp4Head.includes("avc1"));
+check("the webm is VP9 — what makes this testable at all", webmHead.includes("V_VP9"));
+/* No audio TRACK at all — not a muted one. A muted track is bytes nobody hears,
+   and on a clip whose whole point is that it autoplays silently it is pure
+   weight. */
+check("neither carries an audio track",
+  !mp4Head.includes("mp4a") && !webmHead.includes("A_OPUS") && !webmHead.includes("A_VORBIS"));
 
 /* ── the page's own numbers ───────────────────────────────────── */
 const src = readFileSync(join(ROOT, "preview", "index.html"), "utf8");
@@ -86,8 +86,6 @@ check("the page carries the recorder's cue times", cueList.length === 3 && cueLi
 check("and they are the real ones, not the placeholder",
   cueList.some(n => n > 0) && cueList[0] === 0 && cueList[1] < cueList[2],
   cueList.join(" · "));
-check("every cue lands inside the clip", cueList.every(n => n >= 0 && n < dur),
-  `last cue ${cueList[2]} of ${dur.toFixed(1)}s`);
 const clipV = (src.match(/const CLIP_V = "([^"]*)";/) || [])[1];
 check("the clip has a cache-busting version stamped from its bytes",
   /^v[0-9a-f]{8}$/.test(clipV || ""), clipV);
@@ -155,6 +153,7 @@ try {
       const el = document.getElementById("heroClip");
       return el && {
         exists: true, paused: el.paused, t: el.currentTime, loop: el.loop, muted: el.muted,
+        dur: el.duration,
         on: el.classList.contains("on"),
         w: el.videoWidth, h: el.videoHeight,
         stills: [...document.querySelectorAll("#device img[data-shot]")].length,
@@ -163,6 +162,14 @@ try {
       };
     });
     check("the clip is in the hero", v && v.exists);
+    /* Duration and size, read from the decoded element rather than a probe
+       binary. Long enough to show the whole loop, short enough that it loops
+       rather than becoming wallpaper. */
+    check(`it is a loop, not a film (${(v && v.dur || 0).toFixed(1)}s)`,
+      v && v.dur > 6 && v.dur < 20);
+    check("every cue lands inside the clip",
+      v && cueList.every(n => n >= 0 && n < v.dur),
+      v && `last cue ${cueList[2]} of ${v.dur.toFixed(1)}s`);
     check("it is playing", v && !v.paused, v && `paused=${v.paused}, t=${(v.t || 0).toFixed(2)}`);
     check("it has really decoded, not just been created",
       v && v.w === 1150 && v.h === 550, v && `${v.w}×${v.h}`);
