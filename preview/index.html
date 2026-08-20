@@ -630,6 +630,21 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 .try-choice.wrong{background:rgba(160,40,48,.22); border-color:#d2646c; color:#ffdfe1}
 .try-choice .mark{float:inline-end; font-weight:900}
 .try-after{margin-top:20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+/* «سؤال ثاني ↻» — the affordance the taster shipped with, and the reason the
+   set is four rather than one: a visitor who answers one question and wants
+   another should not have to come back tomorrow for it. */
+.try-next{display:inline-flex; align-items:center; gap:8px; min-height:44px; cursor:pointer;
+  padding:10px 20px; border-radius:999px; font:800 14px var(--body); color:var(--cream);
+  border:1px solid var(--rule); background:rgba(255,255,255,.05);
+  transition:background .2s, border-color .2s, color .2s}
+.try-next:hover,.try-next:focus-visible{border-color:var(--gold); color:var(--gold); background:rgba(231,195,115,.07)}
+/* ⚠️ An AUTHOR `display` beats the UA's `[hidden]{display:none}` whatever the
+   specificity, so the button stayed on screen on the last question with the
+   attribute correctly set. This is the same trap CLAUDE.md records for
+   `.gcard`; any element given a `display` here needs its own hidden rule. */
+.try-next[hidden]{display:none}
+/* «١ / ٤» — quiet, because it is orientation and not a score. */
+.try-step{font:700 12.5px var(--body); color:var(--muted); font-variant-numeric:tabular-nums}
 .try-verdict{flex:1 1 220px; font:700 15px var(--body); color:var(--muted); margin:0}
 
 /* ── the free game, said once and loudly ──────────────────────────────
@@ -830,16 +845,21 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
   <section id="try" class="wrap">
     <div class="sec-head">
       <div class="eyebrow rv">جرّب بنفسك</div>
-      <h2 class="rv" data-d="1">سؤال اليوم</h2>
-      <p class="lede rv" data-d="2">سؤال حقيقي من اللعبة، يتغيّر كل يوم.</p>
+      <h2 class="rv" data-d="1">أربعة أسئلة من اللعبة</h2>
+      <p class="lede rv" data-d="2">أسئلة حقيقية من اللعبة — وتتجدّد كل أسبوعين.</p>
     </div>
     <div class="try-card rv" data-d="2" id="tryCard">
-      <div class="try-top"><span class="try-cat" id="tryCat"></span><span class="try-pts" id="tryPts"></span></div>
+      <div class="try-top">
+        <span class="try-cat" id="tryCat"></span>
+        <span class="try-step" id="tryStep"></span>
+        <span class="try-pts" id="tryPts"></span>
+      </div>
       <p class="try-q" id="tryQ"></p>
       <div class="try-choices" id="tryChoices"></div>
       <div class="try-after" id="tryAfter" hidden>
         <p class="try-verdict" id="tryVerdict"></p>
         <a class="btn magnetic" href="../" data-game data-store-text="نزّل اللعبة وكمّل">كمّل اللعبة — مجاناً</a>
+        <button type="button" class="try-next" id="tryNext" hidden>سؤال ثاني ↻</button>
       </div>
     </div>
   </section>
@@ -1413,29 +1433,52 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
     const els = {
       cat: document.getElementById("tryCat"), pts: document.getElementById("tryPts"),
+      step: document.getElementById("tryStep"),
       q: document.getElementById("tryQ"), choices: document.getElementById("tryChoices"),
       after: document.getElementById("tryAfter"), verdict: document.getElementById("tryVerdict"),
+      next: document.getElementById("tryNext"),
     };
-    /* ── ONE QUESTION PER DAY ────────────────────────────────────────
-       The taster used to draw at random on every load, which meant reloading
-       the page was a way to shop for an easy one and nobody had a reason to
-       come back. It is now a function of the DATE: everyone sees the same
-       question on the same day, it does not change on reload, and after
-       `pool.length` days it comes round again — which the owner is happy with.
-       ⚠️ The day flips at LOCAL midnight, so the offset is subtracted before
-       the division. Using UTC would roll the question over at 4am in Muscat.
+    /* ── FOUR QUESTIONS, A NEW SET EVERY FORTNIGHT ──────────────────
+       This has been three things. It drew at RANDOM on every load, which made
+       reloading a way to shop for an easy one and gave nobody a reason to come
+       back. Then it was ONE question per day — stable and returnable, but it
+       took away the «سؤال ثاني» button, so a visitor who answered and wanted
+       another had to come back tomorrow for it. The owner's call, and the one
+       that keeps both halves: a SET OF FOUR, fixed for a fortnight, stepped
+       through at the reader's pace.
+       ⚠️ The set is a function of the DATE, not of the visit. Everyone sees the
+       same four in the same fortnight and they do not change on reload — that
+       is what makes it worth returning to and what stops it being a slot
+       machine.
+       ⚠️ The fortnight flips at LOCAL midnight, so the offset is subtracted
+       before the division. Using UTC would roll the set over at 4am in Muscat.
        ⚠️ Exposed on `window` because that is the only honest way to test a
        date-dependent choice — the alternative is a test that agrees with the
        code because it repeats the same arithmetic. */
+    const SET_SIZE = 4;
+    const PERIOD = 14;                                   // days in a fortnight
     const dayNumber = d => Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
-    const pickFor = d => (((dayNumber(d) % pool.length) + pool.length) % pool.length);
-    window.IZZBAH_TRY = { pool: pool.length, dayNumber, pickFor };
+    const periodFor = d => Math.floor(dayNumber(d) / PERIOD);
+    /* Consecutive fortnights start `SET_SIZE` further along the pool, so the
+       four are always four DIFFERENT questions from last time rather than a
+       reshuffle of the same ones. With 14 samples and sets of 4 the starts run
+       0, 4, 8, 12, 2, 6, 10 — seven fortnights, i.e. half a year, before a set
+       repeats exactly. */
+    const setFor = d => {
+      const n = Math.min(SET_SIZE, pool.length);
+      const start = (((periodFor(d) * SET_SIZE) % pool.length) + pool.length) % pool.length;
+      return Array.from({ length: n }, (_, k) => (start + k) % pool.length);
+    };
+    window.IZZBAH_TRY = { pool: pool.length, size: SET_SIZE, days: PERIOD,
+                          dayNumber, periodFor, setFor };
 
-    let i = pickFor(new Date());
+    const chosen = setFor(new Date());
+    let step = 0;
 
     const draw = () => {
-      const s = pool[i % pool.length];
+      const s = pool[chosen[step]];
       els.cat.textContent = s.cat;
+      els.step.textContent = ar(step + 1) + " / " + ar(chosen.length);
       els.pts.textContent = s.points ? ar(s.points) + " نقطة" : "";
       els.q.textContent = s.q;
       els.after.hidden = true;
@@ -1456,11 +1499,25 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         if (b.textContent === s.a) { b.classList.add("right"); b.insertAdjacentHTML("beforeend", '<span class="mark">✓</span>'); }
         else if (b === btn) { b.classList.add("wrong"); b.insertAdjacentHTML("beforeend", '<span class="mark">✕</span>'); }
       });
+      const last = step >= chosen.length - 1;
       els.verdict.textContent = right
         ? "صحيح! وهذي وحدة من " + ar(DATA.totals.questions) + " سؤال."
         : "الإجابة: " + s.a + " — وفي " + ar(DATA.totals.questions) + " سؤال غيرها.";
+      /* ⚠️ The button is hidden on the LAST one rather than wrapping round to
+         the first. A «سؤال ثاني» that serves a question already answered reads
+         as broken, and the point of the fortnight is that four is the set. */
+      if (els.next) els.next.hidden = last;
       els.after.hidden = false;
     };
+
+    if (els.next) els.next.addEventListener("click", () => {
+      if (step >= chosen.length - 1) return;
+      step++;
+      draw();
+      // Keep the card in view: the answered one may have grown the section, and
+      // on a phone the new question can otherwise open above the fold.
+      card.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
 
     draw();
   })();
