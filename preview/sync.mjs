@@ -128,17 +128,26 @@ const SAMPLE_SKIP = new Set([
   "pub-1783170084646-5700", "pub-1784043823835-6035",                 // photo/video prompts
   "emojis", "pub-1784240484235-8039", "sayAnother",                   // the prompt is the media
 ]);
-/* One taster is shown per DAY, so this list is also the length of the cycle
-   before a returning visitor sees a repeat. Ordered so consecutive days are
-   from different corners of the catalogue — an Omani one, then general, then
-   pop culture — rather than three history questions in a row. Categories whose
-   question is a picture or a QR are skipped by the filter below, so listing one
-   costs nothing but buys nothing either. */
+/* The taster shows FOUR at a time and the set turns over every fortnight, so
+   this list is read four at a time and its LENGTH is how long before a set
+   comes round again. Order matters twice over: the first four are the set a
+   visitor meets today, and consecutive entries should come from different
+   corners of the catalogue so no set is three history questions in a row.
+   ⚠️ The opening four are «سيارات، كرة عمانية، تاريخ، جغرافيا» by the owner's
+   choice — he asked for the first slot to be a CAR question and the third a
+   HISTORY one after seeing what was there before. Reordering this list moves
+   what people see on the front page; it is not a neutral tidy-up.
+   Categories whose question is a picture or a QR are dropped by the filters
+   below, so listing one costs nothing but buys nothing either — `khareef` and
+   `pub-1784571861226-6942` are both in that state today and are kept only so
+   the list does not shrink the day they gain a text question. */
 const SAMPLE_WANT = [
-  "pub-1783453062866-1028", "history", "pub-1784486305049-7855", "geo",
-  "pub-1785323313470-2876", "science", "khareef", "culture",
-  "pub-1784571861226-6942", "cars", "omaniFootball", "seerah",
+  "cars", "omaniFootball", "history", "geo",
+  "pub-1785323313470-2876", "science", "culture", "seerah",
   "footballMix", "whoAmI", "foreignSeries", "pub-1783510423551-6465",
+  "foreignMoviesOnly", "pub-1783170059396-601", "cafesRestaurants", "arabicTerms",
+  "pub-1784798503561-5271", "pub-1783170306877-1440", "pub-1783189666048-7547",
+  "pub-1783189684453-7350", "khareef", "pub-1784571861226-6942",
 ];
 const samples = [];
 for (const id of SAMPLE_WANT) {
@@ -198,6 +207,14 @@ for (const id of SAMPLE_WANT) {
     if (!text || !answer || wrong.length < 3) continue;
     if ((f.image || {}).stringValue) continue;
     if (text.length > 90) continue;                    // has to fit a card
+    /* ⚠️ NEAREST-WINS QUESTIONS ARE NOT MULTIPLE CHOICE. «الأقرب يفوز» marks
+       its tolerance in the question text — «متى بدأ حكم السيد سعيد بن
+       تيمور؟(-سنتين+)» — and the game plays those by asking each team for a
+       number and scoring the closest guess. Rendered as four buttons the marker
+       is meaningless punctuation and the distractors are nonsense: that one
+       shipped on the front page offering 1932, 1972, 1624 and 2008. The
+       parenthetical is the tell, so it is the filter. */
+    if (/\([-−][^()]*\+\)/.test(text)) continue;
     samples.push({ cat: cat.name, q: text, a: answer,
                    choices: [answer, ...wrong.slice(0, 3)],
                    points: Number((f.points || {}).integerValue || 0) });

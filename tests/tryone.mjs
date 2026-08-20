@@ -36,6 +36,29 @@ check("each carries four real choices and its own answer",
 check("none of them needs a picture to make sense",
   samples.every(s => !s.image), `${samples.length} checked`);
 
+/* ⚠️ NEAREST-WINS QUESTIONS ARE NOT MULTIPLE CHOICE. «الأقرب يفوز» marks its
+   tolerance inside the question text — «متى بدأ حكم السيد سعيد بن
+   تيمور؟(-سنتين+)» — and the game plays those by asking each team for a number
+   and scoring the closest guess. One reached the front page and was rendered as
+   four buttons offering 1932, 1972, 1624 and 2008, with the marker sitting in
+   the question as meaningless punctuation. */
+check("no nearest-wins question is in the pool",
+  samples.every(s => !/\([-−][^()]*\+\)/.test(s.q)),
+  (samples.find(s => /\([-−][^()]*\+\)/.test(s.q)) || {}).q || "");
+
+/* The owner picked the opening four after seeing what was there: a CAR
+   question first and a HISTORY one third, in place of an Omani date question
+   and a riddle. That is a content decision, so it is pinned as one — a later
+   tidy-up of `SAMPLE_WANT` that quietly drops either fails here rather than on
+   the front page. */
+check("the first set leads with a car question", (samples[0] || {}).cat === "سيارات",
+  (samples[0] || {}).cat);
+check("and carries a history question", (samples[2] || {}).cat === "تاريخ",
+  (samples[2] || {}).cat);
+check("with four different categories in it",
+  new Set(samples.slice(0, 4).map(s => s.cat)).size === 4,
+  samples.slice(0, 4).map(s => s.cat).join(" · "));
+
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
@@ -124,6 +147,14 @@ try {
     }
     return {
       pool: T.pool, size: T.size, days: T.days,
+      /* ⚠️ The rotation is ANCHORED to a start date, and this is the check
+         that says so. Counting fortnights from the Unix epoch instead leaves
+         the list's order with an arbitrary relationship to the calendar:
+         reordering `SAMPLE_WANT` so the first four are the ones the owner
+         asked for then changes NOTHING on screen, because the fortnight in
+         progress happens to start somewhere in the middle of the list. That is
+         exactly what happened, and every other check here passed through it. */
+      atAnchor: T.setFor(new Date(2026, 7, 19)).join(","),
       sameTwice: at("2026-08-19") === at("2026-08-19"),
       // a DAY later must NOT change it — that is the whole point of a fortnight
       nextDaySame: at("2026-08-19") === at("2026-08-20"),
@@ -135,6 +166,8 @@ try {
   if (rot) {
     check(`it shows a set of four (${rot.size})`, rot.size === 4);
     check(`and the set turns over every fortnight (${rot.days} days)`, rot.days === 14);
+    check("the anchor date shows the first four in the list", rot.atAnchor === "0,1,2,3",
+      rot.atAnchor);
     check("the same date always gives the same set", rot.sameTwice);
     /* ⚠️ Both directions. "The next fortnight differs" alone would pass on a
        chooser that changed every DAY, which is exactly the behaviour being
@@ -152,13 +185,20 @@ try {
     const seen = new Set(rot.runs.join(",").split(","));
     check("every question in the pool is reached", seen.size === rot.pool,
       `${seen.size}/${rot.pool}`);
-    // …and no set repeats for months, so returning is worth it for a long time.
-    const firstRepeat = rot.runs.findIndex((r, i) => i > 0 && r === rot.runs[0]);
-    check("a set does not come round again for months",
-      firstRepeat === -1 || firstRepeat >= 6,
-      firstRepeat === -1 ? "not within 15 fortnights" : `repeats after ${firstRepeat} fortnights (${firstRepeat * 2} weeks)`);
-    check("the pool holds enough for several sets", rot.pool >= rot.size * 3,
-      `${rot.pool} questions = ${(rot.pool / rot.size).toFixed(1)} sets`);
+    /* ⚠️ NO QUESTION COMES BACK UNTIL THE POOL IS SPENT — which is the thing a
+       returning visitor actually notices. An earlier version of this asserted
+       that a whole SET did not repeat for months, and that measures the wrong
+       property: a 14-question pool read four at a time scores well on it (the
+       four-tuples do not align again for seven fortnights) while quietly
+       serving questions 0 and 1 a second time in the FOURTH set, six weeks in.
+       A pool that is an exact multiple of the set size has no such overlap. */
+    const cycles = Math.ceil(rot.pool / rot.size);
+    const firstRun = rot.runs.slice(0, cycles).join(",").split(",");
+    check("no question comes back before the whole pool has been shown",
+      new Set(firstRun).size === firstRun.length,
+      `${firstRun.length} served, ${new Set(firstRun).size} distinct over ${cycles} fortnights`);
+    check(`and the pool lasts a season before it wraps (${cycles * 2} weeks)`,
+      cycles * 2 >= 8, `${rot.pool} questions = ${cycles} sets`);
   }
 
   /* ── stepping through the four ─────────────────────────────────
