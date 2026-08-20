@@ -1458,7 +1458,18 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const SET_SIZE = 4;
     const PERIOD = 14;                                   // days in a fortnight
     const dayNumber = d => Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
-    const periodFor = d => Math.floor(dayNumber(d) / PERIOD);
+    /* ⚠️ THE ROTATION IS ANCHORED, and it has to be. Counting fortnights from
+       the Unix epoch instead left the list's order with an arbitrary
+       relationship to the calendar: reordering `SAMPLE_WANT` so the first four
+       were the ones the owner asked for changed nothing on screen, because the
+       fortnight in progress happened to start at index 4. With an anchor, "the
+       first four in the list" means "the four shown from the anchor date on",
+       which is the only version of this anyone can reason about.
+       Built from components rather than a parsed string: `new Date("…")` with a
+       bare date is UTC and with a time is local, and the difference here is a
+       whole day at the boundary. */
+    const EPOCH = dayNumber(new Date(2026, 7, 19));      // 19 Aug 2026, local
+    const periodFor = d => Math.floor((dayNumber(d) - EPOCH) / PERIOD);
     /* Consecutive fortnights start `SET_SIZE` further along the pool, so the
        four are always four DIFFERENT questions from last time rather than a
        reshuffle of the same ones. With 14 samples and sets of 4 the starts run
