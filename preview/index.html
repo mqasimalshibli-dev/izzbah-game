@@ -1688,6 +1688,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     });
 
     let active = 0, manual = false;
+    /* Covers stay unattached until this flips. The margin is generous on
+       purpose — they should be arriving as the section comes up, not starting
+       to when it lands. */
+    let armed = false;
+    new IntersectionObserver((es, o) => {
+      if (!es.some(e => e.isIntersecting)) return;
+      armed = true; o.disconnect(); paint();
+    }, { rootMargin: "700px 0px" }).observe(sec);
 
     const layout = () => {
       const sx = SX(), sgn = dir();
@@ -1765,9 +1773,22 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       // only ±3 while `layout()` places ±WINDOW, so six of the thirteen visible
       // cards had no image — and with the frame now driven by aspect-ratio they
       // are simply empty rectangles. The fan looked half-populated.
-      for (let k = active - WINDOW; k <= active + WINDOW; k++) {
-        const im = cards[k] && cards[k].querySelector("img[data-src]");
-        if (im) { im.src = im.dataset.src; delete im.dataset.src; }
+      /* ⚠️ NOTHING LOADS UNTIL THE SHOWCASE IS NEARLY IN VIEW. The rail is
+         several screens below the fold on a phone, and it was pulling 1.4 MB
+         of covers on load — paid in full by every reader who never scrolled
+         that far. `armed` is set by an observer on the section (see below),
+         and every laid-out card still gets its cover once it is: attaching
+         only a SLICE is the bug that left six of thirteen visible cards as
+         empty frames.
+         ⚠️ Do NOT solve this by shrinking the files instead. Measured against
+         an ideal resample at the rail's real 504x630 render: 1080px scores
+         41.6 dB, 720px 37.0, 560px 34.7 — halving them is a visible loss, and
+         these covers were super-resolved precisely to gain that detail. */
+      if (armed) {
+        for (let k = active - WINDOW; k <= active + WINDOW; k++) {
+          const im = cards[k] && cards[k].querySelector("img[data-src]");
+          if (im) { im.src = im.dataset.src; delete im.dataset.src; }
+        }
       }
       layout();
       fillDetail();

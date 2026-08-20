@@ -117,6 +117,39 @@ const geom = page => page.evaluate(() => {
   };
 });
 
+/* ── the covers cost nothing until they are wanted ──────────────
+   ⚠️ The rail is several screens below the fold on a phone and was pulling
+   1.4 MB of cover art on load — paid in full by every reader who never
+   scrolled that far. Nothing attaches until an observer says the section is
+   coming up. Both halves are asserted, because either alone is a bug: not
+   loading early, and loading COMPLETELY once there. Attaching only a slice is
+   what left six of thirteen laid-out cards as empty frames. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  let covers = 0, kb = 0;
+  p.on("response", async r => {
+    if (/cat\/.*-l\.webp/.test(r.url())) covers++;
+    try { kb += (await r.body()).length / 1024; } catch (e) {}
+  });
+  await p.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await p.waitForTimeout(1500);
+  const idle = { covers, kb: Math.round(kb) };
+  check("landing on the page loads no rail covers at all", idle.covers === 0,
+    `${idle.covers} covers, ${idle.kb} KB total`);
+  check(`…and the whole first visit stays under a megabyte (${idle.kb} KB)`, idle.kb < 1200);
+  await p.evaluate(() => document.getElementById("cats").scrollIntoView({ behavior: "instant" }));
+  await p.waitForTimeout(2500);
+  const after = await p.evaluate(() => {
+    const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+    return { on: on.length, loaded: on.filter(c => { const i = c.querySelector("img"); return i && i.naturalWidth > 0; }).length };
+  });
+  await ctx.close();
+  check("scrolling to the rail loads them", covers > 0, `${covers} covers`);
+  check("…and every laid-out cover really arrives", after.loaded === after.on,
+    `${after.loaded}/${after.on}`);
+}
+
 try {
   for (const [name, w, h, touch] of VIEWPORTS) {
     const page = await load(w, h, touch);
