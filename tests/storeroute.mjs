@@ -248,6 +248,48 @@ try {
   check("a rejected installed-app check breaks nothing", stillRoutes === "../" && bad.length === 0,
     bad[0] || stillRoutes);
 
+  /* ── the page's own COPY has to agree with the build ─────────────────
+     The site stopped selling at build .338, and prose is the part that silently
+     stays behind: nothing breaks, nothing throws, the FAQ just quietly promises
+     something the product no longer does. These read the rendered text rather
+     than the source, so a stale answer hidden inside a <details> still counts. */
+  const copyCtx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  const cp = await copyCtx.newPage();
+  await cp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await cp.waitForTimeout(700);
+  const copy = await cp.evaluate(() => {
+    /* ⚠️ textContent, NOT innerText. Four of the five FAQ answers sit in a
+       COLLAPSED <details>, and innerText returns only what is rendered — so
+       every assertion below would read an empty string and pass vacuously,
+       which is the exact failure these checks exist to prevent. */
+    const t = el => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+    return {
+      faq: t(document.getElementById("faq")),
+      answers: document.querySelectorAll("#faq details").length,
+      lede: t(document.querySelector("#try .lede")),
+    };
+  });
+  await copyCtx.close();
+  // Guards the guard: if the FAQ ever moves, the checks below must not quietly
+  // start measuring an empty string.
+  check("the FAQ was actually read", copy.answers >= 5 && copy.faq.length > 200,
+    `${copy.answers} answers, ${copy.faq.length} chars`);
+  /* ⚠️ "مو لازم" on its own was the whole answer to «هل أحتاج أنزّل تطبيق؟».
+     That is now only true of PLAYING — buying needs the app — so the answer has
+     to name the app as where a purchase happens. */
+  check("FAQ: the app answer says buying happens in the app",
+    /شراء[\s\S]{0,40}من داخل التطبيق/.test(copy.faq));
+  check("FAQ: the pricing answer says the site does not sell",
+    /الموقع ما يبيع/.test(copy.faq));
+  /* ⚠️ The inverse, and the one that actually rots: no answer may still offer a
+     purchase from the site. Written as a ban rather than a spelling so a REWORDED
+     promise is caught too. */
+  check("FAQ: nothing offers buying from the site",
+    !/(اشتر|تشتري)[\s\S]{0,30}(من الموقع|عبر الموقع|من هنا)/.test(copy.faq));
+  // The owner asked for the rotation cadence not to be advertised.
+  check("the taster does not advertise how often it rotates",
+    !/أسبوع|شهر|تتجدّد/.test(copy.lede), copy.lede);
+
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
   await browser.close();
