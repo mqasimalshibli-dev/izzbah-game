@@ -11,6 +11,25 @@
 <link rel="apple-touch-icon" href="../assets/brand/png/app-icon/maskable-180.png">
 <meta name="robots" content="noindex,nofollow">   <!-- draft: not for search engines yet -->
 <meta name="theme-color" content="#16060a">
+
+<!-- ── measurement ───────────────────────────────────────────────────────
+     ⚠️ THE SAME GA4 PROPERTY AS THE GAME (G-FBSCK70M8C), on purpose. The site
+     and the game are one funnel — arrive, press play, finish a game — and two
+     properties would cut it in half exactly where the interesting question is.
+     ⚠️ `async`, and every call goes through `track()` below, which no-ops when
+     gtag is absent. An ad blocker, a data-saver, or a bad night for
+     googletagmanager must cost the page nothing: this is a marketing page whose
+     job is to load, not to be measured.
+     Disclosed in the privacy policy («نستخدم Google Analytics… لقياس كيفية
+     استخدام اللعبة بشكل مُجمَّع»), which is published at legal.html#privacy. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FBSCK70M8C"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag("js", new Date());
+  // No ad signals: this measures whether the page works, not who is reading it.
+  gtag("config", "G-FBSCK70M8C", { anonymize_ip: true, allow_google_signals: false });
+</script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="عِزبة">
 <meta property="og:locale" content="ar_AR">
@@ -745,6 +764,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
    verdict was that the button was useless because the tiles are right there.
    The library's SIZE is the pitch — forty covers scrolling past says more than
    a number ever does — so do not put it back behind a fold. */
+/* The text index under the grid: deliberately quiet — it is a reading path and
+   a crawl path, not a second set of buttons competing with the tiles. */
+.cat-index{display:flex; flex-wrap:wrap; gap:7px; margin-top:22px}
+.cat-index a{display:inline-flex; align-items:center; min-height:34px; padding:5px 12px;
+  border-radius:999px; border:1px solid var(--rule); background:rgba(255,255,255,.03);
+  color:var(--muted); text-decoration:none; font:700 12.5px var(--body);
+  transition:color .2s, border-color .2s}
+.cat-index a:hover,.cat-index a:focus-visible{color:var(--gold); border-color:var(--gold)}
 .copy{margin-top:30px; font:600 12.5px var(--body); color:var(--muted); opacity:.75}
 
 @media (prefers-reduced-motion:reduce){
@@ -917,6 +944,13 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       </p>
     </div>
     <div class="grid" id="allGrid"></div>
+    <!-- ⚠️ The text index is how the category pages are REACHED — by a reader
+         who wants to read about one before playing it, and by a crawler, which
+         a sitemap alone serves poorly. Built from the same CATS array as the
+         tiles above, so it cannot list a category the grid does not have. The
+         tiles themselves still deep-link straight into the game: they are the
+         conversion path and this is the reading path. -->
+    <nav class="cat-index" id="catIndex" aria-label="صفحات الفئات"></nav>
   </section>
 
   <!-- ── WHY ──────────────────────────────────────────────── -->
@@ -1267,6 +1301,20 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
 
   /* ── category showcase, driven by scroll ────────────────── */
   const ar = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  /* ── measurement ──────────────────────────────────────────────────────
+     Three questions this page cannot otherwise answer: did anyone arrive, did
+     they press play, and did the taster do anything. That is the whole event
+     list on purpose — a page instrumented everywhere produces numbers nobody
+     reads, and each event here maps to a decision (is the traffic real, does
+     the hero convert, is the taster worth its section).
+     ⚠️ Every call goes through this. `gtag` may be absent — ad blockers are
+     common and googletagmanager is a third party — and an undefined-function
+     error on the hero would cost more than the measurement is worth. */
+  const track = (name, params) => {
+    try { if (typeof gtag === "function") gtag("event", name, params || {}); }
+    catch (e) { /* measurement must never break the page */ }
+  };
+
   /* ── the ONE route into the game ──────────────────────────────────────
      Owner's instruction: the site's only way into the game is the store for
      the visitor's own phone, or the copy they already have installed.
@@ -1332,6 +1380,20 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     });
     document.querySelectorAll("[data-game]").forEach(a => {
       a.href = gameUrl(a.dataset.game || "");
+      /* Which button, not just that one was pressed: the hero, the taster's
+         CTA and the closing button are three different arguments and the page
+         should be able to say which of them works. Bound once — `routeAll`
+         runs again when the installed-app answer arrives. */
+      if (!a.dataset.tracked) {
+        a.dataset.tracked = "1";
+        a.addEventListener("click", () => track("play_click", {
+          where: a.closest("header") ? "header"
+               : a.closest(".hero") ? "hero"
+               : a.closest("#try") ? "taster"
+               : a.closest("footer") ? "footer" : "closing",
+          destination: storeUrl() ? "store" : "web",
+        }));
+      }
       // A store link leaves the site. Say so, rather than surprising someone
       // who expected the game and got the App Store in a new tab.
       if (store) { a.rel = "noopener"; a.target = "_blank"; }
@@ -1519,6 +1581,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
          as broken, and the point of the fortnight is that four is the set. */
       if (els.next) els.next.hidden = last;
       els.after.hidden = false;
+      track("taster_answer", { correct: right, step: step + 1, category: s.cat });
     };
 
     if (els.next) els.next.addEventListener("click", () => {
@@ -1856,6 +1919,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     ALL.forEach(c => {
       const card = document.createElement("a");
       card.className = "gcard"; card.href = playLink(c.id);
+      card.addEventListener("click", () => track("category_click", { category: c.n }));
       card.setAttribute("aria-label", "العب " + c.n + " — " + c.count + " سؤال");
       if (c.thumb) {
         const im = new Image(); im.src = c.thumb; im.alt = ""; im.loading = "lazy"; im.decoding = "async";
@@ -1881,6 +1945,17 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       card.appendChild(play);
       gridEl.appendChild(card);
     });
+    /* The reading path. One link per category, to its generated page. */
+    const idx = document.getElementById("catIndex");
+    if (idx) {
+      ALL.forEach(c => {
+        const a = document.createElement("a");
+        a.href = "c/" + c.id + ".html";
+        a.textContent = c.n;
+        idx.appendChild(a);
+      });
+    }
+
       const hq = document.getElementById("heroQ");
     if (hq) hq.textContent = ar(DATA.totals.questions);
     const cEl = document.getElementById("allCount");
