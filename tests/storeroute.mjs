@@ -109,6 +109,10 @@ const readRoutes = page => page.evaluate(() => ({
     href: a.getAttribute("href"),
     target: a.getAttribute("target") || "",
   })),
+  // ⚠️ The grid tiles route to a category PAGE now, not into the game — the
+  // routing they have to obey is checked in tests/catpages.mjs, and the page's
+  // own play button carries the same rule (inlined from these constants by
+  // preview/cats.mjs). What is left here is the showcase's play button.
   tiles: [...document.querySelectorAll(".gcard")].map(a => a.getAttribute("href")),
   play: (document.getElementById("cdPlay") || {}).getAttribute?.("href") || "",
   badges: [...document.querySelectorAll("[data-store]")].map(e => ({
@@ -130,8 +134,9 @@ try {
     check(`${which}: with no store URL set, every button opens the web game`,
       r.buttons.length >= 5 && r.buttons.every(b => b.href === "../"),
       `${r.buttons.length} buttons`);
-    check(`${which}: and the category tiles keep their preselected category`,
-      r.tiles.length === 40 && r.tiles.every(h => h.startsWith("../#g=")), `${r.tiles.length} tiles`);
+    check(`${which}: the category tiles open their pages, not the game`,
+      r.tiles.length === 40 && r.tiles.every(h => /^c\/[A-Za-z0-9-]+\.html$/.test(h)),
+      `${r.tiles.length} tiles, e.g. ${r.tiles[0]}`);
     check(`${which}: the badges stay disabled while there is nothing to link to`,
       r.badges.length === 4 && r.badges.every(b => b.tag === "SPAN" && !b.href
         && b.label.includes("قريباً")));
@@ -149,11 +154,12 @@ try {
     check(`${which}: every route goes to ${which === "desktop" ? "the web game" : "its own store"}`,
       r.buttons.length >= 5 && r.buttons.every(b => b.href === want),
       r.buttons.map(b => b.href).filter((v, i, a) => a.indexOf(v) === i).join(" · "));
-    // Forty tiles included — this is the one that would be missed, because a
-    // tile is built in JS and reads fine in isolation.
-    check(`${which}: the category tiles obey the same routing`,
-      r.tiles.length === 40 && r.tiles.every(h => h === want || h.startsWith(want + "#g=")),
-      r.tiles[0]);
+    /* ⚠️ The tiles are deliberately NOT part of this any more: they open a
+       category page on the site, which then carries its own play button with
+       these same constants inlined into it. Asserting the old contract here
+       would demand the tiles skip the page the owner asked them to open. */
+    check(`${which}: the tiles stay on the site, whatever the store says`,
+      r.tiles.every(h => /^c\//.test(h)), r.tiles[0]);
     check(`${which}: the showcase's «العب هذي الفئة» too`,
       r.play === want || r.play.startsWith(want + "#g="), r.play.slice(0, 46));
     if (which === "desktop") {

@@ -121,9 +121,13 @@ try {
     g.click();
   });
   await page.waitForTimeout(200);
-  const cat = (await events()).find(e => e[1] === "category_click");
-  check("a category tile is reported, with which category", !!cat && !!cat[2].category,
-    cat && cat[2].category);
+  /* ⚠️ `category_open`, not `category_click` — the tiles used to deep-link into
+     the game and now open the category's own page, which is a different thing
+     to count. The name changed with the behaviour so a year of one event does
+     not get averaged with a year of the other. */
+  const cat = (await events()).find(e => e[1] === "category_open");
+  check("opening a category page is reported, with which category",
+    !!cat && !!cat[2].category, cat && cat[2].category);
 
   check("no page errors while measuring" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
   await ctx.close();

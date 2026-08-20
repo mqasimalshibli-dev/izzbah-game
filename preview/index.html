@@ -764,14 +764,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
    verdict was that the button was useless because the tiles are right there.
    The library's SIZE is the pitch — forty covers scrolling past says more than
    a number ever does — so do not put it back behind a fold. */
-/* The text index under the grid: deliberately quiet — it is a reading path and
-   a crawl path, not a second set of buttons competing with the tiles. */
-.cat-index{display:flex; flex-wrap:wrap; gap:7px; margin-top:22px}
-.cat-index a{display:inline-flex; align-items:center; min-height:34px; padding:5px 12px;
-  border-radius:999px; border:1px solid var(--rule); background:rgba(255,255,255,.03);
-  color:var(--muted); text-decoration:none; font:700 12.5px var(--body);
-  transition:color .2s, border-color .2s}
-.cat-index a:hover,.cat-index a:focus-visible{color:var(--gold); border-color:var(--gold)}
 .copy{margin-top:30px; font:600 12.5px var(--body); color:var(--muted); opacity:.75}
 
 @media (prefers-reduced-motion:reduce){
@@ -944,13 +936,11 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       </p>
     </div>
     <div class="grid" id="allGrid"></div>
-    <!-- ⚠️ The text index is how the category pages are REACHED — by a reader
-         who wants to read about one before playing it, and by a crawler, which
-         a sitemap alone serves poorly. Built from the same CATS array as the
-         tiles above, so it cannot list a category the grid does not have. The
-         tiles themselves still deep-link straight into the game: they are the
-         conversion path and this is the reading path. -->
-    <nav class="cat-index" id="catIndex" aria-label="صفحات الفئات"></nav>
+    <!-- The category pages are reached by the TILES above — there is no
+         separate text index. One was added first, as a row of forty pills under
+         the grid, and it was forty links to the same forty places the tiles
+         already went: redundant for a reader and, once the tiles link there
+         too, redundant for a crawler as well. -->
   </section>
 
   <!-- ── WHY ──────────────────────────────────────────────── -->
@@ -1918,8 +1908,14 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
     const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
     ALL.forEach(c => {
       const card = document.createElement("a");
-      card.className = "gcard"; card.href = playLink(c.id);
-      card.addEventListener("click", () => track("category_click", { category: c.n }));
+      /* ⚠️ A tile opens the category's PAGE, not the game. It used to deep-link
+         straight into the picker with that category chosen; the owner's change
+         is that someone browsing the library wants to see what is IN a category
+         before committing to a game. The page carries three real questions and
+         its own «العب هذي الفئة» button, so the route into the game is one
+         click further along rather than gone. */
+      card.className = "gcard"; card.href = "c/" + c.id + ".html";
+      card.addEventListener("click", () => track("category_open", { category: c.n }));
       card.setAttribute("aria-label", "العب " + c.n + " — " + c.count + " سؤال");
       if (c.thumb) {
         const im = new Image(); im.src = c.thumb; im.alt = ""; im.loading = "lazy"; im.decoding = "async";
@@ -1945,17 +1941,6 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       card.appendChild(play);
       gridEl.appendChild(card);
     });
-    /* The reading path. One link per category, to its generated page. */
-    const idx = document.getElementById("catIndex");
-    if (idx) {
-      ALL.forEach(c => {
-        const a = document.createElement("a");
-        a.href = "c/" + c.id + ".html";
-        a.textContent = c.n;
-        idx.appendChild(a);
-      });
-    }
-
       const hq = document.getElementById("heroQ");
     if (hq) hq.textContent = ar(DATA.totals.questions);
     const cEl = document.getElementById("allCount");
