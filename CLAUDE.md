@@ -233,40 +233,59 @@ that is why the projection is a separate document.
     (W-8BEN-E for the Omani entity) are accepted in App Store Connect. Start it
     the day the developer account exists; teams routinely finish the build and
     then wait weeks on this.
-  - **Build `.325` sits UNMERGED on `claude/zen-dirac-qg9ryh`.** It is the
-    "store build sells nothing" switch (`isStoreBuild()`, `?store=1` override,
-    `tests/storebuild.mjs`, 10 checks). With IAP it must be RESHAPED, not
-    dropped: the packs stay visible in the app and the purchase ACTION swaps to
-    StoreKit, while the code-redemption box and the `mailto` stay hidden — those
-    are the parts Apple objects to. The website keeps the manual/Thawani path
-    unchanged.
-  - Next session, in order: reshape `.325` into that seam; map each pack in
-    `packs.js` to an App Store product id; wire RevenueCat's webhook into
-    `grant.js` (testable in their sandbox without a live app).
+  - **The client seam is BUILT and merged** (was `.325`, since reshaped).
+    `isStoreBuild()` detects the native build via Capacitor with a `?store=1`
+    override; `purchasePack()` is the ONE fork —
+    `isStoreBuild() ? storePurchase(p) : orderPlan(p)` — so the same tap means
+    Apple's sheet in the app and a manual order on the web. `STORE_PRODUCTS`
+    maps each pack to an App Store product id, mirroring `packs.js`. The packs
+    stay VISIBLE in the app; only the code-redemption box and the `mailto` are
+    hidden, those being the parts Apple objects to. `tests/storebuild.mjs`.
+    ⚠️ **Never fold store logic into `orderPlan()`** — the web behaviour is
+    settled and separate (see the web-payments entry below).
+  - ⚠️ **`storePurchase()` refuses to open the store sheet when signed OUT**, and
+    that guard is not politeness. RevenueCat grants against `app_user_id`, which
+    the app sets to the Firebase uid at sign-in; buy signed out and RevenueCat
+    reports one of its own anonymous ids, the webhook cannot match an account,
+    and the player has paid Apple for nothing.
+  - ⚠️ **Nothing is granted client-side.** `storePurchase()` shows a receipt
+    toast and stops; the webhook writes `entitlements/{uid}` with the Admin SDK
+    and the existing `onSnapshot` unlocks the games. A client that credited
+    itself would be a client that can credit itself for free.
+  - Still to do: the paperwork above, and a live sandbox run once the developer
+    account exists.
 
-- **Automatic purchases via Thawani — backend BUILT, client flow FROZEN
-  (owner, 2026-07-30).** Decided model: the player pays and **the games are
-  granted to their account directly** — no code, no email. Activation codes
-  stay a MANUAL, ADMIN-ONLY tool for gifts and fixes and are never part of a
-  purchase.
-  - Already built and tested (`functions/lib/packs.js`, `functions/lib/grant.js`,
-    `createCheckout` + `paymentWebhook` in `functions/index.js`, 26 unit tests
-    in CI via `functions/test/fulfilment.test.mjs`). No firestore.rules change
-    was needed: entitlements are write-denied to every user and the Admin SDK
-    bypasses rules, so the webhook is the only path to paid content.
-  - Still to do when the merchant account exists — see `PAYMENT_SETUP.md`:
-    replace the deliberately-stubbed `verifyProviderCallback()` with Thawani's
-    real signature check (do NOT guess at it), return a real `checkoutUrl`, and
-    only then wire the client.
-  - ⚠️ **DO NOT change what happens when a player taps a pack** (`orderPlan`)
-    until the owner says so. It must keep the CURRENT manual behaviour: write
-    `orders/{uid}`, show «تم استلام طلبك…», and wait for the admin to press
-    «كود + بريد التأكيد». The new Cloud Functions are deployed-ready but
-    deliberately NOT connected to the UI.
-  - Known gaps in the manual flow the owner has accepted for now: the code is
-    emailed together with the payment instructions (so it goes out before the
-    money arrives), and `recordSale` books revenue at that moment rather than on
-    payment. Both disappear once Thawani is wired.
+- **⛔ WEB PAYMENTS ARE NOT BEING BUILT — Thawani is DROPPED (owner,
+  2026-08-20).** *"keep the site manual then, dont build anything for web
+  payments. the site is generally a way to tell people about the game and
+  updates and thats it."* This CLOSES the 2026-07-30 Thawani plan; do not
+  reopen it, and do not propose Stripe, RevenueCat Web Billing or any other web
+  checkout as an improvement. Selling happens in the STORE builds.
+  - **What the website does when a player taps a pack: exactly what it does
+    today.** `orderPlan()` writes `orders/{uid}`, shows «تم استلام طلبك…», and
+    the admin replies with «كود + بريد التأكيد». That is the finished state, not
+    a stopgap. The older ⚠️ "do not change `orderPlan` until the owner says so"
+    still holds, and the owner has now said: leave it.
+  - **Why nothing is lost by this.** Packs are consumables that live on the
+    ACCOUNT (`entitlements/{uid}`), not in a receipt — so a player who buys in
+    the App Store build and then opens izzbah.com and signs in already has those
+    games there. The site needs sign-in, which it has; it does not need a till.
+  - **Who is left unserved, and that is accepted:** someone who wants to buy and
+    has never installed the app (desktop, or Android before Play ships). They
+    get the manual order-and-code flow. Once `STORE.ios` is filled in on the
+    landing page every iPhone visitor routes to the App Store anyway, so the web
+    packs box is seen by a shrinking audience.
+  - Accepted quirks of the manual flow, unchanged: the code is emailed together
+    with the payment instructions (so it goes out before the money arrives), and
+    `recordSale` books revenue at that moment rather than on payment.
+  - **The Thawani code is NOT deleted, just unused.** `createCheckout` +
+    `paymentWebhook` in `functions/index.js` (with `verifyProviderCallback()`
+    still deliberately stubbed) and `PAYMENT_SETUP.md` / `THAWANI_ONBOARDING.md`
+    stay in the repo, wired to nothing. ⚠️ Do not "tidy them away" — reviving
+    them is a real option if Play ships and Android web traffic turns out to
+    matter, and the stub is documented as a stub precisely so nobody guesses at
+    Thawani's signature check. `functions/lib/packs.js` and `grant.js` are NOT
+    Thawani-specific and are load-bearing for IAP.
 
 - **Sign in with Apple — PARKED until the App Store build is real (owner,
   2026-07-31).** Only required by App Store guideline 4.8, i.e. for a NATIVE
