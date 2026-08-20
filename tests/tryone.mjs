@@ -99,47 +99,117 @@ try {
     !match || after.verdict.includes(match.a), after.verdict.slice(0, 46));
   check("and the free game is offered right there", after.cta === "../", after.cta);
 
-  /* ── one question per day ──────────────────────────────────────
+  /* ── four questions, a new set every fortnight ─────────────────
      Asked of the page's own chooser rather than recomputed here: a test that
      repeats the implementation's arithmetic agrees with it by construction and
-     would pass just as happily if both were wrong. */
-  const daily = await page.evaluate(() => {
+     would pass just as happily if both were wrong.
+
+     ⚠️ THIS REPLACES A ONE-PER-DAY CONTRACT. The taster has been three things:
+     random on every load (so reloading was a way to shop for an easy one, and
+     nobody had a reason to come back), then one question per day (stable and
+     returnable, but it removed the «سؤال ثاني» button, so a visitor who
+     answered and wanted another had to come back TOMORROW for it). The owner's
+     call is a SET OF FOUR fixed for a fortnight, stepped through at the
+     reader's pace — which keeps both halves. */
+  const rot = await page.evaluate(() => {
     const T = window.IZZBAH_TRY;
     if (!T) return null;
-    const at = iso => T.pickFor(new Date(iso + "T12:00:00"));
-    const week = [];
-    for (let d = 0; d < 21; d++) {
+    const at = iso => T.setFor(new Date(iso + "T12:00:00")).join(",");
+    // Fifteen fortnights of sets, to see the whole cycle and its wrap.
+    const runs = [];
+    for (let p = 0; p < 15; p++) {
       const dt = new Date("2026-08-19T12:00:00");
-      dt.setDate(dt.getDate() + d);
-      week.push(T.pickFor(dt));
+      dt.setDate(dt.getDate() + p * T.days);
+      runs.push(T.setFor(dt).join(","));
     }
     return {
-      pool: T.pool,
-      sameDayTwice: at("2026-08-19") === at("2026-08-19"),
-      nextDayDiffers: at("2026-08-19") !== at("2026-08-20"),
-      // midnight is LOCAL: 23:59 and 00:01 must land either side of the flip
-      beforeMidnight: T.pickFor(new Date("2026-08-19T23:59:00")),
-      afterMidnight: T.pickFor(new Date("2026-08-20T00:01:00")),
-      week,
+      pool: T.pool, size: T.size, days: T.days,
+      sameTwice: at("2026-08-19") === at("2026-08-19"),
+      // a DAY later must NOT change it — that is the whole point of a fortnight
+      nextDaySame: at("2026-08-19") === at("2026-08-20"),
+      midFortnightSame: at("2026-08-19") === at("2026-08-25"),
+      runs,
     };
   });
-  check("the page exposes its day chooser", !!daily);
-  if (daily) {
-    check("the same date always gives the same question", daily.sameDayTwice);
-    check("the next day gives a different one", daily.nextDayDiffers,
-      `${daily.week[0]} → ${daily.week[1]}`);
-    check("the question turns over at midnight", daily.beforeMidnight !== daily.afterMidnight,
-      `${daily.beforeMidnight} → ${daily.afterMidnight}`);
-    // Every question gets its turn before any repeats — that is what makes the
-    // rotation worth having rather than a hash that favours a few.
-    const cycle = daily.week.slice(0, daily.pool);
-    check("every question in the pool comes up before any repeats",
-      new Set(cycle).size === daily.pool, `${new Set(cycle).size}/${daily.pool}`);
-    check("and it comes round again after that, rather than running out",
-      daily.week[daily.pool] === daily.week[0],
-      `day 1 → ${daily.week[0]}, day ${daily.pool + 1} → ${daily.week[daily.pool]}`);
-    check("the pool is long enough to be worth returning for",
-      daily.pool >= 7, `${daily.pool} days`);
+  check("the page exposes its set chooser", !!rot);
+  if (rot) {
+    check(`it shows a set of four (${rot.size})`, rot.size === 4);
+    check(`and the set turns over every fortnight (${rot.days} days)`, rot.days === 14);
+    check("the same date always gives the same set", rot.sameTwice);
+    /* ⚠️ Both directions. "The next fortnight differs" alone would pass on a
+       chooser that changed every DAY, which is exactly the behaviour being
+       replaced — so the day-after and mid-fortnight cases are pinned too. */
+    check("the day after does not change it", rot.nextDaySame, `${rot.runs[0]}`);
+    check("nor does the middle of the fortnight", rot.midFortnightSame);
+    check("the next fortnight brings a different set", rot.runs[1] !== rot.runs[0],
+      `${rot.runs[0]} → ${rot.runs[1]}`);
+    /* Four DIFFERENT questions, not a reshuffle of last fortnight's — a
+       returning reader has to meet something new. */
+    const overlap = (x, y) => x.split(",").filter(v => y.split(",").includes(v)).length;
+    check("and none of them is one of the four just shown",
+      overlap(rot.runs[0], rot.runs[1]) === 0, `${overlap(rot.runs[0], rot.runs[1])} shared`);
+    // No question is stranded: everything in the pool gets its fortnight.
+    const seen = new Set(rot.runs.join(",").split(","));
+    check("every question in the pool is reached", seen.size === rot.pool,
+      `${seen.size}/${rot.pool}`);
+    // …and no set repeats for months, so returning is worth it for a long time.
+    const firstRepeat = rot.runs.findIndex((r, i) => i > 0 && r === rot.runs[0]);
+    check("a set does not come round again for months",
+      firstRepeat === -1 || firstRepeat >= 6,
+      firstRepeat === -1 ? "not within 15 fortnights" : `repeats after ${firstRepeat} fortnights (${firstRepeat * 2} weeks)`);
+    check("the pool holds enough for several sets", rot.pool >= rot.size * 3,
+      `${rot.pool} questions = ${(rot.pool / rot.size).toFixed(1)} sets`);
+  }
+
+  /* ── stepping through the four ─────────────────────────────────
+     The «سؤال ثاني ↻» button is the half the one-per-day version lost, and it
+     is the reason the set is four rather than one. */
+  {
+    await page.reload({ waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(500);
+    const state = () => page.evaluate(() => ({
+      step: document.getElementById("tryStep").textContent.trim(),
+      q: document.getElementById("tryQ").textContent.trim(),
+      // ⚠️ Measured, not read off the attribute. An author `display` beats the
+      // UA's `[hidden]{display:none}` whatever the specificity, and that is
+      // exactly what happened here: the button stayed on screen through the
+      // last question with `hidden` correctly set.
+      nextShown: (() => { const b = document.getElementById("tryNext");
+        return !!b && b.getBoundingClientRect().height > 0; })(),
+    }));
+    const answerOne = () => page.evaluate(() =>
+      document.querySelectorAll(".try-choice")[0].click());
+
+    const first = await state();
+    check("it opens on the first of four", first.step === "١ / ٤", first.step);
+    check("and offers no «سؤال ثاني» before anything is answered", !first.nextShown);
+
+    const seenQ = [first.q];
+    for (let k = 1; k <= 3; k++) {
+      await answerOne();
+      await page.waitForTimeout(300);
+      const after = await state();
+      check(`answering ${k} of 4 offers the next one`, after.nextShown, after.step);
+      await page.click("#tryNext");
+      await page.waitForTimeout(400);
+      const next = await state();
+      check(`  it moves to question ${k + 1}`, next.step === ["٢ / ٤", "٣ / ٤", "٤ / ٤"][k - 1],
+        next.step);
+      seenQ.push(next.q);
+    }
+    check("the four are four different questions", new Set(seenQ).size === 4,
+      `${new Set(seenQ).size} distinct`);
+
+    await answerOne();
+    await page.waitForTimeout(300);
+    const last = await state();
+    /* ⚠️ Hidden on the LAST one rather than wrapping to the first. A «سؤال
+       ثاني» that serves a question already answered reads as broken, and four
+       being the set is the whole point of the fortnight. */
+    check("the fourth offers no next — the set is finished", !last.nextShown, last.step);
+    const cta = await page.evaluate(() =>
+      (document.querySelector("#tryAfter .btn") || {}).getAttribute?.("href"));
+    check("but the free game is still offered there", cta === "../", cta);
   }
 
   /* ── the shuffle ───────────────────────────────────────────────
@@ -158,7 +228,7 @@ try {
     }));
   }
   check("the answer is not always in the same position", new Set(positions).size > 1, positions.join(","));
-  check("but the question itself does not change on reload",
+  check("but the fortnight's first question does not change on reload",
     (await page.evaluate(() => document.getElementById("tryQ").textContent.trim())) === shown.q);
 
   // The hero's promise, which is what the taster is feeding.
@@ -180,27 +250,44 @@ try {
      ⚠️ This needs a non-UTC timezone to mean anything. CI runs in UTC, where
      the local-time formula and a naive UTC one are IDENTICAL — reverting the
      offset subtraction failed zero checks until this context existed. Muscat is
-     UTC+4, so 01:00 local on the 20th is still 21:00 UTC on the 19th: under a
-     UTC formula the question would not have turned over yet, and a player in
-     Oman would meet the new one at 4am. */
+     UTC+4, so 01:00 local is still 21:00 UTC the previous day: under a UTC
+     formula the set would not have turned over yet, and a player in Oman would
+     meet the new four at 4am.
+     ⚠️ The probe has to sit on a real FORTNIGHT boundary, which is not every
+     midnight — thirteen midnights in fourteen change nothing, so a date picked
+     by hand would test the wrong thing and pass. The page is asked where its
+     own boundary falls. */
   const muscat = await browser.newContext({ viewport: { width: 900, height: 800 }, timezoneId: "Asia/Muscat" });
   const mp = await muscat.newPage();
   await mp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
   await mp.waitForTimeout(700);
   const tz = await mp.evaluate(() => {
     const T = window.IZZBAH_TRY;
+    const noon = d => { const x = new Date("2026-08-19T12:00:00"); x.setDate(x.getDate() + d); return x; };
+    let flip = -1;
+    for (let d = 1; d <= 20 && flip < 0; d++)
+      if (T.periodFor(noon(d)) !== T.periodFor(noon(d - 1))) flip = d;
+    if (flip < 0) return { offset: new Date().getTimezoneOffset(), flip: -1 };
+    const day = noon(flip);
+    const at = (dayOffset, h, m) => {
+      const x = new Date(day); x.setDate(x.getDate() + dayOffset); x.setHours(h, m, 0, 0);
+      return T.setFor(x).join(",");
+    };
     return {
       offset: new Date().getTimezoneOffset(),
-      lateOn19: T.pickFor(new Date("2026-08-19T22:00:00")),   // 18:00 UTC, still the 19th everywhere
-      earlyOn20: T.pickFor(new Date("2026-08-20T01:00:00")),  // 21:00 UTC on the 19th — UTC has not flipped
-      noonOn20: T.pickFor(new Date("2026-08-20T12:00:00")),
+      flip,
+      flipDay: day.toDateString(),
+      before: at(-1, 23, 0),   // 19:00 UTC the previous day
+      after:  at(0, 1, 0),     // 21:00 UTC the PREVIOUS day — UTC has not flipped
+      noonAfter: at(0, 12, 0),
     };
   });
   await muscat.close();
   check("the timezone is really emulated", tz.offset === -240, `offset ${tz.offset} min`);
-  check("just after LOCAL midnight it is already the next day's question",
-    tz.earlyOn20 !== tz.lateOn19 && tz.earlyOn20 === tz.noonOn20,
-    `22:00 on the 19th → ${tz.lateOn19}, 01:00 on the 20th → ${tz.earlyOn20}`);
+  check("a fortnight boundary was found to probe", tz.flip > 0, `day +${tz.flip} (${tz.flipDay})`);
+  check("just after LOCAL midnight it is already the next fortnight's set",
+    tz.flip > 0 && tz.after !== tz.before && tz.after === tz.noonAfter,
+    `23:00 the night before → ${tz.before}, 01:00 → ${tz.after}`);
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
