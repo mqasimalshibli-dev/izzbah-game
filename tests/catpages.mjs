@@ -133,6 +133,16 @@ try {
   const strays = await page.evaluate(() => document.querySelectorAll("#catIndex").length);
   check("no leftover duplicate index of the same links", strays === 0);
 
+  /* ⚠️ THE LABEL MUST MATCH THE DESTINATION. The hover overlay on each tile
+     said «العب ▸» long after the tile stopped starting a game — the worst kind
+     of stale label, since it promises the wrong thing at the exact moment
+     someone decides whether to press. Asserted as a rule rather than as a
+     string: a tile that goes to a page must not offer to play. */
+  const label = await page.evaluate(() =>
+    (document.querySelector(".gcard .play span") || {}).textContent || "");
+  check("the tile's label does not promise a game", !/^العب/.test(label.trim()), label.trim());
+  check("…and says something about looking instead", /شوف|وش|اعرف/.test(label), label.trim());
+
   // …and one page, rendered.
   for (const [id, w, h] of [["cars", 1000, 1000], ["khareef", 390, 844]]) {
     await page.setViewportSize({ width: w, height: h });
