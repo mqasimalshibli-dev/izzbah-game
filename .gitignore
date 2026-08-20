@@ -13,3 +13,4 @@ package-lock.json
 __pycache__/
 *.pyc
 preview/.cliptmp/
+tools/srcache/
