@@ -107,6 +107,21 @@ check("every picture it shows is on disk",
 /* ⚠️ …and nothing else is. The first version wrote every photograph it fetched
    — 387 files and 16 MB for the ~40 that appear — onto the branch that IS the
    published site. */
+/* ⚠️ ONE BOX FOR EVERY PICTURE. Left to their own proportions these run from
+   0.59 (a tall portrait) to 2.40 (a panorama), and a column of them steps in
+   and out and reads as broken layout. Structural first — every picture must be
+   inside the fixed frame, since one that escapes it is the whole problem back
+   again for a single question. */
+const loosePics = pages.filter(p =>
+  (p.html.match(/<img class="qimg"/g) || []).length !== (p.html.match(/<span class="qshot"/g) || []).length);
+check("every picture sits in the fixed frame", loosePics.length === 0,
+  loosePics.map(p => p.id).join(", "));
+/* …and the frame's size must not come from the picture. `aspect-ratio` with
+   `object-fit: contain` is what makes it fixed; `max-height` alone (the first
+   version) still let a narrow picture render narrow. */
+check("the frame's shape is fixed, not the picture's",
+  pages[0].html.includes("aspect-ratio:3/2") && pages[0].html.includes("object-fit:contain"));
+
 check("and nothing is on disk that no page shows",
   imgFiles.every(f => referenced.has(f)),
   `${imgFiles.length} files, ${referenced.size} referenced`);
@@ -234,6 +249,30 @@ try {
   check("…and the play button still works", (playHref || "").startsWith("../../#g="), playHref);
   check("…and the category is still named", (seen || "").includes("سيارات"));
   void bare;
+
+  /* Measured, on every page that shows one: identical boxes, and the picture
+     whole inside — cropping to a common box would keep 39% of the tallest and
+     62% of the widest, and a question's subject is usually in the part that
+     goes. */
+  const sizes = new Map();
+  let contained = true;
+  for (const p2 of pictured) {
+    await page.goto(`http://127.0.0.1:${PORT}/preview/c/${p2.id}.html`, { waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(200);
+    const shots = await page.evaluate(() => [...document.querySelectorAll(".qshot")].map(e => {
+      const r = e.getBoundingClientRect();
+      const im = e.querySelector(".qimg");
+      return { box: Math.round(r.width) + "x" + Math.round(r.height),
+               fit: getComputedStyle(im).objectFit, loaded: im.naturalWidth > 0 };
+    }));
+    for (const sh of shots) {
+      sizes.set(sh.box, (sizes.get(sh.box) || 0) + 1);
+      if (sh.fit !== "contain" || !sh.loaded) contained = false;
+    }
+  }
+  check("every question picture renders at the same size",
+    sizes.size === 1, [...sizes.entries()].map(([k, v]) => `${k} ×${v}`).join("  "));
+  check("…with the whole picture inside it, and all of them loading", contained);
 
   check("no missing files" + (http.length ? ": " + http[0] : ""), http.length === 0);
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
