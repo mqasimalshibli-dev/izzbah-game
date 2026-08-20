@@ -75,7 +75,17 @@ async function load(w, h, touch) {
   PAGE.on("pageerror", e => errs.push(e.message));
   await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
   await PAGE.waitForTimeout(1000);
-  await PAGE.evaluate(() => document.getElementById("cats").scrollIntoView());
+  /* ⚠️ `behavior: "instant"`, for the same reason the sweep below spells it out
+     — and this one was the harder half to find. The page sets
+     `html{scroll-behavior:smooth}`, so a bare `scrollIntoView()` here ANIMATES
+     for the best part of a second toward a target captured before fonts and
+     covers had settled. That animation was still running when the sweep did its
+     own instant scroll, and it went on dragging the page 1-17px PAST the
+     section top afterwards. The driver reads `-sec.top / budget`, so 17px of a
+     1215px budget across 40 categories rounds the starting index to 1 and
+     "page scroll sweeps the whole rail" failed — about one run in five, with
+     nothing wrong with the page at all. */
+  await PAGE.evaluate(() => document.getElementById("cats").scrollIntoView({ behavior: "instant" }));
   await PAGE.waitForTimeout(700);
   return PAGE;
 }
@@ -116,6 +126,46 @@ const geom = page => page.evaluate(() => {
     playHref: document.getElementById("cdPlay").getAttribute("href") || "",
   };
 });
+
+/* ── the covers cost nothing until they are wanted ──────────────
+   ⚠️ The rail is several screens below the fold on a phone and was pulling
+   1.4 MB of cover art on load — paid in full by every reader who never
+   scrolled that far. Nothing attaches until an observer says the section is
+   coming up. Both halves are asserted, because either alone is a bug: not
+   loading early, and loading COMPLETELY once there. Attaching only a slice is
+   what left six of thirteen laid-out cards as empty frames. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  let covers = 0, kb = 0;
+  p.on("response", async r => {
+    if (/cat\/.*-l\.webp/.test(r.url())) covers++;
+    try { kb += (await r.body()).length / 1024; } catch (e) {}
+  });
+  await p.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await p.waitForTimeout(1500);
+  const idle = { covers, kb: Math.round(kb) };
+  check("landing on the page loads no rail covers at all", idle.covers === 0,
+    `${idle.covers} covers, ${idle.kb} KB total`);
+  check(`…and the whole first visit stays under a megabyte (${idle.kb} KB)`, idle.kb < 1200);
+  await p.evaluate(() => document.getElementById("cats").scrollIntoView({ behavior: "instant" }));
+  /* ⚠️ WAIT FOR THE CONDITION, not for a clock. These are five covers and about
+     1.4 MB; a fixed timeout that is comfortable on an idle machine is a coin
+     toss on a loaded one, and a test that fails for that reason teaches people
+     to re-run rather than to look. */
+  await p.waitForFunction(() => {
+    const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+    return on.length > 0 && on.every(c => { const i = c.querySelector("img"); return i && i.naturalWidth > 0; });
+  }, null, { timeout: 20000 }).catch(() => {});
+  const after = await p.evaluate(() => {
+    const on = [...document.querySelectorAll(".c3")].filter(c => getComputedStyle(c).display !== "none");
+    return { on: on.length, loaded: on.filter(c => { const i = c.querySelector("img"); return i && i.naturalWidth > 0; }).length };
+  });
+  await ctx.close();
+  check("scrolling to the rail loads them", covers > 0, `${covers} covers`);
+  check("…and every laid-out cover really arrives", after.loaded === after.on,
+    `${after.loaded}/${after.on}`);
+}
 
 try {
   for (const [name, w, h, touch] of VIEWPORTS) {

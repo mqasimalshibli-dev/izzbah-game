@@ -64,7 +64,7 @@ function labelBuilds(html) {
     const re = new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`);
     const m = re.exec(html);
     if (!m) throw new Error(`legal.mjs: no <p class="${cls}"> in the terms — has the game's payment copy moved?`);
-    html = html.replace(re, `<h6>${heading}</h6>\n<p>${m[1]}</p>`);
+    html = html.replace(re, `<h4>${heading}</h4>\n<p>${m[1]}</p>`);
   };
   one("legal-web-only", "إذا طلبت الباقة من الموقع");
   one("legal-store-only", "إذا اشتريت من داخل التطبيق عبر المتجر");
@@ -83,6 +83,12 @@ const bodies = DOCS.map(([key]) => {
   // The game's own `<h4>` is the document title and the page prints its own,
   // so the duplicate goes. Everything else is kept exactly as authored.
   html = html.replace(/<h4>[\s\S]*?<\/h4>\s*/, "");
+  /* ⚠️ The game's documents use <h5> for their section headings, under an <h4>
+     title this page drops in favour of its own <h2>. Left alone that is h2 → h5
+     — two levels skipped — which is the one structural complaint an audit of
+     this page raises, and it is what a screen reader navigates by. Remapped to
+     <h3>, one level under the document's own heading. */
+  html = html.replace(/<(\/?)h5>/g, "<$1h3>");
   // ⚠️ Guard against lifting an empty or half-matched block. A silently blank
   // policy page is the failure this whole script exists to make impossible.
   if (html.replace(/<[^>]+>/g, "").trim().length < 400)
@@ -112,6 +118,12 @@ const page = `<!doctype html>
      real policy URL is an easy thing to forget. -->
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#16060a">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="عِزبة">
+<meta property="og:locale" content="ar_AR">
+<meta property="og:title" content="الشروط والسياسات — عِزبة">
+<meta property="og:description" content="سياسة الخصوصية وشروط الاستخدام والإشعارات والحقوق للعبة عِزبة.">
+<meta property="og:url" content="https://izzbah.com/preview/legal.html">
 <style>
 /* ⚠️ The FULL faces from the game (assets/fonts/), not the landing page's
    subsets in preview/fonts/. Those are cut down to the 59 Arabic codepoints
@@ -171,9 +183,10 @@ section{padding-block:14px 40px; border-top:1px solid var(--rule); margin-top:34
 section:first-of-type{border-top:0; margin-top:0}
 h2{font:900 clamp(22px,3.2vw,30px)/1.3 var(--body); margin:26px 0 4px; color:var(--gold-hi)}
 h5{font:800 17px/1.5 var(--body); margin:30px 0 6px; color:var(--cream)}
-/* The sub-heading this build adds around the two payment paragraphs. Smaller
-   than the game's own h5 so a lifted document keeps its own hierarchy. */
-h6{font:800 14.5px/1.5 var(--body); margin:20px 0 4px; color:var(--gold); letter-spacing:.01em}
+/* The sub-heading this build adds around the two payment paragraphs — an <h4>,
+   one level under the lifted document's own headings, so the outline a screen
+   reader walks has no gaps. */
+h4{font:800 14.5px/1.5 var(--body); margin:20px 0 4px; color:var(--gold); letter-spacing:.01em}
 p{margin:0 0 14px; color:var(--cream); opacity:.92}
 .legal-updated{color:var(--muted); font-size:13.5px; opacity:1; margin-bottom:20px}
 ul{margin:0 0 16px; padding-inline-start:22px}

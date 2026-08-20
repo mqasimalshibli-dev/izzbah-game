@@ -159,9 +159,16 @@ function render(cat, meta, qs, siblings) {
   const [tag, desc] = COPY[cat.id] || ["فئة", "فئة من فئات عِزبة."];
   const title = `${cat.name} — أسئلة من لعبة عِزبة`;
   const blurb = `${desc} ${ar(meta.n)} سؤال جاهز في فئة «${cat.name}» داخل عِزبة — لعبة الأسئلة الجماعية.`;
-  const cover = "../" + meta.big;
+  /* ⚠️ THE TILE (`-t`), NOT THE SHOWCASE ART (`-l`). This is a 240px thumbnail
+     beside the title, and `-l` is built for the showcase's full-width frame:
+     cars-l is 1080x1350 and 476 KB, which was 77% of this page's entire
+     weight, downloaded to be drawn at 240 CSS px. The tile is 420x560 and
+     99 KB — near-exact at 2x — and it is also the very image the grid tile the
+     reader just pressed was showing, so the page opens on something they
+     recognise. */
+  const cover = "../" + meta.cover;
   // Real pixel dimensions, so the box is reserved correctly before it loads.
-  const dim = coverSize(join(HERE, meta.big));
+  const dim = coverSize(join(HERE, meta.cover));
   return `<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
