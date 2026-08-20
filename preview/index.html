@@ -1935,10 +1935,18 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       cap.querySelector("b").textContent = c.n;
       cap.querySelector("i").textContent = ar(c.count) + " سؤال";
       card.appendChild(cap);
-      const play = document.createElement("span"); play.className = "play";
-      play.innerHTML = "<span></span>";
-      play.firstChild.textContent = "العب ▸";
-      card.appendChild(play);
+      /* ⚠️ The hover label says what the tile DOES, and the tile stopped
+         starting a game — it opens the category's page. «العب ▸» was left over
+         from when it deep-linked into the picker, which is the worst kind of
+         stale label: it promises the wrong destination at the exact moment
+         someone decides whether to press.
+         «شوف وش فيها» rather than «شوف الأسئلة» because seven of the forty
+         categories are all-picture ones whose page carries no sample questions,
+         and a label is a promise even at 12.5px. */
+      const peek = document.createElement("span"); peek.className = "play";
+      peek.innerHTML = "<span></span>";
+      peek.firstChild.textContent = "شوف وش فيها ▸";
+      card.appendChild(peek);
       gridEl.appendChild(card);
     });
       const hq = document.getElementById("heroQ");
