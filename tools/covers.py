@@ -15,6 +15,15 @@ the reason to keep reading the ORIGINAL bytes and to let the target be a
 DOWNSCALE where the source allows one, rather than assuming every output is an
 upscale of a 480px file.
 
+⚠️ SINCE 2026-08-19 THE SOURCE IS NO LONGER THE 480px ORIGINAL. `tools/upscale.py`
+super-resolves each cover x4 into `tools/srcache/` and `source_image()` prefers
+that, which turns every branch below from an upscale into a DOWNSCALE — the case
+the measurements here say is the good one. The owner's report was "the quality of
+some of the covers is too bad", and neither resampling strategy nor encode
+quality moved it, because the ceiling was the source. That cache is gitignored
+and `main()` REFUSES to run without it unless given --no-sr, so a re-run cannot
+quietly rebuild all forty from the small originals again.
+
 What it CAN fix, and what was actually wrong with the old files:
 
   * They were re-encodes of re-encodes. The old preview covers were built from
@@ -145,8 +154,24 @@ def fetch_categories():
             return docs
 
 
-def source_image(cid, fields):
-    """The best available original for a category, as (PIL image, where)."""
+SRCACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "srcache")
+
+
+def source_image(cid, fields, use_sr=True):
+    """The best available original for a category, as (PIL image, where).
+
+    ⚠️ THE SUPER-RESOLVED COPY WINS WHEN IT EXISTS. `tools/upscale.py` writes
+    `srcache/{id}.png` at 4x, and with it every branch below turns from an
+    upscale into a DOWNSCALE — which is the case this file's own measurements
+    say is the good one. Without it a 480px original has to be stretched to
+    1080 and the result is the softness the owner reported.
+    The cache is gitignored (40 PNGs at 4x, on the branch that IS the site), so
+    `main()` refuses to run when it is missing rather than quietly rebuilding
+    every cover from the small original again."""
+    if use_sr:
+        sr = os.path.join(SRCACHE, cid + ".png")
+        if os.path.exists(sr):
+            return Image.open(sr), "super-res"
     raw = (fields.get("image") or {}).get("stringValue") or ""
     m = re.match(r"^data:image/[a-z+]+;base64,(.*)$", raw, re.S)
     if m:
@@ -236,8 +261,26 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--only", default="")
+    ap.add_argument("--no-sr", action="store_true",
+                    help="build from the small Firestore originals, without the "
+                         "super-resolved cache. Makes every cover softer.")
     args = ap.parse_args()
     only = {s for s in args.only.split(",") if s}
+
+    # ⚠️ Refuse rather than silently downgrade. The committed covers were built
+    # from the super-resolved cache; that cache is gitignored (40 PNGs at 4x, on
+    # the branch that IS the published site), so on a fresh clone this would
+    # otherwise rebuild all forty from the 480px originals and look like it had
+    # worked. `--no-sr` is the way to ask for that on purpose.
+    cached = len([f for f in os.listdir(SRCACHE) if f.endswith(".png")]) \
+        if os.path.isdir(SRCACHE) else 0
+    if not args.no_sr and cached < 2:
+        sys.exit("tools/srcache/ has no upscaled covers, and the ones committed here "
+                 "were built from it.\n"
+                 "Run:  python3 tools/upscale.py\n"
+                 "…or pass --no-sr to rebuild from the small originals on purpose.")
+    if args.no_sr:
+        print("⚠️  --no-sr: building from the small originals — every cover will be softer\n")
 
     docs = fetch_categories()
     print(f"{len(docs)} categories\n")
@@ -248,7 +291,7 @@ def main():
         if only and cid not in only:
             continue
         nm = (d.get("fields", {}).get("name") or {}).get("stringValue", "")
-        src, where = source_image(cid, d.get("fields", {}))
+        src, where = source_image(cid, d.get("fields", {}), use_sr=not args.no_sr)
         if src is None:
             print(f"  !! {cid} ({nm}) — no artwork anywhere, left alone")
             continue
