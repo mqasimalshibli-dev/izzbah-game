@@ -34,11 +34,12 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { catalogue } from "./gamedata.mjs";
+import { catalogue, media } from "./gamedata.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const OUT = join(HERE, "c");
+const IMG = join(OUT, "img");
 const SITE = "https://izzbah.com/preview";
 const check = process.argv.includes("--check");
 
@@ -101,17 +102,28 @@ function coverSize(f) {
 }
 
 const SAMPLES = 3;
-function questionsFor(cat) {
+/* ⚠️ PICTURES COME FROM THE SUBCOLLECTION, NOT THE PARENT DOC. A category's
+   parent doc carries a TEXT-ONLY copy of its questions (the media-lite boot
+   path, build .209), so `q.image` there is empty for every question in the
+   catalogue — a filter on it, which this had, silently matched nothing. The
+   real images live in `categories/{id}/questions` and are fetched separately.
+   ⚠️ The question's `image` only. `answerImage` would give the answer away on a
+   page that deliberately does not print answers. */
+function questionsFor(cat, imgs) {
   const ok = [];
-  for (const q of cat.questions || []) {
+  const list = cat.questions || [];
+  for (let n = 0; n < list.length; n++) {
+    const q = list[n];
     if (!q || !q.q || !q.a) continue;
     const text = String(q.q).trim(), answer = String(q.a).trim();
     if (!text || !answer) continue;
-    if (q.image) continue;
     if (text.length > 90) continue;
     if (/\([-−][^()]*\+\)/.test(text)) continue;      // «الأقرب يفوز» tolerance
     if (/\n/.test(text)) continue;                    // multi-line clue lists
-    ok.push({ q: text, a: answer, points: Number(q.points) || 0 });
+    /* ⚠️ `n`, the position in the PARENT array — that is the key `media()`
+       returns as `idx`, and a running counter over the FILTERED list would
+       quietly pair a question with another question's photograph. */
+    ok.push({ q: text, a: answer, points: Number(q.points) || 0, pic: imgs.get(n) || null });
   }
   /* ⚠️ SPREAD THEM, do not take the first three. Questions are stored roughly
      in tier order and authored in runs, so the first three of سيارات were all
@@ -123,7 +135,10 @@ function questionsFor(cat) {
   const tiers = [...new Set(ok.map(q => q.points))].sort((a, b) => a - b);
   const out = [], seen = new Set();
   for (const tier of tiers) {
-    const pick = ok.find(q => q.points === tier && !seen.has(opening(q.q)));
+    const inTier = ok.filter(q => q.points === tier && !seen.has(opening(q.q)));
+    // A pictured one wins its tier — the photograph is the reason to stop and
+    // read, and these pages exist to be worth stopping on.
+    const pick = inTier.find(q => q.pic) || inTier[0];
     if (!pick) continue;
     seen.add(opening(pick.q));
     out.push(pick);
@@ -228,8 +243,18 @@ h2{font:900 clamp(20px,3vw,26px)/1.3 var(--body);margin:36px 0 4px;color:var(--g
 .q{border:1px solid var(--rule);border-radius:16px;padding:16px 18px;background:rgba(255,255,255,.035)}
 .q .pts{font:800 12px var(--body);color:var(--gold);display:block;margin-bottom:5px}
 .q p{margin:0;font:700 16.5px/1.6 var(--body)}
-.q .a{margin-top:8px;color:var(--muted);font-weight:600;font-size:14.5px}
-.q .a b{color:var(--cream)}
+/* ⚠️ THE ANSWER IS NOT PRINTED. These pages carry three real questions from a
+   category, and printing the answers under them spoils those three for anyone
+   who reads the page and then plays — which is the whole intended journey. One
+   quiet line explains the absence rather than leaving questions that look
+   unfinished; it is per LIST, not per question, because three identical notes
+   read as a design mistake. */
+.unanswered{margin:14px 0 0;color:var(--muted);font:700 13.5px var(--body)}
+/* Some questions ARE a photograph — the text alone reads as a riddle with its
+   subject missing, which is why they were skipped entirely before. Capped in
+   height so a tall one cannot push the rest of the page off the screen. */
+.qimg{display:block;margin-top:12px;width:100%;max-width:420px;max-height:300px;
+  object-fit:contain;border-radius:12px;background:rgba(0,0,0,.25)}
 .more{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:0;list-style:none}
 .more a{display:inline-flex;align-items:center;min-height:38px;padding:6px 13px;border-radius:999px;
   border:1px solid var(--rule);color:var(--muted);text-decoration:none;font:700 13px var(--body)}
@@ -272,9 +297,10 @@ ${qs.length ? `  <h2>أسئلة من الفئة</h2>
 ${qs.map(q => `    <li class="q">
       ${q.points ? `<span class="pts">${ar(q.points)} نقطة</span>` : ""}
       <p>${esc(q.q)}</p>
-      <div class="a">الإجابة: <b>${esc(q.a)}</b></div>
+      ${q.pic ? `<img class="qimg" src="img/${esc(q.pic.name)}" alt="" loading="lazy" decoding="async">` : ""}
     </li>`).join("\n")}
-  </ul>` : ""}
+  </ul>
+  <p class="unanswered">الأجوبة داخل اللعبة.</p>` : ""}
 
   <h2>فئات ثانية</h2>
   <ul class="more">
@@ -325,6 +351,33 @@ const usable = cats.filter(c => byId[c.id] && byId[c.id].n > 0)
 if (usable.length < 20) throw new Error(`only ${usable.length} categories to write — refusing`);
 
 mkdirSync(OUT, { recursive: true });
+mkdirSync(IMG, { recursive: true });
+
+/* ⚠️ Question photographs are fetched per category from the `/questions`
+   subcollection and written as FILES, not inlined as data URIs. Inlining three
+   50 KB JPEGs would put 150 KB of base64 into every page's HTML — uncacheable,
+   and it would arrive ahead of the text a reader came for.
+   ⚠️ AND ONLY THE ONES ACTUALLY SHOWN ARE WRITTEN. The first version saved
+   every photograph it fetched — 387 files and 16 MB for the ~70 that appear on
+   a page — onto the branch that IS the published site. Fetch into memory,
+   render, then write what survived. */
+const keptImages = new Set();
+async function imagesFor(id) {
+  const map = new Map();
+  let rows = [];
+  try { rows = await media(id, { cap: 40 }); }
+  catch (e) { process.stderr.write(`  ${id}: media read failed — ${e.message}\n`); return map; }
+  for (const r of rows) {
+    const idx = Number(r.idx);
+    if (!Number.isFinite(idx) || !r.image) continue;
+    const m = /^data:image\/([a-z+]+);base64,(.*)$/is.exec(r.image);
+    if (!m) continue;
+    const ext = m[1] === "jpeg" ? "jpg" : m[1];
+    map.set(idx, { name: `${id}-${idx}.${ext}`, buf: Buffer.from(m[2], "base64") });
+  }
+  return map;
+}
+
 const written = new Map();
 for (let i = 0; i < usable.length; i++) {
   const cat = usable[i];
@@ -333,7 +386,13 @@ for (let i = 0; i < usable.length; i++) {
   const siblings = Array.from({ length: 6 }, (_, k) => usable[(i + k + 1) % usable.length])
     .filter(s => s.id !== cat.id)
     .map(s => ({ id: s.id, name: s.name }));
-  written.set(cat.id, render(cat, byId[cat.id], questionsFor(cat), siblings));
+  const qs = questionsFor(cat, await imagesFor(cat.id));
+  for (const q of qs) {
+    if (!q.pic) continue;
+    keptImages.add(q.pic.name);
+    if (!check) writeFileSync(join(IMG, q.pic.name), q.pic.buf);
+  }
+  written.set(cat.id, render(cat, byId[cat.id], qs, siblings));
 }
 
 let stale = [];
@@ -347,6 +406,11 @@ for (const [id, html] of written) {
 const orphans = existsSync(OUT)
   ? readdirSync(OUT).filter(f => f.endsWith(".html") && !written.has(f.slice(0, -5))) : [];
 if (!check) orphans.forEach(f => rmSync(join(OUT, f)));
+/* …and photographs whose question is no longer the one being shown. Without
+   this the folder only ever grows, and it grows by 50 KB a time on the branch
+   that IS the published site. */
+const staleImgs = existsSync(IMG) ? readdirSync(IMG).filter(f => !keptImages.has(f)) : [];
+if (!check) staleImgs.forEach(f => rmSync(join(IMG, f)));
 
 if (check) {
   if (stale.length || orphans.length) {

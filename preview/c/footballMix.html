@@ -86,8 +86,18 @@ h2{font:900 clamp(20px,3vw,26px)/1.3 var(--body);margin:36px 0 4px;color:var(--g
 .q{border:1px solid var(--rule);border-radius:16px;padding:16px 18px;background:rgba(255,255,255,.035)}
 .q .pts{font:800 12px var(--body);color:var(--gold);display:block;margin-bottom:5px}
 .q p{margin:0;font:700 16.5px/1.6 var(--body)}
-.q .a{margin-top:8px;color:var(--muted);font-weight:600;font-size:14.5px}
-.q .a b{color:var(--cream)}
+/* ⚠️ THE ANSWER IS NOT PRINTED. These pages carry three real questions from a
+   category, and printing the answers under them spoils those three for anyone
+   who reads the page and then plays — which is the whole intended journey. One
+   quiet line explains the absence rather than leaving questions that look
+   unfinished; it is per LIST, not per question, because three identical notes
+   read as a design mistake. */
+.unanswered{margin:14px 0 0;color:var(--muted);font:700 13.5px var(--body)}
+/* Some questions ARE a photograph — the text alone reads as a riddle with its
+   subject missing, which is why they were skipped entirely before. Capped in
+   height so a tall one cannot push the rest of the page off the screen. */
+.qimg{display:block;margin-top:12px;width:100%;max-width:420px;max-height:300px;
+  object-fit:contain;border-radius:12px;background:rgba(0,0,0,.25)}
 .more{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:0;list-style:none}
 .more a{display:inline-flex;align-items:center;min-height:38px;padding:6px 13px;border-radius:999px;
   border:1px solid var(--rule);color:var(--muted);text-decoration:none;font:700 13px var(--body)}
@@ -130,19 +140,20 @@ footer a:hover{color:var(--gold)}
     <li class="q">
       <span class="pts">١٠٠ نقطة</span>
       <p>كم عدد اللاعبين الأساسيين لكل فريق في كرة القدم؟</p>
-      <div class="a">الإجابة: <b>11</b></div>
+      <img class="qimg" src="img/footballMix-0.jpg" alt="" loading="lazy" decoding="async">
     </li>
     <li class="q">
       <span class="pts">٢٠٠ نقطة</span>
       <p>أي منتخب فاز بكأس العالم 2018؟</p>
-      <div class="a">الإجابة: <b>فرنسا</b></div>
+      
     </li>
     <li class="q">
       <span class="pts">٣٠٠ نقطة</span>
-      <p>في أي نادٍ لعب رونالدينيو قبل انتقاله إلى برشلونة؟</p>
-      <div class="a">الإجابة: <b>باريس سان جيرمان</b></div>
+      <p>في أي نادٍ لعب لويس فيغو مباشرة قبل انتقاله إلى ريال مدريد؟</p>
+      <img class="qimg" src="img/footballMix-103.jpg" alt="" loading="lazy" decoding="async">
     </li>
   </ul>
+  <p class="unanswered">الأجوبة داخل اللعبة.</p>
 
   <h2>فئات ثانية</h2>
   <ul class="more">

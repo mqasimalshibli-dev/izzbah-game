@@ -75,6 +75,42 @@ check("each carries structured data", pages.every(p => p.html.includes("applicat
 
 /* ⚠️ The sample questions ARE the page. Without them it is a description and a
    button, which is not something to put forty of on the internet. */
+/* ⚠️ NO ANSWERS. These carry three real questions from a category, and printing
+   the answer under each spoils exactly those three for someone who reads the
+   page and then plays — which is the whole journey the page exists to start.
+   Checked against the data file's own answers rather than for the word
+   «الإجابة», which appears innocently in at least one category's description. */
+const answers = new Set((DATA.samples || []).map(s => s.a).filter(a => a && a.length > 3));
+const leaked = pages.filter(p => {
+  const body = textOf(p.html.replace(/<meta[^>]*>/g, " "));
+  return [...answers].some(a => body.includes(a));
+});
+check("no page prints an answer", leaked.length === 0,
+  leaked.map(p => p.id).join(", "));
+check("and each says where the answers are instead",
+  pages.filter(p => p.html.includes("class=\"q\"")).every(p => p.html.includes("الأجوبة داخل اللعبة")));
+
+/* ⚠️ PICTURES COME FROM THE SUBCOLLECTION. A category's parent doc holds a
+   TEXT-ONLY copy of its questions (build .209), so the generator's original
+   `if (q.image) continue` matched nothing and every pictured question was
+   rendered as text with its subject missing. */
+const pictured = pages.filter(p => p.html.includes('<img class="qimg"'));
+check("pictured questions carry their picture", pictured.length >= 8,
+  `${pictured.length} pages show at least one`);
+const imgDir = join(DIR, "img");
+const imgFiles = existsSync(imgDir) ? readdirSync(imgDir) : [];
+const referenced = new Set(pages.flatMap(p =>
+  [...p.html.matchAll(/<img class="qimg" src="img\/([^"]+)"/g)].map(m => m[1])));
+check("every picture it shows is on disk",
+  [...referenced].every(f => imgFiles.includes(f)),
+  [...referenced].find(f => !imgFiles.includes(f)) || `${referenced.size} shown`);
+/* ⚠️ …and nothing else is. The first version wrote every photograph it fetched
+   — 387 files and 16 MB for the ~40 that appear — onto the branch that IS the
+   published site. */
+check("and nothing is on disk that no page shows",
+  imgFiles.every(f => referenced.has(f)),
+  `${imgFiles.length} files, ${referenced.size} referenced`);
+
 const withQs = pages.filter(p => (p.html.match(/class="q"/g) || []).length > 0);
 check(`most pages carry real questions (${withQs.length}/${pages.length})`,
   withQs.length >= pages.length * 0.7,
