@@ -980,7 +980,7 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node accountdelete.mjs
 
-      - name: Run app-store build (IAP seam) test
+      - name: Run store-sells / web-does-not test
         if: ${{ !cancelled() }}
         working-directory: tests
         run: |

@@ -5964,6 +5964,17 @@
     body.is-store-build .settings-redeem,
     body.is-store-build .plans-redeem,
     body.is-store-build .plans-contact { display: none !important; }
+    /* ⚠️ `.plans-grid` sets `display: grid`, and an AUTHOR display beats the
+       user-agent's `[hidden]{display:none}` whatever the specificity — so
+       `el.hidden = true` alone leaves the packs on screen. Same trap that hid
+       nothing on the category tiles. Belt and braces: the JS sets `hidden`, and
+       these rules make it stick. */
+    body.is-no-web-selling #plansGrid,
+    body.is-no-web-selling #plansSub,
+    body.is-no-web-selling #plansContact { display: none !important; }
+    .plans-appnote { font: 700 13.5px/1.85 'Cairo', sans-serif; color: #6a5a2f; margin: 2px 0 10px; }
+    .plans-appnote[hidden] { display: none; }
+    :root[data-theme="dark"] .plans-appnote { color: #cdb488; }
     /* The refund paragraph has two versions — ours (web, activation codes) and
        the store's (Apple/Google hold the money). Exactly one shows. */
     .legal-store-only { display: none; }
@@ -8144,7 +8155,7 @@
   <button id="userSettingsBtn" type="button" aria-label="الإعدادات والحساب" title="الإعدادات والحساب">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
   </button>
-  <button id="gameCountBadge" type="button" aria-label="ألعابك المتبقية والباقات" title="ألعابك المتبقية والباقات">
+  <button id="gameCountBadge" type="button" aria-label="ألعابك المتبقية" title="ألعابك المتبقية">
     <span class="gcb-ico" aria-hidden="true">🎮</span><span class="gcb-num" id="gameCountNum">—</span>
   </button>
   <!-- ONE back button for the whole app, pinned bottom-right, the mirror of the
@@ -8215,7 +8226,7 @@
       <div class="settings-balance" id="settingsBalance"></div>
       <button class="settings-row settings-row-primary" id="settingsBuy" type="button">
         <span class="settings-ico si-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5z"/><path d="M10 9v6"/></svg></span>
-        <span class="settings-label"><b>شراء ألعاب / النسخة المميّزة</b><small>باقات لعب واشتراك مفتوح</small></span>
+        <span class="settings-label"><b>ألعابي</b><small>رصيدك وتفعيل الأكواد</small></span>
         <span class="settings-chev" aria-hidden="true">‹</span>
       </button>
       <div class="settings-redeem">
@@ -9016,9 +9027,14 @@
       <div class="question-modal plans-modal" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
         <h3 class="preview-title" id="plansTitle">🎟️ ألعابي والباقات</h3>
         <div class="plans-balance" id="plansBalance"></div>
-        <p class="plans-sub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
+        <p class="plans-sub" id="plansSub">اختر باقتك واضغط عليها — سيصلك بريد تأكيد فيه طريقة الدفع وكود التفعيل.</p>
         <div class="plans-grid" id="plansGrid"></div>
-        <div class="plans-contact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
+        <!-- Shown ONLY when the web build does not sell (applyWebNoSelling).
+             ⚠️ It names no store and carries no link on purpose: neither listing
+             exists yet, and a button that goes nowhere is worse than a sentence.
+             When one does, this is the single place to add it. -->
+        <p class="plans-appnote" id="plansAppNote" hidden>الألعاب الإضافية تُشترى من داخل تطبيق <span class="brand-word">عِزْبَة</span> على الجوال. رصيدك مرتبط بحسابك، فأي ألعاب تشتريها هناك تظهر هنا فور تسجيل الدخول.</p>
+        <div class="plans-contact" id="plansContact">أو راسلنا مباشرة: <a href="mailto:izzbahgame@gmail.com?subject=%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D9%84%D8%B9%D8%A8">izzbahgame@gmail.com</a></div>
         <p class="plans-fineprint">الأسعار نهائية بالريال العُماني · أول لعبة مجانية · الأكواد الرقمية غير قابلة للاسترجاع بعد التفعيل — <button type="button" class="wlc-legal-link" data-legal="terms">الشروط والاسترجاع</button></p>
         <div class="redeem-row plans-redeem">
           <span class="redeem-label">عندك كود؟</span>
@@ -9496,9 +9512,9 @@
             <h5>المحتوى الذي تُقدّمه (فئات المجتمع)</h5>
             <p>يبقى المحتوى الذي ترفعه ملكاً لك، وتمنحنا الحق في عرضه ومراجعته وتعديله وحذفه. أنت تُقِرّ بأن لديك الحق في نشره وأنه لا ينتهك حقوق أي طرف. ونحتفظ بحق مراجعة أي محتوى وإزالته دون إشعار مسبق.</p>
             <h5>الباقات والمدفوعات</h5>
-            <p>أول لعبة مجانية. بعدها تتوفّر باقات مدفوعة (ألعاب إضافية)، ويظهر سعر كل باقة ومحتواها بوضوح قبل الطلب. الأسعار نهائية بالريال العُماني. عند طلب باقة يصلك بريد تأكيد فيه طريقة الدفع، وبعد إتمام الدفع يصلك <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
+            <p>أول لعبة مجانية. بعدها تتوفّر ألعاب إضافية بالشراء <b>من داخل التطبيق</b> عبر متجر التطبيقات، ويظهر سعر كل باقة ومحتواها بوضوح قبل الشراء. الموقع لا يبيع الباقات. رصيد الألعاب مرتبط <b>بحسابك</b> لا بالجهاز، فما تشتريه يظهر أينما سجّلت الدخول. وقد نمنحك أحياناً <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
             <h5>الاسترجاع والإلغاء</h5>
-            <p class="legal-web-only">كود التفعيل منتَج رقمي؛ بعد إرساله أو تفعيله يكون <b>غير قابل للاسترجاع</b>. ومع ذلك، إذا دفعتَ ولم يصلك كود صالح، أو حُصّلت منك قيمة بالخطأ أو مرّتين، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر (إعادة إرسال الكود أو ردّ المبلغ). ولك أن تُلغي أي طلب لم تدفع قيمته بعد بمراسلتنا.</p>
+            <p class="legal-web-only">لا نستوفي أي مبلغ عبر الموقع، فلا توجد مدفوعات نستردّها هنا. أما <b>كود التفعيل</b> فهو منتَج رقمي، وبعد تفعيله يكون <b>غير قابل للاسترجاع</b>. وإذا وصلك كود لا يعمل، أو أُضيف إلى حسابك رصيد خاطئ، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر.</p>
             <!-- The store build's money is Apple's / Google's, not ours: we
                  cannot see the card, cannot refund it, and telling a store
                  customer to email us about payment is both wrong and the
@@ -12950,7 +12966,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-18.337";
+    const IZZBAH_BUILD = "2026-08-20.338";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18049,6 +18065,9 @@
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
     window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
+    window.IZZBAH_TEST.webSellingOff = () => webSellingOff();
+    window.IZZBAH_TEST.applyWebNoSelling = () => applyWebNoSelling();
+    window.IZZBAH_TEST.renderPlans = () => renderPlans();
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
     window.IZZBAH_TEST.STORE_PRODUCTS = () => STORE_PRODUCTS;
     window.IZZBAH_TEST.purchasePack = (p) => purchasePack(p);
@@ -22813,6 +22832,45 @@
       }
     }
 
+    /* ── The WEBSITE does not sell (owner, 2026-08-20) ──────────────────────
+       *"you cant buy from the site"* — izzbah.com is how people hear about the
+       game and follow updates; selling happens in the store builds. This is the
+       ONE switch: set WEB_SELLING back to true and the packs, their prices and
+       `orderPlan` all come back exactly as they were. Nothing was deleted for
+       it, and the Thawani functions in `functions/` are untouched and unused.
+       ⚠️ It is deliberately NOT tied to whether a store URL exists. Making it
+       "off once the App Store is live" would have meant a build whose selling
+       behaviour depends on a constant edited on the LANDING PAGE, in another
+       file, with no way to test the two states apart.
+       ⚠️ webSellingOff() is false on a store build — that build sells through
+       StoreKit and must keep showing its packs. The two flags are about
+       different surfaces and must never be collapsed into one. */
+    const WEB_SELLING = false;
+    function webSellingOff() { return !WEB_SELLING && !isStoreBuild(); }
+
+    function applyWebNoSelling() {
+      if (!webSellingOff()) return;
+      document.body.classList.add("is-no-web-selling");
+      // Hidden in JS as well as CSS, for the same reason applyStoreBuild() is:
+      // a class can be dropped from devtools, and these rows are rebuilt.
+      ["plansGrid", "plansSub", "plansContact"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+      });
+      const note = document.getElementById("plansAppNote");
+      if (note) note.hidden = false;
+      // The fineprint promised prices in OMR and warned that codes are
+      // non-refundable after activation. With nothing on sale the first half is
+      // describing something that is not there; the code warning still matters,
+      // because an admin-gifted code is still activated here.
+      const fine = document.querySelector(".plans-fineprint");
+      if (fine) {
+        const link = fine.querySelector(".wlc-legal-link");
+        fine.textContent = "أول لعبة مجانية · الأكواد الرقمية غير قابلة للاسترجاع بعد التفعيل — ";
+        if (link) fine.appendChild(link);
+      }
+    }
+
     const PLAY_PLANS = [
       { id: "g2", icon: "🎲", name: "باقة لعبتين", desc: "جولتان — جرّب اللعبة مع أصحابك", price: "٠٫٩٠٠ ر.ع", priceOMR: 0.9, games: 2, premium: false },
       { id: "g5", icon: "🎮", name: "باقة ٥ ألعاب", desc: "خمس جولات كاملة بفئاتك المفضلة", price: "١٫٥٠٠ ر.ع", priceOMR: 1.5, games: 5, premium: false },
@@ -22832,6 +22890,12 @@
       const grid = $("#plansGrid");
       if (!grid) return;
       grid.innerHTML = "";
+      // ⚠️ Build NO cards at all when the web does not sell — do not build them
+      // and hide them. A hidden card still carries a live click handler, and one
+      // CSS regression would put an ordering button back in front of players
+      // with no way to notice. There is nothing to click because there is
+      // nothing there.
+      if (webSellingOff()) return;
       PLAY_PLANS.forEach(p => {
         const card = document.createElement("button");
         card.type = "button";
@@ -22865,6 +22929,11 @@
     // Do not fold store logic into it; the owner's instruction is that tapping a
     // pack on the website keeps doing exactly what it does today.
     function purchasePack(p) {
+      // ⚠️ The last line of defence, not the first. renderPlans() draws no cards
+      // when the web does not sell, so nothing should reach here — but this is
+      // the choke point every purchase goes through, and a guard at the choke
+      // point survives a caller that forgets. Same reasoning as keepImg().
+      if (webSellingOff()) return;
       return isStoreBuild() ? storePurchase(p) : orderPlan(p);
     }
 
@@ -22991,7 +23060,9 @@
       const reason = opts && opts.reason;
       track("paywall_hit", reason ? { reason } : {});
       if (reason === "private") {
-        showToast("الفئات الخاصة تحتاج باقة ألعاب — اختر باقة للّعب بها.");
+        showToast(webSellingOff()
+          ? "الفئات الخاصة تحتاج رصيد ألعاب."
+          : "الفئات الخاصة تحتاج باقة ألعاب — اختر باقة للّعب بها.");
       }
       openPlans();
     }
@@ -28344,6 +28415,7 @@
     // buy-by-email line paint once and are hidden a frame later, which is a
     // flash of exactly the thing App Review is looking for.
     applyStoreBuild();
+    applyWebNoSelling();
     renderTeamSetup();
     renderGameLibrary();
     renderCategories();

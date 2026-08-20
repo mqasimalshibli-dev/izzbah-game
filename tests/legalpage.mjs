@@ -141,12 +141,17 @@ try {
   }
 
   /* ── BOTH payment paragraphs, each labelled ───────────────────────
-     The game shows one or the other by build: the web/PWA takes the payment and
-     handles refunds, a store build does neither. The site is the front door to
-     both, so a visitor must be able to tell which paragraph is theirs. */
+     The game shows one or the other by build, and since 2026-08-20 they are no
+     longer two ways of BUYING: the website sells nothing and only activates
+     codes, a store build sells and the store handles the money. The site is the
+     front door to both, so a visitor must be able to tell which is theirs. */
   const pay = shown.sections.find(s => s.id === "terms").text;
-  check("the terms cover a purchase made from the site",
-    pay.includes("إذا طلبت الباقة من الموقع") && pay.includes("غير قابل للاسترجاع"));
+  check("the terms cover playing via the site, where nothing is sold",
+    pay.includes("إذا لعبت عبر الموقع") && pay.includes("غير قابل للاسترجاع"));
+  /* ⚠️ The site must not still promise a purchase it no longer offers. This is
+     the assertion that would have caught the terms drifting behind the build. */
+  check("...and no longer describe ordering a pack from the site",
+    !pay.includes("عند طلب باقة يصلك بريد تأكيد"));
   check("and a purchase made in-app through a store",
     pay.includes("إذا اشتريت من داخل التطبيق عبر المتجر") && pay.includes("استرداد المبالغ"));
   // ⚠️ The class names are the game's build switch. Leaving one on the page

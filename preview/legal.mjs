@@ -66,7 +66,7 @@ function labelBuilds(html) {
     if (!m) throw new Error(`legal.mjs: no <p class="${cls}"> in the terms — has the game's payment copy moved?`);
     html = html.replace(re, `<h4>${heading}</h4>\n<p>${m[1]}</p>`);
   };
-  one("legal-web-only", "إذا طلبت الباقة من الموقع");
+  one("legal-web-only", "إذا لعبت عبر الموقع");
   one("legal-store-only", "إذا اشتريت من داخل التطبيق عبر المتجر");
   return html;
 }

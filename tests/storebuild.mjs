@@ -1,18 +1,26 @@
-// The app-store build: packs are SOLD, but only through the store.
+// WHO SELLS WHAT, WHERE — the store build sells; the website does not.
 //
-// The owner's decision (2026-08-16) is to ship on the App Store and take
-// Apple's cut, with payment happening in the app. Two rules follow, and this
-// file pins both:
+// Two owner decisions meet in this file, and they pull in opposite directions,
+// which is exactly why both surfaces are checked in one place:
 //
-//   • the packs must be BUYABLE — an app that shows a paywall with no way
-//     through it is its own rejection, which is why the earlier «sell nothing»
-//     shape had to go;
-//   • no OTHER route to paying may appear — no activation-code box, and no
-//     buy-by-email line. Pointing at an outside purchase mechanism is the
-//     anti-steering rule, and it applies to Google Play as much as to Apple.
+//   • THE STORE BUILD SELLS (2026-08-16). Ship on the App Store, take Apple's
+//     cut, payment happens in the app. So the packs must be BUYABLE — an app
+//     showing a paywall with no way through it is its own rejection — and no
+//     OTHER route to paying may appear: no activation-code box and no
+//     buy-by-email line, that being the anti-steering rule, Play as much as
+//     Apple.
+//   • THE WEBSITE DOES NOT SELL (2026-08-20). *"you cant buy from the site"* —
+//     izzbah.com tells people about the game; buying happens in the app. So the
+//     packs, their prices and the buy-by-email line are all gone here, while the
+//     activation-code box STAYS, because that is how the owner gifts games and
+//     fixes a bad order.
 //
-// The website must be completely unaffected, so every check runs twice: once as
-// a normal browser and once with ?store=1.
+// ⚠️ The inversion is the point and is easy to "tidy" into a bug: the redeem box
+// is hidden in the STORE build and kept on the WEB; the packs are shown in the
+// STORE build and hidden on the WEB. Anything that makes these two agree has
+// broken one of them.
+//
+// Every check runs twice: once as a normal browser and once with ?store=1.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -58,6 +66,10 @@ const survey = (page) => page.evaluate(() => {
     prices: [...document.querySelectorAll("#plansGrid .plan-price")].map(e => e.textContent),
     redeemBox: vis(document.querySelector(".plans-redeem")),
     mailto: vis(document.querySelector(".plans-contact")),
+    appNote: vis(document.getElementById("plansAppNote")),
+    appNoteText: (document.getElementById("plansAppNote") || {}).textContent || "",
+    sub: vis(document.getElementById("plansSub")),
+    sellingOff: window.IZZBAH_TEST.webSellingOff(),
     fineprint: vis(document.querySelector(".plans-fineprint")),
     fineText: (document.querySelector(".plans-fineprint") || {}).textContent || "",
     termsLink: !!document.querySelector(".plans-fineprint .wlc-legal-link"),
@@ -70,12 +82,27 @@ try {
   const web = await open("");
   const w = await survey(web);
   check("web: this is not a store build", w.storeBuild === false);
-  check("web: the packs box opens", w.plansOpen && w.packs === 3, `${w.packs} packs`);
-  check("web: the manual wording is untouched", /اطلب/.test(w.cta), w.cta);
-  check("web: prices are the hardcoded OMR ones", w.prices.length === 3 && /ر\.ع/.test(w.prices[0]), w.prices.join(" / "));
+  check("web: selling is off here", w.sellingOff === true);
+  // The box still OPENS — it is where the balance and the code field live.
+  check("web: the games box still opens", w.plansOpen);
+  /* ⚠️ ZERO cards, not hidden cards. renderPlans() returns before building any,
+     so there is no click handler to resurrect. Asserting only that they are
+     invisible would pass against a CSS-only fix that one regression undoes. */
+  check("web: NO packs are built at all", w.packs === 0, `${w.packs} packs`);
+  check("web: ...and therefore no prices", w.prices.length === 0, w.prices.join(" / "));
+  check("web: no «choose your pack» lead-in", !w.sub);
+  check("web: NO buy-by-email line", !w.mailto);
+  // The one thing that must SURVIVE: gifting and fixing runs through codes.
   check("web: the activation-code box is still there", w.redeemBox);
-  check("web: the buy-by-email line is still there", w.mailto);
-  check("web: «اشترِ الألعاب» stays in settings", w.buyRow);
+  check("web: one line points at the app instead", w.appNote && w.appNote !== "",
+    w.appNoteText.slice(0, 40));
+  /* ⚠️ It must name no store and carry no link while neither listing exists —
+     a button to nowhere is worse than a sentence. */
+  check("web: ...and it does not link to a store that does not exist yet",
+    !/https?:\/\//.test(w.appNoteText));
+  check("web: the fineprint no longer promises prices",
+    !/ر\.ع/.test(w.fineText) && w.termsLink, w.fineText.slice(0, 60));
+  check("web: the games box is still reachable from settings", w.buyRow);
   // The web refund policy is OURS — codes, our inbox — and must be untouched.
   const webRefund = await web.evaluate(async () => {
     openLegal("terms", "review");
@@ -85,6 +112,18 @@ try {
              store: vis(document.querySelector(".legal-store-only")) };
   });
   check("web: the activation-code refund policy is the one shown", webRefund.web && !webRefund.store);
+  /* ⚠️ The choke-point guard, tested through the REAL entry point. renderPlans()
+     drawing nothing is the first defence; this is the one that survives a caller
+     which forgets. If the guard were removed this places a live order. */
+  const inert = await web.evaluate(async () => {
+    let ordered = false;
+    window.IZZBAH = window.IZZBAH || {};
+    window.IZZBAH.placeOrder = () => { ordered = true; return Promise.resolve(); };
+    window.IZZBAH_TEST.purchasePack({ id: "g5", name: "باقة ٥ ألعاب", games: 5 });
+    await new Promise(r => setTimeout(r, 250));
+    return ordered;
+  });
+  check("web: purchasePack() places no order even if something calls it", inert === false);
   await web.close();
 
   // ---- the STORE build ------------------------------------------------------
@@ -102,6 +141,10 @@ try {
   // The rules Apple and Google both enforce.
   check("store: NO activation-code box", !s.redeemBox);
   check("store: NO buy-by-email line (anti-steering)", !s.mailto);
+  /* ⚠️ The web's «buy it in the app» line must NOT appear inside the app — it
+     would be telling a player standing in the store to go to the store. */
+  check("store: the web's «buy in the app» line is absent", !s.appNote);
+  check("store: selling is NOT off here", s.sellingOff === false);
 
   // Terms have to stay reachable from the point of purchase — but the web
   // wording is about activation codes, which do not exist in this build.
