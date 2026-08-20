@@ -117,18 +117,21 @@ try {
      reader not at all. */
   await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(900);
-  const index = await page.evaluate(() => [...document.querySelectorAll("#catIndex a")]
-    .map(a => ({ href: a.getAttribute("href"), text: a.textContent.trim() })));
-  check("the site links to every category page", index.length === playable.length,
-    `${index.length} links`);
-  check("…and the links point at the generated files",
-    index.every(l => /^c\/[A-Za-z0-9-]+\.html$/.test(l.href)), index[0] && index[0].href);
-  /* The TILES must still go straight into the game — they are the conversion
-     path, and this is the reading path. Swapping them would trade plays for
-     page views. */
-  const tile = await page.evaluate(() => document.querySelector(".gcard").getAttribute("href"));
-  check("the tiles still deep-link into the game, not to these pages",
-    tile.startsWith("../#g="), tile.slice(0, 28));
+  /* ⚠️ THE TILES ARE THE WAY IN. They used to deep-link straight into the
+     picker with the category chosen; the owner's change is that someone
+     browsing the library wants to see what is IN a category first. A separate
+     text index of forty pills was built for that and then removed — once the
+     tiles lead here it was forty links to the same forty places. */
+  const tiles = await page.evaluate(() => [...document.querySelectorAll(".gcard")]
+    .map(a => a.getAttribute("href")));
+  check("every tile opens its category's page", tiles.length === playable.length
+    && tiles.every(h => /^c\/[A-Za-z0-9-]+\.html$/.test(h)), tiles[0]);
+  check("and each tile points at a page that exists",
+    tiles.every(h => files.includes(h.slice(2))),
+    tiles.find(h => !files.includes(h.slice(2))) || "");
+  // The pill row is gone; a stray one would be forty duplicate links.
+  const strays = await page.evaluate(() => document.querySelectorAll("#catIndex").length);
+  check("no leftover duplicate index of the same links", strays === 0);
 
   // …and one page, rendered.
   for (const [id, w, h] of [["cars", 1000, 1000], ["khareef", 390, 844]]) {
@@ -162,9 +165,29 @@ try {
       m.play.startsWith("../../#g="), m.play.slice(0, 24));
     check(`${id} @${w}: no sideways scroll`, !m.sideways);
     check(`${id} @${w}: it links onward to other categories`, m.onward >= 4, `${m.onward} links`);
-    // A page whose content needs JS is a page a crawler may not see.
-    check(`${id} @${w}: it needs no JavaScript`, m.scripts === 0, `${m.scripts} scripts`);
+    /* ⚠️ The content must not need JavaScript — a crawler that does not run it
+       still has to see the questions. The one script these carry only UPGRADES
+       the play button to a store link when a store exists; the button is a real
+       href in the markup either way. So this checks the CONTENT renders with
+       scripting off, rather than counting script tags. */
+    check(`${id} @${w}: the play button is a real link, not script-built`,
+      /<a class="btn" id="play" href="\.\.\/\.\.\/#g=/.test(
+        readFileSync(join(DIR, id + ".html"), "utf8")));
   }
+
+  /* …and prove it: the same page with JavaScript switched off entirely. */
+  const noJs = await browser.newContext({ viewport: { width: 1000, height: 1000 }, javaScriptEnabled: false });
+  const np = await noJs.newPage();
+  await np.goto(`http://127.0.0.1:${PORT}/preview/c/cars.html`, { waitUntil: "load", timeout: 30000 });
+  const bare = await np.evaluate ? null : null;
+  const seen = await np.textContent("body");
+  const qCount = (await np.$$(".q")).length;
+  const playHref = await np.getAttribute("#play", "href");
+  await noJs.close();
+  check("with scripting off the questions are still there", qCount === 3, `${qCount} questions`);
+  check("…and the play button still works", (playHref || "").startsWith("../../#g="), playHref);
+  check("…and the category is still named", (seen || "").includes("سيارات"));
+  void bare;
 
   check("no missing files" + (http.length ? ": " + http[0] : ""), http.length === 0);
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);

@@ -61,9 +61,12 @@ const read = page => page.evaluate(() => {
     // visitor can actually see, not what the class list claims.
     visible: cards.filter(c => c.offsetParent !== null).length,
     tabbable: cards.filter(c => c.tabIndex === 0).length,
-    // The links have to go somewhere real: each tile deep-links into the game
-    // with that category preselected.
-    linked: cards.filter(c => (c.getAttribute("href") || "").length > 2).length,
+    /* ⚠️ A tile opens the category's own PAGE now — it used to deep-link into
+       the game with that category preselected, and the owner's change is that
+       someone browsing the library wants to see what is in a category first.
+       Checked by SHAPE, not merely by "the href is not empty": the old
+       assertion was length > 2, which a `#` would have satisfied. */
+    linked: cards.filter(c => /^c\/[A-Za-z0-9-]+\.html$/.test(c.getAttribute("href") || "")).length,
     cols: getComputedStyle(g).gridTemplateColumns.split(" ").filter(Boolean).length,
     // ⚠️ The fold left two traces — a button and a `data-fold` attribute. Either
     // one coming back hides tiles, so both are checked by their effect AND by
@@ -89,7 +92,7 @@ try {
       m.visible === m.total);
     check(`${name}: every tile is reachable by keyboard (${m.tabbable} tabbable)`,
       m.tabbable === m.total);
-    check(`${name}: every tile links into the game (${m.linked})`, m.linked === m.total);
+    check(`${name}: every tile opens its category page (${m.linked})`, m.linked === m.total);
     check(`${name}: nothing stands in front of the grid`, m.folder === false);
     check(`${name}: no tile is folded away (${m.folded})`, m.folded === 0);
     check(`${name}: the heading still promises all of them`, m.heading.includes("كل الفئات"));

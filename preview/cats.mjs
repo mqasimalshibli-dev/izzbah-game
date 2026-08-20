@@ -53,6 +53,20 @@ const COPY = JSON.parse(copyBlock[1].replace(/,(\s*\})/g, "$1"));
 const robots = (/<meta name="robots" content="([^"]*)">/.exec(page) || [])[1] || "";
 if (!robots) throw new Error("cats.mjs: no robots meta in preview/index.html to copy");
 
+/* ⚠️ THE STORE CONSTANTS COME FROM THE SITE TOO. `preview/index.html` says
+   there is "deliberately nowhere else to change" the routing into the game —
+   and forty static pages each carrying their own play button is exactly the
+   second place that promise dies. They are parsed out of it and inlined, so the
+   day a store URL is filled in these forty follow without being touched.
+   The button is a REAL link either way; the script only upgrades it, so a
+   reader with no JavaScript still reaches the game. */
+const storeBlock = /const STORE = \{([\s\S]*?)\};/.exec(page);
+if (!storeBlock) throw new Error("cats.mjs: could not find the STORE constants in preview/index.html");
+const STORE = {
+  ios: (/ios:\s*"([^"]*)"/.exec(storeBlock[1]) || [])[1] || "",
+  android: (/android:\s*"([^"]*)"/.exec(storeBlock[1]) || [])[1] || "",
+};
+
 const DATA = (() => {
   const s = readFileSync(join(HERE, "data.js"), "utf8");
   return JSON.parse(s.slice(s.indexOf("{"), s.lastIndexOf("}") + 1));
@@ -249,7 +263,7 @@ footer a:hover{color:var(--gold)}
         ${meta.om ? '<span class="fact">عُماني ١٠٠٪</span>' : ""}
         <span class="fact">من ١٠٠ إلى ٥٠٠ نقطة</span>
       </div>
-      <a class="btn" href="${esc(playLink(cat.id))}">العب هذي الفئة — مجاناً</a>
+      <a class="btn" id="play" href="${esc(playLink(cat.id))}">العب هذي الفئة — مجاناً</a>
     </div>
   </div>
 
@@ -278,6 +292,26 @@ ${siblings.map(s => `    <li><a href="${esc(s.id)}.html">${esc(s.name)}</a></li>
   <div>© ٢٠٢٦ عِزبة — جميع الحقوق محفوظة.</div>
 </footer>
 
+<script>
+/* The same routing rule as the site, from the same constants — see cats.mjs.
+   iPadOS reports itself as a Mac, hence the touch probe; a desktop is never
+   sent to a phone store. Wrapped, because a broken upgrade must leave the
+   plain link that is already in the markup. */
+(function () {
+  try {
+    var S = ${JSON.stringify(STORE)};
+    var ua = navigator.userAgent || "";
+    var p = /android/i.test(ua) ? "android"
+          : /iphone|ipad|ipod/i.test(ua) ? "ios"
+          : (/Mac/.test(navigator.platform || "") && navigator.maxTouchPoints > 1) ? "ios" : "other";
+    var url = S[p] || "";
+    if (!url) return;
+    var a = document.getElementById("play");
+    if (!a) return;
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
 `;

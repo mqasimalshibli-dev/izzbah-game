@@ -121,7 +121,7 @@ footer a:hover{color:var(--gold)}
         <span class="fact">عُماني ١٠٠٪</span>
         <span class="fact">من ١٠٠ إلى ٥٠٠ نقطة</span>
       </div>
-      <a class="btn" href="../../#g=eyJjIjpbInB1Yi0xNzgzNDI1NzU4MTA4LTEwMiJdfQ">العب هذي الفئة — مجاناً</a>
+      <a class="btn" id="play" href="../../#g=eyJjIjpbInB1Yi0xNzgzNDI1NzU4MTA4LTEwMiJdfQ">العب هذي الفئة — مجاناً</a>
     </div>
   </div>
 
@@ -165,5 +165,25 @@ footer a:hover{color:var(--gold)}
   <div>© ٢٠٢٦ عِزبة — جميع الحقوق محفوظة.</div>
 </footer>
 
+<script>
+/* The same routing rule as the site, from the same constants — see cats.mjs.
+   iPadOS reports itself as a Mac, hence the touch probe; a desktop is never
+   sent to a phone store. Wrapped, because a broken upgrade must leave the
+   plain link that is already in the markup. */
+(function () {
+  try {
+    var S = {"ios":"","android":""};
+    var ua = navigator.userAgent || "";
+    var p = /android/i.test(ua) ? "android"
+          : /iphone|ipad|ipod/i.test(ua) ? "ios"
+          : (/Mac/.test(navigator.platform || "") && navigator.maxTouchPoints > 1) ? "ios" : "other";
+    var url = S[p] || "";
+    if (!url) return;
+    var a = document.getElementById("play");
+    if (!a) return;
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
