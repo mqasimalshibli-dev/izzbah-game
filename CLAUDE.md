@@ -906,14 +906,46 @@ Single self-contained page, same palette and type system as the game. Marked
 - **Covers: `python3 tools/covers.py` rebuilds them all** (`-t` grid tile,
   `-l` showcase; `-s` board headers belong to `preview/shots/` and are left
   alone). `--dry-run` prints the before/after table without writing.
-  ⚠️ **The resolution ceiling is 480px and no script can lift it.** The masters
-  are gone; a category's artwork now exists ONLY as the `image` field of its
-  Firestore doc, which the publish path caps at a 95 KB JPEG. Measured
-  2026-08-08 over all 40: the largest is **480×480**, nothing exceeds 480px on
-  either side, and 4 categories (foreignMoviesOnly, khareef, omaniFootball,
-  whoAmI) have no cloud artwork at all and fall back to `assets/img/cat-*.webp`.
-  So "export the covers bigger" is not a thing that can be done — a real
-  increase needs either the original artwork or a super-resolution model.
+  ⚠️ **The SOURCE ceiling is 480px, and since 2026-08-19 the covers are built
+  past it with a MODEL.** The masters are gone; a category's artwork exists ONLY
+  as the `image` field of its Firestore doc, which the publish path caps at a
+  95 KB JPEG. Re-measured 2026-08-19 over all 40: 32 sit at exactly 480×480, the
+  worst are 270×480, and two (charadesArabic, charadesSeries) are 1254×1254 —
+  so the cap is what limits this, not the artwork. Four categories
+  (foreignMoviesOnly, khareef, omaniFootball, whoAmI) store a PATH to
+  `assets/img/cat-*.webp` rather than a data URI, which is the same fallback the
+  game uses; they are 500×384.
+  - **`python3 tools/upscale.py` is now step one**, and `covers.py` REFUSES to
+    run without its cache unless given `--no-sr`. It runs Real-ESRGAN
+    x4plus_anime_6B on the CPU (~11s a cover) into gitignored `tools/srcache/`,
+    which turns every resize in `covers.py` from an upscale into a downscale.
+    The guard exists because the cache cannot be committed — 40 PNGs at 4× on
+    the branch that IS the site — so a re-run on a fresh clone would otherwise
+    rebuild all forty from the small originals and look like it had worked.
+  - ⚠️ **It is GENERATIVE**: it invents plausible detail because the real detail
+    was destroyed upstream. Fine for decorative category art; NEVER point it at
+    a question's photograph, where an invented detail could change what is being
+    asked.
+  - ⚠️ **Do not re-derive the two dead ends.** Both were measured on 2026-08-19
+    when the owner reported "the quality of some of the covers is too bad", and
+    both are wrong: (a) serving the covers at the size they are actually DRAWN
+    (504×630 device px) instead of pre-upscaling to 1080 scores 37–41 dB against
+    44–47 dB for the current path — the browser's downscale of a larger file
+    keeps more than a file built at display size has left to give; (b) encode
+    quality is within 0.03 dB across q88/q92/q95.
+  - The environment needed for this: `pip install torch` works from PyPI, the
+    weights come from the Real-ESRGAN GitHub release (pinned by SHA-256), and
+    **huggingface.co is blocked by the proxy** — do not plan on fetching a model
+    from there.
+  - ⚠️ **Re-running `covers.py` can legitimately CHANGE a picture**, not just
+    sharpen it, when the artwork has been re-uploaded since the last build. Four
+    «وش الكلمة» covers did exactly that in this pass. Correlate old against new
+    before assuming damage: the new files tracked the live Firestore art better
+    than the old ones (0.52–0.70 vs 0.18–0.39), which is what says "stale, now
+    fixed" rather than "broken".
+  - **The permanent fix is upstream**: the 480px cap still applies to anything
+    uploaded today. Raising `COVER_PASSES` in the game and re-uploading real
+    artwork is the only route to detail that is recovered rather than invented.
   What the rebuild DID fix (2026-08-08): the old files were re-encodes of
   already-resized WebPs, so every one carried two generations of loss; fourteen
   were blown up from a 480px source and left soft (up to 202 KB each); five
