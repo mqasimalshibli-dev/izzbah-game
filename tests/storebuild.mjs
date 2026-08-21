@@ -45,7 +45,17 @@ async function open(query) {
   const page = await browser.newPage({ viewport: { width: 420, height: 880 } });
   await page.route("**/firebasejs/**", route => route.abort());
   page.on("pageerror", e => errs.push(e.message));
-  await page.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+  await page.addInitScript(() => {
+    try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {}
+    /* ⚠️ Record the REGISTRATION CALL, not its effects.
+       `navigator.serviceWorker.controller` is null on a first load even when
+       registration succeeded — asserting on it would report "not registered"
+       for BOTH builds and the store-side check would pass vacuously. */
+    try {
+      const real = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+      navigator.serviceWorker.register = (...a) => { window.__swAsked = true; return real(...a); };
+    } catch (e) {}
+  });
   await page.goto(`http://127.0.0.1:${PORT}/index.html${query}`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.IZZBAH.applyAuth(true, "buyer-1"));
@@ -74,6 +84,8 @@ const survey = (page) => page.evaluate(() => {
     fineText: (document.querySelector(".plans-fineprint") || {}).textContent || "",
     termsLink: !!document.querySelector(".plans-fineprint .wlc-legal-link"),
     buyRow: vis(document.getElementById("settingsBuy")),
+    installRow: vis(document.getElementById("settingsInstall")),
+    swAsked: window.__swAsked === true,
   };
 });
 
@@ -103,6 +115,8 @@ try {
   check("web: the fineprint no longer promises prices",
     !/ر\.ع/.test(w.fineText) && w.termsLink, w.fineText.slice(0, 60));
   check("web: the games box is still reachable from settings", w.buyRow);
+  check("web: «أضف اللعبة إلى شاشتك» is offered — this IS the PWA", w.installRow);
+  check("web: the service worker IS registered", w.swAsked);
   // The web refund policy is OURS — codes, our inbox — and must be untouched.
   const webRefund = await web.evaluate(async () => {
     openLegal("terms", "review");
@@ -152,6 +166,14 @@ try {
      would be telling a player standing in the store to go to the store. */
   check("store: the web's «buy in the app» line is absent", !s.appNote);
   check("store: selling is NOT off here", s.sellingOff === false);
+  /* ⚠️ installAppFlow() falls back to iOS-Safari «add to home screen» steps when
+     no beforeinstallprompt has fired — precisely a native webview's state — so
+     this row would tell an App Store customer to go and install the website. */
+  check("store: NO «add to home screen» row", !s.installRow);
+  /* sw.js is not in the Capacitor bundle at all (copy-web.js ships index.html
+     and assets/ only), so registering it 404s on every launch — and a worker
+     buys nothing when every asset is already local. */
+  check("store: the service worker is NOT registered", !s.swAsked);
 
   // Terms have to stay reachable from the point of purchase — but the web
   // wording is about activation codes, which do not exist in this build.

@@ -3,6 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <!-- ⚠️ NO CAPACITOR-SPECIFIC ENTRIES HERE, and that is the checked answer, not
+       an oversight. Capacitor serves the app from `capacitor://localhost` (iOS)
+       or `https://localhost` (Android), so `'self'` already resolves to the
+       app's own origin and every bundled asset is covered. The RevenueCat
+       Capacitor plugin does its networking in the NATIVE layer, which no page
+       CSP governs — adding `api.revenuecat.com` here would widen the policy for
+       the website, where it is never contacted. Firebase reaches gstatic and
+       googleapis, both already allowed.
+       ⚠️ Do not widen this on a hunch when the native build first misbehaves.
+       Re-check it against a real device once `cap add ios` has been run: a CSP
+       loosened speculatively is never tightened again. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.gstatic.com https://apis.google.com https://www.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://www.google-analytics.com https://*.google-analytics.com; media-src 'self' data: blob: https://pub-96b6f75530b74a74b2d68be46911ef2c.r2.dev; connect-src 'self' https://*.cloudfunctions.net https://*.run.app https://*.r2.cloudflarestorage.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://accounts.google.com https://www.google.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.wikipedia.org https://*.wikimedia.org; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <script>
     /* Clickjacking guard — GitHub Pages can't send X-Frame-Options /
@@ -12986,7 +12997,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-20.340";
+    const IZZBAH_BUILD = "2026-08-20.341";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -22836,8 +22847,14 @@
       document.body.classList.add("is-store-build");
       // Hidden in JS as well as CSS: a class can be dropped from devtools, and
       // the settings sheet rebuilds its rows on every open.
+      /* ⚠️ «أضف اللعبة إلى شاشتك» belongs to the PWA and nowhere else. In an
+         app installed FROM a store there is nothing to add — and worse,
+         installAppFlow() falls back to iOS-Safari instructions when there is no
+         beforeinstallprompt, which is exactly the state a native webview is in.
+         So the row would not merely be pointless, it would tell an App Store
+         customer to go and install the website instead. */
       ["redeemInputSettings", "redeemBtnSettings",
-       "redeemInputPlans", "redeemBtnPlans"].forEach(id => {
+       "redeemInputPlans", "redeemBtnPlans", "settingsInstall"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.hidden = true;
       });
@@ -23381,7 +23398,16 @@
     // fire beforeinstallprompt — we capture it so the settings row triggers the
     // NATIVE one-tap install dialog. iOS Safari has no install API at all, so
     // there (and only there) we fall back to add-to-home-screen instructions.
-    if ("serviceWorker" in navigator) {
+    /* ⚠️ NOT IN A STORE BUILD. Two independent reasons, either one sufficient:
+       `mobile/copy-web.js` packages index.html and assets/ only, so `sw.js` is
+       not in the bundle at all and this registration 404s on every launch; and
+       a service worker is pointless there anyway — Capacitor already serves the
+       whole game from local files, so there is nothing for a cache-first
+       strategy to win, while the "a new worker took over, reload the page"
+       branch below is an unprompted reload of a native app.
+       ⚠️ The install prompt underneath is PWA-only for the same reason: an app
+       from the App Store cannot be added to the home screen again. */
+    if ("serviceWorker" in navigator && !isStoreBuild()) {
       try {
         // updateViaCache:"none" -> the sw.js script itself is always checked
         // against the network, so a new deploy is detected promptly.
