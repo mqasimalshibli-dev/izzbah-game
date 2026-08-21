@@ -128,8 +128,9 @@ try {
     const vis = (el) => !!el && getComputedStyle(el).display !== "none";
     return { web: vis(document.querySelector(".legal-web-only")),
              store: vis(document.querySelector(".legal-store-only")),
-             apple: vis(document.querySelector("p.legal-store-extra")),
-             appleHead: vis(document.querySelector("h5.legal-store-extra")) };
+             apple: vis(document.querySelector("p.legal-apple-extra")),
+             appleHead: vis(document.querySelector("h5.legal-apple-extra")),
+             play: vis(document.querySelector("p.legal-play-extra")) };
   });
   check("web: the activation-code refund policy is the one shown", webRefund.web && !webRefund.store);
   /* ⚠️ Apple's EULA terms are for the app, and in a browser they are plainly
@@ -137,6 +138,7 @@ try {
      paragraph but leaving its <h5> gives a section title with nothing under
      it, which is the shape this most easily regresses into. */
   check("web: Apple's App Store terms are NOT shown", !webRefund.apple && !webRefund.appleHead);
+  check("web: Google Play's terms are NOT shown either", !webRefund.play);
   /* ⚠️ The choke-point guard, tested through the REAL entry point. renderPlans()
      drawing nothing is the first defence; this is the one that survives a caller
      which forgets. If the guard were removed this places a live order. */
@@ -250,9 +252,11 @@ try {
       web: vis(document.querySelector(".legal-web-only")),
       store: vis(document.querySelector(".legal-store-only")),
       text: (document.querySelector(".legal-store-only") || {}).textContent || "",
-      apple: vis(document.querySelector("p.legal-store-extra")),
-      appleHead: vis(document.querySelector("h5.legal-store-extra")),
-      appleText: (document.querySelector("p.legal-store-extra") || {}).textContent || "",
+      apple: vis(document.querySelector("p.legal-apple-extra")),
+      appleHead: vis(document.querySelector("h5.legal-apple-extra")),
+      appleText: (document.querySelector("p.legal-apple-extra") || {}).textContent || "",
+      play: vis(document.querySelector("p.legal-play-extra")),
+      playText: (document.querySelector("p.legal-play-extra") || {}).textContent || "",
     };
   });
   check("store: the activation-code refund paragraph is gone", !refund.web);
@@ -263,8 +267,12 @@ try {
      must carry all of them, and a reviewer checks — so "the block is present"
      is not the assertion; each clause is. Trimming one while editing the
      paragraph is exactly how this breaks, and it breaks silently. */
-  check("store: Apple's App Store terms are shown, heading and all",
+  check("store (iOS): Apple's App Store terms are shown, heading and all",
     refund.apple && refund.appleHead);
+  /* ⚠️ And NOT Google's. «Google ليست طرفاً» inside an App Store build reads as
+     boilerplate nobody proofread, and a reviewer hunting Apple's required
+     clauses would be reading the wrong document. */
+  check("store (iOS): …and Google Play's are not", !refund.play);
   for (const [name, needle] of [
     ["Apple is not a party", "ليست شركة Apple طرفاً"],
     ["licence scope / Usage Rules", "قواعد الاستخدام"],
@@ -447,6 +455,40 @@ try {
   });
   check("web: identify is harmless if something attaches a bridge", Array.isArray(webCalls));
   await webId.close();
+
+  /* ── the ANDROID build gets Play's terms, not Apple's ────────────────────
+     ⚠️ Before this the single `is-store-build` class showed Apple's minimum EULA
+     terms in BOTH builds, so a Play release would have shipped a paragraph about
+     Apple being a third-party beneficiary. Google publishes no equivalent
+     checklist — the Play Developer Distribution Agreement covers their side — so
+     the Play block states what genuinely differs for a Play buyer rather than
+     mirroring Apple's clause for clause. */
+  const droid = await open("?store=android");
+  const dterms = await droid.evaluate(async () => {
+    openLegal("terms", "review");
+    await new Promise(r => setTimeout(r, 250));
+    const vis = (el) => !!el && getComputedStyle(el).display !== "none";
+    return {
+      platform: window.IZZBAH_TEST.storePlatform(),
+      apple: vis(document.querySelector("p.legal-apple-extra")),
+      play: vis(document.querySelector("p.legal-play-extra")),
+      playHead: vis(document.querySelector("h5.legal-play-extra")),
+      playText: (document.querySelector("p.legal-play-extra") || {}).textContent || "",
+      storeOnly: vis(document.querySelector(".legal-store-only")),
+    };
+  });
+  check("android: the override reports the android platform", dterms.platform === "android", dterms.platform);
+  check("android: Play's terms are shown, heading and all", dterms.play && dterms.playHead);
+  check("android: …and APPLE's are not", !dterms.apple);
+  // The shared store refund paragraph is store-agnostic and applies to both.
+  check("android: the store refund paragraph still applies", dterms.storeOnly);
+  for (const [name, needle] of [
+    ["Google is not a party", "ليست Google طرفاً"],
+    ["Play collects the payment", "Google Play"],
+    ["refunds go to Google, not us", "سياسة Google Play"],
+    ["we never see payment details", "بيانات دفع"],
+  ]) check(`android: Play terms carry — ${name}`, dterms.playText.includes(needle));
+  await droid.close();
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

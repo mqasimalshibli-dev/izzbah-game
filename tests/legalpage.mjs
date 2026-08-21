@@ -170,6 +170,16 @@ try {
     ["Apple as third-party beneficiary", "مستفيداً من الغير"],
   ]) check(`App Store terms: ${name}`, pay.includes(needle));
 
+  /* ⚠️ The site is the front door to BOTH stores, so a Play buyer must find
+     terms describing THEIR purchase. Before the split, Apple's block was the
+     only store text there was and an Android customer read about Apple being a
+     third-party beneficiary. */
+  for (const [name, needle] of [
+    ["Google is not a party", "ليست Google طرفاً"],
+    ["Play collects the payment", "Google Play"],
+    ["refunds follow Google's policy", "سياسة Google Play"],
+  ]) check(`Play terms: ${name}`, pay.includes(needle));
+
   /* ── the site's own analytics, which the GAME must not claim ─────
      izzbah.com runs a Google Analytics property; the game does not. Both halves
      are asserted, because either alone is the bug: the site failing to disclose
@@ -183,7 +193,7 @@ try {
   // ⚠️ The class names are the game's build switch. Leaving one on the page
   // means one of the two paragraphs is styled for a build that is not this one.
   const leftovers = await page.evaluate(() =>
-    document.querySelectorAll(".legal-web-only, .legal-store-only, .legal-store-extra").length);
+    document.querySelectorAll(".legal-web-only, .legal-store-only, .legal-apple-extra, .legal-play-extra").length);
   check("neither is left carrying the game's build-switch class", leftovers === 0);
 
   /* ── the glyphs actually render ───────────────────────────────────
