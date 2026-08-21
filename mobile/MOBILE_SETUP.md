@@ -206,3 +206,40 @@ device.
 
 `cap add ios` will work the same way, but building it needs **macOS and Xcode**.
 That is a hard requirement no amount of setup here removes.
+
+
+---
+
+## App icon and splash (added 2026-08-21)
+
+`mobile/assets/icon.png` (1024x1024) and `mobile/assets/splash.png` (2732x2732)
+are committed. On the build machine, expand them into every iOS and Android
+size with:
+
+```bash
+cd mobile && npx @capacitor/assets generate
+```
+
+They are generated from `assets/brand/izzbah-logo-src.png` by
+`python3 tools/appicons.py` (`--check` verifies without writing). Re-run it if
+the brand master changes; the outputs are committed so the build machine needs
+no Python.
+
+⚠️ **No alpha channel, ever, in the 1024 icon.** Apple rejects it, and it costs a
+whole review cycle for a one-line fix. The script flattens onto the app
+background regardless of what the master carries, and `tests/nativebridge.mjs`
+asserts the PNG colour type of the committed output — the script is only run by
+hand, so the guard is on the file, not the code.
+
+⚠️ **No rounded corners and no drop shadow baked in.** Both platforms apply
+their own mask; a baked one renders visibly double-rounded.
+
+⚠️ The script **refuses to upscale**. The master is 1254px today, so the icon is
+a downscale. If the master is ever replaced with something under 1024px it exits
+rather than producing a soft App Store icon — the most scrutinised image in the
+whole listing.
+
+**Checked at real size:** rendered down to 120px (roughly a home-screen icon)
+the tent and the عِزبة wordmark both stay legible, so the full lockup is kept
+rather than cropping to the tent alone. A tent-only crop was tried and was
+worse — it loses the name and shows a seam where the crop meets the fill.
