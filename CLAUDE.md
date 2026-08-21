@@ -1283,6 +1283,16 @@ Single self-contained page, same palette and type system as the game. Marked
     `desktop/electron-main.js` + `desktop/package.json`, and the
     `cp` in `.github/workflows/build-desktop.yml`. `sitemap.xml` lists the root
     and nothing else — listing a redirect is what invited the reports.
+- ⚠️ **THE REPO IS THE SITE. Anything committed to `root` is PUBLIC.**
+  `.nojekyll` makes GitHub Pages serve the branch raw, so every note file is
+  readable at `izzbah.com/<name>.md` — this file included. Verified 2026-08-21.
+  Nothing secret is in them and the security is `firestore.rules` plus the Admin
+  SDK, not obscurity — but treat the whole branch as published: never commit a
+  credential, a customer's details, or a business document. `robots.txt` carries
+  `Disallow: /*.md$`, which stops them being INDEXED and does nothing about
+  direct access. ⚠️ It is a PATTERN on purpose, and that extends to its own
+  comments — the first draft used a real filename as an example and so named the
+  file it was hiding. `tests/findable.mjs` fails if any filename appears there.
 - Develop on the designated feature branch, merge `--no-ff` into `root`
   (the GitHub Pages branch), push, and verify the smoke workflow is green.
 - Bump `IZZBAH_BUILD` on every deploy — **and the `CACHE` name in `sw.js`

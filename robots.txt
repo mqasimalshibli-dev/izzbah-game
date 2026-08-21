@@ -1,4 +1,19 @@
 User-agent: *
 Allow: /
 
+# ⚠️ The repo IS the site — `.nojekyll` makes GitHub Pages serve this branch
+# raw, so every note file in it is reachable at izzbah.com/<name>.md. Nothing
+# secret is in them, and the security lives in firestore.rules rather than in
+# these being hidden — but they are internal notes with no business in a search
+# result.
+#
+# ⚠️ A PATTERN, NEVER A LIST OF FILENAMES. This file is public and is the first
+# thing a curious visitor opens, so spelling out a real filename here would
+# advertise the very thing it is meant to hide. That applies to these COMMENTS
+# too: an earlier draft used a real name as an example and had to be rewritten.
+#
+# ⚠️ And it only stops INDEXING, not access — a direct URL still resolves. That
+# is the honest limit of this file; treat it as tidiness, never as a control.
+Disallow: /*.md$
+
 Sitemap: https://izzbah.com/sitemap.xml
