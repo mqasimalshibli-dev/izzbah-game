@@ -5988,6 +5988,12 @@
     :root[data-theme="dark"] .plans-appnote { color: #cdb488; }
     /* The refund paragraph has two versions — ours (web, activation codes) and
        the store's (Apple/Google hold the money). Exactly one shows. */
+    /* Apple's black treatment. ⚠️ Do not re-tint this to the app's palette:
+       the approved styles are black, white, and white-with-outline, and a
+       maroon "Sign in with Apple" button is a rejection under 4.8. */
+    .wlc-apple { background: #000 !important; color: #fff !important; border-color: #000 !important; }
+    .wlc-apple .auth-label { color: #fff !important; }
+    .wlc-apple[hidden] { display: none !important; }
     .legal-store-only { display: none; }
     .legal-store-extra { display: none; }
     body.is-store-build .legal-store-extra { display: revert; }
@@ -8467,6 +8473,13 @@
           <button class="wlc-start" data-screen="gameLibrary" data-requires-auth type="button"><span>ابدأ اللعب</span></button>
           <div class="wlc-or" style="display:none"><div class="wlc-or-line"></div><div class="wlc-or-text">أو</div><div class="wlc-or-line"></div></div>
           <button class="wlc-google" id="authBtn" type="button" style="display:none"><svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="auth-label">تسجيل الدخول بحساب Google</span></button>
+          <!-- ⚠️ APPLE'S BUTTON IS SPEC'D, NOT STYLED TO TASTE. Guideline 4.8 and
+               the Human Interface Guidelines require the Apple mark, one of the
+               approved treatments (this is the black one), and prominence AT
+               LEAST equal to the other sign-in options — reviewers check. So it
+               shares .wlc-google's box and sits directly beside it, same size.
+               `hidden` until the provider is switched on; see startSignIn(). -->
+          <button class="wlc-google wlc-apple" id="authBtnApple" type="button" hidden><svg width="18" height="18" viewBox="0 0 384 512" aria-hidden="true" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg><span class="auth-label">تسجيل الدخول باستخدام Apple</span></button>
           <div class="auth-status" id="authStatus" aria-live="polite"></div>
           <button type="button" class="wlc-webview-note" id="webviewNote" style="display:none">⚠️ لتسجيل الدخول، افتح اللعبة في Safari أو Chrome — المتصفح المصغّر لا يدعم تسجيل دخول Google. اضغط هنا للتعليمات.</button>
           <div class="wlc-uid" id="myAccountId" style="display:none" title="اضغط لنسخ معرّف حسابك"></div>
@@ -12997,7 +13010,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-20.343";
+    const IZZBAH_BUILD = "2026-08-21.344";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18105,6 +18118,7 @@
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
     window.IZZBAH_TEST.webSellingOff = () => webSellingOff();
     window.IZZBAH_TEST.isInAppBrowser = () => isInAppBrowser();
+    window.IZZBAH_TEST.signInLabel = () => signInLabel();
     window.IZZBAH_TEST.nativeAuthBridge = () => !!nativeAuthBridge();
     window.IZZBAH_TEST.nativeAuthToken = (id) => nativeAuthToken(id);
     window.IZZBAH_TEST.identifyStoreUser = (u) => identifyStoreUser(u);
@@ -22908,6 +22922,20 @@
        The contract is deliberately tiny, so the native side can be swapped
        without touching the game:
          IZZBAH_AUTH.signIn(providerId) -> {idToken, accessToken?, rawNonce?} */
+    /* ⚠️ «تسجيل الدخول بحساب Google» is only true while Google is the ONLY way
+       in. The moment Apple is switched on it is wrong on the settings mirror and
+       on the welcome button's own label, and a player who signed up with Apple
+       would be told to use the wrong method. One helper so the two sites cannot
+       disagree.
+       ⚠️ TOP LEVEL on purpose. It first lived inside setupCloudSync(), which is
+       an IIFE — so the settings sheet, rendered thousands of lines earlier,
+       could not see it and threw ReferenceError the moment that row drew. */
+    function signInLabel() {
+      const B = window.IZZBAH || {};
+      const n = (typeof B.authProviders === "function" ? B.authProviders() : []).length;
+      return n > 1 ? "تسجيل الدخول" : "تسجيل الدخول بحساب Google";
+    }
+
     function nativeAuthBridge() {
       const a = window.IZZBAH_AUTH;
       return (a && typeof a.signIn === "function") ? a : null;
@@ -23381,7 +23409,7 @@
         } else {
           acc.innerHTML = `<span class="sa-line">لم تسجّل الدخول</span>
             <span class="sa-sub" style="cursor:default">سجّل الدخول لحفظ تقدّمك وتفعيل الأكواد عبر أجهزتك.</span>
-            <button class="primary sa-btn" id="settingsAuthBtn" type="button">تسجيل الدخول بحساب Google</button>`;
+            <button class="primary sa-btn" id="settingsAuthBtn" type="button">${escapeHtml(signInLabel())}</button>`;
         }
         const authBtn = $("#settingsAuthBtn");
         if (authBtn) authBtn.addEventListener("click", () => { closeSettings(); const real = $("#authBtn"); if (real) real.click(); });
@@ -28423,6 +28451,14 @@
       const authBtnEl = $("#authBtn"), wlcOrEl = document.querySelector(".wlc-or");
       const showAuth = !state.signedIn;
       if (authBtnEl) authBtnEl.style.display = showAuth ? "" : "none";
+      /* ⚠️ The Apple button follows the SAME show/hide, or it lingers on screen
+         after sign-in. Two mechanisms compose here on purpose: `hidden` says
+         "this provider is switched off" and survives everything, while
+         `style.display` says "signed in / out". The CSS rule
+         `.wlc-apple[hidden]{display:none !important}` makes the first win, so
+         setting display:"" here can never resurrect a disabled provider. */
+      const appleBtnEl = $("#authBtnApple");
+      if (appleBtnEl) appleBtnEl.style.display = showAuth ? "" : "none";
       if (wlcOrEl) wlcOrEl.style.display = showAuth ? "" : "none";
     };
     // The catalogue is "ready" the moment we have something REAL to show —
@@ -28592,8 +28628,10 @@
       // is hidden (auth unavailable / in-app webview), the divider must hide too
       // so it never dangles over empty space above «كيف تلعب؟».
       const wlcOr = document.querySelector(".wlc-or");
+      const appleBtn0 = $("#authBtnApple");
       const setAuthVisible = (show) => {
         if (authBtn) authBtn.style.display = show ? "" : "none";
+        if (appleBtn0) appleBtn0.style.display = show ? "" : "none";
         if (wlcOr) wlcOr.style.display = show ? "" : "none";
       };
       const configured = cfg && typeof cfg.apiKey === "string" && cfg.apiKey.indexOf("PASTE_") !== 0 && cfg.projectId && String(cfg.projectId).indexOf("PASTE_") !== 0;
@@ -28871,7 +28909,7 @@
           if (label) label.textContent = "تسجيل الخروج"; // kept for the settings mirror
           authBtn.classList.add("signed-in");
         } else {
-          if (label) label.textContent = "تسجيل الدخول بحساب Google";
+          if (label) label.textContent = signInLabel();
           authBtn.classList.remove("signed-in");
         }
         if (authStatus) authStatus.textContent = ""; // no email on the welcome screen
@@ -31067,11 +31105,13 @@
 
           const provider = AUTH_PROVIDERS["google.com"].make();
           auth.getRedirectResult().catch(function () {});
-          if (authBtn) {
-            // Visibility is governed by setAuthUI (runs on the first auth-state
-            // callback), so we don't force-show here — that would flash the
-            // sign-out button for already-signed-in players before it hides.
-            authBtn.addEventListener("click", () => {
+          /* ⚠️ ONE implementation, every provider. This used to be a closure
+             bolted onto the Google button with "google.com" written inside it,
+             so adding Apple would have meant a second copy of the veil handling,
+             the in-app-browser guard, the account-linking branch and the
+             popup-blocked fallback — four things that must behave identically
+             and would drift the first time one was touched. */
+          const startSignIn = (providerId) => {
               const onErr = (err) => {
                 console.warn("sign-in error", err);
                 /* A store build whose native bridge never attached must SAY so.
@@ -31099,7 +31139,7 @@
               // post-sign-in load, released only once boot is ready — so a
               // player can never mash buttons on a half-loaded welcome screen.
               if (window.IZZBAH.holdBootVeil) window.IZZBAH.holdBootVeil();
-              beginSignIn("google.com").then(() => {
+              beginSignIn(providerId).then(() => {
                 if (window.IZZBAH.releaseBootVeil) window.IZZBAH.releaseBootVeil();
               }).catch((err) => {
                 const code = err && err.code;
@@ -31142,7 +31182,20 @@
                 if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
                 onErr(err);
               });
-            });
+          };
+          // Visibility is governed by setAuthUI (runs on the first auth-state
+          // callback), so we don't force-show here — that would flash the
+          // sign-out button for already-signed-in players before it hides.
+          if (authBtn) authBtn.addEventListener("click", () => startSignIn("google.com"));
+          /* ⚠️ Apple's button EXISTS ONLY WHEN THE PROVIDER IS ON. Guideline 4.8
+             requires it once a third-party login is offered, but showing it
+             before Firebase Auth has the Apple provider configured gives a
+             button that always errors — worse than not offering it. One flag,
+             in AUTH_PROVIDERS, drives the button, the linking row and this. */
+          const appleBtn = $("#authBtnApple");
+          if (appleBtn && AUTH_PROVIDERS["apple.com"] && AUTH_PROVIDERS["apple.com"].enabled) {
+            appleBtn.hidden = false;
+            appleBtn.addEventListener("click", () => startSignIn("apple.com"));
           }
           auth.onAuthStateChanged(async (user) => {
             currentUser = user;
