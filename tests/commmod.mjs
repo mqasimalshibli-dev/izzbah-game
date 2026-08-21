@@ -104,6 +104,48 @@ ck("the report sheet shows the blocked-content line when something is hidden", i
 ck("«إظهار الكل» in the report sheet clears every block", inSheet.count===0);
 ck("…and the line disappears once nothing is blocked", inSheet.hiddenAfter===true);
 
+/* ── reporting must tell the TRUTH about delivery (guideline 1.2) ──────────
+   ⚠️ sendFeedback REJECTS when signed out; it does not throw. The old code was
+   `try { send(body); sent = true } catch {}`, so `sent` was true whatever
+   happened and a signed-out player saw «وصل بلاغك للمطوّرين» while the report
+   went nowhere — plus an unhandled rejection. A report mechanism that lies
+   about delivering is worse than none, because nobody follows up on a report
+   they believe arrived.
+   ⚠️ All four outcomes are asserted. A happy-path-only test would have PASSED
+   against the broken code, because the broken code always claimed success. */
+for (const [label, mode, wantDelivered] of [
+  ["delivered",              "resolve", true],
+  ["rejected (signed out)",  "reject",  false],
+  ["throws synchronously",   "throw",   false],
+  ["bridge absent entirely", "none",    false],
+]) {
+  const out = await p.evaluate(async (mode) => {
+    localStorage.removeItem("izzbah-blocked-comm-v1");
+    window.IZZBAH = window.IZZBAH || {};
+    if (mode === "none") delete window.IZZBAH.sendFeedback;
+    else if (mode === "resolve") window.IZZBAH.sendFeedback = () => Promise.resolve();
+    else if (mode === "reject") window.IZZBAH.sendFeedback = () => Promise.reject(new Error("not signed in"));
+    else window.IZZBAH.sendFeedback = () => { throw new Error("boom"); };
+    let claimed = "";
+    const rt = window.showToast, rn = window.popNote;
+    window.showToast = (t) => { claimed = String(t || ""); };
+    window.popNote = (t, bd) => { claimed = String(t || "") + " " + String(bd || ""); };
+    const cat = { id: "rep-1", community: true, name: "x", authorUid: "a-9" };
+    window.IZZBAH_TEST.reportCommunityCategory(cat);
+    await new Promise(r => setTimeout(r, 250));
+    window.showToast = rt; window.popNote = rn;
+    return { claimed, hidden: window.IZZBAH_TEST.isCommBlocked(cat) };
+  }, mode);
+  ck(`report — ${label}: claims delivery only when it WAS delivered`,
+     /وصل بلاغك/.test(out.claimed) === wantDelivered);
+  // Hiding is local and unconditional: reporting means "I do not want to see
+  // this", and that must not depend on the network.
+  ck(`report — ${label}: hidden on this device either way`, out.hidden === true);
+  if (!wantDelivered)
+    ck(`report — ${label}: points at the published address instead`,
+       /izzbahgame@gmail\.com/.test(out.claimed));
+}
+
 ck("no uncaught JS errors", errs.length===0);
 if(errs.length) console.log("  errs:", errs.slice(0,3));
 await b.close();srv.kill();

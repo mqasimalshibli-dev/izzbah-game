@@ -243,3 +243,52 @@ whole listing.
 the tent and the عِزبة wordmark both stay legible, so the full lockup is kept
 rather than cropping to the tent alone. A tent-only crop was tried and was
 worse — it loses the name and shows a seam where the crop meets the fill.
+
+
+---
+
+## Guideline 1.2 (user-generated content) — audited 2026-08-21
+
+Community categories are UGC, so 1.2 applies and it is one of the most common
+rejection reasons. All four requirements, checked against the code rather than
+assumed:
+
+| Requirement | Where it lives | Verdict |
+|---|---|---|
+| Filter objectionable material before it is posted | `loadCommunityCategories()` reads `where("approved","==",true)`, and `firestore.rules` denies reading someone else's pending doc | **Strongest possible** — pre-moderation, enforced server-side. Nothing reaches another player without an admin approving it. |
+| A way to report offensive content | `reportCommunityCategory()`, plus the «إبلاغ» settings row and the in-game flag | Present. **Was broken — see below.** |
+| Block abusive users | `blockCommunityCategory()` hides the category AND the author's other categories | Present, device-local |
+| Published contact | `izzbahgame@gmail.com` in the terms, the notices doc and the settings sheet | Present |
+
+### ⚠️ The bug this audit found
+
+`reportCommunityCategory()` read:
+
+```js
+let sent = false;
+if (send) { try { send(body); sent = true; } catch (e) {} }
+```
+
+`sendFeedback` **rejects** when signed out — it does not throw — so `sent` was
+true whatever happened. A signed-out player saw «شكراً، وصل بلاغك للمطوّرين»
+while the report went nowhere, and the rejection was left unhandled.
+
+A reporting mechanism that lies about delivering is worse than none: nobody
+follows up on a report they believe arrived. Fixed at build .345 to report the
+real outcome and, on failure, name the published address so the reader still has
+a route. `tests/commmod.mjs` covers all four outcomes — resolve, reject, throw,
+and no bridge at all. ⚠️ A happy-path-only test would have PASSED against the
+broken code, because the broken code always claimed success.
+
+### Known, accepted
+
+- **Blocking is device-local.** `izzbah-blocked-comm-v1` is not in the cloud
+  sync `KEYS`, so a block does not follow the account: block someone, sign in on
+  a tablet, and their categories are back. Device-local blocking is what most
+  apps do and satisfies 1.2, so this is a quality gap rather than a compliance
+  one. ⚠️ If it is ever synced, a plain union is WRONG — «إظهار الكل» clears the
+  list, and a union would resurrect every block on the next merge.
+- **The report reason uses `window.prompt()`**, which is inconsistent with the
+  app's own modals and renders as a system dialog in a webview. Functional, and
+  Capacitor implements it, but it is the one place the UI drops out of its own
+  design language.

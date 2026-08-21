@@ -13010,7 +13010,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-21.344";
+    const IZZBAH_BUILD = "2026-08-21.345";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13630,12 +13630,28 @@
         + "المعرّف: " + cat.id + "\n"
         + "الكاتب: " + (cat.authorName || "—") + " (" + (cat.authorUid || "?") + ")\n"
         + "السبب: " + ((reason || "").trim() || "—");
-      let sent = false;
-      if (send) { try { send(body); sent = true; } catch (e) {} }
+      /* Hide it locally FIRST and unconditionally — reporting implies "I do not
+         want to see this", and that must not depend on the network. */
       const b = loadBlockedComm(); b.cats.add(cat.id); saveBlockedComm(b);
       if (typeof renderCategories === "function") renderCategories();
-      showToast(sent ? "شكراً، وصل بلاغك للمطوّرين — وأخفيناها عن جهازك ✓"
-                     : "أخفينا الفئة عن جهازك — للإبلاغ سجّل الدخول وراسلنا");
+      /* ⚠️ sendFeedback REJECTS when signed out; it does not throw. The old code
+         was `try { send(body); sent = true } catch {}`, so `sent` was true
+         whatever happened and a signed-out player was told «وصل بلاغك للمطوّرين»
+         — their report had gone nowhere. It also left the rejection unhandled.
+         App Review guideline 1.2 requires a working way to report objectionable
+         content; one that lies about delivering is worse than none, because
+         nobody follows up. Report the REAL outcome, and when it fails name the
+         published address so the reader still has a route. */
+      const ok = () => showToast("شكراً، وصل بلاغك للمطوّرين — وأخفيناها عن جهازك ✓");
+      const fail = () => popNote("أخفينا الفئة عن جهازك",
+        "لم نتمكّن من إرسال البلاغ — سجّل الدخول وحاول مرة أخرى، "
+        + "أو راسلنا مباشرة على izzbahgame@gmail.com وسنراجعها.", "🚩");
+      if (!send) { fail(); return; }
+      try {
+        const r = send(body);
+        if (r && typeof r.then === "function") r.then(ok, fail);
+        else ok();
+      } catch (e) { fail(); }
     }
     // Block: hide this category AND (when known) the author's other categories,
     // on this device only.
@@ -18118,6 +18134,8 @@
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
     window.IZZBAH_TEST.webSellingOff = () => webSellingOff();
     window.IZZBAH_TEST.isInAppBrowser = () => isInAppBrowser();
+    window.IZZBAH_TEST.reportCommunityCategory = (c) => reportCommunityCategory(c);
+    window.IZZBAH_TEST.isCommBlocked = (c) => isCommBlocked(c);
     window.IZZBAH_TEST.signInLabel = () => signInLabel();
     window.IZZBAH_TEST.nativeAuthBridge = () => !!nativeAuthBridge();
     window.IZZBAH_TEST.nativeAuthToken = (id) => nativeAuthToken(id);
