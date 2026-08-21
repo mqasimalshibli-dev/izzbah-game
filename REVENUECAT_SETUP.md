@@ -111,6 +111,32 @@ What each outcome means:
 
 ---
 
+## ⚠️ The "Send a Test Webhook" page reports failure when it SUCCEEDED
+
+**Verified 2026-08-21, and it cost a long detour.** That page renders
+*"It wasn't possible to connect, are you sure the URL is correct?"* and never
+clears it. It went on saying that while the function log showed RevenueCat's
+events arriving, passing the Authorization check and being handled correctly —
+twice, nine minutes apart, both carrying RevenueCat's own `test_product`
+payload.
+
+⚠️ **Believe the function log, not that page.** Check with:
+
+```bash
+date -u; firebase functions:log --only revenuecatWebhook --project izzbahgame --lines 5
+```
+
+and compare the newest timestamp against the clock it prints. A line within the
+last minute or two is a real delivery whatever the dashboard claims. The whole
+detour was spent re-pasting a secret that had been correct all along.
+
+⚠️ Related: the webhook settings page has a **Save** button at the bottom, and
+the form shows your edits before they are persisted. A test run against "what is
+on screen" can be exercising the PREVIOUS configuration. Save, confirm it, then
+test.
+
+---
+
 ## ⚠️ `unknown-user` is the failure that costs money
 
 `app_user_id` **must** be the Firebase uid. If RevenueCat is still holding one
