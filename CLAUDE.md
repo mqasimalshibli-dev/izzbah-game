@@ -1198,6 +1198,13 @@ Single self-contained page, same palette and type system as the game. Marked
 
 ## Standing conventions in this repo
 
+- **Give the owner shell commands ONE PER CODE BLOCK, never bundled** (owner,
+  2026-08-21: *"always give me them separated"*). They are run by hand in Cloud
+  Shell, and a multi-command block is copied and pasted whole — so a failure in
+  the first command is not noticed before the rest run on a bad assumption.
+  Each block gets its own heading and a line saying what a successful result
+  looks like, plus what to do if it does not.
+
 - Single self-contained game file: **`index.html`** (Arabic, RTL) — it is the
   SITE ROOT since build .291; it was `game-mobile.html` until then, and a great
   many notes above still say so. Firebase
