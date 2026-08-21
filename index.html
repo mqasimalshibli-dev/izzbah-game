@@ -5978,6 +5978,8 @@
     /* The refund paragraph has two versions — ours (web, activation codes) and
        the store's (Apple/Google hold the money). Exactly one shows. */
     .legal-store-only { display: none; }
+    .legal-store-extra { display: none; }
+    body.is-store-build .legal-store-extra { display: revert; }
     body.is-store-build .legal-web-only { display: none; }
     body.is-store-build .legal-store-only { display: block; }
     .plans-redeem { justify-content: center; }
@@ -9491,7 +9493,7 @@
             <h5>أين تُخزَّن ولماذا</h5>
             <p>تُحفَظ بياناتك على خدمة Google Firebase (خوادم Google) لغرض تسجيل الدخول وحفظ تقدّمك ومزامنته بين أجهزتك. كما نستخدم التخزين المحلي في متصفّحك (localStorage) لحفظ إعداداتك ولعبتك الحالية على جهازك.</p>
             <h5>قياس الاستخدام (التحليلات)</h5>
-            <p>نستخدم Google Analytics for Firebase لقياس كيفية استخدام اللعبة بشكل مُجمَّع (مثل عدد اللاعبين وأكثر الميزات استخداماً) بهدف تحسينها. ويستخدم موقعنا التعريفي (izzbah.com) خدمة Google Analytics لقياس زياراته بالطريقة نفسها، مع إخفاء عنوان IP وتعطيل ميزات الإعلانات. تُجمَع هذه الإحصاءات بصورة عامة ولا تُستخدم لتحديد هويتك الشخصية.</p>
+            <p>نستخدم Google Analytics for Firebase لقياس كيفية استخدام اللعبة بشكل مُجمَّع (مثل عدد اللاعبين وأكثر الميزات استخداماً) بهدف تحسينها. تُجمَع هذه الإحصاءات بصورة عامة ولا تُستخدم لتحديد هويتك الشخصية.</p>
             <h5>المشاركة</h5>
             <p>لا نبيع بياناتك ولا نشاركها لأغراض تسويقية. تُعالَج بياناتك عبر Google/Firebase وفق سياسات الخصوصية الخاصة بهم. وعند الشراء من داخل التطبيق تُعالَج عملية الدفع لدى متجر التطبيقات (Apple أو Google) ولدى مزوّد إدارة الاشتراكات RevenueCat، كلٌّ وفق سياسته.</p>
             <h5>حقوقك</h5>
@@ -9513,7 +9515,7 @@
             <h5>المحتوى الذي تُقدّمه (فئات المجتمع)</h5>
             <p>يبقى المحتوى الذي ترفعه ملكاً لك، وتمنحنا الحق في عرضه ومراجعته وتعديله وحذفه. أنت تُقِرّ بأن لديك الحق في نشره وأنه لا ينتهك حقوق أي طرف. ونحتفظ بحق مراجعة أي محتوى وإزالته دون إشعار مسبق.</p>
             <h5>الباقات والمدفوعات</h5>
-            <p>أول لعبة مجانية. بعدها تتوفّر ألعاب إضافية بالشراء <b>من داخل التطبيق</b> عبر متجر التطبيقات، ويظهر سعر كل باقة ومحتواها بوضوح قبل الشراء. الموقع لا يبيع الباقات. رصيد الألعاب مرتبط <b>بحسابك</b> لا بالجهاز، فما تشتريه يظهر أينما سجّلت الدخول. وقد نمنحك أحياناً <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
+            <p>أول لعبة مجانية. بعدها تتوفّر ألعاب إضافية بالشراء <b>من داخل التطبيق</b> عبر متجر التطبيقات، ويظهر سعر كل باقة ومحتواها بوضوح قبل الشراء. الموقع لا يبيع الباقات. رصيد الألعاب مرتبط <b>بحسابك</b> لا بالجهاز، فما تشتريه يظهر أينما سجّلت الدخول. باقات الألعاب <b>منتجات استهلاكية</b> تُستهلك بلعبها، فلا تُستعاد عبر «استعادة المشتريات»؛ لكن رصيدها محفوظ في حسابك، فتسجيل الدخول بالحساب نفسه يُظهره على أي جهاز، بما في ذلك بعد إعادة تثبيت التطبيق. وقد نمنحك أحياناً <b>كود تفعيل</b> يُضاف رصيده إلى حسابك مباشرة. لا نطلب ولا نُخزّن بيانات بطاقتك البنكية.</p>
             <h5>الاسترجاع والإلغاء</h5>
             <p class="legal-web-only">لا نستوفي أي مبلغ عبر الموقع، فلا توجد مدفوعات نستردّها هنا. أما <b>كود التفعيل</b> فهو منتَج رقمي، وبعد تفعيله يكون <b>غير قابل للاسترجاع</b>. وإذا وصلك كود لا يعمل، أو أُضيف إلى حسابك رصيد خاطئ، فراسلنا خلال ٧ أيام على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنُصحّح الأمر.</p>
             <!-- The store build's money is Apple's / Google's, not ours: we
@@ -9523,6 +9525,23 @@
                  the terms are reachable from right beside the buy button, so a
                  reviewer WILL read it. -->
             <p class="legal-store-only">تتم عمليات الشراء داخل التطبيق عبر متجر التطبيقات، ويُحصّل المتجر المبلغ ويحتفظ بسجلّ عملية الشراء. تُضاف الألعاب إلى حسابك تلقائياً فور تأكيد الشراء، وتبقى مرتبطة بحسابك على أي جهاز تسجّل الدخول منه. أما طلبات <b>استرداد المبالغ</b> فتُقدَّم إلى المتجر نفسه وفق سياسته، إذ لا نستلم بيانات الدفع ولا نملك استرداد قيمة دفعتها للمتجر. وإذا أتممت عملية شراء ولم تظهر الألعاب في رصيدك، فراسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنعالج الأمر.</p>
+            <!-- ⚠️ APPLE'S MINIMUM EULA TERMS, and they are a CHECKLIST, not
+                 prose. An app that links its own EULA instead of using Apple's
+                 standard one must carry every one of these, and a reviewer does
+                 check: the agreement is with us and not Apple; the licence
+                 scope; who does support; the warranty and Apple's refund-only
+                 obligation; who answers product and IP claims; the export
+                 representation; and Apple as a third-party beneficiary.
+                 Marked `legal-store-extra`, NOT `legal-store-only`: the two
+                 `-only` classes are the pair of refund paragraphs the generator
+                 labels by build, and folding a third case into them would have
+                 made it the "first match" for one of them and silently replaced
+                 the wrong paragraph. This one carries its own heading and the
+                 site prints it as-is.
+                 ⚠️ These cover APPLE. Google Play's own terms differ, and this
+                 block will need a Play pass before that build ships. -->
+            <h5 class="legal-store-extra">شروط إضافية لنسخة متجر التطبيقات</h5>
+            <p class="legal-store-extra">هذه الشروط اتفاق بينك وبيننا نحن وحدنا، وليست شركة Apple طرفاً فيه، وهي غير مسؤولة عن التطبيق ولا عن محتواه. نمنحك ترخيصاً شخصياً غير قابل للنقل لاستخدام التطبيق على أي جهاز Apple تملكه أو تتحكّم فيه، وفق «قواعد الاستخدام» في شروط خدمة App Store. ونحن وحدنا مسؤولون عن الدعم والصيانة، ولا تتحمّل Apple أي التزام بهما. وإذا لم يطابق التطبيق أي ضمان معمول به، جاز لك إبلاغ Apple لتردّ لك ثمن الشراء، ولا يقع على Apple أي التزام آخر بشأن الضمان. ونحن — لا Apple — من يتولّى أي مطالبة تتعلّق بالتطبيق، سواء كانت مسؤولية عن المنتج أو مخالفةً لنظام أو لحماية المستهلك أو للخصوصية، وكذلك أي ادّعاء بانتهاك حقوق ملكية فكرية لطرف ثالث. وأنت تُقِرّ بأنك لست مقيماً في دولة خاضعة لحظر من حكومة الولايات المتحدة ولست مُدرجاً على أي قائمة أطراف محظورة لديها. وتُعدّ Apple وشركاتها التابعة مستفيداً من الغير من هذه الشروط، ولها حق الاحتجاج بها تجاهك. وللدعم راسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a>.</p>
             <h5>الملكية الفكرية</h5>
             <p>اسم «عِزبة» وشعارها وتصميمها ومحتواها الأصلي مملوكة لنا، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
             <h5>إخلاء الضمان وحدود المسؤولية</h5>
@@ -12967,7 +12986,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-20.339";
+    const IZZBAH_BUILD = "2026-08-20.340";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
