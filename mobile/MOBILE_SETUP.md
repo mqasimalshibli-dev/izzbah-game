@@ -104,3 +104,54 @@ for you), so a user can't fake "I paid".
 ## Bundle ID
 `com.izzbah.game` (matches the desktop build's appId). Use the **same** ID in
 the Apple Developer portal and Google Play Console.
+
+---
+
+## The two native bridges (added 2026-08-20)
+
+The game is deliberately ignorant of Capacitor, Firebase-native and RevenueCat.
+It calls two small globals and owns every decision around them. Both files live
+here, are NOT referenced by the web build, and must be loaded by the app before
+the first sign-in tap or the first opening of the packs box.
+
+| File | Installs | Contract |
+|---|---|---|
+| `native-auth.js` | `window.IZZBAH_AUTH` | `signIn(providerId) -> {idToken, accessToken?, rawNonce?}` |
+| `native-store.js` | `window.IZZBAH_STORE` | `identify(uid)`, `purchase(productId)`, `priceOf(productId)` |
+
+Each file carries its own wiring steps and traps at the top. The four worth
+repeating here, because each one fails **silently**:
+
+1. **`skipNativeAuth: true`** in `native-auth.js`. Without it the app holds two
+   independent Firebase sessions — the native SDK's and the JS one the game
+   actually reads — which drift apart on sign-out and leave a player looking
+   signed in while every Firestore read is denied.
+2. **Apple needs the RAW nonce**, not the hashed one. Firebase re-hashes ours to
+   compare. Passing the hashed value, or omitting it, is rejected and the error
+   names neither.
+3. **Register the RELEASE signing SHA-1** with Firebase on Android, not just the
+   debug one. Missing it is the classic works-in-testing, fails-for-every-real-
+   user bug.
+4. **`identify()` is the whole ballgame for purchases.** RevenueCat grants
+   against `app_user_id` and `functions/lib/revenuecat.js` reads it as a Firebase
+   uid. A purchase completed while the SDK still holds its own anonymous id
+   cannot be matched to an account: the payment succeeds, the games never
+   arrive, and nothing anywhere raises an error. The game calls `identify()` on
+   every auth change and again just before the sheet opens; `configure()`
+   deliberately passes no `appUserID` so the SDK is only ever named by us.
+
+### What is NOT done yet
+
+- `cap add ios` / `cap add android` have never been run — there are no native
+  projects, so neither bridge has ever executed.
+- `RC_API_KEY` in `native-store.js` is empty. Public SDK keys are meant to ship
+  in the client; the **secret** key never leaves the server.
+- `revenuecatWebhook` exists in `functions/index.js` and is unit-tested in CI,
+  but needs deploying and the RevenueCat dashboard pointing at it.
+- Products do not exist in App Store Connect, so `priceOf()` returns `""` and
+  the packs render with **no price**. That is correct: Apple bills in its own
+  tiers per storefront, so printing the hardcoded `٠٫٩٠٠ ر.ع` would show one
+  number and charge another.
+- Sign in with Apple stays `enabled: false` in `index.html` until the Apple
+  Developer Program provides the App ID, Services ID and key. Both the provider
+  and the account-linking flow are already written, so that day is a flag flip.

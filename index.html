@@ -12997,7 +12997,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-20.342";
+    const IZZBAH_BUILD = "2026-08-20.343";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18107,6 +18107,7 @@
     window.IZZBAH_TEST.isInAppBrowser = () => isInAppBrowser();
     window.IZZBAH_TEST.nativeAuthBridge = () => !!nativeAuthBridge();
     window.IZZBAH_TEST.nativeAuthToken = (id) => nativeAuthToken(id);
+    window.IZZBAH_TEST.identifyStoreUser = (u) => identifyStoreUser(u);
     window.IZZBAH_TEST.applyWebNoSelling = () => applyWebNoSelling();
     window.IZZBAH_TEST.renderPlans = () => renderPlans();
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
@@ -23050,6 +23051,18 @@
       const s = window.IZZBAH_STORE;
       return (s && typeof s.purchase === "function") ? s : null;
     }
+    /* Hands the signed-in uid to the store SDK. Safe to call on the web and
+       safe to call before the bridge attaches — both are no-ops. It must never
+       throw: it runs inside applyAuth, which is on the boot path, and a store
+       SDK that is unhappy is not a reason to fail sign-in. */
+    function identifyStoreUser(uid) {
+      const s = window.IZZBAH_STORE;
+      if (!s || typeof s.identify !== "function") return;
+      try {
+        const r = s.identify(uid || "");
+        if (r && typeof r.catch === "function") r.catch(e => console.warn("store identify failed", e));
+      } catch (e) { console.warn("store identify failed", e); }
+    }
     async function storePurchase(p) {
       // ⚠️ SIGN-IN FIRST, before the store sheet ever opens. The games are
       // granted by RevenueCat's webhook against `app_user_id`, which the app
@@ -23064,6 +23077,12 @@
       }
       const bridge = storeBridge();
       const productId = productIdFor(p.id);
+      /* ⚠️ Belt and braces on the uid. applyAuth identifies on every auth
+         change, but a bridge that attached LATE would have missed the call —
+         and the cost of that race is a completed payment the webhook cannot
+         match to anybody. Re-asserting it immediately before the sheet opens is
+         cheap and idempotent. */
+      identifyStoreUser(state.myUid);
       // A store build whose bridge never loaded must SAY so. Silence on a
       // purchase button is the worst outcome: the player taps, nothing happens,
       // and they assume they have been charged.
@@ -28356,6 +28375,16 @@
       state.authReady = true; // first fire = the session restore has resolved
       state.signedIn = !!signedIn;
       state.myUid = signedIn ? (uid || "") : "";
+      /* ⚠️ TELL THE STORE WHO THIS IS, on every auth change. RevenueCat grants
+         against `app_user_id`, and its webhook looks that up as a Firebase uid —
+         so if the SDK is still holding one of its own anonymous ids when a
+         purchase completes, the webhook cannot match an account and the player
+         has paid Apple for nothing. storePurchase() already refuses to open the
+         sheet while signed out; this is the other half, and without it that
+         guard protects nothing. Signing OUT identifies as empty, which logs the
+         SDK back out — otherwise the next person on a shared phone buys into
+         the previous player's account. */
+      if (typeof identifyStoreUser === "function") identifyStoreUser(state.myUid);
       if (typeof loadAnnouncements === "function") {
         const p = loadAnnouncements(); // public feed; refresh the unread badge
         // Once loaded, pop a brand-new announcement over the current screen.
