@@ -36,6 +36,10 @@ const check = (n, ok, extra) => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`);
 };
 
+/* Real UA strings for the two shapes a Capacitor build takes. */
+const UAS_WK = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+const UAS_WV = "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/127.0.0.0 Mobile Safari/537.36";
+
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
@@ -328,6 +332,65 @@ try {
     priced.join(" / "));
 
   await app.close();
+
+  /* ── the native sign-in seam ─────────────────────────────────────────────
+     A REAL native sign-in cannot be exercised here — it needs the Capacitor
+     project, the plugin and a device — so this pins the parts that live in the
+     game and would otherwise break silently in the wrapper.
+     ⚠️ The first one is the bug that would have hurt most. Every in-app-browser
+     heuristic in isInAppBrowser() fires on a Capacitor build: iOS is a WKWebView
+     with no "Safari" token, Android's WebView marks itself "; wv)". Unguarded, a
+     player tapping sign-in inside the App Store app is shown «افتح اللعبة في
+     المتصفح» and sent to Safari — a dead end, and a paying customer pointed at
+     the website. */
+  for (const [label, ua, store, want] of [
+    ["iOS WKWebView, store build", UAS_WK, true, false],
+    ["iOS WKWebView, plain web", UAS_WK, false, true],
+    ["Android wv, store build", UAS_WV, true, false],
+    ["Android wv, plain web", UAS_WV, false, true],
+  ]) {
+    const c = await browser.newContext({ userAgent: ua, viewport: { width: 390, height: 844 } });
+    const pg = await c.newPage();
+    await pg.route("**/firebasejs/**", r => r.abort());
+    await pg.addInitScript(() => { try { localStorage.setItem("izzbah-legal-consent-v1", "1"); } catch (e) {} });
+    await pg.goto(`http://127.0.0.1:${PORT}/index.html${store ? "?store=1" : ""}`,
+                  { waitUntil: "load", timeout: 30000 });
+    await pg.waitForTimeout(900);
+    const got = await pg.evaluate(() => window.IZZBAH_TEST.isInAppBrowser());
+    check(`in-app-browser help — ${label}: ${want ? "shown" : "NOT shown"}`, got === want);
+    await c.close();
+  }
+
+  /* The bridge contract. A store build with no native side attached must fail
+     with a code of OURS, thrown before anything Firebase-shaped is touched —
+     an OAuth error would describe a flow the app never entered. */
+  const bridge = await open("?store=1");
+  const noBridge = await bridge.evaluate(async () => {
+    try { await window.IZZBAH_TEST.nativeAuthToken("google.com"); return "resolved"; }
+    catch (e) { return (e && e.code) || "no-code"; }
+  });
+  check("store: no bridge attached fails with our own code, not an OAuth one",
+    noBridge === "izzbah/no-auth-bridge", noBridge);
+  const withBridge = await bridge.evaluate(async () => {
+    let asked = null;
+    window.IZZBAH_AUTH = { signIn: (id) => { asked = id; return Promise.resolve({ idToken: "tok-1" }); } };
+    const out = await window.IZZBAH_TEST.nativeAuthToken("google.com");
+    return { asked, idToken: out.idToken, seen: window.IZZBAH_TEST.nativeAuthBridge() };
+  });
+  check("store: an attached bridge is used, and asked for the right provider",
+    withBridge.asked === "google.com" && withBridge.idToken === "tok-1" && withBridge.seen === true,
+    JSON.stringify(withBridge));
+  /* ⚠️ A bridge that returns nothing usable must be an ERROR, not a credential
+     built from nulls — signInWithCredential would reject with an opaque OAuth
+     message and the real fault (a broken native side) would never surface. */
+  const emptyTok = await bridge.evaluate(async () => {
+    window.IZZBAH_AUTH = { signIn: () => Promise.resolve({}) };
+    try { await window.IZZBAH_TEST.nativeAuthToken("google.com"); return "resolved"; }
+    catch (e) { return (e && e.code) || "no-code"; }
+  });
+  check("store: a bridge that returns no token is an error, not a null credential",
+    emptyTok === "izzbah/no-id-token", emptyTok);
+  await bridge.close();
 
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));

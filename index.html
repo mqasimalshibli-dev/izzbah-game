@@ -12997,7 +12997,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-20.341";
+    const IZZBAH_BUILD = "2026-08-20.342";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13072,6 +13072,13 @@
     // "Error 403: disallowed_useragent". Detect those webviews so we can steer
     // the player to a real browser instead of a dead-end Google wall.
     function isInAppBrowser() {
+      /* ⚠️ OUR OWN APP IS NOT AN IN-APP BROWSER, and every heuristic below says
+         it is: a Capacitor build on iOS is a WKWebView with no "Safari" token,
+         and on Android its WebView marks itself "; wv)". Left unguarded, a
+         player tapping sign-in inside the App Store app would be shown
+         «افتح اللعبة في المتصفح» and told to go to Safari — a dead end that is
+         also, on a store build, pointing a paying customer at the website. */
+      if (isStoreBuild()) return false;
       const ua = navigator.userAgent || "";
       if (/FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|Snapchat|TikTok|musical_ly|BytedanceWebview|MicroMessenger|WhatsApp|Telegram|GSA\//i.test(ua)) return true;
       // iOS WKWebView (not Safari): iOS UA but missing the "Safari" token.
@@ -18097,6 +18104,9 @@
     window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
     window.IZZBAH_TEST.webSellingOff = () => webSellingOff();
+    window.IZZBAH_TEST.isInAppBrowser = () => isInAppBrowser();
+    window.IZZBAH_TEST.nativeAuthBridge = () => !!nativeAuthBridge();
+    window.IZZBAH_TEST.nativeAuthToken = (id) => nativeAuthToken(id);
     window.IZZBAH_TEST.applyWebNoSelling = () => applyWebNoSelling();
     window.IZZBAH_TEST.renderPlans = () => renderPlans();
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
@@ -22882,6 +22892,48 @@
        ⚠️ webSellingOff() is false on a store build — that build sells through
        StoreKit and must keep showing its packs. The two flags are about
        different surfaces and must never be collapsed into one. */
+    /* ── Sign-in has TWO implementations behind ONE seam ─────────────────────
+       In a browser, Firebase opens a popup. In a Capacitor build it CANNOT: the
+       page is served from `capacitor://localhost` (iOS) or `https://localhost`
+       (Android), neither of which is an authorised OAuth origin — so
+       `signInWithPopup` fails, and `signInWithRedirect` fails the same way, so
+       there is no graceful degradation to fall back on. The native layer performs
+       the sign-in and hands back an ID token; `signInWithCredential` exchanges it
+       for the SAME session, so the uid and everything keyed to it — entitlements,
+       saved games, cloud sync — are identical to the web's.
+       ⚠️ This is not polish. No sign-in means no uid; no uid means RevenueCat
+       cannot match a purchase to an account. It takes out buying, the balance and
+       the cloud sync together, which is why it comes before the store bridge.
+       The contract is deliberately tiny, so the native side can be swapped
+       without touching the game:
+         IZZBAH_AUTH.signIn(providerId) -> {idToken, accessToken?, rawNonce?} */
+    function nativeAuthBridge() {
+      const a = window.IZZBAH_AUTH;
+      return (a && typeof a.signIn === "function") ? a : null;
+    }
+    /* ⚠️ Apple needs the rawNonce that the NATIVE side hashed into its request;
+       Firebase re-hashes it and compares. Passing the hashed value, or omitting
+       it, is rejected — and the error names neither. Google takes no nonce. */
+    function nativeAuthCredential(providerId, out) {
+      out = out || {};
+      if (providerId === "apple.com") {
+        const p = new firebase.auth.OAuthProvider("apple.com");
+        return p.credential({ idToken: out.idToken, rawNonce: out.rawNonce });
+      }
+      return firebase.auth.GoogleAuthProvider.credential(out.idToken || null,
+                                                         out.accessToken || null);
+    }
+    // Thrown before anything Firebase-shaped is touched, so a store build with
+    // no bridge attached SAYS so instead of failing with an OAuth error that
+    // describes a flow it never entered.
+    async function nativeAuthToken(providerId) {
+      const bridge = nativeAuthBridge();
+      if (!bridge) { const e = new Error("no native auth bridge"); e.code = "izzbah/no-auth-bridge"; throw e; }
+      const out = await bridge.signIn(providerId);
+      if (!out || !out.idToken) { const e = new Error("no id token"); e.code = "izzbah/no-id-token"; throw e; }
+      return out;
+    }
+
     const WEB_SELLING = false;
     function webSellingOff() { return !WEB_SELLING && !isStoreBuild(); }
 
@@ -30913,6 +30965,22 @@
               },
             },
           };
+          /* ONE door for every sign-in in the app. Returns the same shape the
+             popup did, so every caller's .then/.catch below is unchanged —
+             including the account-linking branch, because signInWithCredential
+             raises `auth/account-exists-with-different-credential` exactly as
+             the popup does. */
+          function beginSignIn(providerId) {
+            if (!isStoreBuild()) return auth.signInWithPopup(AUTH_PROVIDERS[providerId].make());
+            return nativeAuthToken(providerId)
+              .then(out => auth.signInWithCredential(nativeAuthCredential(providerId, out)));
+          }
+          // Attaching a second method to an account already signed in.
+          function beginLink(user, providerId) {
+            if (!isStoreBuild()) return user.linkWithPopup(AUTH_PROVIDERS[providerId].make());
+            return nativeAuthToken(providerId)
+              .then(out => user.linkWithCredential(nativeAuthCredential(providerId, out)));
+          }
           const enabledProviders = () => Object.keys(AUTH_PROVIDERS).filter(id => AUTH_PROVIDERS[id].enabled);
           window.IZZBAH.authProviders = () => enabledProviders().map(id => ({ id, label: AUTH_PROVIDERS[id].label }));
           // Which methods the CURRENT account already answers to.
@@ -30939,7 +31007,7 @@
             if (!existing) return { ok: false };
             const label = AUTH_PROVIDERS[existing].label;
             try {
-              const res = await auth.signInWithPopup(AUTH_PROVIDERS[existing].make());
+              const res = await beginSignIn(existing);
               await res.user.linkWithCredential(pending);
               return { ok: true, label };
             } catch (e) {
@@ -30961,7 +31029,7 @@
             if (!currentUser) throw new Error("not-signed-in");
             const spec = AUTH_PROVIDERS[providerId];
             if (!spec || !spec.enabled) throw new Error("provider-unavailable");
-            await currentUser.linkWithPopup(spec.make());
+            await beginLink(currentUser, providerId);
             // providerData only refreshes after a reload; without this the
             // settings row still offers to attach what was just attached.
             await currentUser.reload();
@@ -30977,6 +31045,14 @@
             authBtn.addEventListener("click", () => {
               const onErr = (err) => {
                 console.warn("sign-in error", err);
+                /* A store build whose native bridge never attached must SAY so.
+                   The raw code would read «تعذّر تسجيل الدخول: izzbah/no-auth-bridge»,
+                   which tells the player nothing and tells support less. */
+                if (err && typeof err.code === "string" && err.code.indexOf("izzbah/") === 0) {
+                  popNote("تعذّر تسجيل الدخول",
+                    "حدث خلل في التطبيق. أعد تشغيله وحاول مرة أخرى، وإذا تكرّر الأمر راسلنا.");
+                  return;
+                }
                 if (typeof showToast === "function") showToast("تعذّر تسجيل الدخول: " + ((err && err.code) || "خطأ"));
               };
               if (currentUser) {
@@ -30994,7 +31070,7 @@
               // post-sign-in load, released only once boot is ready — so a
               // player can never mash buttons on a half-loaded welcome screen.
               if (window.IZZBAH.holdBootVeil) window.IZZBAH.holdBootVeil();
-              auth.signInWithPopup(provider).then(() => {
+              beginSignIn("google.com").then(() => {
                 if (window.IZZBAH.releaseBootVeil) window.IZZBAH.releaseBootVeil();
               }).catch((err) => {
                 const code = err && err.code;
@@ -31022,7 +31098,11 @@
                   });
                   return;
                 }
-                if (code === "auth/popup-blocked") {
+                // ⚠️ A store build must never reach this: there is no popup to
+                // block, and signInWithRedirect fails for the very origin reason
+                // the popup would have. Native errors carry izzbah/* codes and
+                // fall through to onErr below.
+                if (code === "auth/popup-blocked" && !isStoreBuild()) {
                   // Redirect navigates the whole page; the veil rides along.
                   auth.signInWithRedirect(provider).catch((e2) => {
                     if (window.IZZBAH.hideBootVeil) window.IZZBAH.hideBootVeil();
