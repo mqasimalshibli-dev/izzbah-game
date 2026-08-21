@@ -980,6 +980,10 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node accountdelete.mjs
 
+      - name: Run Capacitor packaging contract test
+        if: ${{ !cancelled() }}
+        run: node tests/nativebridge.mjs
+
       - name: Run store-sells / web-does-not test
         if: ${{ !cancelled() }}
         working-directory: tests
