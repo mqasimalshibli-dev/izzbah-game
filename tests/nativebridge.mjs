@@ -83,6 +83,24 @@ for (const d of ["www/", "android/", "ios/", "node_modules/"]) {
   check(`mobile/.gitignore excludes ${d}`, ignore.includes(d));
 }
 
+/* ── the store icon and splash ───────────────────────────────────
+   ⚠️ APPLE REJECTS AN APP STORE ICON WITH AN ALPHA CHANNEL, and it costs a whole
+   review cycle for a one-line fix. `tools/appicons.py` flattens onto the app
+   background so a future master with transparency cannot reintroduce it — this
+   asserts the OUTPUT, because the script is only run by hand.
+   PNG's IHDR carries the colour type at byte 25: 2 is RGB, 6 is RGBA, 4 is
+   grey+alpha. Read directly, so CI needs no Pillow. */
+for (const [file, want] of [["assets/icon.png", 1024], ["assets/splash.png", 2732]]) {
+  let head = null;
+  try { head = readFileSync(join(M, file)).subarray(0, 26); } catch (e) {}
+  check(`${file} exists — @capacitor/assets expands these into every size`, !!head);
+  if (!head) continue;
+  const w = head.readUInt32BE(16), h = head.readUInt32BE(20), ctype = head[25];
+  check(`…at ${want}x${want}`, w === want && h === want, `${w}x${h}`);
+  check("…with NO alpha channel", ctype !== 6 && ctype !== 4,
+    `colour type ${ctype}`);
+}
+
 /* ── the seam the game actually reads ───────────────────────────── */
 const game = readFileSync(join(ROOT, "index.html"), "utf8");
 check("the game reads IZZBAH_AUTH, and the bridge installs it",
