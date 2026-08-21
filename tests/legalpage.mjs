@@ -154,10 +154,36 @@ try {
     !pay.includes("عند طلب باقة يصلك بريد تأكيد"));
   check("and a purchase made in-app through a store",
     pay.includes("إذا اشتريت من داخل التطبيق عبر المتجر") && pay.includes("استرداد المبالغ"));
+  /* ── the App Store's minimum EULA terms ──────────────────────────
+     An app linking its OWN EULA must carry Apple's checklist. The site is the
+     URL App Store Connect is given, so a reviewer reads THIS page — each item
+     is checked separately, because "mentions Apple" would pass on one sentence
+     while the rest had been trimmed. */
+  for (const [name, needle] of [
+    ["the agreement is with us, not Apple", "ليست شركة Apple طرفاً"],
+    ["the licence scope", "قواعد الاستخدام"],
+    ["who provides support", "مسؤولون عن الدعم والصيانة"],
+    ["Apple's refund-only warranty obligation", "لتردّ لك ثمن الشراء"],
+    ["who answers product claims", "حماية المستهلك"],
+    ["who answers IP claims", "انتهاك حقوق ملكية فكرية"],
+    ["the export representation", "قائمة أطراف محظورة"],
+    ["Apple as third-party beneficiary", "مستفيداً من الغير"],
+  ]) check(`App Store terms: ${name}`, pay.includes(needle));
+
+  /* ── the site's own analytics, which the GAME must not claim ─────
+     izzbah.com runs a Google Analytics property; the game does not. Both halves
+     are asserted, because either alone is the bug: the site failing to disclose
+     it, and the game claiming something about a site the player is not on. */
+  const privacyText = shown.sections.find(s => s.id === "privacy").text;
+  check("the site discloses its OWN analytics", privacyText.includes("izzbah.com"));
+  check("...and the game's policy does not mention the website's",
+    !source.privacy.includes("izzbah.com"),
+    source.privacy.includes("izzbah.com") ? "still in index.html" : "");
+
   // ⚠️ The class names are the game's build switch. Leaving one on the page
   // means one of the two paragraphs is styled for a build that is not this one.
   const leftovers = await page.evaluate(() =>
-    document.querySelectorAll(".legal-web-only, .legal-store-only").length);
+    document.querySelectorAll(".legal-web-only, .legal-store-only, .legal-store-extra").length);
   check("neither is left carrying the game's build-switch class", leftovers === 0);
 
   /* ── the glyphs actually render ───────────────────────────────────

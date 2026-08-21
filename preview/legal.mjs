@@ -68,7 +68,38 @@ function labelBuilds(html) {
   };
   one("legal-web-only", "إذا لعبت عبر الموقع");
   one("legal-store-only", "إذا اشتريت من داخل التطبيق عبر المتجر");
+  /* `legal-store-extra` is store-build text that already carries its OWN <h5>,
+     so it needs no inserted label — only the class stripped, because the site
+     shows every build's terms. Kept as a separate class from the `-only` pair
+     on purpose: those two are matched by FIRST occurrence, and a third
+     paragraph sharing one of their names would silently be labelled as the
+     refund paragraph while the real one kept its class and tripped the
+     assertion somewhere far away. */
+  const before = html;
+  html = html.replace(/ class="legal-store-extra"/g, "");
+  if (html === before)
+    throw new Error("legal.mjs: no legal-store-extra block — have the App Store terms been dropped?");
   return html;
+}
+
+/* ── text that belongs to the SITE and not to the game ────────────────────
+   ⚠️ This is the ONE exception to "the game's copy is the only copy", and it is
+   an exception because it is not a copy of anything: izzbah.com runs its own
+   Google Analytics property, the GAME does not, and a sentence about the
+   website's measurement inside the game's privacy policy would be describing
+   something the player is not using. So the game's document talks about the
+   game, this page adds its own line, and neither duplicates the other.
+   ⚠️ Anything added here is legal text with NO in-game counterpart, so it can
+   never be checked against the game. Keep it to facts about THIS PAGE. */
+const SITE_ANALYTICS = '<p>ويستخدم هذا الموقع (izzbah.com) خدمة Google Analytics لقياس زياراته بشكل مُجمَّع، مع إخفاء عنوان IP وتعطيل ميزات الإعلانات. لا تُستخدم هذه الإحصاءات لتحديد هويتك الشخصية.</p>';
+
+function addSiteOnly(html) {
+  // Anchored to the game's analytics paragraph so the two sit together and read
+  // as one section, rather than the site's line arriving out of context.
+  const re = /(<p>نستخدم Google Analytics for Firebase[\s\S]*?<\/p>)/;
+  if (!re.test(html))
+    throw new Error("legal.mjs: the game's analytics paragraph moved — the site's own line has nowhere to attach");
+  return html.replace(re, `$1\n${SITE_ANALYTICS}`);
 }
 
 const DOCS = [
@@ -80,6 +111,7 @@ const DOCS = [
 const bodies = DOCS.map(([key]) => {
   let html = strip(lift(key));
   if (key === "terms") html = labelBuilds(html);
+  if (key === "privacy") html = addSiteOnly(html);
   // The game's own `<h4>` is the document title and the page prints its own,
   // so the duplicate goes. Everything else is kept exactly as authored.
   html = html.replace(/<h4>[\s\S]*?<\/h4>\s*/, "");
@@ -93,7 +125,7 @@ const bodies = DOCS.map(([key]) => {
   // policy page is the failure this whole script exists to make impossible.
   if (html.replace(/<[^>]+>/g, "").trim().length < 400)
     throw new Error(`legal.mjs: the "${key}" document came out suspiciously short — check the markup in index.html`);
-  if (/legal-(web|store)-only/.test(html))
+  if (/legal-[a-z-]+-(only|extra)/.test(html))
     throw new Error(`legal.mjs: a build-specific paragraph was left unlabelled in "${key}"`);
   // Re-indent to this page's depth. The lifted markup carries the game's own
   // indentation, and the two inserted `<h6>`s carry none, so without this the
