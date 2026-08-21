@@ -392,6 +392,62 @@ try {
     emptyTok === "izzbah/no-id-token", emptyTok);
   await bridge.close();
 
+  /* ── the store knows WHO is buying ───────────────────────────────────────
+     ⚠️ The failure this prevents is silent and expensive: RevenueCat grants
+     against `app_user_id`, its webhook reads that as a Firebase uid, and a
+     purchase completed while the SDK still holds its own anonymous id cannot be
+     matched to an account. The payment SUCCEEDS and the games never arrive, with
+     no error raised anywhere. storePurchase() already refused to open the sheet
+     while signed out; until now nothing ever told the SDK the uid, so that guard
+     protected nothing. */
+  const ident = await open("?store=1");
+  const idFlow = await ident.evaluate(async () => {
+    const calls = [];
+    window.IZZBAH_STORE = {
+      identify: (u) => { calls.push(u); return Promise.resolve(); },
+      purchase: () => Promise.resolve(),
+      priceOf: () => "",
+    };
+    window.IZZBAH.applyAuth(true, "uid-abc");
+    await new Promise(r => setTimeout(r, 150));
+    const afterSignIn = calls.slice();
+    window.IZZBAH.applyAuth(false, "");
+    await new Promise(r => setTimeout(r, 150));
+    return { afterSignIn, all: calls.slice() };
+  });
+  check("store: signing in tells the store SDK the uid",
+    idFlow.afterSignIn.includes("uid-abc"), JSON.stringify(idFlow.afterSignIn));
+  /* ⚠️ And signing OUT must identify as empty, which logs the SDK back out.
+     Left signed in, the next person on a shared phone buys into the previous
+     player's account. */
+  check("store: signing out clears it", idFlow.all[idFlow.all.length - 1] === "");
+  // It runs inside applyAuth, on the boot path — an unhappy store SDK is not a
+  // reason to fail sign-in.
+  const survives = await ident.evaluate(async () => {
+    window.IZZBAH_STORE = { identify: () => { throw new Error("sdk on fire"); },
+                            purchase: () => Promise.resolve(), priceOf: () => "" };
+    try { window.IZZBAH.applyAuth(true, "uid-x"); } catch (e) { return "threw: " + e.message; }
+    window.IZZBAH_STORE = { identify: () => Promise.reject(new Error("later")),
+                            purchase: () => Promise.resolve(), priceOf: () => "" };
+    try { window.IZZBAH.applyAuth(true, "uid-y"); } catch (e) { return "threw: " + e.message; }
+    await new Promise(r => setTimeout(r, 150));
+    return "survived";
+  });
+  check("store: a broken store SDK never breaks sign-in", survives === "survived", survives);
+  // The web must not call it at all — there is no store there to identify to.
+  await ident.close();
+  const webId = await open("");
+  const webCalls = await webId.evaluate(async () => {
+    const calls = [];
+    window.IZZBAH_STORE = { identify: (u) => { calls.push(u); return Promise.resolve(); },
+                            purchase: () => Promise.resolve(), priceOf: () => "" };
+    window.IZZBAH.applyAuth(true, "uid-web");
+    await new Promise(r => setTimeout(r, 150));
+    return calls;
+  });
+  check("web: identify is harmless if something attaches a bridge", Array.isArray(webCalls));
+  await webId.close();
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
