@@ -137,6 +137,53 @@ test.
 
 ---
 
+## ⚠️ App Review will FAIL the purchase unless you prepare an account
+
+`functions/lib/revenuecat.js` refuses sandbox grants to anyone who is not staff:
+
+```js
+if (parsed.sandbox && !isStaff) return { grant: false, reason: "sandbox" };
+```
+
+That rule is correct — Apple sandbox accounts are free to create, so without it
+anybody could mint unlimited games. But **App Review tests in-app purchases in
+the sandbox**, so a reviewer would tap buy, Apple's sheet would succeed, and the
+webhook would refuse. From their side: paid, nothing happened. That is a
+rejection for "in-app purchase does not work", with the code behaving exactly as
+designed and the log reading `no grant — sandbox`.
+
+**Prepare a review account BEFORE submitting.**
+
+1. Create a Google account you control (e.g. `izzbah.review@gmail.com`).
+2. Sign into the game with it **once** — this is what brings the uid into
+   existence; there is nothing to add before that.
+3. Read the uid from the admin centre's players list, or Firebase console →
+   Authentication.
+4. Firebase console → Firestore → `editors` → add a document whose **id is the
+   uid**. The `email` field only names the row in the panel; the permission is
+   the document EXISTING, exactly as with `admins/{uid}`.
+5. Give those credentials to Apple in App Store Connect → App Review
+   Information → Sign-In Required.
+6. Remove the `editors/{uid}` document once the app is approved.
+
+⚠️ **`editors`, NOT `admins`, and the obvious choice is the wrong one.** Both
+satisfy `isStaff`, but `state.isAdmin` also grants **unlimited free play**
+(`playBalanceSummary()` returns «مشرف — لعب غير محدود»). An admin reviewer never
+runs out of games, so they would have no reason to buy and could not test the
+purchase at all. An editor keeps `state.isAdmin` false and therefore normal play
+limits — they hit the paywall like any player, buy, and the sandbox gate lets it
+through. That is exactly what review needs.
+
+⚠️ Accepted trade: an editor can also add, change and delete questions (bounded
+by `firestore.rules` — they cannot empty a category, and one publish caps at
+five removals). A reviewer will not do that, and step 6 closes it. If that is
+ever not acceptable, the cleaner shape is a separate `reviewers/{uid}`
+collection granting ONLY the sandbox exception — which is a rules change, a
+functions change and a test, and has deliberately not been built for a
+capability that is needed once.
+
+---
+
 ## ⚠️ `unknown-user` is the failure that costs money
 
 `app_user_id` **must** be the Firebase uid. If RevenueCat is still holding one
