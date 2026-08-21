@@ -191,6 +191,72 @@ try {
     /enabled:\s*false/.test(appleSpec), appleSpec.split("\n")[1] || "");
   check("Google is enabled", /"google\.com":\s*\{[^}]*enabled:\s*true/s.test(shipped));
 
+  /* ── the SIGN-IN button for Apple, not just the linking row ──────────────
+     ⚠️ The linking row has rendered from authProviders() for a while, so with
+     Apple switched on a signed-in player could ATTACH it — but there was no way
+     to sign IN with Apple in the first place: #authBtn was a hardcoded Google
+     button calling beginSignIn("google.com"). Guideline 4.8 is about the
+     sign-in surface, so the linking row alone would not have satisfied it. */
+  const apple = await page.evaluate(() => {
+    const b = document.getElementById("authBtnApple");
+    if (!b) return null;
+    const cs = getComputedStyle(b);
+    return {
+      hidden: b.hidden,
+      shown: b.getBoundingClientRect().height > 0 && cs.display !== "none",
+      label: (b.querySelector(".auth-label") || {}).textContent || "",
+      mark: !!b.querySelector("svg"),
+      bg: cs.backgroundColor,
+      fg: cs.color,
+      // Same box as Google's, because 4.8 requires prominence at least equal to
+      // the other options.
+      sameClass: b.classList.contains("wlc-google"),
+    };
+  });
+  check("the Apple sign-in button exists in the markup", !!apple);
+  /* ⚠️ Hidden until the provider is switched ON. Firebase Auth has no Apple
+     provider configured yet, so a visible button would always error — which is
+     worse than not offering it, and is itself a rejection. */
+  check("…but hidden while the provider is off", apple && apple.hidden && !apple.shown);
+  check("…it carries the Apple mark", apple && apple.mark);
+  check("…and Apple's own wording", apple && /Apple/.test(apple.label), apple && apple.label);
+  /* ⚠️ Apple's approved treatments are black, white, or white-with-outline. A
+     button re-tinted to the app's maroon is a 4.8 rejection, and it is exactly
+     the change a later "make it match the theme" pass would make. */
+  check("…in an APPROVED treatment, not the app palette",
+    apple && /rgb\(0, 0, 0\)/.test(apple.bg) && /rgb\(255, 255, 255\)/.test(apple.fg),
+    apple && `${apple.bg} on ${apple.fg}`);
+  check("…and shares the Google button's box, so neither is more prominent",
+    apple && apple.sameClass);
+
+  /* ── the label must stop naming Google once there are two ways in ──── */
+  const labels = await page.evaluate(() => {
+    const out = {};
+    const B = window.IZZBAH = window.IZZBAH || {};
+    B.authProviders = () => [{ id: "google.com", label: "Google" }];
+    out.one = window.IZZBAH_TEST.signInLabel();
+    B.authProviders = () => [{ id: "google.com", label: "Google" }, { id: "apple.com", label: "Apple" }];
+    out.two = window.IZZBAH_TEST.signInLabel();
+    return out;
+  });
+  check("with one provider the button still names Google", /Google/.test(labels.one), labels.one);
+  /* ⚠️ With Apple on, «تسجيل الدخول بحساب Google» tells a player who signed up
+     with Apple to use the wrong method. */
+  check("with two it stops naming one of them", !/Google/.test(labels.two), labels.two);
+
+  /* ── ONE flow, not a copy per provider ──────────────────────────────
+     Read from source: the veil handling, in-app-browser guard, account-linking
+     branch and popup-blocked fallback must be shared, or they drift the first
+     time one is touched. */
+  const src = readFileSync(join(ROOT, "index.html"), "utf8");
+  check("both buttons call the same startSignIn()",
+    /startSignIn\("google\.com"\)/.test(src) && /startSignIn\("apple\.com"\)/.test(src));
+  check("…which takes the provider as a parameter, not hardcoded",
+    /beginSignIn\(providerId\)/.test(src) && !/beginSignIn\("google\.com"\)/.test(src));
+  // ⚠️ The button must be gated on the provider flag, not shown unconditionally.
+  check("the Apple button is gated on AUTH_PROVIDERS[\"apple.com\"].enabled",
+    /AUTH_PROVIDERS\["apple\.com"\][\s\S]{0,20}\.enabled/.test(src));
+
   check("no uncaught JS errors", errs.length === 0);
   if (errs.length) console.log("  errors:", errs.slice(0, 4));
 } catch (e) {
