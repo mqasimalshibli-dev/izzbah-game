@@ -1208,10 +1208,38 @@ Single self-contained page, same palette and type system as the game. Marked
 - Single self-contained game file: **`index.html`** (Arabic, RTL) — it is the
   SITE ROOT since build .291; it was `game-mobile.html` until then, and a great
   many notes above still say so. Firebase
-  compat SDK, project `izzbahgame`, BLAZE plan. One Cloud Function is deployed:
-  `mintUploadUrl` (in `functions/`) mints a presigned R2 upload URL so admins
-  upload video/voice straight from the game to the `izzbah-media` R2 bucket
-  (`VIDEO_UPLOAD_SETUP.md` has the runbook). The rest runs client-side.
+  compat SDK, project `izzbahgame`, BLAZE plan. The rest runs client-side.
+- **Cloud Functions actually deployed (verified `firebase functions:list`,
+  2026-08-21).** FOUR, all v2 / nodejs22 / us-central1. Do not trust an older
+  note saying "one" — this list is the one that was checked against the project.
+  - `mintUploadUrl` — presigned R2 upload URL so staff upload video/voice
+    straight from the game to the `izzbah-media` bucket (`VIDEO_UPLOAD_SETUP.md`
+    is the runbook). ⚠️ **Redeployed 2026-08-21 and that mattered**: the live
+    copy still gated on `admins/{uid}` alone, so media upload for a content
+    EDITOR had been broken since the role shipped. It now reads both collections.
+  - `resolveEmails` — uid → email from Firebase Auth for the admin centre.
+  - `deleteAccount` — in-app account erasure. ⚠️ Its deployed copy was STALE
+    until 2026-08-21; the redeploy refreshed it. The published privacy policy
+    promises «الحذف فوري», and an App Store build requires this (5.1.1(v)), so
+    it is not optional.
+  - `revenuecatWebhook` — **deployed 2026-08-21**, `REVENUECAT_WEBHOOK_SECRET`
+    created in Secret Manager. Verified reachable: a POST with a wrong
+    Authorization header returns **401**, which proves both that Cloud Run is
+    not blocking unauthenticated callers (a 403 there would mean RevenueCat
+    could never reach it) and that `rcAuthorised()` is refusing. Give RevenueCat
+    the `https://us-central1-izzbahgame.cloudfunctions.net/revenuecatWebhook`
+    form, NOT the `*.run.app` one — the Cloud Run hostname carries a generated
+    hash that changes if the service is recreated.
+  - ⚠️ **`createCheckout` and `paymentWebhook` are NOT deployed, deliberately.**
+    They are the dropped Thawani pair. `paymentWebhook` grants games behind a
+    shared-header-secret check whose stored value is a throwaway string, and no
+    provider will ever call it — deploying them is live attack surface for zero
+    benefit. Never run a bare `firebase deploy --only functions`; name the
+    functions.
+  - Creating the secret with `gcloud` rather than `firebase functions:secrets:set`
+    (which crashes in Cloud Shell) needs NO manual IAM afterwards — the deploy
+    grants `roles/secretmanager.secretAccessor` to the compute service account
+    itself. That was an open question; it is answered.
 - **The game moved to the site ROOT (build .291, 2026-08-09).** `izzbah.com`
   used to be a redirect stub that bounced every visitor to
   `/game-mobile.html` — a wasted round trip on every cold boot, and the reason
