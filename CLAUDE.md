@@ -1222,14 +1222,31 @@ Single self-contained page, same palette and type system as the game. Marked
     until 2026-08-21; the redeploy refreshed it. The published privacy policy
     promises «الحذف فوري», and an App Store build requires this (5.1.1(v)), so
     it is not optional.
-  - `revenuecatWebhook` — **deployed 2026-08-21**, `REVENUECAT_WEBHOOK_SECRET`
-    created in Secret Manager. Verified reachable: a POST with a wrong
-    Authorization header returns **401**, which proves both that Cloud Run is
-    not blocking unauthenticated callers (a 403 there would mean RevenueCat
-    could never reach it) and that `rcAuthorised()` is refusing. Give RevenueCat
-    the `https://us-central1-izzbahgame.cloudfunctions.net/revenuecatWebhook`
-    form, NOT the `*.run.app` one — the Cloud Run hostname carries a generated
-    hash that changes if the service is recreated.
+  - `revenuecatWebhook` — **deployed and VERIFIED END-TO-END 2026-08-21.** Not
+    merely reachable: RevenueCat's dashboard is configured and its real test
+    events arrive, pass `rcAuthorised()` and are correctly refused as a
+    non-granting type (`no grant — ignored-type TEST test_product`). A wrong
+    header returns 401, which also proves Cloud Run is not blocking
+    unauthenticated callers — a 403 there would mean RevenueCat could never
+    reach it at all.
+    - Give RevenueCat the
+      `https://us-central1-izzbahgame.cloudfunctions.net/revenuecatWebhook`
+      form, NOT the `*.run.app` one. Both work, but the Cloud Run hostname
+      carries a generated hash that changes if the service is recreated — and
+      the CLI prints the two forms inconsistently between a create and an
+      update, so it is easy to copy the wrong one.
+    - ⚠️ The secret is **hex, not base64, deliberately** (`openssl rand -hex 32`,
+      64 chars). Base64's `+`, `/` and `=` are exactly what a web form may trim
+      or re-encode, and chasing a suspected mangling cost most of an afternoon.
+      There is no security reason to prefer base64 here.
+    - ⚠️ Rotating needs BOTH a new secret version AND a redeploy — Firebase pins
+      the version at deploy time, so `versions add` alone leaves the function on
+      the old one.
+    - ⚠️ RevenueCat's own "Send a Test Webhook" page **reports failure when it
+      succeeded** — see `REVENUECAT_SETUP.md`. Judge by the function log's
+      timestamps against the clock, never by that page.
+    - Still NOT proven: a real purchase granting games. That needs products in
+      App Store Connect / Play Console and a built app.
   - ⚠️ **`createCheckout` and `paymentWebhook` are NOT deployed, deliberately.**
     They are the dropped Thawani pair. `paymentWebhook` grants games behind a
     shared-header-secret check whose stored value is a throwaway string, and no
