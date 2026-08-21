@@ -1,4 +1,4 @@
-// The landing page's category showcase — now a 3D rail (preview/index.html).
+// The landing page's category showcase — now a 3D rail (about/index.html).
 //
 // It used to be a horizontal scroll-snap track of full-width slides. The owner
 // asked for the effect in a reference clip instead: the covers laid along ONE
@@ -73,7 +73,7 @@ async function load(w, h, touch) {
                                    isMobile: !!touch, hasTouch: !!touch });
   PAGE = await CTX.newPage();
   PAGE.on("pageerror", e => errs.push(e.message));
-  await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await PAGE.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await PAGE.waitForTimeout(1000);
   /* ⚠️ `behavior: "instant"`, for the same reason the sweep below spells it out
      — and this one was the harder half to find. The page sets
@@ -142,7 +142,7 @@ const geom = page => page.evaluate(() => {
     if (/cat\/.*-l\.webp/.test(r.url())) covers++;
     try { kb += (await r.body()).length / 1024; } catch (e) {}
   });
-  await p.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await p.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await p.waitForTimeout(1500);
   const idle = { covers, kb: Math.round(kb) };
   check("landing on the page loads no rail covers at all", idle.covers === 0,

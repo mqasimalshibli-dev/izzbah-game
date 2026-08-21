@@ -1,6 +1,6 @@
 // The hero's motion clip — one real turn of عِزبة, playing on the landing page.
 //
-// The site sold a party game with still screenshots. `preview/clip.mjs` records
+// The site sold a party game with still screenshots. `about/clip.mjs` records
 // the loop the stills cannot show — pick a square, read the photo, reveal, take
 // the points — from the real game, and the hero plays it.
 //
@@ -28,8 +28,8 @@ import { fileURLToPath } from "url";
 import { dirname, join, extname, normalize } from "path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const MP4 = join(ROOT, "preview", "shots", "turn.mp4");
-const WEBM = join(ROOT, "preview", "shots", "turn.webm");
+const MP4 = join(ROOT, "about", "shots", "turn.mp4");
+const WEBM = join(ROOT, "about", "shots", "turn.webm");
 const PORT = 8779;
 const checks = [];
 const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`); };
@@ -75,7 +75,7 @@ check("neither carries an audio track",
   !mp4Head.includes("mp4a") && !webmHead.includes("A_OPUS") && !webmHead.includes("A_VORBIS"));
 
 /* ── the page's own numbers ───────────────────────────────────── */
-const src = readFileSync(join(ROOT, "preview", "index.html"), "utf8");
+const src = readFileSync(join(ROOT, "about", "index.html"), "utf8");
 const cues = (src.match(/const CLIP_CUES = \[([^\]]*)\];/) || [])[1];
 const cueList = (cues || "").split(",").map(s => Number(s.trim()));
 check("the page carries the recorder's cue times", cueList.length === 3 && cueList.every(n => !isNaN(n)),
@@ -138,7 +138,7 @@ const open = async (opts = {}) => {
   page.on("pageerror", e => errs.push(e.message));
   return { ctx, page };
 };
-const url = `http://127.0.0.1:${PORT}/preview/index.html`;
+const url = `http://127.0.0.1:${PORT}/about/index.html`;
 
 try {
   /* ── it plays ─────────────────────────────────────────────── */

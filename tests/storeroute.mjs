@@ -48,8 +48,13 @@ const PLAY = "https://play.google.com/store/apps/details?id=com.izzbah.game";
    Read before a browser is involved: "is there a hard-coded `../` left in the
    markup" is a question about the file, and a browser would only answer it for
    the links that happen to be rendered. */
-const src = readFileSync(join(ROOT, "preview", "index.html"), "utf8");
-const rawLinks = [...src.matchAll(/<a\b[^>]*href="\.\.\/[^"]*"[^>]*>/g)].map(m => m[0]);
+const src = readFileSync(join(ROOT, "about", "index.html"), "utf8");
+/* ⚠️ `../` alone means the GAME (the site lives one level under the root); but
+   `../legal.html` and `../c/…` are the policies and the category pages, which
+   must NOT be routed to a store. Match the game specifically, not every link
+   that happens to climb a level — the loose version started failing the moment
+   legal.html moved to the site root, which is a rename, not a routing bug. */
+const rawLinks = [...src.matchAll(/<a\b[^>]*href="\.\.\/(?:#|")[^>]*>/g)].map(m => m[0]);
 check("every hand-written link into the game is marked for the router",
   rawLinks.every(a => /\bdata-game\b/.test(a)),
   `${rawLinks.length} links, ${rawLinks.filter(a => !/\bdata-game\b/.test(a)).length} unmarked`);
@@ -86,7 +91,7 @@ async function open(which, { stores = false, ipad = false } = {}) {
   const page = await ctx.newPage();
   page.on("pageerror", e => errs.push(which + ": " + e.message));
   if (stores) {
-    await page.route("**/preview/index.html", async route => {
+    await page.route("**/about/index.html", async route => {
       const res = await route.fetch();
       let body = await res.text();
       const before = body;
@@ -98,7 +103,7 @@ async function open(which, { stores = false, ipad = false } = {}) {
       await route.fulfill({ response: res, body });
     });
   }
-  await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(800);
   return { ctx, page };
 }
@@ -112,7 +117,7 @@ const readRoutes = page => page.evaluate(() => ({
   // ⚠️ The grid tiles route to a category PAGE now, not into the game — the
   // routing they have to obey is checked in tests/catpages.mjs, and the page's
   // own play button carries the same rule (inlined from these constants by
-  // preview/cats.mjs). What is left here is the showcase's play button.
+  // about/cats.mjs). What is left here is the showcase's play button.
   tiles: [...document.querySelectorAll(".gcard")].map(a => a.getAttribute("href")),
   play: (document.getElementById("cdPlay") || {}).getAttribute?.("href") || "",
   badges: [...document.querySelectorAll("[data-store]")].map(e => ({
@@ -135,7 +140,7 @@ try {
       r.buttons.length >= 5 && r.buttons.every(b => b.href === "../"),
       `${r.buttons.length} buttons`);
     check(`${which}: the category tiles open their pages, not the game`,
-      r.tiles.length === 40 && r.tiles.every(h => /^c\/[A-Za-z0-9-]+\.html$/.test(h)),
+      r.tiles.length === 40 && r.tiles.every(h => /^\.\.\/c\/[A-Za-z0-9-]+\.html$/.test(h)),
       `${r.tiles.length} tiles, e.g. ${r.tiles[0]}`);
     check(`${which}: the badges stay disabled while there is nothing to link to`,
       r.badges.length === 4 && r.badges.every(b => b.tag === "SPAN" && !b.href
@@ -159,7 +164,7 @@ try {
        these same constants inlined into it. Asserting the old contract here
        would demand the tiles skip the page the owner asked them to open. */
     check(`${which}: the tiles stay on the site, whatever the store says`,
-      r.tiles.every(h => /^c\//.test(h)), r.tiles[0]);
+      r.tiles.every(h => /^\.\.\/c\//.test(h)), r.tiles[0]);
     check(`${which}: the showcase's «العب هذي الفئة» too`,
       r.play === want || r.play.startsWith(want + "#g="), r.play.slice(0, 46));
     if (which === "desktop") {
@@ -218,12 +223,12 @@ try {
   });
   const ip = await installedCtx.newPage();
   ip.on("pageerror", e => errs.push("installed: " + e.message));
-  await ip.route("**/preview/index.html", async route => {
+  await ip.route("**/about/index.html", async route => {
     const res = await route.fetch();
     const body = (await res.text()).replace('android: "",', `android: "${PLAY}",`);
     await route.fulfill({ response: res, body });
   });
-  await ip.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await ip.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   const early = await ip.evaluate(() => document.querySelector("[data-game]").getAttribute("href"));
   await ip.waitForTimeout(900);
   const late = await ip.evaluate(() => document.querySelector("[data-game]").getAttribute("href"));
@@ -241,7 +246,7 @@ try {
   const bp = await brokenCtx.newPage();
   const bad = [];
   bp.on("pageerror", e => bad.push(e.message));
-  await bp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await bp.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await bp.waitForTimeout(700);
   const stillRoutes = await bp.evaluate(() => document.querySelector("[data-game]").getAttribute("href"));
   await brokenCtx.close();
@@ -255,7 +260,7 @@ try {
      than the source, so a stale answer hidden inside a <details> still counts. */
   const copyCtx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
   const cp = await copyCtx.newPage();
-  await cp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await cp.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await cp.waitForTimeout(700);
   const copy = await cp.evaluate(() => {
     /* ⚠️ textContent, NOT innerText. Four of the five FAQ answers sit in a
