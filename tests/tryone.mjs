@@ -5,7 +5,7 @@
 // the moment the visitor is most engaged — right after they have answered.
 //
 // ⚠️ NOTHING HERE IS HAND-WRITTEN. The question, the choices and the points all
-// come from `preview/data.js`, which `preview/sync.mjs` fills from Firestore. A
+// come from `about/data.js`, which `about/sync.mjs` fills from Firestore. A
 // taster typed by hand drifts from the game and ends up promising content that
 // is not there, so the test compares what is on screen against the data file
 // rather than against a fixture of its own.
@@ -25,7 +25,7 @@ const checks = [];
 const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`); };
 
 // The data the page is supposed to be showing, read independently.
-const src = readFileSync(join(ROOT, "preview", "data.js"), "utf8");
+const src = readFileSync(join(ROOT, "about", "data.js"), "utf8");
 const DATA = JSON.parse(src.slice(src.indexOf("{"), src.lastIndexOf("}") + 1));
 const samples = DATA.samples || [];
 check("sync emitted taster questions", samples.length >= 3, `${samples.length}`);
@@ -68,7 +68,7 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
   const page = await ctx.newPage();
   page.on("pageerror", e => errs.push(e.message));
-  await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(900);
 
   const shown = await page.evaluate(() => ({
@@ -299,7 +299,7 @@ try {
      own boundary falls. */
   const muscat = await browser.newContext({ viewport: { width: 900, height: 800 }, timezoneId: "Asia/Muscat" });
   const mp = await muscat.newPage();
-  await mp.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await mp.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await mp.waitForTimeout(700);
   const tz = await mp.evaluate(() => {
     const T = window.IZZBAH_TRY;

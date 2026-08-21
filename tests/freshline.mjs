@@ -5,11 +5,11 @@
 // to install it.
 //
 // ⚠️ IT IS A CLAIM, SO IT HAS TO BE DERIVED. Both halves come from Firestore's
-// own document timestamps via `preview/sync.mjs` — `updateTime` (which moves on
+// own document timestamps via `about/sync.mjs` — `updateTime` (which moves on
 // any publish, including one question edit, which is exactly what "last
 // updated" should mean) and `createTime` (which is the honest answer to "what
 // is new"). A hand-typed date on a marketing page is a lie with a timer on it,
-// so this test compares what is on screen against `preview/data.js` rather than
+// so this test compares what is on screen against `about/data.js` rather than
 // against a fixture, and fails if the page starts inventing either half.
 //
 // ⚠️ AND IT MUST DISAPPEAR RATHER THAN GO BLANK. If the sync has not emitted
@@ -26,7 +26,7 @@ const PORT = 8781;
 const checks = [];
 const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`); };
 
-const raw = readFileSync(join(ROOT, "preview", "data.js"), "utf8");
+const raw = readFileSync(join(ROOT, "about", "data.js"), "utf8");
 const DATA = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
 const F = DATA.fresh || {};
 
@@ -69,7 +69,7 @@ const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT
 await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
 const errs = [];
-const url = `http://127.0.0.1:${PORT}/preview/index.html`;
+const url = `http://127.0.0.1:${PORT}/about/index.html`;
 
 try {
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
@@ -116,7 +116,7 @@ try {
     const bp = await bare.newPage();
     const bad = [];
     bp.on("pageerror", e => bad.push(e.message));
-    await bp.route("**/preview/data.js", async r => {
+    await bp.route("**/about/data.js", async r => {
       const res = await r.fetch();
       const body = (await res.text()).replace(/"fresh": \{[\s\S]*?\},/, "");
       await r.fulfill({ response: res, body });

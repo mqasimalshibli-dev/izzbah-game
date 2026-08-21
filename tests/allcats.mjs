@@ -43,7 +43,7 @@ async function load(w, h) {
   if (!PAGE) {
     PAGE = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     PAGE.on("pageerror", e => errs.push(e.message));
-    await PAGE.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+    await PAGE.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   } else {
     await PAGE.setViewportSize({ width: w, height: h });
     await PAGE.reload({ waitUntil: "load", timeout: 30000 });
@@ -66,7 +66,7 @@ const read = page => page.evaluate(() => {
        someone browsing the library wants to see what is in a category first.
        Checked by SHAPE, not merely by "the href is not empty": the old
        assertion was length > 2, which a `#` would have satisfied. */
-    linked: cards.filter(c => /^c\/[A-Za-z0-9-]+\.html$/.test(c.getAttribute("href") || "")).length,
+    linked: cards.filter(c => /^\.\.\/c\/[A-Za-z0-9-]+\.html$/.test(c.getAttribute("href") || "")).length,
     cols: getComputedStyle(g).gridTemplateColumns.split(" ").filter(Boolean).length,
     // ⚠️ The fold left two traces — a button and a `data-fold` attribute. Either
     // one coming back hides tiles, so both are checked by their effect AND by

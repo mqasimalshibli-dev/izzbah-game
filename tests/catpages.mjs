@@ -1,4 +1,4 @@
-// One generated page per category — `preview/c/<id>.html`.
+// One generated page per category — `c/<id>.html`.
 //
 // The site was one page, and one page ranks for one thing. Someone searching
 // «أسئلة عن خريف ظفار» had nothing of ours to find. These are forty, each about
@@ -6,13 +6,13 @@
 // acquisition channel this product has that does not cost money.
 //
 // ⚠️ THEY ARE GENERATED, SO THIS TESTS THE GENERATOR'S PROMISES, not a fixture.
-// `preview/cats.mjs --check` rebuilds and compares, so a category renamed or
+// `about/cats.mjs --check` rebuilds and compares, so a category renamed or
 // published in the admin panel fails here rather than leaving a page that
 // describes something that no longer exists.
 //
 // ⚠️ THE SITE IS NOINDEX TODAY. Forty indexable pages linking to a noindex home
 // would be incoherent, so the generator COPIES the robots value out of
-// `preview/index.html`. That means these pages do nothing for search until that
+// `about/index.html`. That means these pages do nothing for search until that
 // one meta is lifted — worth knowing before reading their absence from Google
 // as a failure. What is asserted here is that the two always agree.
 import { chromium } from "playwright-core";
@@ -22,14 +22,14 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const DIR = join(ROOT, "preview", "c");
+const DIR = join(ROOT, "c");
 const PORT = 8785;
 const checks = [];
 const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`); };
 
-const site = readFileSync(join(ROOT, "preview", "index.html"), "utf8");
+const site = readFileSync(join(ROOT, "about", "index.html"), "utf8");
 const DATA = (() => {
-  const s = readFileSync(join(ROOT, "preview", "data.js"), "utf8");
+  const s = readFileSync(join(ROOT, "about", "data.js"), "utf8");
   return JSON.parse(s.slice(s.indexOf("{"), s.lastIndexOf("}") + 1));
 })();
 const playable = DATA.cats.filter(c => c.n > 0);
@@ -47,9 +47,9 @@ check("and every category has one",
    admin panel makes the committed pages stale, and a stale page is a page that
    describes a category that no longer exists that way. */
 let inStep = true, why = "";
-try { execFileSync("node", [join(ROOT, "preview", "cats.mjs"), "--check"], { cwd: ROOT }); }
+try { execFileSync("node", [join(ROOT, "about", "cats.mjs"), "--check"], { cwd: ROOT }); }
 catch (e) { inStep = false; why = (e.stdout || e.stderr || "").toString().trim().split("\n")[0]; }
-check("preview/c/ is in step with the catalogue", inStep, why);
+check("c/ is in step with the catalogue", inStep, why);
 
 /* ── robots agrees with the site ─────────────────────────────── */
 const siteRobots = (/<meta name="robots" content="([^"]*)">/.exec(site) || [])[1];
@@ -68,7 +68,7 @@ check("each has its own title, and no two are the same",
 check("each has its own meta description",
   new Set(pages.map(p => (/<meta name="description" content="([^"]*)"/.exec(p.html) || [])[1])).size === pages.length);
 check("each declares a canonical URL",
-  pages.every(p => p.html.includes(`<link rel="canonical" href="https://izzbah.com/preview/c/${p.id}.html">`)));
+  pages.every(p => p.html.includes(`<link rel="canonical" href="https://izzbah.com/c/${p.id}.html">`)));
 check("each is Arabic and right-to-left",
   pages.every(p => p.html.includes('lang="ar"') && p.html.includes('dir="rtl"')));
 check("each carries structured data", pages.every(p => p.html.includes("application/ld+json")));
@@ -166,7 +166,7 @@ try {
   /* The reading path: the site has to LINK to these, or they are forty files
      nobody and nothing can reach. A sitemap alone serves a crawler poorly and a
      reader not at all. */
-  await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(900);
   /* ⚠️ THE TILES ARE THE WAY IN. They used to deep-link straight into the
      picker with the category chosen; the owner's change is that someone
@@ -176,10 +176,10 @@ try {
   const tiles = await page.evaluate(() => [...document.querySelectorAll(".gcard")]
     .map(a => a.getAttribute("href")));
   check("every tile opens its category's page", tiles.length === playable.length
-    && tiles.every(h => /^c\/[A-Za-z0-9-]+\.html$/.test(h)), tiles[0]);
+    && tiles.every(h => /^\.\.\/c\/[A-Za-z0-9-]+\.html$/.test(h)), tiles[0]);
   check("and each tile points at a page that exists",
-    tiles.every(h => files.includes(h.slice(2))),
-    tiles.find(h => !files.includes(h.slice(2))) || "");
+    tiles.every(h => files.includes(h.slice(5))),
+    tiles.find(h => !files.includes(h.slice(5))) || "");
   // The pill row is gone; a stray one would be forty duplicate links.
   const strays = await page.evaluate(() => document.querySelectorAll("#catIndex").length);
   check("no leftover duplicate index of the same links", strays === 0);
@@ -197,7 +197,7 @@ try {
   // …and one page, rendered.
   for (const [id, w, h] of [["cars", 1000, 1000], ["khareef", 390, 844]]) {
     await page.setViewportSize({ width: w, height: h });
-    await page.goto(`http://127.0.0.1:${PORT}/preview/c/${id}.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/c/${id}.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(700);
     const m = await page.evaluate(() => {
       const art = document.querySelector(".art");
@@ -223,7 +223,7 @@ try {
       Math.abs((m.artW / m.artH) - (nw / nh)) < 0.05,
       `${m.artW}x${m.artH} from ${m.natural}`);
     check(`${id} @${w}: it opens the game with this category picked`,
-      m.play.startsWith("../../#g="), m.play.slice(0, 24));
+      m.play.startsWith("../#g="), m.play.slice(0, 24));
     check(`${id} @${w}: no sideways scroll`, !m.sideways);
     check(`${id} @${w}: it links onward to other categories`, m.onward >= 4, `${m.onward} links`);
     /* ⚠️ The content must not need JavaScript — a crawler that does not run it
@@ -232,21 +232,21 @@ try {
        href in the markup either way. So this checks the CONTENT renders with
        scripting off, rather than counting script tags. */
     check(`${id} @${w}: the play button is a real link, not script-built`,
-      /<a class="btn" id="play" href="\.\.\/\.\.\/#g=/.test(
+      /<a class="btn" id="play" href="\.\.\/#g=/.test(
         readFileSync(join(DIR, id + ".html"), "utf8")));
   }
 
   /* …and prove it: the same page with JavaScript switched off entirely. */
   const noJs = await browser.newContext({ viewport: { width: 1000, height: 1000 }, javaScriptEnabled: false });
   const np = await noJs.newPage();
-  await np.goto(`http://127.0.0.1:${PORT}/preview/c/cars.html`, { waitUntil: "load", timeout: 30000 });
+  await np.goto(`http://127.0.0.1:${PORT}/c/cars.html`, { waitUntil: "load", timeout: 30000 });
   const bare = await np.evaluate ? null : null;
   const seen = await np.textContent("body");
   const qCount = (await np.$$(".q")).length;
   const playHref = await np.getAttribute("#play", "href");
   await noJs.close();
   check("with scripting off the questions are still there", qCount === 3, `${qCount} questions`);
-  check("…and the play button still works", (playHref || "").startsWith("../../#g="), playHref);
+  check("…and the play button still works", (playHref || "").startsWith("../#g="), playHref);
   check("…and the category is still named", (seen || "").includes("سيارات"));
   void bare;
 
@@ -257,7 +257,7 @@ try {
   const sizes = new Map();
   let contained = true;
   for (const p2 of pictured) {
-    await page.goto(`http://127.0.0.1:${PORT}/preview/c/${p2.id}.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/c/${p2.id}.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(200);
     const shots = await page.evaluate(() => [...document.querySelectorAll(".qshot")].map(e => {
       const r = e.getBoundingClientRect();

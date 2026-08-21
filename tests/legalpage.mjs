@@ -3,7 +3,7 @@
 // The footer used to link both to `../` with a title reading «تفتح داخل اللعبة
 // من الإعدادات → الخصوصية والشروط». That is not a policy anyone can read before
 // deciding whether to install the game, and it is not a URL an app store can be
-// given. `preview/legal.html` is a page; `preview/legal.mjs` builds it.
+// given. `legal.html` is a page; `about/legal.mjs` builds it.
 //
 // ⚠️ THE PAGE IS GENERATED, AND THIS TEST IS WHY THAT MATTERS. Two copies of a
 // privacy policy maintained by hand WILL diverge, and the moment they do, one of
@@ -12,7 +12,7 @@
 // for sentence, rather than against a fixture of its own — a fixture would just
 // be a third copy to keep in step.
 //
-// ⚠️ AND THE FONTS ARE NOT THE LANDING PAGE'S. `preview/fonts/` is subset to the
+// ⚠️ AND THE FONTS ARE NOT THE LANDING PAGE'S. `about/fonts/` is subset to the
 // 59 Arabic codepoints that page uses; the legal text needs four more. A missing
 // glyph is a .notdef box in the middle of a legal document, and it is invisible
 // to every structural check — so the glyphs are probed by rendering.
@@ -32,9 +32,9 @@ const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" 
    byte for byte, so an edit to the game's legal text that was never carried
    across fails HERE rather than shipping a stale policy. */
 let inStep = true, why = "";
-try { execFileSync("node", [join(ROOT, "preview", "legal.mjs"), "--check"], { cwd: ROOT }); }
+try { execFileSync("node", [join(ROOT, "about", "legal.mjs"), "--check"], { cwd: ROOT }); }
 catch (e) { inStep = false; why = (e.stdout || e.stderr || "").toString().trim().split("\n")[0]; }
-check("preview/legal.html is in step with the game's legal text", inStep, why);
+check("legal.html is in step with the game's legal text", inStep, why);
 
 /* The three documents, read straight out of the game, so the comparison below
    is against the SOURCE and not against the generator's idea of it. */
@@ -71,7 +71,7 @@ try {
   page.on("response", r => { if (r.status() >= 400) http.push(r.status() + " " + r.url().split("/").pop()); });
 
   /* ── reachable from the site ──────────────────────────────────── */
-  await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(700);
   const links = await page.evaluate(() => [...document.querySelectorAll(".foot-links a")]
     .map(a => ({ text: a.textContent.trim(), href: a.getAttribute("href"), title: a.getAttribute("title") })));
@@ -86,7 +86,7 @@ try {
     !(privacy && privacy.title) && !(terms && terms.title));
 
   /* ── the page itself ──────────────────────────────────────────── */
-  await page.goto(`http://127.0.0.1:${PORT}/preview/legal.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`http://127.0.0.1:${PORT}/legal.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(900);
 
   const shown = await page.evaluate(() => {
@@ -253,7 +253,7 @@ try {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const pp = await phone.newPage();
   pp.on("pageerror", e => errs.push("phone: " + e.message));
-  await pp.goto(`http://127.0.0.1:${PORT}/preview/legal.html`, { waitUntil: "load", timeout: 30000 });
+  await pp.goto(`http://127.0.0.1:${PORT}/legal.html`, { waitUntil: "load", timeout: 30000 });
   await pp.waitForTimeout(700);
   const small = await pp.evaluate(() => ({
     sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,

@@ -31,7 +31,7 @@ const checks = [];
 const check = (n, ok, extra) => { checks.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? "  — " + extra : ""}`); };
 
 /* ── the snippet ─────────────────────────────────────────────── */
-const src = readFileSync(join(ROOT, "preview", "index.html"), "utf8");
+const src = readFileSync(join(ROOT, "about", "index.html"), "utf8");
 const game = readFileSync(join(ROOT, "index.html"), "utf8");
 
 check("the site measures at all", src.includes("googletagmanager.com/gtag/js"));
@@ -48,7 +48,7 @@ check("and the IP is anonymised", /anonymize_ip:\s*true/.test(src));
 /* The privacy policy is published at legal.html and generated from the game's
    own text — so if the site starts measuring, the disclosure has to already
    cover it. */
-const legal = readFileSync(join(ROOT, "preview", "legal.html"), "utf8");
+const legal = readFileSync(join(ROOT, "legal.html"), "utf8");
 check("analytics is disclosed in the published privacy policy",
   legal.includes("Google Analytics"), "legal.html#privacy");
 
@@ -62,7 +62,7 @@ check("no unguarded gtag call outside the snippet", bare <= inHead + 1,
 const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
 await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: process.env.IZZBAH_CHROMIUM });
-const url = `http://127.0.0.1:${PORT}/preview/index.html`;
+const url = `http://127.0.0.1:${PORT}/about/index.html`;
 
 try {
   /* ── the events ───────────────────────────────────────────────

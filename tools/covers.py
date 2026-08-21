@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild the landing page's category covers in preview/cat/.
+"""Rebuild the landing page's category covers in about/cat/.
 
 WHY THIS EXISTS, AND WHAT IT CAN AND CANNOT DO
 ----------------------------------------------
@@ -49,7 +49,7 @@ source, which is what the game itself falls back to.
   -t  grid tile.     Cropped to 3:4 at 420x560. The tile renders at most 176
       CSS wide = 352 device px, so this is a clean downscale.
 
-  -s  board headers are NOT touched; they belong to preview/shots/.
+  -s  board headers are NOT touched; they belong to about/shots/.
 
 Quality: WebP q95 for -l, q90 for -t, method 6 — the owner asked for as high
 as it goes (2026-08-08). Against the uncompressed upscale that is 41-46 dB
@@ -72,7 +72,7 @@ import urllib.request
 from PIL import Image, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "preview", "cat")
+OUT = os.path.join(ROOT, "about", "cat")
 BUNDLED = os.path.join(ROOT, "assets", "img")
 REST = ("https://firestore.googleapis.com/v1/projects/izzbahgame/databases/"
         "(default)/documents/categories")
@@ -122,7 +122,7 @@ T_W, T_H = 420, 560                # grid tile, 3:4
 # extra pixels either survive the encoder or do not.
 L_Q, T_Q = 95, 90
 
-# Mirrors the CSS in preview/index.html: a wide (or very tall) cover is drawn
+# Mirrors the CSS in about/index.html: a wide (or very tall) cover is drawn
 # whole over a blur of itself rather than cropped, so it is NOT pre-cropped to
 # the frame — it is sized so the CONTAINED render is 1:1.
 FRAME = L_W / L_H                  # 0.8

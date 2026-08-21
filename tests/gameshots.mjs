@@ -4,7 +4,7 @@
 // `board` in the hero device and again in the "how it works" strip, `answer` in
 // the hero and again in step 3. A visitor met the same picture four times.
 //
-// `preview/shots.mjs` now writes `<screen>-1..3.webp` from three different
+// `about/shots.mjs` now writes `<screen>-1..3.webp` from three different
 // games, and the page steps to the next set on every entry, wrapping after the
 // third. This pins the contract that makes that worth anything:
 //
@@ -23,7 +23,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SHOTS = join(ROOT, "preview", "shots");
+const SHOTS = join(ROOT, "about", "shots");
 const PORT = 8613;
 const checks = [];
 const check = (n, ok, extra) => {
@@ -66,7 +66,7 @@ try {
   // Six visits: two full laps of the three sets.
   const seen = [];
   for (let visit = 0; visit < SETS * 2; visit++) {
-    await page.goto(`http://127.0.0.1:${PORT}/preview/index.html`, { waitUntil: "load", timeout: 30000 });
+    await page.goto(`http://127.0.0.1:${PORT}/about/index.html`, { waitUntil: "load", timeout: 30000 });
     await page.waitForTimeout(700);
     seen.push(await page.evaluate(() => {
       const of = sel => [...document.querySelectorAll(sel)]
@@ -126,7 +126,7 @@ try {
     seen.every(v => [...v.hero, ...v.strip].every(f => /-[123]\.webp(\?|$)/.test(f))),
     seen[0].hero.join(", "));
 
-  /* ⚠️ Every shot URL carries the version `preview/shots.mjs` stamps from the
+  /* ⚠️ Every shot URL carries the version `about/shots.mjs` stamps from the
      files' own bytes. Re-capturing keeps the same twelve FILENAMES, so without
      it a browser that already has them keeps showing the old pictures — the
      shots were replaced, the site served the new ones, and it read as a deploy
