@@ -155,3 +155,54 @@ repeating here, because each one fails **silently**:
 - Sign in with Apple stays `enabled: false` in `index.html` until the Apple
   Developer Program provides the App ID, Services ID and key. Both the provider
   and the account-linking flow are already written, so that day is a flag flip.
+
+---
+
+## `cap add android` — run once, 2026-08-20, and what it found
+
+The Android project was generated successfully and both plugins were detected:
+
+```
+[info] Found 2 Capacitor plugins for android:
+       @capacitor-firebase/authentication@6.3.1
+       @revenuecat/purchases-capacitor@9.2.2
+[success] android platform added!
+```
+
+`mobile/android/` is **not committed** — `.gitignore` treats it as generated,
+so run `npm install && npm run copy:web && npx cap add android` on the machine
+that will build it. Three things had to be fixed first, and all three would have
+stopped you on your own machine:
+
+1. **TypeScript was missing entirely.** `capacitor.config.ts` is read through
+   TypeScript, so `cap add` fails with *"Could not find installation of
+   TypeScript"* before doing anything.
+2. **TypeScript 7 breaks Capacitor 6.** `npm install -D typescript` now resolves
+   to 7.x, and the CLI reaches for `ts.ModuleKind.CommonJS`, which 7 no longer
+   exposes: `TypeError: Cannot read properties of undefined (reading
+   'CommonJS')`. The message names neither TypeScript nor the version. Pinned to
+   `^5.6.3`.
+3. **The bridges had no path into the app.** `copy-web.js` packaged index.html
+   and assets/ only — `native-auth.js` and `native-store.js` were never in
+   `www/`, so sign-in and buying would both have been dead in the wrapper with
+   nothing to point at. They also cannot ship raw: both import BARE specifiers,
+   which no browser resolves. `copy-web.js` now bundles them with esbuild into
+   `www/native.js` (~168 KB) and injects a deferred `<script>` tag, throwing
+   loudly if either step fails.
+
+Verified in a real browser against the packaged `www/`: `IZZBAH_AUTH.signIn`,
+`IZZBAH_STORE.purchase`, `.identify` and `.priceOf` all attach, and the game's
+own `nativeAuthBridge()` sees them. `tests/nativebridge.mjs` pins the contract
+in CI without needing the 175-package install.
+
+### Still needed to BUILD it
+
+`cap add` only generates the project. Compiling needs the **Android SDK** and a
+JDK (Java 21 is fine), neither of which this repo carries — install Android
+Studio, then `npx cap open android`. Nothing here has been compiled or run on a
+device.
+
+### iOS
+
+`cap add ios` will work the same way, but building it needs **macOS and Xcode**.
+That is a hard requirement no amount of setup here removes.
