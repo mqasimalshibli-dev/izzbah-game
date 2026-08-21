@@ -75,10 +75,19 @@ function labelBuilds(html) {
      paragraph sharing one of their names would silently be labelled as the
      refund paragraph while the real one kept its class and tripped the
      assertion somewhere far away. */
-  const before = html;
-  html = html.replace(/ class="legal-store-extra"/g, "");
-  if (html === before)
-    throw new Error("legal.mjs: no legal-store-extra block — have the App Store terms been dropped?");
+  /* `legal-apple-extra` / `legal-play-extra` are per-store text that already
+     carries its OWN <h5>, so it needs no inserted label — only the class
+     stripped, because the site is the front door to BOTH stores and a visitor
+     may be heading to either.
+     ⚠️ Each is required separately. Stripping "whichever exists" would let one
+     store's terms go missing silently, and the one most likely to go missing is
+     the one nobody has submitted to yet. */
+  for (const cls of ["legal-apple-extra", "legal-play-extra"]) {
+    const before = html;
+    html = html.replace(new RegExp(` class="${cls}"`, "g"), "");
+    if (html === before)
+      throw new Error(`legal.mjs: no ${cls} block — have that store's terms been dropped?`);
+  }
   return html;
 }
 

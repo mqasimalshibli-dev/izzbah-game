@@ -5995,8 +5995,13 @@
     .wlc-apple .auth-label { color: #fff !important; }
     .wlc-apple[hidden] { display: none !important; }
     .legal-store-only { display: none; }
-    .legal-store-extra { display: none; }
-    body.is-store-build .legal-store-extra { display: revert; }
+    /* ⚠️ Each store sees ONLY its own extra terms. Showing Apple's «Apple ليست
+       طرفاً» inside a Play build reads as boilerplate nobody proofread, and the
+       reverse is worse — a reviewer looking for Apple's required clauses would
+       find Google's. The website shows both; see preview/legal.mjs. */
+    .legal-apple-extra, .legal-play-extra { display: none; }
+    body.is-ios-build .legal-apple-extra { display: revert; }
+    body.is-android-build .legal-play-extra { display: revert; }
     body.is-store-build .legal-web-only { display: none; }
     body.is-store-build .legal-store-only { display: block; }
     .plans-redeem { justify-content: center; }
@@ -9564,8 +9569,17 @@
                  site prints it as-is.
                  ⚠️ These cover APPLE. Google Play's own terms differ, and this
                  block will need a Play pass before that build ships. -->
-            <h5 class="legal-store-extra">شروط إضافية لنسخة متجر التطبيقات</h5>
-            <p class="legal-store-extra">هذه الشروط اتفاق بينك وبيننا نحن وحدنا، وليست شركة Apple طرفاً فيه، وهي غير مسؤولة عن التطبيق ولا عن محتواه. نمنحك ترخيصاً شخصياً غير قابل للنقل لاستخدام التطبيق على أي جهاز Apple تملكه أو تتحكّم فيه، وفق «قواعد الاستخدام» في شروط خدمة App Store. ونحن وحدنا مسؤولون عن الدعم والصيانة، ولا تتحمّل Apple أي التزام بهما. وإذا لم يطابق التطبيق أي ضمان معمول به، جاز لك إبلاغ Apple لتردّ لك ثمن الشراء، ولا يقع على Apple أي التزام آخر بشأن الضمان. ونحن — لا Apple — من يتولّى أي مطالبة تتعلّق بالتطبيق، سواء كانت مسؤولية عن المنتج أو مخالفةً لنظام أو لحماية المستهلك أو للخصوصية، وكذلك أي ادّعاء بانتهاك حقوق ملكية فكرية لطرف ثالث. وأنت تُقِرّ بأنك لست مقيماً في دولة خاضعة لحظر من حكومة الولايات المتحدة ولست مُدرجاً على أي قائمة أطراف محظورة لديها. وتُعدّ Apple وشركاتها التابعة مستفيداً من الغير من هذه الشروط، ولها حق الاحتجاج بها تجاهك. وللدعم راسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a>.</p>
+            <h5 class="legal-apple-extra">شروط إضافية لنسخة App Store</h5>
+            <p class="legal-apple-extra">هذه الشروط اتفاق بينك وبيننا نحن وحدنا، وليست شركة Apple طرفاً فيه، وهي غير مسؤولة عن التطبيق ولا عن محتواه. نمنحك ترخيصاً شخصياً غير قابل للنقل لاستخدام التطبيق على أي جهاز Apple تملكه أو تتحكّم فيه، وفق «قواعد الاستخدام» في شروط خدمة App Store. ونحن وحدنا مسؤولون عن الدعم والصيانة، ولا تتحمّل Apple أي التزام بهما. وإذا لم يطابق التطبيق أي ضمان معمول به، جاز لك إبلاغ Apple لتردّ لك ثمن الشراء، ولا يقع على Apple أي التزام آخر بشأن الضمان. ونحن — لا Apple — من يتولّى أي مطالبة تتعلّق بالتطبيق، سواء كانت مسؤولية عن المنتج أو مخالفةً لنظام أو لحماية المستهلك أو للخصوصية، وكذلك أي ادّعاء بانتهاك حقوق ملكية فكرية لطرف ثالث. وأنت تُقِرّ بأنك لست مقيماً في دولة خاضعة لحظر من حكومة الولايات المتحدة ولست مُدرجاً على أي قائمة أطراف محظورة لديها. وتُعدّ Apple وشركاتها التابعة مستفيداً من الغير من هذه الشروط، ولها حق الاحتجاج بها تجاهك. وللدعم راسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a>.</p>
+            <!-- ⚠️ NOT a mirror of the Apple block. Google does not publish a
+                 minimum-EULA checklist the way Apple does — the Play Developer
+                 Distribution Agreement already governs the Google side — so
+                 this states the facts that genuinely DIFFER for a Play buyer
+                 rather than inventing clauses to match. Refund windows in
+                 particular are Google's to set, so this points at their policy
+                 instead of quoting a period that could change. -->
+            <h5 class="legal-play-extra">شروط إضافية لنسخة Google Play</h5>
+            <p class="legal-play-extra">هذه الشروط اتفاق بينك وبيننا نحن وحدنا، وليست Google طرفاً فيه، ولا تتحمّل مسؤولية التطبيق أو محتواه. تتم عمليات الشراء داخل التطبيق عبر <b>Google Play</b>، وهو من يُحصّل المبلغ ويحتفظ بسجلّ العملية؛ لا يصلنا رقم بطاقتك ولا أي بيانات دفع. وتخضع <b>طلبات الاسترداد</b> لسياسة Google Play ومُددها المعلنة، وتُقدَّم إلى Google لا إلينا، إذ لا نملك استرداد مبلغ لم نستلمه. تُضاف الألعاب إلى حسابك فور تأكيد الشراء وتبقى مرتبطة به على أي جهاز تسجّل الدخول منه، فإن أتممت عملية شراء ولم تظهر في رصيدك فراسلنا على <a href="mailto:izzbahgame@gmail.com">izzbahgame@gmail.com</a> وسنعالجها.</p>
             <h5>الملكية الفكرية</h5>
             <p>اسم «عِزبة» وشعارها وتصميمها ومحتواها الأصلي مملوكة لنا، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
             <h5>إخلاء الضمان وحدود المسؤولية</h5>
@@ -13010,7 +13024,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-21.345";
+    const IZZBAH_BUILD = "2026-08-21.346";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18131,6 +18145,7 @@
     window.IZZBAH_TEST.catalogueGaps = (t) => catalogueGaps(t);
     window.IZZBAH_TEST.buildCatalogBackup = () => buildCatalogBackup();
     window.IZZBAH_TEST.isStoreBuild = () => isStoreBuild();
+    window.IZZBAH_TEST.storePlatform = () => storePlatform();
     window.IZZBAH_TEST.applyStoreBuild = () => applyStoreBuild();
     window.IZZBAH_TEST.webSellingOff = () => webSellingOff();
     window.IZZBAH_TEST.isInAppBrowser = () => isInAppBrowser();
@@ -22871,23 +22886,47 @@
     // ⚠️ The website is untouched. Keep this to HIDING and to the purchase seam
     // — never fork game logic on it.
     function isStoreBuild() {
+      return storePlatform() !== "";
+    }
+    /* WHICH store, not merely whether. Apple's minimum EULA terms and Play's
+       are different documents, and showing Apple's inside an Android app is
+       both wrong and confusing — «Apple ليست طرفاً» in a Play build reads as
+       boilerplate nobody proofread.
+       Returns "ios", "android", or "" for the website.
+       ⚠️ The override is a value now (`?store=ios` / `?store=android`), because
+       the two builds no longer render the same terms and a single boolean could
+       not preview both. `?store=1` still means iOS so older notes and habits
+       keep working; `?store=0` clears it. */
+    function storePlatform() {
       try {
-        // Manual override so the build can be previewed from a browser: ?store=1
-        // sticks for the session, ?store=0 clears it.
-        if (/[?&]store=1/.test(location.search)) sessionStorage.setItem("izzbah-store-build", "1");
+        const m = /[?&]store=(1|ios|android)/.exec(location.search);
+        if (m) sessionStorage.setItem("izzbah-store-build", m[1] === "1" ? "ios" : m[1]);
         if (/[?&]store=0/.test(location.search)) sessionStorage.removeItem("izzbah-store-build");
-        if (sessionStorage.getItem("izzbah-store-build") === "1") return true;
+        const v = sessionStorage.getItem("izzbah-store-build");
+        // "1" is what older sessions may still hold.
+        if (v === "ios" || v === "1") return "ios";
+        if (v === "android") return "android";
       } catch (e) {}
       try {
         const cap = window.Capacitor;
-        if (cap && typeof cap.isNativePlatform === "function") return !!cap.isNativePlatform();
-        if (cap && typeof cap.getPlatform === "function") return cap.getPlatform() !== "web";
+        const native = cap && typeof cap.isNativePlatform === "function"
+          ? !!cap.isNativePlatform()
+          : !!(cap && typeof cap.getPlatform === "function" && cap.getPlatform() !== "web");
+        if (!native) return "";
+        const plat = cap && typeof cap.getPlatform === "function" ? cap.getPlatform() : "";
+        /* ⚠️ Default to iOS when the platform is unreadable. Apple's terms are
+           the ones with a mandated checklist a reviewer checks; erring toward
+           showing them is the safe direction. */
+        return plat === "android" ? "android" : "ios";
       } catch (e) {}
-      return false;
+      return "";
     }
     function applyStoreBuild() {
       if (!isStoreBuild()) return;
       document.body.classList.add("is-store-build");
+      // …and WHICH store, so the terms can differ without any JS knowing about
+      // legal text.
+      document.body.classList.add("is-" + storePlatform() + "-build");
       // Hidden in JS as well as CSS: a class can be dropped from devtools, and
       // the settings sheet rebuilds its rows on every open.
       /* ⚠️ «أضف اللعبة إلى شاشتك» belongs to the PWA and nowhere else. In an
