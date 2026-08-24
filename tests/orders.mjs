@@ -1,8 +1,18 @@
-// E2E for the game-pack purchase flow: the packs in the plans sheet (reached
-// from settings) are PRESSABLE — tapping one places an order; the admin sees
-// the order in subscription management and fulfils it with one button that
-// mints the pack's code and opens a prefilled confirmation email to the buyer
-// (payment line + the activation code).
+// E2E for the game-pack ORDER flow: placing an order records the right pack;
+// the admin sees it in subscription management and fulfils it with one button
+// that mints the pack's code and opens a prefilled confirmation email to the
+// buyer (payment line + the activation code).
+//
+// ⚠️ THE WEB NO LONGER SELLS (owner, 2026-08-20), so the first half of this file
+// changed shape. It used to tap a pack card in the plans sheet; renderPlans()
+// now draws no cards at all on the web, so those taps had nothing to click and
+// the harness died on `undefined.click()` — which is how this test spent four
+// days red while the game was fine.
+// The flow itself is deliberately KEPT, not deleted: flipping WEB_SELLING back
+// to true is meant to restore it verbatim. So the order path is driven through
+// IZZBAH_TEST instead of through a card, and it goes on being tested. Whether
+// the CARDS appear — web versus store — belongs to tests/storebuild.mjs, which
+// covers both directions; it is not re-asserted here.
 //
 // Runs OFFLINE (Firebase SDK aborted); cloud bridges are stubbed.
 import { chromium } from "playwright-core";
@@ -29,55 +39,65 @@ try {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
   await page.waitForTimeout(1500);
 
-  // ---- 1) the settings sheet leads to the plans, and packs are pressable ----
+  // ---- 1) the settings sheet still leads to the plans sheet ----
+  // The route matters even with nothing to buy on it: the sheet also carries
+  // the balance and the activation-code box, which the web keeps.
   await page.evaluate(() => { document.getElementById("userSettingsBtn").click(); });
   await page.waitForTimeout(200);
   await page.evaluate(() => { document.getElementById("settingsBuy").click(); });
   await page.waitForTimeout(250);
   const plansInfo = await page.evaluate(() => ({
     open: document.getElementById("plansModal").classList.contains("open"),
-    count: document.querySelectorAll("#plansGrid .plan-card").length,
-    pressable: [...document.querySelectorAll("#plansGrid .plan-card")].every(c => c.tagName === "BUTTON"),
-    cta: document.getElementById("plansGrid").textContent.includes("اطلب هذه الباقة"),
+    redeem: !!document.getElementById("redeemInputPlans"),
   }));
   check("settings «شراء ألعاب» opens the plans sheet", plansInfo.open);
-  check("all pack cards are pressable buttons with an order CTA", plansInfo.count >= 3 && plansInfo.pressable && plansInfo.cta);
+  check("the sheet keeps the activation-code box the web still needs", plansInfo.redeem);
 
-  // ---- 2) signed OUT: tapping a pack asks to sign in, places nothing ----
-  const signedOut = await page.evaluate(async () => {
+  // The pack catalogue the order flow, the fulfilment pricing and
+  // functions/lib/packs.js all agree on. Read once and used throughout.
+  const PLANS = await page.evaluate(() => window.IZZBAH_TEST.playPlans());
+  check("three packs, all game-count and none a subscription",
+    PLANS.length === 3 && PLANS.every(p => p.games > 0 && !p.premium),
+    PLANS.map(p => p.games).join("/"));
+
+  // ---- 2) signed OUT: ordering asks to sign in and places nothing ----
+  /* ⚠️ Not a nicety. An order carries no identity of its own — the admin
+     fulfils it against `orders/{uid}` — so an order placed with no uid is a
+     purchase that can never be delivered to anyone. */
+  const signedOut = await page.evaluate(async (plans) => {
     const calls = [];
     window.IZZBAH.placeOrder = (o) => { calls.push(o); return Promise.resolve(true); };
     window.IZZBAH.applyAuth(false, "");
-    document.querySelectorAll("#plansGrid .plan-card")[0].click();
+    window.IZZBAH_TEST.orderPlan(plans[0]);
     await new Promise(r => setTimeout(r, 150));
     return { calls: calls.length };
-  });
-  check("signed-out tap places no order (asks to sign in)", signedOut.calls === 0);
+  }, PLANS);
+  check("signed-out ordering places nothing (asks to sign in)", signedOut.calls === 0);
 
-  // ---- 3) signed IN: tapping the first (2-games) pack places the right order ----
-  const order = await page.evaluate(async () => {
+  // ---- 3) signed IN: the entry (2-games) pack places the right order ----
+  const order = await page.evaluate(async (plans) => {
     const calls = [];
     window.IZZBAH.placeOrder = (o) => { calls.push(o); return Promise.resolve(true); };
     window.IZZBAH.applyAuth(true, "buyer1");
-    document.querySelectorAll("#plansGrid .plan-card")[0].click();
+    window.IZZBAH_TEST.orderPlan(plans[0]);
     await new Promise(r => setTimeout(r, 200));
     return { calls, closed: !document.getElementById("plansModal").classList.contains("open") };
-  });
-  check("tapping the entry (2-games) pack places an order with the pack details",
+  }, PLANS);
+  check("ordering the entry (2-games) pack places an order with the pack details",
     order.calls.length === 1 && order.calls[0].games === 2 && order.calls[0].premium === false
     && /لعبتين|٢|2/.test(order.calls[0].pack));
   check("a placed order closes the plans sheet (confirmation shown)", order.closed);
 
   // the featured 15-games pack orders 15 games (all packs are game-count, none premium)
-  const featured = await page.evaluate(async () => {
+  const featured = await page.evaluate(async (plans) => {
     const calls = [];
     window.IZZBAH.placeOrder = (o) => { calls.push(o); return Promise.resolve(true); };
     openPlans();
-    const card = [...document.querySelectorAll("#plansGrid .plan-card")].find(c => c.classList.contains("plan-featured"));
-    card.click();
+    const p = plans.find(x => x.featured);
+    window.IZZBAH_TEST.orderPlan(p);
     await new Promise(r => setTimeout(r, 200));
-    return { order: calls[0], tag: card.textContent };
-  });
+    return { order: calls[0], tag: p ? p.tag : "" };
+  }, PLANS);
   check("the featured pack is the 15-games pack, tagged most-popular",
     featured.order && featured.order.games === 15 && featured.order.premium === false && /الأكثر طلبا/.test(featured.tag));
 

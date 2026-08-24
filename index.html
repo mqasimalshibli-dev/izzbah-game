@@ -13024,7 +13024,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-21.346";
+    const IZZBAH_BUILD = "2026-08-24.347";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18158,6 +18158,13 @@
     window.IZZBAH_TEST.applyWebNoSelling = () => applyWebNoSelling();
     window.IZZBAH_TEST.renderPlans = () => renderPlans();
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
+    /* ⚠️ The web order flow is DELIBERATELY PRESERVED but unreachable: the site
+       sells nothing, so renderPlans() draws no cards and nothing can tap one.
+       Without a way in, `orderPlan` would rot untested until the day WEB_SELLING
+       is flipped back — which is exactly when a regression costs the most. These
+       two are how tests/orders.mjs still drives it. */
+    window.IZZBAH_TEST.playPlans = () => PLAY_PLANS.map(p => ({ ...p }));
+    window.IZZBAH_TEST.orderPlan = (p) => orderPlan(p);
     window.IZZBAH_TEST.STORE_PRODUCTS = () => STORE_PRODUCTS;
     window.IZZBAH_TEST.purchasePack = (p) => purchasePack(p);
     window.IZZBAH_TEST.pendingLinkProviders = () => pendingLinkProviders();

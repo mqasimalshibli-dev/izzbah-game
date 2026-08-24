@@ -63,28 +63,44 @@ check("the service worker warms the root navigation on activate",
 
 const sitemap = read("sitemap.xml");
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-check("the sitemap lists the root and nothing else",
-  locs.length === 1 && locs[0] === "https://izzbah.com/", locs.join(", "));
+/* ⚠️ This used to read "the root and nothing else", from the days when the
+   sitemap held one URL. It now lists the landing page and forty category pages
+   as well, and tests/findable.mjs owns their completeness — so asserting a
+   count here would go red every time a category is published, for nothing.
+   What belongs to THIS file is narrower and permanent: the root is the game's
+   address, and the two stubs that used to be it are never offered to Google.
+   Listing a redirect is precisely what invited "Page with redirect". */
+check("the sitemap gives the root as the game's address", locs.includes("https://izzbah.com/"));
+check("…and never the stubs that used to be it",
+  !locs.some(u => /game-mobile\.html|\/game\.html/.test(u)),
+  locs.filter(u => /game-mobile|\/game\.html/.test(u)).join(", "));
 
 // Nothing may still READ or LOAD game-mobile.html as if it were the game.
 // Swept across every tracked file rather than a hand-written list: the first
 // pass of this move missed `functions/test/fulfilment.test.mjs`, which opens
 // the game to compare pack prices, and CI went red on the deploy commit.
 // Comments and history notes may name the old path; code and links may not.
+/* ⚠️ SO STRIP THE COMMENTS, rather than keeping a list of files allowed to
+   mention it. The allowlist version went red three times on commits that only
+   ADDED a note explaining the move — the fix each time was to name one more
+   file, which makes the check weaker every time it fires. Prose files are
+   skipped outright; everything else is read as code. */
 const ALLOWED = new Set([
   "game-mobile.html",                    // the stub itself
   "game.html",                           // its twin, whose comment cites it
-  "sitemap.xml",                         // comment explaining the removal
   "assets/brand/manifest.webmanifest",   // `id` — deliberately frozen, see above
-  "CLAUDE.md",                           // the notes, most of which predate the move
-  "mobile/MOBILE_SETUP.md",
-  "tests/roothome.mjs",                  // this file
   ".github/workflows/smoke.yml",         // path filter, so a stub edit still runs CI
-  "functions/test/fulfilment.test.mjs",  // comment recording what it used to read
+  "tests/roothome.mjs",                  // this file — it asserts that frozen `id`
 ]);
+const strip = (f, s) => {
+  if (/\.(md|txt)$/.test(f)) return "";                       // prose: all of it is a note
+  if (/\.(html?|xml|svg)$/.test(f)) return s.replace(/<!--[\s\S]*?-->/g, " ");
+  return s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+};
 const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).trim().split("\n");
 const strays = tracked.filter(f => !ALLOWED.has(f) && (() => {
-  try { return readFileSync(join(ROOT, f), "utf8").includes("game-mobile.html"); } catch (e) { return false; }
+  try { return strip(f, readFileSync(join(ROOT, f), "utf8")).includes("game-mobile.html"); }
+  catch (e) { return false; }
 })());
 check("nothing in the repo still points at game-mobile.html as the game",
   strays.length === 0, strays.join(", "));
