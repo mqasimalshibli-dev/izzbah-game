@@ -425,6 +425,37 @@ section{padding-block:clamp(66px,7.4vw,108px)}
 
 .sc-detail .cat-index{margin-bottom:8px}
 
+/* ⚠️ THE COPY WAITS FOR THE RAIL TO STOP (owner, 2026-08-23). fillDetail() used
+   to run on EVERY index change, and a scroll sweep changes the index on almost
+   every frame — so forty names and descriptions strobed past, which is the
+   "effect when scrolling too fast". It also queued forty announcements into
+   `aria-live="polite"`, so a screen reader read the whole catalogue aloud.
+   Now the panel drops out the moment the rail moves and comes back once it has
+   settled. Fading OUT is quick — a slow fade-out during a sweep would just be
+   the strobe at lower contrast. */
+.sc-detail>*{
+  transition:opacity .38s ease, transform .38s cubic-bezier(.22,.7,.3,1);
+  will-change:opacity,transform;
+}
+.sc-detail.is-moving>*{
+  opacity:0; transform:translateY(9px);
+  transition:opacity .13s ease, transform .13s ease;
+}
+/* A cascade rather than one block appearing — index, name, description, then
+   the row of meta. 55ms apart is enough to read as deliberate and short enough
+   that nobody waits for it.
+   ⚠️ Only on the way IN. Staggering the exit would make the panel come apart
+   in pieces every time the rail twitched. */
+.sc-detail:not(.is-moving)>*:nth-child(1){transition-delay:0ms}
+.sc-detail:not(.is-moving)>*:nth-child(2){transition-delay:50ms}
+.sc-detail:not(.is-moving)>*:nth-child(3){transition-delay:100ms}
+.sc-detail:not(.is-moving)>*:nth-child(4){transition-delay:150ms}
+@media(prefers-reduced-motion:reduce){
+  /* No movement and no waiting — the copy is information, and someone who has
+     asked for less motion should not also be made to wait for it. */
+  .sc-detail>*,.sc-detail.is-moving>*{transition:none; transform:none; opacity:1}
+}
+
 
 .cat-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px}
 .cat-tag{display:inline-block; padding:7px 16px; border-radius:999px;
@@ -1764,6 +1795,43 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
       });
     };
 
+    /* ⚠️ DEBOUNCED, and the debounce is the whole fix. This ran on every index
+       change, and the scroll driver changes the index on almost every frame of a
+       sweep — so forty names and descriptions strobed past, and forty
+       announcements queued into the panel's `aria-live`.
+       A debounce handles both cases with one rule: during a sweep the timer
+       keeps resetting and the copy never appears; the moment the reader stops,
+       it fires once.
+       ⚠️ SETTLE is deliberately shorter than the card transition (.82s). Waiting
+       for the cards to fully arrive reads as lag on a single press; landing
+       while they are still gliding reads as the copy following the card, which
+       is the effect asked for. */
+    /* ⚠️ The whole sequence is a BUDGET, not one number: SETTLE, then up to
+       150ms of stagger, then a .38s fade. The last line lands ~830ms after the
+       rail stops. Much beyond a second and it stops reading as "the copy
+       followed" and starts reading as "the page is slow". */
+    const SETTLE = 300;
+    let settleTimer = null, drawnIndex = -1;
+    const detailEl = document.getElementById("catDetail");
+    const scheduleDetail = () => {
+      /* ⚠️ NOTHING TO DO IF THE CATEGORY HAS NOT CHANGED, and this guard is not
+         an optimisation. paint() runs at least twice on arrival — once at setup
+         and again when the observer arms the covers — so without it the copy was
+         hidden and re-shown for a category that was already on screen. On a
+         phone, where the observer arms exactly as you scroll the rail into view,
+         that is a visible blink of the description for no reason at all. */
+      if (active === drawnIndex) return;
+      // The first fill is immediate: a page that opens on an empty panel and
+      // populates it a third of a second later looks like it is still loading.
+      if (drawnIndex === -1 || slow.matches) { drawnIndex = active; fillDetail(); return; }
+      drawnIndex = active;
+      if (detailEl) detailEl.classList.add("is-moving");
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        fillDetail();
+        if (detailEl) detailEl.classList.remove("is-moving");
+      }, SETTLE);
+    };
     const fillDetail = () => {
       const c = CATS[active];
       if (cdIndex) cdIndex.textContent = "فئة " + ar(active + 1) + " / " + ar(CATS.length);
@@ -1803,7 +1871,7 @@ footer{border-top:1px solid var(--rule); padding-block:52px 40px; margin-top:cla
         }
       }
       layout();
-      fillDetail();
+      scheduleDetail();
       if (bar) bar.style.width = ((active + 1) / CATS.length * 100).toFixed(1) + "%";
       if (countEl) countEl.textContent = ar(active + 1) + " / " + ar(CATS.length);
       if (prevBtn) prevBtn.disabled = active <= 0;

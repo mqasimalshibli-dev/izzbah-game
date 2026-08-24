@@ -86,7 +86,26 @@ async function load(w, h, touch) {
      "page scroll sweeps the whole rail" failed — about one run in five, with
      nothing wrong with the page at all. */
   await PAGE.evaluate(() => document.getElementById("cats").scrollIntoView({ behavior: "instant" }));
-  await PAGE.waitForTimeout(700);
+  /* ⚠️ WAIT FOR THE COPY TO SETTLE, not for a clock. Since build .347 the detail
+     panel is debounced — it drops out while the rail moves and rises back ~830ms
+     after it stops (SETTLE + stagger + fade). A fixed 700ms sat INSIDE that
+     window, so every "the description is there at rest" check read a panel
+     mid-fade and failed on opacity while the text was perfectly present. */
+  /* ⚠️ BOTH conditions. Waiting only on the copy resolves SOONER than the old
+     fixed 700ms did, which took away slack the covers had been quietly relying
+     on — "every laid-out cover has actually loaded" then failed about one run in
+     three at 3/7. Replacing a sleep with a wait is only safe if the wait covers
+     everything the sleep was accidentally covering. */
+  await PAGE.waitForFunction(() => {
+    const d = document.getElementById("cdDesc");
+    if (!d || !d.textContent.trim() || +getComputedStyle(d).opacity <= 0.95) return false;
+    const on = [...document.querySelectorAll(".c3")]
+      .filter(c => getComputedStyle(c).display !== "none");
+    return on.length > 0 && on.every(c => {
+      const i = c.querySelector("img");
+      return i && i.naturalWidth > 0;
+    });
+  }, null, { timeout: 15000 }).catch(() => {});
   return PAGE;
 }
 
@@ -633,6 +652,45 @@ try {
     `${midDrag} at lift-off → ${dragged.i} after`);
   check("and the copy under the rail followed the drag", dragged.desc.length > 10,
     dragged.desc.slice(0, 34));
+
+  /* ── the copy waits for the rail to stop ─────────────────────────
+     ⚠️ THE BUG THIS FIXES: fillDetail() ran on EVERY index change, and the
+     scroll driver changes the index on almost every frame — so a fast sweep
+     strobed forty names and descriptions past the reader, and queued forty
+     announcements into the panel's `aria-live="polite"`. Reported as "there's
+     this effect that happens when scrolling too fast".
+     ⚠️ Both halves are asserted. "It appears eventually" passes against the OLD
+     code too, because the old code never hid it — the check that actually pins
+     the fix is that it is HIDDEN mid-move.
+     ⚠️ ON ITS OWN FRESH PAGE, and LAST. Stepping the rail with the arrows sets
+     `manual = true`, which retires the page-scroll driver for the rest of that
+     page's life — by design. Run before the sweep check, it made "page scroll
+     sweeps the whole rail" report 5 → 5 → 5 → 5 → 5, which looks like a driver
+     bug and is not one. */
+  page = await load(1440, 900, false);
+  {
+    const moving = await page.evaluate(async () => {
+      const next = document.getElementById("scNext");
+      const op = () => +getComputedStyle(document.getElementById("cdDesc")).opacity;
+      const before = document.getElementById("cdName").textContent.trim();
+      // Five steps in quick succession — a stand-in for a fast sweep.
+      for (let i = 0; i < 5; i++) { next.click(); await new Promise(r => setTimeout(r, 40)); }
+      const during = op();
+      await new Promise(r => setTimeout(r, 1400));
+      return { before, during, after: op(),
+               name: document.getElementById("cdName").textContent.trim() };
+    });
+    check("the copy drops out while the rail is moving fast", moving.during < 0.5,
+      `opacity ${moving.during.toFixed(2)} mid-sweep`);
+    check("…and comes back once it settles", moving.after > 0.95,
+      `opacity ${moving.after.toFixed(2)} at rest`);
+    /* ⚠️ And it comes back showing the category it ENDED on. A debounce that
+       fired with a stale index would land the wrong description under the
+       card — worse than the strobe, because it looks correct. */
+    check("…showing the category it landed on, not the one it left",
+      moving.name.length > 0 && moving.name !== moving.before,
+      `${moving.before} → ${moving.name}`);
+  }
 
   check("no page errors" + (errs.length ? ": " + errs[0] : ""), errs.length === 0);
 } finally {
