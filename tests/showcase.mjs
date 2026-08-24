@@ -461,6 +461,31 @@ try {
 
   /* ── page scroll drives the rail, then gets out of the way ──────── */
   let page = await load(1440, 900, false);
+  /* ── the motion the owner asked for ──────────────────────────────
+     ⚠️ A TASTE VALUE, set deliberately (2026-08-23: "smoother and a bit
+     slower"). The previous curve was cubic-bezier(.19,.83,.28,1) over .62s,
+     which covers 39% of the travel in the first 60ms and 83% by 200ms — a lurch
+     followed by a crawl, and across a sweep of forty cards it read as jerky.
+     Pinned loosely: the exact numbers are tuneable, but a short duration or a
+     front-loaded curve would undo the request without anything looking broken.
+     ⚠️ Opacity must not finish MUCH sooner than the transform, or cards land
+     their fade while still travelling — half of what made the old motion feel
+     abrupt. */
+  {
+    const t = await page.evaluate(() => {
+      const c = document.querySelector(".c3");
+      const cs = getComputedStyle(c);
+      const secs = cs.transitionDuration.split(",").map(v => parseFloat(v) || 0);
+      return { dur: cs.transitionDuration, ease: cs.transitionTimingFunction,
+               move: secs[0] || 0, fade: secs[1] || 0 };
+    });
+    check("the rail's motion is unhurried", t.move >= 0.7, `${t.move}s`);
+    check("…on a curve that is not front-loaded",
+      !/0\.19,\s*0\.83/.test(t.ease), t.ease.split(",").slice(0, 4).join(","));
+    check("…and the fade travels with it, not ahead of it",
+      t.fade >= t.move * 0.7, `fade ${t.fade}s vs move ${t.move}s`);
+  }
+
   /* ⚠️ `behavior: "instant"`. The page sets `html{scroll-behavior:smooth}`, so a
      plain `scrollTo` ANIMATES — every sample was being read mid-flight and the
      sweep looked like it stopped early. It failed about one run in three, which
