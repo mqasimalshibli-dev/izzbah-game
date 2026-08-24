@@ -1061,6 +1061,35 @@ Single self-contained page, same palette and type system as the game. Marked
   the window, or a far jump leaves the gold ring on a distant cover and
   `querySelector(".c3.is-active")` returns the stale one.
 
+- **The rail's copy SETTLES; it does not follow every frame (2026-08-24).**
+  Owner: *"there's this effect that happens when scrolling too fast… i want the
+  description to appear slightly later after stopping on the category"*. One
+  cause, two symptoms: `fillDetail()` ran on EVERY index change and the scroll
+  driver changes the index on almost every frame, so a sweep flashed forty
+  names and descriptions past the reader AND queued forty announcements into
+  `#catDetail`'s `aria-live="polite"`. `scheduleDetail()` debounces at 300ms;
+  `.sc-detail.is-moving` drops the copy out, and the four lines rise back in on
+  a 50ms-per-line stagger.
+  ⚠️ **`drawnIndex` is not an optimisation.** `paint()` runs TWICE at setup —
+  once directly, once as the intersection observer arms — and without the guard
+  the second call re-hid copy that was already correct. It is a visible blink on
+  a phone, on arrival, every time.
+  ⚠️ The very first paint and `prefers-reduced-motion` fill IMMEDIATELY. An
+  empty panel on arrival reads as broken, not as tasteful.
+  ⚠️ Only ONE of the three new checks pins the fix. "It comes back" and "with
+  the right category" pass against the old code too, because the old code never
+  hid the copy — the load-bearing one is that it is HIDDEN mid-move. Verified by
+  reverting to `fillDetail()`: exactly that one goes red.
+  ⚠️ The strobe check runs LAST, on its own fresh page. Stepping the rail with
+  the arrows sets `manual = true`, which retires the page-scroll driver for the
+  rest of that page's life — run earlier it made "page scroll sweeps the whole
+  rail" report 5 → 5 → 5 → 5 → 5, which looks like a driver bug and is not one.
+  ⚠️ And `tests/showcase.mjs`'s `load()` waits on a CONDITION, not a clock — but
+  the condition has to cover everything the old `waitForTimeout(700)` was
+  accidentally covering. Waiting only on the copy resolved sooner than the sleep
+  did and "every laid-out cover has actually loaded" then failed one run in
+  three. It waits on both.
+
 - **«كل الفئات» shows all 40 — the fold is GONE (2026-08-19).** It briefly
   opened at six rows behind «شوف كل الفئات (٤٠)». The owner: *"the display all
   categories button is useless as the full categories are there."* The section
@@ -1197,6 +1226,28 @@ Single self-contained page, same palette and type system as the game. Marked
   backend; it hands you JSON to paste back. Visitors are unaffected.
 
 ## Standing conventions in this repo
+
+- **⚠️ READ CI AFTER EVERY MERGE — smoke was RED for four days and eleven
+  merges (2026-08-20 → 24) and nobody noticed.** Nothing was wrong with the
+  game; three tests were pinning contracts the build had deliberately left
+  behind, and once the suite is red the next red looks like the same red. The
+  convention already said "verify the smoke workflow is green"; this is what
+  skipping it costs. The three, all now fixed in .347, and the shape they share:
+  - `tests/orders.mjs` and `tests/premium.mjs` still expected the plans sheet to
+    list pack cards. `WEB_SELLING = false` (2026-08-20) means `renderPlans()`
+    draws none — orders.mjs then died on `undefined.click()`, so ALL of its
+    later checks stopped running too. ⚠️ A harness that crashes reports two
+    FAILs and silently skips twenty passes; treat "harness error" as worse than
+    a FAIL, not lesser.
+  - `tests/roothome.mjs` asserted "the sitemap lists the root and nothing else",
+    written when the sitemap held one URL. It holds 42 now.
+  - ⚠️ **The pattern to watch for: a test that asserts the ABSENCE of something
+    the product has since chosen to remove, or the COUNT of something that
+    grows.** Both look permanent when written. When a change deliberately
+    removes a surface, grep the tests for it in the SAME commit.
+  - ⚠️ **An allowlist inside a test is a smell.** roothome's `game-mobile.html`
+    sweep kept a list of files permitted to mention the old path, extended three
+    times — each extension making the check weaker. It strips comments now.
 
 - **Give the owner shell commands ONE PER CODE BLOCK, never bundled** (owner,
   2026-08-21: *"always give me them separated"*). They are run by hand in Cloud
