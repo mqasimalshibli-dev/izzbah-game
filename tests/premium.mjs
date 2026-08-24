@@ -368,7 +368,16 @@ try {
   });
   check("tapping the game-count badge opens the my-games box (not just a toast)", badgeTap.opened);
   check("the box shows the CURRENT game count", badgeTap.balShown);
-  check("the box lists the game packs + a redeem field", badgeTap.packs >= 3 && badgeTap.redeem);
+  /* ⚠️ It used to demand the PACKS here too. The web stopped selling on
+     2026-08-20 and renderPlans() now draws no cards on it, so that half was
+     asserting a state no shipped web build has — red for four days on a game
+     that was working. What survives is the half the web kept, and the half that
+     matters at this moment: the player is out of games and there has to be a
+     way to put that right. On the web that is a code; tests/storebuild.mjs owns
+     the store direction, where the packs come back. */
+  check("the box offers the activation-code field", badgeTap.redeem);
+  check("…and lists no packs, because the web does not sell", badgeTap.packs === 0,
+    `${badgeTap.packs} cards`);
   check("the badge tap still re-checks the balance from the cloud", badgeTap.called === 1);
 
   // the footer version tag opens the diagnostics popup
@@ -410,8 +419,15 @@ try {
       contact: /izzbahgame@gmail\.com/.test(document.querySelector(".plans-contact").textContent),
     };
   });
-  check("out of games opens the plans modal (3+ cards, featured plan, contact)",
-    paywall.open && paywall.cards >= 3 && paywall.featured && paywall.contact);
+  /* ⚠️ Running out of games must not be a dead end — that is the whole point of
+     this check, and it survives the web going sell-free. What changed is the way
+     out: no pack cards, but the modal still opens, still carries the code box,
+     and still names an address to write to. If any of those three goes, the
+     player is simply stuck. (Cards versus no cards: tests/storebuild.mjs.) */
+  check("out of games opens the plans modal rather than a dead-end note", paywall.open);
+  check("…with a way to contact us", paywall.contact);
+  check("…and no pack cards, because the web does not sell",
+    paywall.cards === 0 && !paywall.featured, `${paywall.cards} cards`);
   check("the plans modal has its own redeem box", paywall.redeem);
 
   const planRedeem = await page.evaluate(async () => {
