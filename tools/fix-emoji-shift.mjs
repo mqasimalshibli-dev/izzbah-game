@@ -63,15 +63,33 @@ const EXPECTED = {
 
 const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
 
+// A single getAll() across 106 image-carrying docs gives no feedback while in
+// flight (each ~30-40KB of base64, so a few MB in one RPC) — batch it with
+// visible progress, same pattern as tools/restore-media.mjs, so a genuinely
+// slow run and a hung one don't look identical on screen.
+const BATCH = 10;
+async function readAll(col, refs) {
+  const out = [];
+  for (let i = 0; i < refs.length; i += BATCH) {
+    const slice = refs.slice(i, i + BATCH);
+    const snaps = await db.getAll(...slice);
+    snaps.forEach(d => { if (d.exists) out.push(d); });
+    process.stdout.write(`  ${Math.min(i + BATCH, refs.length)}/${refs.length}\n`);
+  }
+  return out;
+}
+
 async function main() {
   console.log(APPLY ? "*** APPLY — this will write ***" : "--- DRY RUN (pass --apply to write) ---");
   console.log(`category ${CATEGORY}\n`);
 
   const col = db.collection("categories").doc(CATEGORY).collection("questions");
+  console.log("listing question docs…");
   const refs = await col.listDocuments();
-  const snaps = await db.getAll(...refs);
+  console.log(`${refs.length} docs found, reading…`);
+  const snaps = await readAll(col, refs);
   const byId = new Map();
-  snaps.forEach(d => { if (d.exists) byId.set(d.id, d.data() || {}); });
+  snaps.forEach(d => byId.set(d.id, d.data() || {}));
   console.log(`${byId.size} question docs read\n`);
 
   const plan = [];
