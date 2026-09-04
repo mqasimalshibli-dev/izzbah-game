@@ -13024,7 +13024,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-09-04.348";
+    const IZZBAH_BUILD = "2026-09-04.349";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -18189,6 +18189,8 @@
     window.IZZBAH_TEST.nativeAuthToken = (id) => nativeAuthToken(id);
     window.IZZBAH_TEST.identifyStoreUser = (u) => identifyStoreUser(u);
     window.IZZBAH_TEST.applyWebNoSelling = () => applyWebNoSelling();
+    window.IZZBAH_TEST.ensureBoardMedia = () => ensureBoardMedia();
+    window.IZZBAH_TEST.hydratedCount = () => hydratedCats.size;
     window.IZZBAH_TEST.renderPlans = () => renderPlans();
     window.IZZBAH_TEST.productIdFor = (id) => productIdFor(id);
     /* ⚠️ The web order flow is DELIBERATELY PRESERVED but unreachable: the site
@@ -24196,8 +24198,27 @@
         hydratedCats.add(cat.id);
       });
     }
+    /* ⚠️ RELEASE THE LAST GAME'S PICTURES BEFORE FETCHING THIS ONE'S.
+       hydrateMediaInto merges base64 into the live category objects and nothing
+       on the gameplay path ever gave it back: releaseCategoryMedia existed but
+       was called only from the admin backup and restore. Measured at the real
+       catalogue size, a session accumulated ~34 MB per game — six categories —
+       and never freed it: 4 games ≈ +137 MB, 6 ≈ +205 MB, which is the
+       territory that killed the tab before .209.
+       CLAUDE.md already states the rule, in the restore note: "Sequential
+       hydration bounds CONCURRENCY, not ACCUMULATION — only the release does."
+       That applies to ordinary play just as much as to a bulk job; play simply
+       spreads it over an evening instead of a minute.
+       Releasing what is NOT on the new board bounds the heap to one game's
+       worth, which is what .209 designed for. Safe by construction:
+       releaseCategoryMedia only re-blanks `__lite` categories, and
+       cloudPublish's keepImg() covers a publish of anything else — so this
+       cannot become the media wipe of 5-6 August. */
     async function ensureBoardMedia() {
-      await hydrateMediaInto(activeCategories());
+      const live = activeCategories();
+      const keep = new Set(live.map(c => String(c.id)));
+      [...hydratedCats].forEach(id => { if (!keep.has(String(id))) releaseCategoryMedia(id); });
+      await hydrateMediaInto(live);
     }
     // Both places that open a board funnel through here so neither can forget.
     //
@@ -28579,6 +28600,14 @@
     // no cache to fall back on.
     window.IZZBAH.applyPublished = function (cats) {
       state.publishedCategories = (Array.isArray(cats) ? cats : []).map(normalizePublishedCategory);
+      /* ⚠️ Every category here is a FRESH object with its pictures stripped by
+         normalizePublishedCategory, so any standing claim that one is already
+         hydrated is now a lie — and a lie in the direction that HIDES the bug:
+         categoryNeedsMedia would answer false, hydrateMediaInto would skip it,
+         and the next board would draw with no pictures at all. An admin or
+         editor publishing mid-session triggers exactly this reload, which is
+         who it would have hit. Clearing the claim costs one re-fetch at worst. */
+      state.publishedCategories.forEach(c => hydratedCats.delete(c.id));
       state.catalogReady = true;
       if (typeof renderGameLibrary === "function") renderGameLibrary();
       if (typeof renderCategories === "function") renderCategories();
@@ -28596,6 +28625,10 @@
       state.communityCategories = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
         .filter(c => c.approved)
         .sort((a, b) => (b.votes - a.votes) || String(a.name).localeCompare(String(b.name), "ar"));
+      // Same reason as applyPublished: normalizeCommunityCategory strips the
+      // pictures off these fresh objects, so a standing hydrated claim would
+      // now suppress the re-fetch and draw a board with none.
+      state.communityCategories.forEach(c => hydratedCats.delete(c.id));
       if (typeof renderCategories === "function") renderCategories();
       if (state.gameActive && document.body.dataset.screen === "game" && typeof renderGame === "function") renderGame();
     };
@@ -29184,20 +29217,43 @@
                   });
                 }).catch(() => null);
               },
-              all() { // -> Map(id -> entry) | null
+              /* -> Map(key -> entry) | null. A "media:<id>" key is present but
+                 its value is ALWAYS null — see below.
+                 ⚠️ THIS MUST NEVER LOAD MEDIA VALUES. The same object store holds
+                 the tiny lite category entries AND the "media:<id>" entries,
+                 which are arrays of base64 question images. A plain getAll()
+                 does not distinguish them, so every picture the device had ever
+                 cached was deserialised into the JS heap before the picker
+                 painted — and again for the community load. Measured at the real
+                 catalogue size: 226 MB in the store, 1258 ms, +228 MB of heap,
+                 on the cold-boot critical path, growing monotonically because
+                 media is only evicted when a category is deleted in the cloud.
+                 That is the .209 crash (541 MB, "A problem repeatedly occurred")
+                 rebuilt out of IndexedDB instead of Firestore.
+                 Nothing wants those values here: every caller already skips
+                 media keys (applyCachedCategories, the haveCats probe), and the
+                 eviction loop uses only the KEY to decide whether a dead
+                 category's media should go. So the keys are kept — eviction
+                 still needs them — and only the values are left on disk.
+                 Media for a category that is about to be played is read by
+                 loadCategoryMedia via get(), one key at a time, as designed. */
+              all() {
                 return open().then(idb => {
                   if (!idb) return null;
                   return new Promise(resolve => {
                     try {
                       const tx = idb.transaction("cats", "readonly");
                       const store = tx.objectStore("cats");
+                      const m = new Map();
                       const keysReq = store.getAllKeys();
-                      const valsReq = store.getAll();
-                      tx.oncomplete = () => {
-                        const m = new Map();
-                        (keysReq.result || []).forEach((k, i) => m.set(k, (valsReq.result || [])[i]));
-                        resolve(m);
+                      keysReq.onsuccess = () => {
+                        (keysReq.result || []).forEach(k => {
+                          if (typeof k === "string" && k.indexOf("media:") === 0) { m.set(k, null); return; }
+                          const one = store.get(k);
+                          one.onsuccess = () => m.set(k, one.result || null);
+                        });
                       };
+                      tx.oncomplete = () => resolve(m);
                       tx.onerror = () => resolve(null);
                       tx.onabort = () => resolve(null);
                     } catch (e) { resolve(null); }
@@ -30884,8 +30940,10 @@
             const jobs = [
               // Same resilience as official categories: on failure OR a silent
               // offline stall, keep showing the last-known approved list.
-              catCache.all().then(cache => {
-                const saved = cache && cache.get("__community__");
+              // ⚠️ get(), not all(). This only ever wanted the one "__community__"
+              // key, and all() walks the whole store — which is where the
+              // question-media entries live. See the note on all().
+              catCache.get("__community__").then(saved => {
                 const cachedCats = saved && Array.isArray(saved.cats) ? saved.cats : [];
                 const applyCached = () => {
                   if (!cachedCats.length) return;

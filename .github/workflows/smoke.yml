@@ -669,6 +669,13 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node syncsize.mjs
 
+      - name: Run media heap-bounds test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node heapbounds.mjs
+
       - name: Run content-editor role test
         if: ${{ !cancelled() }}
         working-directory: tests
