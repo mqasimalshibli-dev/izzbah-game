@@ -13024,7 +13024,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-08-24.347";
+    const IZZBAH_BUILD = "2026-09-04.348";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -13213,17 +13213,37 @@
       return kind;
     }
 
+    /* ⚠️ TEAM PHOTOS LIVE IN THEIR OWN KEY, and it is not in `KEYS` — so they
+       never ride the cloud blob. They are capped at 180 KB each × 5 teams, and
+       `izzbah-trivia-settings-v1` is SYNCED: at five photos the blob cleared
+       Firestore's hard 1 MiB document limit, the push was rejected, and the
+       account's saved games and entitlements silently stopped syncing. shaveBlob
+       could not help — it can only shave the play history.
+       Keeping them local also matches this file's own rule of thumb for the
+       cloud merge: a per-device thing (theme, sound) stays out. A photo is
+       re-picked in two taps on a new device; a broken sync is invisible and
+       costs the player their games.
+       ⚠️ Do NOT move `image` back into the settings object to make photos
+       follow an account. If that is ever wanted, it needs its own small
+       document, not this blob. */
+    const teamPhotoKey = "izzbah-team-photos-v1";
+    function saveTeamPhotos() {
+      try {
+        localStorage.setItem(teamPhotoKey, JSON.stringify(state.teams.map(t => t.image || "")));
+      } catch (error) { /* quota / private mode — photos just won't persist */ }
+    }
     function saveGameSettings() {
       try {
         localStorage.setItem(saveKey, JSON.stringify({
           teamCount: state.teamCount,
-          teams: state.teams.map(team => ({ name: team.name, image: team.image, helpers: team.helpers })),
+          teams: state.teams.map(team => ({ name: team.name, helpers: team.helpers })),
           selected: [...state.selected],
           customCategories: state.customCategories
         }));
       } catch (error) {
         console.warn("تعذر حفظ إعدادات اللعبة.", error);
       }
+      saveTeamPhotos();
     }
 
     function loadGameSettings() {
@@ -13234,6 +13254,16 @@
         if (saved.teamCount >= 2 && saved.teamCount <= 5) {
           state.teamCount = saved.teamCount;
         }
+        /* Photos come from their own key now. MIGRATION: a settings blob written
+           before that split still carries them inline, so fall back to it —
+           otherwise everyone who had set a team photo would see it vanish on the
+           update. The next saveGameSettings() writes the slim settings and the
+           separate photo key, so the fat copy cleans itself up. */
+        let photos = null;
+        try {
+          const rawPhotos = localStorage.getItem(teamPhotoKey);
+          if (rawPhotos) { const p = JSON.parse(rawPhotos); if (Array.isArray(p)) photos = p; }
+        } catch (error) { /* fall through to the inline copy */ }
         if (Array.isArray(saved.teams)) {
           const oldDefaultNames = new Set(["الفريق الأول", "الفريق الثاني", "الفريق الثالث", "الفريق الرابع", "الفريق الخامس"]);
           state.teams = teamDefaults.map((fallback, index) => {
@@ -13243,7 +13273,7 @@
               : ["fourChoices", "firstLetter", "doublePoints"];
             return {
               name: oldDefaultNames.has(saved.teams[index]?.name) ? "" : (saved.teams[index]?.name || fallback),
-              image: saved.teams[index]?.image || "",
+              image: (photos ? photos[index] : saved.teams[index]?.image) || "",
               score: 0,
               helpers,
               helpUsed: {},
@@ -13251,6 +13281,9 @@
               stealArmed: false
             };
           });
+          // Finish the migration NOW rather than waiting for the next save, so
+          // the fat inline copy stops riding the cloud blob from this load on.
+          if (!photos && state.teams.some(t => t.image)) saveTeamPhotos();
         }
         if (Array.isArray(saved.customCategories)) {
           state.customCategories = saved.customCategories.map(category => ({
@@ -28785,6 +28818,34 @@
             map[biggest].splice(0, Math.max(1, Math.ceil(biggestLen * 0.25)));
             o["izzbah-seen-v1"] = JSON.stringify(map);
           }
+          /* ⚠️ SECOND STAGE, and it is the difference between losing one key and
+             losing the whole account's sync. Shaving above can only ever touch
+             `izzbah-seen-v1`; every other key is written whole. So one oversized
+             key — settings carrying five 180 KB team photos, or a player's own
+             custom category full of pictures — pushed the document past
+             Firestore's hard 1 MiB limit, the write was REJECTED OUTRIGHT, and
+             schedulePush logged and moved on. Saved games and entitlements then
+             silently stopped syncing, with nothing on screen to say so.
+             Dropping the one fat key is strictly better than dropping all of
+             them: the rest of the account keeps syncing, and the omission is
+             logged rather than silent.
+             ⚠️ NEVER drop what money or consent depends on. Those are all tiny
+             (a number, a flag), so they can never be the offender anyway —
+             but naming them here means a future edit cannot make them one. */
+          const NEVER_DROP = new Set(["izzbah-games-used-v1", "izzbah-code-balance-v1",
+            "izzbah-free-game-v1", "izzbah-legal-consent-v1", "izzbah-trivia-saved-games-v1"]);
+          let guard2 = 8;
+          while (guard2-- > 0 && JSON.stringify(o).length > CLOUD_BUDGET) {
+            let fattest = null, fattestLen = 0;
+            for (const k of Object.keys(o)) {
+              if (NEVER_DROP.has(k)) continue;
+              const n = (o[k] || "").length;
+              if (n > fattestLen) { fattestLen = n; fattest = k; }
+            }
+            if (!fattest) break;   // only undroppable keys left — push and let it fail loudly
+            delete o[fattest];
+            console.warn(`izzbah: "${fattest}" omitted from cloud sync (${fattestLen} chars — over the ${CLOUD_BUDGET} budget)`);
+          }
         } catch (e) { /* stringify failure — push what we have */ }
         return o;
       }
@@ -28914,7 +28975,9 @@
       window.IZZBAH_TEST = window.IZZBAH_TEST || {};
       window.IZZBAH_TEST.mergeBlob = mergeBlob;
       window.IZZBAH_TEST.writeBackKeys = writeBackKeys;
-    window.IZZBAH_TEST.writeBackKeys = writeBackKeys;
+      window.IZZBAH_TEST.shaveBlob = (o) => shaveBlob(o);
+      window.IZZBAH_TEST.cloudBlob = () => cloudBlob();
+      window.IZZBAH_TEST.cloudBudget = () => CLOUD_BUDGET;
       function schedulePush() {
         if (!currentUser || !db || applying) return;
         clearTimeout(pushTimer);
