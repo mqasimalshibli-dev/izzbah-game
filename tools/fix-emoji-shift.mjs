@@ -67,12 +67,42 @@ const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
 // flight (each ~30-40KB of base64, so a few MB in one RPC) — batch it with
 // visible progress, same pattern as tools/restore-media.mjs, so a genuinely
 // slow run and a hung one don't look identical on screen.
+//
+// ⚠️ Also TIMED and RETRIED per batch. A live run stalled at the exact same
+// point (right after the first batch) across three separate fresh process
+// starts — too consistent to be ordinary jitter. Rather than hang silently
+// again, each batch gets a hard deadline; on timeout it's logged and retried
+// (a fresh RPC, not waiting on the stuck one) up to 4 times before the whole
+// run fails loudly naming which batch never came back.
 const BATCH = 10;
+const BATCH_TIMEOUT_MS = 20000;
+const BATCH_RETRIES = 4;
+
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(Object.assign(new Error(`${label} timed out after ${ms}ms`), { code: "TIMEOUT" })), ms);
+    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function readAll(col, refs) {
   const out = [];
   for (let i = 0; i < refs.length; i += BATCH) {
     const slice = refs.slice(i, i + BATCH);
-    const snaps = await db.getAll(...slice);
+    const label = `batch ${i}-${Math.min(i + BATCH, refs.length) - 1}`;
+    let snaps = null;
+    for (let attempt = 1; attempt <= BATCH_RETRIES; attempt++) {
+      const t0 = Date.now();
+      try {
+        snaps = await withTimeout(db.getAll(...slice), BATCH_TIMEOUT_MS, label);
+        const ms = Date.now() - t0;
+        if (attempt > 1) process.stdout.write(`  ${label}: recovered on attempt ${attempt} (${ms}ms)\n`);
+        break;
+      } catch (e) {
+        process.stdout.write(`  ! ${label} attempt ${attempt}/${BATCH_RETRIES} failed after ${Date.now() - t0}ms: ${e.message}\n`);
+        if (attempt === BATCH_RETRIES) throw new Error(`${label} failed after ${BATCH_RETRIES} attempts — giving up rather than hanging forever`);
+      }
+    }
     snaps.forEach(d => { if (d.exists) out.push(d); });
     process.stdout.write(`  ${Math.min(i + BATCH, refs.length)}/${refs.length}\n`);
   }
