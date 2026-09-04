@@ -14,3 +14,7 @@ __pycache__/
 *.pyc
 preview/.cliptmp/
 tools/srcache/
+
+# Runtime marker written by tools/fix-emoji-shift.mjs after a successful apply.
+# Local to whichever clone ran the repair; never shared.
+tools/.fix-emoji-shift.applied

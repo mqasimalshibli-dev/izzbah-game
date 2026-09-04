@@ -38,10 +38,33 @@
 //     — they are read fresh from the /questions subcollection every game
 //     (.209 lazy media) — so this fix is invisible to the catalogue cache.
 import { Firestore } from "@google-cloud/firestore";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 const APPLY = process.argv.includes("--apply");
+const FORCE = process.argv.includes("--force");
 const CATEGORY = "pub-1784240484235-8039"; // معنى الايموجي — the ONLY category this script touches
 const db = new Firestore({ projectId: "izzbahgame" });
+
+// ⚠️ SENTINEL, checked before anything else runs. This script is NOT
+// idempotent to re-run after a successful apply: it reads whatever image
+// currently sits at index N and moves it into N-1, so running it again after
+// the fix is already in would shift everything a SECOND time and re-corrupt
+// the category it just repaired — including in dry-run mode, since the
+// staleness check only compares the answer TEXT (which this script never
+// touches), so a second dry run shows the exact same "82 writes planned"
+// regardless of whether the fix already landed. That looked like "still
+// needs it" and nearly caused a re-run right after the real fix succeeded.
+// The sentinel is the actual guard; the comment is why it exists.
+const SENTINEL = join(dirname(fileURLToPath(import.meta.url)), ".fix-emoji-shift.applied");
+if (existsSync(SENTINEL) && !FORCE) {
+  console.error(`Already applied — see ${SENTINEL}:\n`);
+  console.error(readFileSync(SENTINEL, "utf8"));
+  console.error("Refusing to run again (dry run included — it would show the same plan and invite a re-apply that re-breaks the fix).");
+  console.error("If you genuinely need to run this again, pass --force.");
+  process.exit(1);
+}
 
 // The answer CURRENTLY stored at each index, as audited. Keys 23-105.
 const EXPECTED = {
@@ -171,7 +194,12 @@ async function main() {
       await col.doc(p.id).update({ image: p.newImage, answerImage: p.newAnswerImage });
     }
     console.log(`\n✓ wrote ${plan.length} documents`);
-    console.log("Re-run WITHOUT --apply to verify: every line above should report the shift already done (target answers will simply not need EXPECTED anymore — spot check a few in the admin editor).");
+    writeFileSync(SENTINEL, `Applied ${new Date().toISOString()} — wrote ${plan.length} documents.\n`
+      + `Do NOT run this script again on this category — it is not safe to re-run after a\n`
+      + `successful apply (see the comment at the top of the file). Delete this file only\n`
+      + `if you specifically need to re-apply with --force, and know why.\n`);
+    console.log(`Wrote ${SENTINEL} — this script will now refuse to run again without --force.`);
+    console.log("Verify by looking in the admin editor, NOT by re-running this script — a second run (dry or apply) would show the same plan and re-shift everything if applied again.");
   } else {
     console.log("\nDry run. Compare the list above against tools/fix-emoji-shift.mjs's own EXPECTED table and the mapping file, then re-run with --apply.");
   }
