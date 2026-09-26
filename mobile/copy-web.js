@@ -31,7 +31,14 @@ if (fs.existsSync(assetsSrc)) {
    nothing the game can report. */
 const bundle = path.join(outDir, 'native.js');
 try {
-  execFileSync(path.join(__dirname, 'node_modules', '.bin', 'esbuild'), [
+  // ⚠️ On Windows, npm's .bin shim for esbuild is `esbuild.cmd` (a batch
+  // file); the extensionless `esbuild` there is the Unix shell shim and is
+  // not directly executable via execFileSync, which does no PATHEXT
+  // resolution the way a shell would — it fails ENOENT even though the file
+  // genuinely exists right next to it.
+  const esbuildBin = path.join(__dirname, 'node_modules', '.bin',
+    process.platform === 'win32' ? 'esbuild.cmd' : 'esbuild');
+  execFileSync(esbuildBin, [
     path.join(__dirname, 'native-entry.js'),
     '--bundle', '--format=iife', '--platform=browser', '--minify',
     '--outfile=' + bundle,
