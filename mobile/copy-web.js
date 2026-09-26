@@ -36,13 +36,17 @@ try {
   // not directly executable via execFileSync, which does no PATHEXT
   // resolution the way a shell would — it fails ENOENT even though the file
   // genuinely exists right next to it.
+  // ⚠️ A .cmd file also cannot be spawned directly even once found: Windows
+  // batch files are not real executables as far as CreateProcess is
+  // concerned, so execFileSync needs `shell: true` for this one platform or
+  // it throws EINVAL instead of running anything.
   const esbuildBin = path.join(__dirname, 'node_modules', '.bin',
     process.platform === 'win32' ? 'esbuild.cmd' : 'esbuild');
   execFileSync(esbuildBin, [
     path.join(__dirname, 'native-entry.js'),
     '--bundle', '--format=iife', '--platform=browser', '--minify',
     '--outfile=' + bundle,
-  ], { stdio: 'pipe' });
+  ], { stdio: 'pipe', shell: process.platform === 'win32' });
 } catch (e) {
   throw new Error(
     'copy-web: could not bundle the native bridges.\n' +
