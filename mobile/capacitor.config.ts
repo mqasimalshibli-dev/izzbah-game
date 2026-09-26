@@ -18,6 +18,18 @@ const config: CapacitorConfig = {
     // allow the embedded base64 / blob images and Firebase to work in the webview
     allowMixedContent: false,
   },
+  plugins: {
+    // ⚠️ Without this, @capacitor-firebase/authentication loads ZERO native
+    // provider handlers (its own default is []) — not just Google
+    // misconfigured, but the Google handler object never created at all.
+    // That is why signIn() throws "Attempt to invoke virtual method
+    // ...GoogleAuthProviderHandler.signIn(...) on a null object reference"
+    // rather than a normal auth error. Add "apple.com" here too the day
+    // Sign in with Apple is switched on in index.html.
+    FirebaseAuthentication: {
+      providers: ['google.com'],
+    },
+  },
 };
 
 export default config;
