@@ -133,7 +133,10 @@ const bodies = DOCS.map(([key]) => {
      — two levels skipped — which is the one structural complaint an audit of
      this page raises, and it is what a screen reader navigates by. Remapped to
      <h3>, one level under the document's own heading. */
-  html = html.replace(/<(\/?)h5>/g, "<$1h3>");
+  // ⚠️ Must allow attributes on the opening tag (e.g. an id for deep-linking)
+  // — a bare `<h5>` match left one with an id unrewritten while its `</h5>`
+  // still became `</h3>`, producing a mismatched `<h5 id="...">...</h3>`.
+  html = html.replace(/<h5((?:\s[^>]*)?)>/g, "<h3$1>").replace(/<\/h5>/g, "</h3>");
   // ⚠️ Guard against lifting an empty or half-matched block. A silently blank
   // policy page is the failure this whole script exists to make impossible.
   if (html.replace(/<[^>]+>/g, "").trim().length < 400)
