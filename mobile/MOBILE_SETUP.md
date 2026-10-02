@@ -31,6 +31,75 @@ npm run add:ios             # creates ios/        (Mac + Xcode only)
 npm run sync                # copy web + sync native projects
 ```
 
+## ⚠️ Required manual edits after EVERY fresh `cap add android`
+
+`android/` is git-ignored and regenerated from scratch by `cap add android` —
+nothing inside it is reusable across a delete-and-re-add. These three steps
+were each discovered the hard way (real build/runtime errors) and are NOT
+optional if Google Sign-In is expected to work:
+
+1. **`google-services.json`** — download from Firebase console (Project
+   settings → the `izzbah-android` app) and place at
+   `android/app/google-services.json`. Without it, `app/build.gradle`'s own
+   `try`/`catch` silently skips applying the `google-services` plugin
+   ("Push Notifications won't work" is its own log line, but the REAL cost is
+   that Google Sign-In never gets configured at all).
+2. **`rgcfaIncludeGoogle = true`** in `android/variables.gradle`'s `ext { }`
+   block. `@capacitor-firebase/authentication`'s own `android/build.gradle`
+   defaults this flag to `false`, which compiles the plugin WITHOUT its
+   Google provider handler at all — `signIn("google.com")` then throws a raw
+   `NullPointerException` ("Attempt to invoke virtual method
+   ...GoogleAuthProviderHandler.signIn(...) on a null object reference")
+   instead of any kind of auth error. This is set in `capacitor.config.ts`'s
+   `plugins.FirebaseAuthentication.providers` too (`['google.com']`) — that
+   half IS committed and survives regeneration, but the Gradle flag does not
+   and must be re-added by hand every time.
+3. **The debug SHA-1 fingerprint** must be registered against the
+   `izzbah-android` Firebase app (Project settings → that app → "Add
+   fingerprint") — get it via `cd android && ./gradlew signingReport`
+   (`JAVA_HOME` may need pointing at Android Studio's bundled JBR, e.g.
+   `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"` on
+   Windows, since this project ships no separate JDK). This is a NEW machine's
+   debug keystore, so a fresh `cap add android` on a different computer needs
+   its OWN fingerprint added — the one already in Firebase from a previous
+   machine does not cover it.
+4. **The Google API key's HTTP referrer allowlist** (Google Cloud Console →
+   APIs & Services → Credentials → "Browser key (auto created by Firebase)")
+   needs `https://localhost/*` added — the app's webview runs everything
+   under that origin, which a fresh key's allowlist (scoped to the real
+   website's domains) does not cover by default. Without it, sign-in fails
+   with `auth/requests-from-referer-https://localhost-are-blocked`.
+5. **Firebase App Check** (if Authentication is set to "Enforced" there) also
+   rejects the native app, because it's activated with a reCAPTCHA site key —
+   a web-only mechanism tied to registered domains, which `https://localhost`
+   is not. The pragmatic fix used so far is lowering Authentication's App
+   Check enforcement to "Monitoring" in the Firebase console — this is a
+   project-wide setting, so it also quietly lowers bot/abuse protection on the
+   **live website's** sign-in for as long as it stays that way. The correct
+   long-term fix is a native App Check provider (Play Integrity for Android,
+   App Attest for iOS) instead of reCAPTCHA; not yet built.
+
+None of this is needed again on the SAME machine's existing `android/` folder
+— only after it is deleted and regenerated (new machine, troubleshooting, or
+a Capacitor major-version bump like the one below).
+
+## ⚠️ Capacitor 8 required (build .TBD, 2026-10-02)
+
+Google's 2026 policy requires **target SDK 36** and **Play Billing Library
+8.0+** for any new release (new apps/updates rejected after 2026-08-31 without
+it) — Capacitor 6.1.2's bundled Android Gradle Plugin (8.2.1) and default
+`targetSdkVersion` (34) are too old to satisfy either, and Play Console's own
+upload check for a release .aab catches both as hard errors before it will let
+a release through. `package.json` now pins `@capacitor/core|cli|android|ios`
+to `^8.0.0` (AGP 8.13.0, compileSdk/targetSdk 36, minSdk 24 — up from 22),
+`@capacitor-firebase/authentication` to `^8.3.0` (its own major version tracks
+Capacitor's), and `@revenuecat/purchases-capacitor` to `^13.1.2` (bundles
+Billing Library 8.3.0+; versions before 13.0.0 shipped Billing 7.x). After
+bumping these, `android/` must be deleted and `cap add android` re-run from
+scratch — it is generated against whatever Capacitor CLI version is installed
+at add-time, so an in-place `cap sync` on the OLD `android/` folder does not
+pick up the new AGP/SDK versions. Redo all five steps above afterward.
+
 ## Every time you change the game
 The game lives in `../index.html`. After editing it:
 ```bash
