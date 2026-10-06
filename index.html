@@ -8852,11 +8852,16 @@
     </div>
 
     <div class="modal-backdrop" id="commRewardsModal" aria-hidden="true">
-      <div class="question-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="commRewardsTitle">
+      <div class="question-modal import-modal health-modal" role="dialog" aria-modal="true" aria-labelledby="commRewardsTitle">
         <h3 class="preview-title" id="commRewardsTitle">مكافآت فئات المجتمع</h3>
         <p class="import-help">يفحص كل الفئات المعتمدة ويطابقها مع صناديق المرسلين — أي فئة لم يصلها كود الـ٥ ألعاب تظهر هنا.</p>
         <p class="import-note">يرسل كوداً جديداً فقط لمن لم يصله كود من قبل. <b>لا يمكن أن يُرسِل مكافأة مكررة</b> لمن حصل عليها، سواء من هنا أو من زر «موافقة» نفسه.</p>
         <div class="import-preview" id="commRewardsPreview"></div>
+
+        <h3 class="preview-title" style="font-size:22px;margin:16px 0 4px">كل من أضاف فئة</h3>
+        <p class="import-help">كل عضو أرسل فئة واحدة على الأقل، معتمدة أو قيد المراجعة — راسلهم مباشرة من هنا.</p>
+        <div class="health-body" id="commAuthorsBody"></div>
+
         <div class="actions">
           <button class="ghost" id="commRewardsCancel" type="button">إغلاق</button>
           <button class="primary" id="commRewardsRun" type="button" disabled>إرسال المكافآت الناقصة</button>
@@ -8922,7 +8927,7 @@
               <button class="admin-choice-btn" id="adminChoiceCommRewards" type="button">
             <span class="admin-choice-ico" aria-hidden="true">🎁</span>
             <span class="admin-choice-name">مكافآت فئات المجتمع</span>
-            <span class="admin-choice-sub">يبحث عن فئات معتمدة لم يصل مُرسِلها على المكافأة ويرسلها</span>
+            <span class="admin-choice-sub">يرسل المكافآت الناقصة، ويسرد كل من أضاف فئة مع رسالة مباشرة لهم</span>
           </button>
             </div>
           </div>
@@ -13063,7 +13068,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-10-06.351";
+    const IZZBAH_BUILD = "2026-10-06.352";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -28366,16 +28371,81 @@
       box.innerHTML = html;
       run.disabled = false;
     }
+    // Every author's row carries its OWN compose box, built once and just
+    // toggled hidden/visible — a textarea mid-list must not vanish because an
+    // unrelated row re-rendered, which is why this never rebuilds on send.
+    function renderCommAuthors(list) {
+      const box = $("#commAuthorsBody");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!list.length) { box.innerHTML = `<div class="imp-auto">لا توجد فئة مُرسلة من أي عضو بعد.</div>`; return; }
+      list.forEach(a => {
+        const row = document.createElement("div");
+        row.className = "custom-row";
+        const rewardTxt = !a.approved ? "—"
+          : (a.rewarded >= a.approved ? "🎁 حصل على مكافأته" : `⚠️ ${toArabicDigits(a.approved - a.rewarded)} بلا مكافأة`);
+        row.innerHTML = `
+          <div>${iconSvg("custom")}</div>
+          <div>
+            <div style="font-size:20px;color:var(--dark)">${escapeHtml(a.authorName || "عضو")} <span class="prem-row-id-uid author-uid-copy" title="نسخ معرّف المستخدم" style="cursor:pointer">(${escapeHtml(a.authorUid)})</span></div>
+            <div style="font-size:14px;color:var(--gold-dark)"><span class="clean-number">${toArabicDigits(a.total)}</span> فئة · <span class="clean-number">${toArabicDigits(a.approved)}</span> معتمدة · <span class="clean-number">${toArabicDigits(a.pending)}</span> قيد المراجعة · ${escapeHtml(rewardTxt)}</div>
+          </div>`;
+        row.querySelector(".author-uid-copy").addEventListener("click", () => {
+          const t = navigator.clipboard && navigator.clipboard.writeText(a.authorUid);
+          if (t && t.then) t.then(() => showToast("نُسخ معرّف المستخدم")).catch(() => {});
+        });
+        const actions = document.createElement("div");
+        actions.className = "actions"; actions.style.margin = "0";
+        const msgBtn = document.createElement("button");
+        msgBtn.className = "secondary"; msgBtn.textContent = "رسالة";
+        actions.appendChild(msgBtn);
+        row.appendChild(actions);
+        box.appendChild(row);
+
+        const compose = document.createElement("div");
+        compose.hidden = true;
+        compose.style.cssText = "margin:-2px 0 12px;display:flex;gap:8px;align-items:flex-start";
+        const ta = document.createElement("textarea");
+        ta.placeholder = `رسالة إلى ${a.authorName || "هذا العضو"}…`;
+        ta.maxLength = 2000;
+        ta.style.cssText = "flex:1;min-height:58px;font:15px 'Cairo',sans-serif;padding:8px 10px;border-radius:8px;border:1px solid rgba(140,106,46,.35);resize:vertical";
+        const send = document.createElement("button");
+        send.className = "primary"; send.textContent = "إرسال";
+        compose.append(ta, send);
+        box.appendChild(compose);
+
+        msgBtn.addEventListener("click", () => { compose.hidden = !compose.hidden; if (!compose.hidden) ta.focus(); });
+        send.addEventListener("click", () => {
+          const text = ta.value.trim();
+          if (!text) { showToast("اكتب رسالة أولاً"); return; }
+          const reply = window.IZZBAH && window.IZZBAH.adminReplyFeedback;
+          if (!reply) { showToast("الإرسال غير متاح الآن — تحقّق من اتصالك"); return; }
+          send.disabled = true; const label = send.textContent; send.textContent = "جارٍ الإرسال…";
+          reply(a.authorUid, text).then(() => {
+            showToast("تم إرسال الرسالة");
+            ta.value = ""; compose.hidden = true;
+          }).catch(e => showToast("تعذّر الإرسال — " + ((e && (e.code || e.message)) || "حاول مجدداً")))
+            .finally(() => { send.disabled = false; send.textContent = label; });
+        });
+      });
+    }
     function openCommRewardsModal() {
       if (!state.isAdmin) { showToast("هذا للمشرف فقط"); return; }
       const m = $("#commRewardsModal");
       m.classList.add("open"); m.setAttribute("aria-hidden", "false");
       $("#commRewardsPreview").innerHTML = `<div class="imp-auto">جارٍ الفحص…</div>`;
       $("#commRewardsRun").disabled = true;
+      $("#commAuthorsBody").innerHTML = `<div class="imp-auto">جارٍ التحميل…</div>`;
       const plan = window.IZZBAH && window.IZZBAH.planCommunityRewardBackfill;
-      if (!plan) { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>غير متاح — تحقّق من اتصالك</div></div>`; return; }
-      plan().then(p => { commRewardsPending = p.eligible.length ? p : null; renderCommRewardsPlan(p); })
-        .catch(e => { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>تعذّر الفحص — ${escapeHtml((e && (e.code || e.message)) || "خطأ")}</div></div>`; });
+      if (!plan) { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>غير متاح — تحقّق من اتصالك</div></div>`; }
+      else {
+        plan().then(p => { commRewardsPending = p.eligible.length ? p : null; renderCommRewardsPlan(p); })
+          .catch(e => { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>تعذّر الفحص — ${escapeHtml((e && (e.code || e.message)) || "خطأ")}</div></div>`; });
+      }
+      const listAuthors = window.IZZBAH && window.IZZBAH.listCommunityAuthors;
+      if (!listAuthors) { $("#commAuthorsBody").innerHTML = `<div class="imp-errs"><div>غير متاح — تحقّق من اتصالك</div></div>`; return; }
+      listAuthors().then(renderCommAuthors)
+        .catch(e => { $("#commAuthorsBody").innerHTML = `<div class="imp-errs"><div>تعذّر التحميل — ${escapeHtml((e && (e.code || e.message)) || "خطأ")}</div></div>`; });
     }
     $("#adminChoiceCommRewards").addEventListener("click", () => { closeAdminChoice(); openCommRewardsModal(); });
     $("#commRewardsCancel").addEventListener("click", () => { if (!commRewardsRunning) closeCommRewardsModal(); });
@@ -31444,6 +31514,37 @@
                 .then(rewarded => { if (rewarded) sent++; })
                 .catch(() => { failed.push(c.name || c.id); })
             ), Promise.resolve()).then(() => ({ sent, failed }));
+          };
+          // Every community contributor, by uid — approved AND pending, not just
+          // the reward backlog above. This is the roster the admin can message
+          // directly (via the SAME feedback channel a player's own «تواصل معنا»
+          // uses), so an author needs no reward owed to be reachable from here.
+          window.IZZBAH.listCommunityAuthors = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("community").get({ source: "server" }).then(snap => {
+              const byAuthor = new Map();
+              const approvedWithAuthor = [];
+              snap.forEach(d => {
+                const x = d.data() || {};
+                const uid = x.authorUid || "";
+                if (!uid) return; // nothing to roster or message without an author
+                if (!byAuthor.has(uid)) {
+                  byAuthor.set(uid, { authorUid: uid, authorName: x.authorName || "عضو", total: 0, approved: 0, pending: 0, rewarded: 0 });
+                }
+                const row = byAuthor.get(uid);
+                row.total++;
+                if (x.approved) { row.approved++; approvedWithAuthor.push({ id: d.id, authorUid: uid }); }
+                else row.pending++;
+                // A player can change their display name after submitting — keep
+                // whichever copy was seen LAST rather than the very first one.
+                if (x.authorName) row.authorName = x.authorName;
+              });
+              return Promise.all(approvedWithAuthor.map(c =>
+                db.collection("inbox").doc(c.authorUid).collection("msgs").doc("catreward-" + c.id).get()
+                  .then(doc => { if (doc.exists) byAuthor.get(c.authorUid).rewarded++; })
+              )).then(() => Array.from(byAuthor.values())
+                .sort((a, b) => b.total - a.total || String(a.authorName).localeCompare(String(b.authorName), "ar")));
+            });
           };
           // Erase this account, everywhere. The heavy lifting is a Cloud
           // Function (entitlements/{uid} is write-denied to every user, so the

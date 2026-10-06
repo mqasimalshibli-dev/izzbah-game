@@ -13,6 +13,7 @@ on:
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
       - "about/**"
+      - "functions/**"
       - ".github/workflows/smoke.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "assets/brand/manifest.webmanifest"
       - "tests/**"
       - "about/**"
+      - "functions/**"
   workflow_dispatch:
 
 jobs:
@@ -61,6 +63,10 @@ jobs:
       - name: Run RevenueCat webhook unit tests (Cloud Functions)
         if: ${{ !cancelled() }}
         run: node functions/test/revenuecat.test.mjs
+
+      - name: Run developer-notification unit tests (Cloud Functions)
+        if: ${{ !cancelled() }}
+        run: node functions/test/notify.test.mjs
 
       - name: Run smoke test
         if: ${{ !cancelled() }}

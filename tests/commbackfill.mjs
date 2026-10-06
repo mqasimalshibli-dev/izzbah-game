@@ -2,6 +2,11 @@
 // and sends the 5-game reward to any author who never got one (approved
 // before the reward existed, or a reward write that silently failed). Plan,
 // then confirm, then apply — same shape as the restore-backup modal.
+//
+// The SAME modal also rosters every community contributor (approved AND
+// pending, reward owed or not) with a direct-message box per row, reusing the
+// existing player↔dev feedback channel (adminReplyFeedback) rather than any
+// new backend.
 import { chromium } from "playwright-core";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
@@ -99,6 +104,100 @@ await page.evaluate(() => {
 await page.waitForTimeout(300);
 const failBox = await page.evaluate(() => document.getElementById("commRewardsPreview").textContent);
 check("a failed send is reported by name, not silently dropped", /رياضة/.test(failBox));
+
+// ---- the author roster: everyone who has EVER added a category ----
+await page.evaluate(() => {
+  window.IZZBAH.planCommunityRewardBackfill = () => Promise.resolve({ eligible: [], alreadyRewarded: 0, noAuthor: 0 });
+  window.IZZBAH.listCommunityAuthors = () => Promise.resolve([
+    { authorUid: "uid-1", authorName: "سالم", total: 3, approved: 2, pending: 1, rewarded: 1 }, // owed a reward
+    { authorUid: "uid-2", authorName: "هند", total: 1, approved: 1, pending: 0, rewarded: 1 },  // fully rewarded
+    { authorUid: "uid-3", authorName: "فهد", total: 2, approved: 0, pending: 2, rewarded: 0 },  // nothing approved yet
+  ]);
+  document.getElementById("adminChoiceCommRewards").click();
+});
+await page.waitForTimeout(400);
+const roster = await page.evaluate(() => {
+  const box = document.getElementById("commAuthorsBody");
+  const text = box.textContent;
+  return {
+    rows: box.querySelectorAll(".custom-row").length,
+    showsAllNames: /سالم/.test(text) && /هند/.test(text) && /فهد/.test(text),
+    showsUid: /uid-1/.test(text),
+    showsTotals: /3/.test(text),
+    showsOwed: /بلا مكافأة/.test(text),
+    showsFullyRewarded: /حصل على مكافأته/.test(text),
+    showsNothingApprovedYet: text.includes("—"),
+  };
+});
+check("the roster lists every contributor, not just those owed a reward", roster.rows === 3);
+check("…by name, approved/pending counts and all", roster.showsAllNames && roster.showsTotals);
+check("…with their uid shown", roster.showsUid);
+check("someone still owed a reward is flagged", roster.showsOwed);
+check("someone already rewarded is marked done, not re-flagged", roster.showsFullyRewarded);
+check("someone with nothing approved yet shows a dash, not a false warning", roster.showsNothingApprovedYet);
+
+// ---- messaging a specific author reuses adminReplyFeedback ----
+const firstRow = () => page.evaluate(() => {
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[0];
+  return !!row;
+});
+await firstRow();
+const composeOpened = await page.evaluate(() => {
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[0];
+  row.querySelector("button").click(); // «رسالة»
+  const compose = row.nextElementSibling;
+  return !compose.hidden;
+});
+check("pressing «رسالة» reveals a compose box for that author", composeOpened);
+
+const sent = await page.evaluate(() => new Promise(resolve => {
+  window.IZZBAH.adminReplyFeedback = (uid, text) => { resolve({ uid, text }); return Promise.resolve(); };
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[0];
+  const compose = row.nextElementSibling;
+  compose.querySelector("textarea").value = "شكراً على فئتك الرائعة!";
+  compose.querySelector("button").click(); // «إرسال»
+}));
+check("sending calls adminReplyFeedback with THAT author's uid", sent.uid === "uid-1");
+check("…and the typed text", sent.text === "شكراً على فئتك الرائعة!");
+await page.waitForTimeout(250);
+const afterSend = await page.evaluate(() => {
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[0];
+  const compose = row.nextElementSibling;
+  return { cleared: compose.querySelector("textarea").value === "", hidden: compose.hidden };
+});
+check("after sending, the box clears and collapses", afterSend.cleared && afterSend.hidden);
+
+// ---- an empty message never reaches the bridge ----
+const emptyBlocked = await page.evaluate(() => new Promise(resolve => {
+  let called = false;
+  window.IZZBAH.adminReplyFeedback = () => { called = true; return Promise.resolve(); };
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[1];
+  row.querySelector("button").click();
+  const compose = row.nextElementSibling;
+  compose.querySelector("button").click(); // «إرسال» with an empty textarea
+  setTimeout(() => resolve(called), 200);
+}));
+check("an empty message is refused locally, never sent", emptyBlocked === false);
+
+// ---- messaging with no bridge at all fails cleanly, not silently ----
+const noMsgBridge = await page.evaluate(() => new Promise(resolve => {
+  delete window.IZZBAH.adminReplyFeedback;
+  const row = document.getElementById("commAuthorsBody").querySelectorAll(".custom-row")[2];
+  const compose = row.nextElementSibling;
+  compose.querySelector("textarea").value = "مرحباً";
+  compose.querySelector("button").click();
+  setTimeout(() => resolve(document.getElementById("appToast").textContent), 200);
+}));
+check("messaging with no bridge shows a clear failure toast", /غير متاح/.test(noMsgBridge));
+
+// ---- an empty roster says so, instead of a blank panel ----
+await page.evaluate(() => {
+  window.IZZBAH.listCommunityAuthors = () => Promise.resolve([]);
+  document.getElementById("adminChoiceCommRewards").click();
+});
+await page.waitForTimeout(300);
+check("an empty roster shows a friendly message",
+  /لا توجد فئة/.test(await page.evaluate(() => document.getElementById("commAuthorsBody").textContent)));
 
 // ---- nothing eligible disables the run button and explains why ----
 await page.evaluate(() => {

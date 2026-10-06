@@ -192,6 +192,79 @@ that is why the projection is a separate document.
   category too, which is the same shape as the .209 media change and a much
   bigger job.
 
+## Community-approval reward: diagnosed, then closed the real gaps (2026-10-06)
+
+Owner reported "the reward for community categories isn't set up." Traced the
+whole path end to end (`communityApprove` → `sendApprovalReward` → mint a
+5-game code via `createCode` → write `inbox/{authorUid}/msgs/catreward-{catId}`)
+against `firestore.rules` field-by-field: **the code was already correct** and
+matched the rules exactly — no dead branch, no stub. Two real gaps instead:
+
+- **A reward was invisible beyond a tiny gear dot.** The launch popup
+  (`maybePopAnnouncement`/`showAnnouncementPopup`) only ever considered
+  `state.announcements`, never `state.inbox` — so a reward for an approved
+  category never got the same "pops on sign-in" treatment a public
+  announcement does. It now merges fresh inbox items in, picks whichever is
+  newer, and renders a reward through the SAME gift-card branch of
+  `renderAnnouncementCards` the announcements center uses (code is an
+  explicit array now — `inboxArg === true` still means "read my whole
+  inbox", an array means "render exactly these"). `tests/rewardpopup.mjs`.
+- **No way to catch up authors approved before this reward existed, or whose
+  reward write failed (e.g. a `firestore.rules` publish gap — the one real
+  unverifiable suspect, since rules deploys here are a manual console paste).**
+  Added **«مكافآت فئات المجتمع»** (admin panel → فحص المحتوى):
+  `window.IZZBAH.planCommunityRewardBackfill()` scans every APPROVED category,
+  finds authors with no `catreward-{catId}` inbox doc yet, and
+  `runCommunityRewardBackfill()` sends it — reusing `sendApprovalReward`'s own
+  existence check, so it can never double-grant someone already rewarded live
+  or by a previous backfill run. `tests/commbackfill.mjs`.
+  - ⚠️ **This is a BUTTON, not a script.** It runs entirely client-side as the
+    signed-in admin, through the SAME rules every other write here goes
+    through — there is no Cloud Function and nothing to deploy for this half.
+- **The same modal also rosters every community contributor** — approved AND
+  pending, reward owed or not — via `window.IZZBAH.listCommunityAuthors()`
+  (name, uid, totals, reward status), each row with a «رسالة» button that
+  expands an inline textarea and sends through **the existing
+  `adminReplyFeedback(uid, text)` bridge** — the SAME player↔dev feedback
+  channel, not a new one. The rules' feedback `create` rule already allows
+  `isAdmin() && from == 'admin'` into ANY uid's thread, so this works even for
+  an author who has never opened «تواصل معنا» before — it starts their thread.
+- **Admin notification, in-app half:** `refreshGearUnread()` now also lights
+  the settings-gear dot when `state.pendingCommunity.length > 0` — a new (or
+  re-edited, since an author's edit resets `approved` to false too) community
+  category is visible immediately on sign-in, same as the existing feedback
+  badge, without opening the community panel first. `tests/commflows.mjs`.
+
+## Developer email notifications — first Firestore-triggered functions (2026-10-06)
+
+Owner asked to be emailed whenever a player adds a community category or
+sends a feedback message. `functions/lib/notify.js` (pure logic, unit-tested
+in `functions/test/notify.test.mjs`) + two new Cloud Functions in
+`functions/index.js`: `notifyNewCommunityCategory`
+(`onDocumentCreated("community/{catId}")`) and `notifyNewFeedback`
+(`onDocumentCreated("feedback/{uid}/messages/{msgId}")`), mailing
+`izzbahgame@gmail.com` via its own Gmail SMTP + an app password (`nodemailer`,
+`GMAIL_USER`/`GMAIL_APP_PASSWORD` secrets) — chosen over re-opening Web Push
+(still parked, see below) or a paid email provider specifically because it
+needs no new third-party account.
+
+- ⚠️ **NOT DEPLOYED.** Every other Cloud Function in this project is
+  HTTPS-only (`onCall`/`onRequest`); these are the first two that trigger on a
+  Firestore write. Deploy steps, the Gmail app-password walkthrough, and the
+  verification runbook are all in `DEV_NOTIFY_SETUP.md` (mirrors
+  `REVENUECAT_SETUP.md`'s shape — nothing in it has been run yet).
+- ⚠️ `notifyNewFeedback` must skip an admin's OWN reply (`from: 'admin'` also
+  creates a doc in the same subcollection) — `shouldNotifyFeedback()` in
+  `lib/notify.js` is the one-line gate; without it every admin reply would
+  email the admin about themselves.
+- ⚠️ A failed send is logged and DROPPED, not retried — there is no retry
+  configured on either trigger. This is deliberate: the in-app gear badge
+  (above) is the authoritative, always-correct signal; email is a best-effort
+  nudge on top of it, not a record anything else depends on.
+- `.github/workflows/smoke.yml`'s path filters didn't include `functions/**`
+  at all before this — a functions-only push would never have run its own
+  unit tests. Added, since this change is exactly that gap made real.
+
 ## Pending TODOs (user-requested)
 
 - **Web Push notifications — PARKED until after release (owner's call,
