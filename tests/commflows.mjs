@@ -48,6 +48,12 @@ const ui = await page.evaluate(() => {
 });
 check("the pending queue renders with its count", ui.queueHead && ui.count);
 check("each row offers preview, approve and reject", ui.preview && ui.approve && ui.reject);
+
+// A pending submission is an admin notification too, not just a list entry —
+// the gear dot must light up as soon as applyPendingCommunity delivers it,
+// without the admin having to open this screen first.
+const gearLit = await page.evaluate(() => document.getElementById("userSettingsBtn").classList.contains("has-unread"));
+check("a pending community submission lights the settings-gear dot", gearLit);
 check("the author name is escaped, not injected", ui.authorEscaped);
 
 // ---- approve / reject with NO bridge attached ----

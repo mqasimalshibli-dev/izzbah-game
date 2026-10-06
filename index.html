@@ -8851,6 +8851,19 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="commRewardsModal" aria-hidden="true">
+      <div class="question-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="commRewardsTitle">
+        <h3 class="preview-title" id="commRewardsTitle">مكافآت فئات المجتمع</h3>
+        <p class="import-help">يفحص كل الفئات المعتمدة ويطابقها مع صناديق المرسلين — أي فئة لم يصلها كود الـ٥ ألعاب تظهر هنا.</p>
+        <p class="import-note">يرسل كوداً جديداً فقط لمن لم يصله كود من قبل. <b>لا يمكن أن يُرسِل مكافأة مكررة</b> لمن حصل عليها، سواء من هنا أو من زر «موافقة» نفسه.</p>
+        <div class="import-preview" id="commRewardsPreview"></div>
+        <div class="actions">
+          <button class="ghost" id="commRewardsCancel" type="button">إغلاق</button>
+          <button class="primary" id="commRewardsRun" type="button" disabled>إرسال المكافآت الناقصة</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="adminChoiceModal" aria-hidden="true">
       <div class="question-modal admin-choice-modal" role="dialog" aria-modal="true" aria-labelledby="adminChoiceTitle">
         <h3 class="preview-title" id="adminChoiceTitle">لوحة المشرف</h3>
@@ -8905,6 +8918,11 @@
             <span class="admin-choice-ico" aria-hidden="true">🩺</span>
             <span class="admin-choice-name">صحة الكتالوج</span>
             <span class="admin-choice-sub">كل فئة وكم لعبة تدوم قبل التكرار — والمستوى الذي ينفد أولاً</span>
+          </button>
+              <button class="admin-choice-btn" id="adminChoiceCommRewards" type="button">
+            <span class="admin-choice-ico" aria-hidden="true">🎁</span>
+            <span class="admin-choice-name">مكافآت فئات المجتمع</span>
+            <span class="admin-choice-sub">يبحث عن فئات معتمدة لم يصل مُرسِلها على المكافأة ويرسلها</span>
           </button>
             </div>
           </div>
@@ -13045,7 +13063,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-10-06.350";
+    const IZZBAH_BUILD = "2026-10-06.351";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -19333,10 +19351,14 @@
     // Build the read-only announcement cards into a container. When withInbox
     // is true (the player's own center), their personal reward messages render
     // FIRST as gift cards — code shown big, with activate + copy buttons.
-    function renderAnnouncementCards(container, list, withInbox) {
+    // inboxArg is either a boolean (legacy: true reads the player's whole
+    // state.inbox, as the announcements center and its re-render do) or an
+    // explicit array (the launch popup passes just the fresh subset it wants
+    // shown, never the player's full inbox).
+    function renderAnnouncementCards(container, list, inboxArg) {
       if (!container) return;
       container.innerHTML = "";
-      const inbox = withInbox ? (state.inbox || []) : [];
+      const inbox = Array.isArray(inboxArg) ? inboxArg : (inboxArg ? (state.inbox || []) : []);
       const redeemed = localRedeemedCodes();
       inbox.forEach(m => {
         const card = document.createElement("div");
@@ -19369,7 +19391,10 @@
       });
       if ((!list || !list.length) && !inbox.length) {
         // Still fetching the public feed → shimmer rows, not a premature «none».
-        container.innerHTML = (UI_POLISH && withInbox && !state.announcementsLoaded)
+        // inboxArg === true specifically (not just truthy) excludes the popup's
+        // explicit-array call, which must never show skeletons — by the time it
+        // fires, the fresh item it was given is already known to be real.
+        container.innerHTML = (UI_POLISH && inboxArg === true && !state.announcementsLoaded)
           ? skeleton("line", 3)
           : '<div class="announce-empty">لا توجد إعلانات حالياً.</div>';
         return;
@@ -19420,29 +19445,48 @@
     function annPoppedAt() { try { return Number(localStorage.getItem(ANN_POPPED_KEY)) || 0; } catch (e) { return 0; } }
     function setAnnPoppedAt(ts) { try { localStorage.setItem(ANN_POPPED_KEY, String(ts)); } catch (e) {} }
     let annPopShownThisSession = false;
-    function showAnnouncementPopup(freshList) {
-      renderAnnouncementCards($("#annPopBody"), [freshList[0]], false); // newest one
+    // freshAnn / freshInbox are kept as two lists (not one pre-merged array)
+    // because they render through DIFFERENT branches of renderAnnouncementCards
+    // — a reward card needs its code/redeem button, a plain announcement does
+    // not — so the newest-overall item has to be routed to the matching branch.
+    function showAnnouncementPopup(freshAnn, freshInbox) {
+      const merged = freshInbox.map(m => ({ item: m, isReward: true }))
+        .concat(freshAnn.map(a => ({ item: a, isReward: false })))
+        .sort((x, y) => (Number(y.item.createdAt) || 0) - (Number(x.item.createdAt) || 0));
+      const top = merged[0];
+      if (top.isReward) renderAnnouncementCards($("#annPopBody"), [], [top.item]);
+      else renderAnnouncementCards($("#annPopBody"), [top.item], false);
       const more = $("#annPopMore");
-      if (freshList.length > 1) { more.hidden = false; more.textContent = `و${toArabicDigits(freshList.length - 1)} ${freshList.length - 1 === 1 ? "إعلان آخر" : "إعلانات أخرى"} في مركز الإعلانات`; }
+      if (merged.length > 1) { more.hidden = false; more.textContent = `و${toArabicDigits(merged.length - 1)} ${merged.length - 1 === 1 ? "إعلان آخر" : "إعلانات أخرى"} في مركز الإعلانات`; }
       else { more.hidden = true; more.textContent = ""; }
       const m = $("#annPopModal"); m.classList.add("open"); m.setAttribute("aria-hidden", "false");
     }
     function closeAnnouncementPopup() { const m = $("#annPopModal"); m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
+    // A reward message (e.g. the 5-game code for an approved community
+    // category) used to be silent beyond the gear's unread dot — easy to miss
+    // for a player who submitted a category weeks ago and forgot about it. It
+    // now pops the SAME way a fresh announcement does, so the gift is seen the
+    // first time they sign back in rather than relying on them noticing a dot.
     function maybePopAnnouncement() {
       if (annPopShownThisSession) return;          // at most once per launch
       if (!state.signedIn) return;                 // only after the player signs in
       if (state.gameActive) return;                // never interrupt a live game
-      const list = state.announcements || [];
-      if (!list.length) return;
+      const annList = state.announcements || [];
+      const inboxList = state.inbox || [];
+      if (!annList.length && !inboxList.length) return;
       const poppedAt = annPoppedAt();
-      const fresh = list
+      const freshAnn = annList
         .filter(a => (Number(a.createdAt) || 0) > poppedAt)
         .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
-      if (!fresh.length) return;
+      const freshInbox = inboxList
+        .filter(m => (Number(m.createdAt) || 0) > poppedAt)
+        .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+      if (!freshAnn.length && !freshInbox.length) return;
       annPopShownThisSession = true;
-      setAnnPoppedAt(annLatestTs(list));           // don't re-pop these again
+      // Don't re-pop either kind next launch, even the one that stayed empty.
+      setAnnPoppedAt(Math.max(annLatestTs(annList), annLatestTs(inboxList)));
       // A short beat so it lands after the splash clears, not behind it.
-      setTimeout(() => { if (!state.gameActive) showAnnouncementPopup(fresh); }, 700);
+      setTimeout(() => { if (!state.gameActive) showAnnouncementPopup(freshAnn, freshInbox); }, 700);
     }
 
     // ---- Player ↔ developer feedback (private two-way messages) ----------
@@ -19458,11 +19502,17 @@
     // opened their feedback thread.
     function feedbackUnreadCount() { return (state.feedbackLatestAdminTs || 0) > feedbackReadAt() ? 1 : 0; }
     // The gear's unread dot reflects announcements/inbox, the player's own dev
-    // replies, AND (for admins) unread incoming player messages.
+    // replies, AND (for admins) unread incoming player messages AND community
+    // categories waiting on a decision — a new submission OR an author's edit,
+    // since an edit also sends the category back to `pending` (see
+    // firestore.rules' community update rule (b)). This is the only
+    // always-on signal the admin has for new submitted content without
+    // opening the community panel first.
     function refreshGearUnread() {
       const gear = $("#userSettingsBtn");
       const adminUnread = (typeof feedbackAdminUnreadCount === "function") ? feedbackAdminUnreadCount() : 0;
-      if (gear) gear.classList.toggle("has-unread", annUnreadCount() > 0 || feedbackUnreadCount() > 0 || adminUnread > 0);
+      const pendingCommunity = (state.isAdmin && state.pendingCommunity) ? state.pendingCommunity.length : 0;
+      if (gear) gear.classList.toggle("has-unread", annUnreadCount() > 0 || feedbackUnreadCount() > 0 || adminUnread > 0 || pendingCommunity > 0);
     }
     function updateFeedbackBadge() {
       const n = feedbackUnreadCount();
@@ -28284,6 +28334,79 @@
       }
     });
     $("#adminRestoreAll").addEventListener("click", startCatalogRestore);
+
+    // ---- Community-approval reward backfill ---------------------------------
+    // Pure maintenance: scan every APPROVED community category and send the
+    // 5-game reward to any author who never got one — whether their category
+    // was approved before this reward existed, or the reward write silently
+    // failed at the time (e.g. a firestore.rules publish gap). Shares the same
+    // plan-then-confirm shape as the restore-backup modal above on purpose.
+    let commRewardsPending = null;
+    let commRewardsRunning = false;
+    function closeCommRewardsModal() {
+      const m = $("#commRewardsModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+      commRewardsPending = null;
+    }
+    function renderCommRewardsPlan(plan) {
+      const box = $("#commRewardsPreview");
+      const run = $("#commRewardsRun");
+      if (!plan.eligible.length) {
+        box.innerHTML = `<div class="imp-auto">لا توجد فئة ناقصة — كل فئة معتمدة بمؤلّف معروف حصلت على مكافأتها.`
+          + (plan.noAuthor ? ` (<b>${toArabicDigits(plan.noAuthor)}</b> فئة بلا مؤلّف معروف — لا يمكن مكافأتها.)` : "") + `</div>`;
+        run.disabled = true; return;
+      }
+      let html = `<div class="imp-tiers">`
+        + `<span class="imp-tier"><b>${toArabicDigits(plan.eligible.length)}</b> فئة ستُرسَل لها مكافأة</span>`
+        + `<span class="imp-tier"><b>${toArabicDigits(plan.alreadyRewarded)}</b> فئة حصلت على مكافأتها من قبل</span>`
+        + (plan.noAuthor ? `<span class="imp-tier"><b>${toArabicDigits(plan.noAuthor)}</b> بلا مؤلّف معروف</span>` : "")
+        + `</div>`;
+      const rows = plan.eligible.map(c => `<div>🎁 <b>${escapeHtml(c.name || c.id)}</b> — من ${escapeHtml(c.authorName || "عضو")}</div>`);
+      html += `<div class="imp-errs restore-list">${rows.slice(0, 40).join("")}${rows.length > 40 ? `<div>… و${toArabicDigits(rows.length - 40)} فئة أخرى</div>` : ""}</div>`;
+      box.innerHTML = html;
+      run.disabled = false;
+    }
+    function openCommRewardsModal() {
+      if (!state.isAdmin) { showToast("هذا للمشرف فقط"); return; }
+      const m = $("#commRewardsModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      $("#commRewardsPreview").innerHTML = `<div class="imp-auto">جارٍ الفحص…</div>`;
+      $("#commRewardsRun").disabled = true;
+      const plan = window.IZZBAH && window.IZZBAH.planCommunityRewardBackfill;
+      if (!plan) { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>غير متاح — تحقّق من اتصالك</div></div>`; return; }
+      plan().then(p => { commRewardsPending = p.eligible.length ? p : null; renderCommRewardsPlan(p); })
+        .catch(e => { $("#commRewardsPreview").innerHTML = `<div class="imp-errs"><div>تعذّر الفحص — ${escapeHtml((e && (e.code || e.message)) || "خطأ")}</div></div>`; });
+    }
+    $("#adminChoiceCommRewards").addEventListener("click", () => { closeAdminChoice(); openCommRewardsModal(); });
+    $("#commRewardsCancel").addEventListener("click", () => { if (!commRewardsRunning) closeCommRewardsModal(); });
+    $("#commRewardsModal").addEventListener("click", e => { if (e.target.id === "commRewardsModal" && !commRewardsRunning) closeCommRewardsModal(); });
+    $("#commRewardsRun").addEventListener("click", async () => {
+      if (!commRewardsPending || commRewardsRunning) return;
+      const plan = commRewardsPending;
+      commRewardsRunning = true;
+      const run = $("#commRewardsRun"), cancel = $("#commRewardsCancel");
+      run.disabled = true; cancel.disabled = true;
+      run.textContent = "جارٍ الإرسال…";
+      const box = $("#commRewardsPreview");
+      try {
+        const result = await window.IZZBAH.runCommunityRewardBackfill(plan.eligible);
+        let html = `<span class="imp-ok">تم إرسال <b>${toArabicDigits(result.sent)}</b> مكافأة.</span>`;
+        if (result.failed.length) {
+          html += `<div class="imp-errs"><div>⚠️ تعذّر الإرسال لـ ${toArabicDigits(result.failed.length)}: ${result.failed.map(escapeHtml).join("، ")}</div></div>`;
+        }
+        box.innerHTML = html;
+        showToast(`تم إرسال ${toArabicDigits(result.sent)} مكافأة`);
+      } catch (e) {
+        box.innerHTML = `<div class="imp-errs"><div>فشل الإرسال: ${escapeHtml((e && e.message) || "خطأ")}</div></div>`;
+      } finally {
+        commRewardsRunning = false;
+        cancel.disabled = false;
+        run.textContent = "إرسال المكافآت الناقصة";
+        run.disabled = true;
+        commRewardsPending = null;
+      }
+    });
+
     $("#adminExportFull").addEventListener("click", exportFullBackup);
     $("#adminExportAll").addEventListener("click", exportCatalogBackup);
     $("#adminFillDistractors").addEventListener("click", fillMissingDistractors);
@@ -28798,6 +28921,10 @@
       state.pendingCommunity = (Array.isArray(cats) ? cats : []).map(normalizeCommunityCategory)
         .filter(c => !c.approved);
       if (state.editorTarget === "community" && typeof renderCustomManager === "function") renderCustomManager();
+      // This arrives on sign-in (loadCommunityCategories), well before an admin
+      // would ever open the community panel — fold it into the gear dot right
+      // away so a new submission is visible without that extra step.
+      if (typeof refreshGearUnread === "function") refreshGearUnread();
     };
     $("#closePreview").addEventListener("click", closeCategoryPreview);
     $("#categoryPreview").addEventListener("click", event => {
@@ -31278,6 +31405,46 @@
               );
             });
           };
+          // Backfill: a category approved before the reward path existed (or
+          // whose reward write failed silently, e.g. a rules-publish gap) never
+          // got its author a code. This reuses sendApprovalReward's OWN de-dup
+          // check (does inbox/{authorUid}/msgs/catreward-{catId} already exist),
+          // so running it is always safe — it can never re-reward someone who
+          // already has a code, whether they got it from the live «موافقة»
+          // button or from a previous run of this same backfill.
+          window.IZZBAH.planCommunityRewardBackfill = function () {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            return db.collection("community").where("approved", "==", true).get({ source: "server" }).then(snap => {
+              const cats = snap.docs.map(d => {
+                const x = d.data() || {};
+                return { id: d.id, name: x.name || "", authorUid: x.authorUid || "", authorName: x.authorName || "" };
+              });
+              const noAuthor = cats.filter(c => !c.authorUid);
+              const withAuthor = cats.filter(c => c.authorUid);
+              return Promise.all(withAuthor.map(c =>
+                db.collection("inbox").doc(c.authorUid).collection("msgs").doc("catreward-" + c.id).get()
+                  .then(doc => ({ cat: c, already: doc.exists }))
+              )).then(rows => ({
+                eligible: rows.filter(r => !r.already).map(r => r.cat),
+                alreadyRewarded: rows.filter(r => r.already).length,
+                noAuthor: noAuthor.length
+              }));
+            });
+          };
+          // Sequential, not parallel: this is an admin-triggered maintenance
+          // action over realistically a handful of categories, not a hot path —
+          // no reason to race Firestore, and a failure on one must not abort
+          // the rest.
+          window.IZZBAH.runCommunityRewardBackfill = function (cats) {
+            if (!cloudIsAdmin) return Promise.reject(new Error("not admin"));
+            const list = Array.isArray(cats) ? cats : [];
+            let sent = 0; const failed = [];
+            return list.reduce((chain, c) => chain.then(() =>
+              sendApprovalReward(c, c.id)
+                .then(rewarded => { if (rewarded) sent++; })
+                .catch(() => { failed.push(c.name || c.id); })
+            ), Promise.resolve()).then(() => ({ sent, failed }));
+          };
           // Erase this account, everywhere. The heavy lifting is a Cloud
           // Function (entitlements/{uid} is write-denied to every user, so the
           // browser cannot remove its own paid balance) — this only calls it,
@@ -31560,7 +31727,12 @@
             // copy of the code-balance mirror over the live state. Load the
             // authoritative sum of redeemed codes last so it always wins.
             loadMyCodes(user);
-            loadInbox(user);
+            // Once loaded, pop a fresh reward the same way a fresh announcement
+            // pops (see maybePopAnnouncement) — this is the ONLY path that would
+            // otherwise miss a brand-new community-approval reward, since the
+            // announcements feed resolves on its own, usually earlier.
+            const inboxP = loadInbox(user);
+            if (inboxP && inboxP.then) inboxP.then(() => { if (typeof maybePopAnnouncement === "function") maybePopAnnouncement(); });
             loadFeedback(user); // dev-reply badge on the feedback row
           });
         })
