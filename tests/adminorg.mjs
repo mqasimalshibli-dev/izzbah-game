@@ -30,6 +30,7 @@ const ENTRIES = [
   ["adminChoiceDist", "distModal"],
   ["adminChoiceLog", "auditModal"],
   ["adminChoiceHealth", "healthModal"],
+  ["adminChoiceCommRewards", "commRewardsModal"],
   ["adminChoiceStats", "statsModal"],
   ["adminChoiceQHealth", "qHealthModal"],
   ["adminChoiceSubs", "premiumModal"],

@@ -202,6 +202,13 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node annpopup.mjs
 
+      - name: Run reward launch-popup test (community-approval rewards)
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node rewardpopup.mjs
+
       - name: Run player↔dev feedback test
         if: ${{ !cancelled() }}
         working-directory: tests
@@ -818,6 +825,13 @@ jobs:
         run: |
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commreview.mjs
+
+      - name: Run community-reward backfill test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node commbackfill.mjs
 
       - name: Run question-font-cap test (all device shapes)
         if: ${{ !cancelled() }}
