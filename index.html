@@ -8831,6 +8831,26 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="commReviewModal" aria-hidden="true">
+      <div class="question-modal import-modal health-modal" role="dialog" aria-modal="true" aria-labelledby="commReviewTitle">
+        <h3 class="preview-title" id="commReviewTitle">مراجعة فئة مجتمعية</h3>
+        <div id="commReviewMeta"></div>
+        <div class="health-body">
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th class="col-q">السؤال</th><th class="col-a">الإجابة</th><th class="col-img">صورة</th><th class="col-pts">النقاط</th></tr></thead>
+              <tbody id="commReviewRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="commReviewClose" type="button">إغلاق</button>
+          <button class="danger" id="commReviewReject" type="button" hidden>رفض</button>
+          <button class="primary" id="commReviewApprove" type="button" hidden>موافقة</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="adminChoiceModal" aria-hidden="true">
       <div class="question-modal admin-choice-modal" role="dialog" aria-modal="true" aria-labelledby="adminChoiceTitle">
         <h3 class="preview-title" id="adminChoiceTitle">لوحة المشرف</h3>
@@ -12969,6 +12989,7 @@
       communityCategories: [],
       myCommunity: [],
       pendingCommunity: [],
+      commReviewCat: null,     // category currently open in the admin's question-review modal
       myVotes: new Set(),
       signedIn: false,
       myUid: "",
@@ -13024,7 +13045,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-09-04.349";
+    const IZZBAH_BUILD = "2026-10-06.350";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -23772,14 +23793,18 @@
           const row = document.createElement("div");
           row.className = "custom-row";
           const filled = (cat.questions || []).filter(q => q.q && q.q.trim()).length;
+          const submittedShort = cat.createdAt ? commReviewWhen(cat.createdAt).split(" ")[0] : "";
           row.innerHTML = `
             <div>${cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="" loading="lazy" decoding="async">` : iconSvg("custom")}</div>
             <div>
               <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
-              <div style="font-size:16px;color:var(--gold-dark)">من ${escapeHtml(cat.authorName || "عضو")} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة</div>
+              <div style="font-size:16px;color:var(--gold-dark)">من ${escapeHtml(cat.authorName || "عضو")} · <span class="clean-number">${toArabicDigits(filled)}</span> أسئلة${submittedShort ? ` · <span class="clean-number">${escapeHtml(submittedShort)}</span>` : ""}</div>
             </div>`;
           const actions = document.createElement("div");
           actions.className = "actions"; actions.style.margin = "0";
+          const detail = document.createElement("button");
+          detail.className = "secondary"; detail.textContent = "عرض الأسئلة";
+          detail.addEventListener("click", () => openCommunityReview(cat));
           const preview = document.createElement("button");
           preview.className = "ghost"; preview.textContent = "معاينة";
           preview.addEventListener("click", () => openCategoryPreview(cat));
@@ -23808,7 +23833,7 @@
                 .catch(e => showToast("تعذّر — " + ((e && (e.code || e.message)) || "حاول مجدداً")));
             }
           });
-          actions.append(preview, ok, no);
+          actions.append(detail, preview, ok, no);
           row.appendChild(actions);
           list.appendChild(row);
         });
@@ -27295,6 +27320,29 @@
       c().then(n => { showToast(`تم مسح ${toArabicDigits(n)} سطراً`); openAuditLog(); })
         .catch(() => showToast("تعذّر المسح"));
     });
+    $("#commReviewClose").addEventListener("click", closeCommunityReview);
+    $("#commReviewModal").addEventListener("click", e => { if (e.target.id === "commReviewModal") closeCommunityReview(); });
+    $("#commReviewApprove").addEventListener("click", () => {
+      const cat = state.commReviewCat;
+      if (!cat) return;
+      const approve = window.IZZBAH && window.IZZBAH.communityApprove;
+      if (!approve) { showToast("الموافقة غير متاحة الآن — تحقّق من اتصالك"); return; }
+      approve(cat.id, true).then(res => {
+        closeCommunityReview();
+        if (res && res.rewarded) showToast("تمت الموافقة 🎁 وأُرسل كود ٥ ألعاب لصاحب الفئة");
+        else if (res && res.rewardError) showToast("تمت الموافقة — لكن تعذّر إرسال المكافأة، أعد المحاولة");
+        else showToast("تمت الموافقة على الفئة");
+      }).catch(e => showToast("تعذّر — " + ((e && (e.code || e.message)) || "حاول مجدداً")));
+    });
+    $("#commReviewReject").addEventListener("click", () => {
+      const cat = state.commReviewCat;
+      if (!cat) return;
+      const del = window.IZZBAH && window.IZZBAH.communityDelete;
+      if (!del) { showToast("الرفض غير متاح الآن — تحقّق من اتصالك"); return; }
+      if (!window.confirm(`رفض وحذف فئة «${cat.name || ""}»؟`)) return;
+      del(cat.id).then(() => { closeCommunityReview(); showToast("تم الرفض"); })
+        .catch(e => showToast("تعذّر — " + ((e && (e.code || e.message)) || "حاول مجدداً")));
+    });
     $("#healthClose").addEventListener("click", closeHealthBoard);
     $("#healthModal").addEventListener("click", e => { if (e.target.id === "healthModal") closeHealthBoard(); });
     $("#healthSort").addEventListener("click", e => {
@@ -27672,6 +27720,89 @@
     function closeAuditLog() {
       const m = $("#auditModal");
       m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+    }
+
+    // ---- Community category review (questions + who/when submitted) -------
+    // Read-only: this never republishes the category. The pending queue above
+    // already shows name/author/count; this is the detail view behind «عرض
+    // الأسئلة» that shows the actual Q&A, both images, and the submission time
+    // that mapCommunityDoc/normalizeCommunityCategory now carry into state.
+    function commReviewWhen(ms) {
+      if (!ms) return "—";
+      try {
+        const d = new Date(ms);
+        const pad = n => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch (e) { return "—"; }
+    }
+    function renderCommReview(cat) {
+      const meta = $("#commReviewMeta");
+      if (meta) {
+        const cover = cat.image ? `<img class="category-thumb" src="${escapeHtml(cat.image)}" alt="" loading="lazy" decoding="async">` : iconSvg("custom");
+        const filled = (cat.questions || []).filter(q => (q.q && q.q.trim()) || (q.a && q.a.trim())).length;
+        const editedLater = cat.updatedAt && cat.updatedAt !== cat.createdAt;
+        meta.innerHTML = `
+          <div class="custom-row" style="margin-bottom:10px">
+            <div>${cover}</div>
+            <div>
+              <div style="font-size:24px;color:var(--dark)">${escapeHtml(cat.name || "بدون اسم")}</div>
+              <div style="font-size:16px;color:var(--gold-dark)">من ${escapeHtml(cat.authorName || "عضو")}${cat.authorUid ? ` <span class="prem-row-id-uid" id="commReviewUid" title="نسخ معرّف المستخدم" style="cursor:pointer">(${escapeHtml(cat.authorUid)})</span>` : ""}</div>
+            </div>
+          </div>
+          <div class="imp-tiers">
+            <span class="imp-tier">أُرسلت <b>${escapeHtml(commReviewWhen(cat.createdAt))}</b></span>
+            ${editedLater ? `<span class="imp-tier">آخر تعديل <b>${escapeHtml(commReviewWhen(cat.updatedAt))}</b></span>` : ""}
+            <span class="imp-tier"><b class="clean-number">${toArabicDigits(filled)}</b> سؤالاً</span>
+          </div>`;
+        const uidEl = $("#commReviewUid");
+        if (uidEl) uidEl.addEventListener("click", () => {
+          const t = navigator.clipboard && navigator.clipboard.writeText(cat.authorUid);
+          if (t && t.then) t.then(() => showToast("نُسخ معرّف المستخدم")).catch(() => {});
+        });
+      }
+      const box = $("#commReviewRows");
+      if (!box) return;
+      const qs = cat.questions || [];
+      if (!qs.length) { box.innerHTML = `<tr><td colspan="4"><div class="imp-auto">لا توجد أسئلة في هذه الفئة.</div></td></tr>`; return; }
+      const thumb = (src, tag, cls, label) => src
+        ? `<span class="q-thumb-wrap q-thumb-clickable" data-src="${escapeHtml(src)}" data-label="${escapeHtml(label)}" title="معاينة"><img class="q-thumb" src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async"><span class="q-thumb-tag ${cls}">${tag}</span><span class="q-thumb-play">🔍</span></span>`
+        : "";
+      box.innerHTML = qs.map(q => {
+        const dist = Array.isArray(q.distractors) ? q.distractors.filter(Boolean) : [];
+        const thumbs = thumb(q.image, "س", "q-thumb-tag--q", "وسائط السؤال") + thumb(q.answerImage, "ج", "q-thumb-tag--a", "وسائط الإجابة");
+        return `<tr>
+          <td class="col-q">${escapeHtml(q.q || "—")}</td>
+          <td class="col-a">${escapeHtml(q.a || "—")}${dist.length ? `<div style="font-size:12px;color:#8c6a2e;margin-top:4px;font-weight:400">خيارات خاطئة: ${dist.map(escapeHtml).join(" · ")}</div>` : ""}</td>
+          <td class="col-img">${thumbs ? `<span class="q-thumbs">${thumbs}</span>` : `<span class="q-noimg">—</span>`}</td>
+          <td class="col-pts"><span class="q-pts">${escapeHtml(toArabicDigits(q.points || 0))}</span></td>
+        </tr>`;
+      }).join("");
+      // Rebuilt wholesale on every render, so bound directly rather than
+      // delegated — nothing here is left over from a previous open.
+      box.querySelectorAll(".q-thumb-clickable").forEach(el => {
+        el.addEventListener("click", () => openMediaPreview(el.dataset.src, el.dataset.label));
+      });
+    }
+    function openCommunityReview(cat) {
+      if (!state.isAdmin || !cat) return;
+      state.commReviewCat = cat;
+      const m = $("#commReviewModal");
+      m.classList.add("open"); m.setAttribute("aria-hidden", "false");
+      const pending = !cat.approved;
+      const approveBtn = $("#commReviewApprove"), rejectBtn = $("#commReviewReject");
+      if (approveBtn) approveBtn.hidden = !pending;
+      if (rejectBtn) rejectBtn.hidden = !pending;
+      renderCommReview(cat);
+      // Text and the submission date show immediately; pictures are lazy
+      // (build .213) and arrive a moment later without blocking the rest.
+      if (categoryNeedsMedia(cat)) {
+        hydrateMediaInto([cat]).then(() => { if (state.commReviewCat === cat) renderCommReview(cat); });
+      }
+    }
+    function closeCommunityReview() {
+      const m = $("#commReviewModal");
+      m.classList.remove("open"); m.setAttribute("aria-hidden", "true");
+      state.commReviewCat = null;
     }
 
     function openHealthBoard() {
@@ -28641,6 +28772,10 @@
       n.community = true; n.custom = true; n.visibility = "public";
       n.authorUid = c.authorUid || ""; n.authorName = c.authorName || "";
       n.votes = c.votes || 0; n.approved = c.approved === true;
+      // normalizePublishedCategory returns a FIXED shape, so createdAt/updatedAt
+      // (set only in mapCommunityDoc, used only by openCommunityReview) would
+      // otherwise be silently dropped here, same trap as __idx/count in .309.
+      n.createdAt = c.createdAt || 0; n.updatedAt = c.updatedAt || 0;
       // Question media never enters state. mapCommunityDoc already strips it on
       // the way out of Firestore, but the invariant is enforced HERE, at the
       // state boundary every caller funnels through — the cached copy, the
@@ -30911,6 +31046,10 @@
               questions: src.map(q => Object.assign({}, q, { image: "", answerImage: "" })),
               authorUid: x.authorUid || "", authorName: x.authorName || "",
               votes: x.votes || 0, approved: x.approved === true, community: true, custom: true,
+              // When this was submitted / last edited — admin-review-only today
+              // (see openCommunityReview); nothing player-facing reads these.
+              createdAt: x.createdAt && typeof x.createdAt.toMillis === "function" ? x.createdAt.toMillis() : 0,
+              updatedAt: x.updatedAt && typeof x.updatedAt.toMillis === "function" ? x.updatedAt.toMillis() : 0,
               __lite: true
             };
           }

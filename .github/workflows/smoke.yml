@@ -812,6 +812,13 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node commflows.mjs
 
+      - name: Run community-category review modal test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node commreview.mjs
+
       - name: Run question-font-cap test (all device shapes)
         if: ${{ !cancelled() }}
         working-directory: tests
