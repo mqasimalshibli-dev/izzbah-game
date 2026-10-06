@@ -11,12 +11,15 @@
 // signs one upload URL scoped to a single object key. Nothing else can write.
 // ---------------------------------------------------------------------------
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const nodemailer = require("nodemailer");
 const { getPack, toBaisa } = require("./lib/packs");
 const { grantDecision, entitlementUpdate, GRANTED, FAILED, PENDING } = require("./lib/grant");
+const { shouldNotifyFeedback, communityEmail, feedbackEmail } = require("./lib/notify");
 
 admin.initializeApp();
 
@@ -507,6 +510,74 @@ exports.revenuecatWebhook = onRequest(
       // retry, because this one might succeed next time.
       console.error("revenuecat webhook failed", err);
       res.status(500).send("error");
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Developer email notifications — new community-category submission, and new
+// player feedback. These are the FIRST Firestore-triggered functions in this
+// codebase; everything above is HTTPS-only. See DEV_NOTIFY_SETUP.md for the
+// Gmail app-password + deploy steps — nothing here is live until that runs.
+//
+// ⚠️ Sent via the owner's OWN Gmail account (SMTP + an app password), to that
+// SAME address — self-notification, not a new third-party service. Decision
+// recorded 2026-10-06: email was picked over re-opening Web Push (parked
+// 2026-07-19) or a paid provider (SendGrid/Mailgun), specifically because it
+// needs no new account, just a password Gmail already lets you generate.
+//
+// ⚠️ A failed send must never retry forever. onDocumentCreated has no retry
+// configured here (the default), so a thrown error simply drops the one
+// email — acceptable, because the in-app gear badge (see index.html's
+// refreshGearUnread/feedbackAdminUnreadCount) is the real, always-correct
+// signal; email is a best-effort nudge on top of it, not the record of truth.
+// ---------------------------------------------------------------------------
+const GMAIL_USER = defineSecret("GMAIL_USER");
+const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
+
+let mailTransport = null;
+function getMailTransport() {
+  if (!mailTransport) {
+    mailTransport = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: GMAIL_USER.value(), pass: GMAIL_APP_PASSWORD.value() },
+    });
+  }
+  return mailTransport;
+}
+async function sendDevEmail(subject, text) {
+  const to = GMAIL_USER.value();
+  await getMailTransport().sendMail({ from: to, to, subject, text });
+}
+
+exports.notifyNewCommunityCategory = onDocumentCreated(
+  { document: "community/{catId}", secrets: [GMAIL_USER, GMAIL_APP_PASSWORD] },
+  async (event) => {
+    const cat = event.data && event.data.data();
+    if (!cat) return;
+    const { subject, text } = communityEmail(cat, event.params.catId);
+    try {
+      await sendDevEmail(subject, text);
+      console.log("notify: emailed new community category", event.params.catId);
+    } catch (err) {
+      console.error("notify: failed to email new community category", err);
+    }
+  }
+);
+
+exports.notifyNewFeedback = onDocumentCreated(
+  { document: "feedback/{uid}/messages/{msgId}", secrets: [GMAIL_USER, GMAIL_APP_PASSWORD] },
+  async (event) => {
+    const msg = event.data && event.data.data();
+    // An admin's OWN reply also creates a 'messages' doc — never email the
+    // admin about their own message.
+    if (!shouldNotifyFeedback(msg)) return;
+    const { subject, text } = feedbackEmail(msg, event.params.uid);
+    try {
+      await sendDevEmail(subject, text);
+      console.log("notify: emailed new feedback from", event.params.uid);
+    } catch (err) {
+      console.error("notify: failed to email new feedback", err);
     }
   }
 );
