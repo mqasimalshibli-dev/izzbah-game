@@ -13068,7 +13068,7 @@
     const $ = selector => document.querySelector(selector);
     // Bumped on every deploy — shown in the welcome footer so anyone can tell
     // at a glance whether they're running a stale cached copy of the game.
-    const IZZBAH_BUILD = "2026-10-06.352";
+    const IZZBAH_BUILD = "2026-10-07.353";
 
     // ─────────── UI polish pack (2026-07-24) — one reversible switch ───────────
     // Turns on three cosmetic upgrades together:
@@ -24240,6 +24240,47 @@
     function categoryNeedsMedia(cat) {
       return !!(cat && cat.__lite && !hydratedCats.has(cat.id));
     }
+    // Which STORED question each question in `list` may borrow its pictures from,
+    // when the category in hand is media-lite and an empty image therefore means
+    // "not loaded". Returns an array parallel to `list` of stored entries (or null).
+    //
+    // ⚠️ This must NOT pair by position alone. Question docs are keyed q0..qN by
+    // POSITION, so after the duplicate remover splices one question out, every
+    // later question sits one slot earlier than its stored picture. Pairing by
+    // position hands each of them the PREVIOUS occupant's photo — silently, across
+    // the whole rest of the category (found live in «العاب»: ~80 pictures one row
+    // late). A stored entry is matched by what the question SAYS (q + a):
+    //   1. same text → that entry's pictures follow the question wherever it moved
+    //      (the same slot is preferred, else the nearest unused one);
+    //   2. no text match (the text was edited in place) → the entry in the SAME
+    //      slot, but only if no other question already claimed it;
+    //   3. otherwise null — a new question has no picture yet. Blank beats wrong.
+    function pairStoredMedia(list, stored) {
+      const key = x => JSON.stringify([String((x && x.q) || "").trim(), String((x && x.a) || "").trim()]);
+      const slots = new Map();
+      (stored || []).forEach((s, p) => {
+        if (!s) return;
+        const k = key(s);
+        if (!slots.has(k)) slots.set(k, []);
+        slots.get(k).push(p);
+      });
+      const used = new Set();
+      const out = new Array((list || []).length).fill(null);
+      (list || []).forEach((q, i) => {
+        const cands = (slots.get(key(q)) || []).filter(p => !used.has(p));
+        if (!cands.length) return;
+        let pick = cands[0];
+        cands.forEach(p => { if (Math.abs(p - i) < Math.abs(pick - i)) pick = p; });
+        used.add(pick);
+        out[i] = stored[pick];
+      });
+      (list || []).forEach((q, i) => {
+        if (out[i] || !stored || !stored[i] || used.has(i)) return;
+        used.add(i);
+        out[i] = stored[i];
+      });
+      return out;
+    }
     // Fetch media for a specific set of categories and merge it in place.
     // Official categories keep their pictures in a /questions subcollection;
     // community ones keep theirs inline on their single doc — different reads,
@@ -29994,8 +30035,12 @@
           window.IZZBAH.adminSetCommunityQuestions = function (catId, questions, mediaTrusted) {
             if (!catId) return Promise.reject(new Error("no category"));
             const ref = db.collection("community").doc(catId);
-            const shape = (list, prev) => (list || []).map((q, i) => {
-              const p = (prev && prev[i]) || {};
+            const shape = (list, prev) => {
+              // By question, not by slot — see pairStoredMedia. Removing a
+              // duplicate shifts every later question up one slot.
+              const src = mediaTrusted ? null : pairStoredMedia(list, prev || []);
+              return (list || []).map((q, i) => {
+              const p = (src && src[i]) || {};
               const keep = (v, o) => (!v && !mediaTrusted) ? (o || "") : (v || "");
               return {
                 points: q.points || 0, q: q.q || "", a: q.a || "",
@@ -30004,7 +30049,8 @@
                 margin: Number(q.margin) > 0 ? Number(q.margin) : 0,
                 marginUnit: q.marginUnit ? String(q.marginUnit) : ""
               };
-            });
+              });
+            };
             const write = prev => ref.update({
               questions: shape(questions, prev),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -31064,17 +31110,26 @@
               // still honours a clear, so removing a picture in the editor works.
               const mediaTrusted = !cat.__lite || hydratedCats.has(cat.id);
               const keepImg = (v, p) => (!v && !mediaTrusted) ? (p || "") : (v || "");
+              // ⚠️ The picture a question falls back to is the one stored for the
+              // SAME QUESTION, found by its text — never "whatever sits in slot i".
+              // Docs are keyed by position, so any publish that moves a question
+              // (the duplicate remover, an insert) re-pairs every later question
+              // with the previous occupant's photo if the lookup is positional.
+              const storedByPos = [];
+              existing.forEach(d => { const m = /^q(\d+)$/.exec(d.id); if (m) storedByPos[Number(m[1])] = d.data() || {}; });
+              const mediaSrc = mediaTrusted ? null : pairStoredMedia(list, storedByPos);
               list.forEach((q, i) => {
                 const id = "q" + i; keep.add(id);
                 const prev = prevById.get(id);
+                const src = (mediaSrc && mediaSrc[i]) || null;
                 // Curated distractors live in the META doc's questions array
                 // (which the rules don't field-validate), NOT here — so the
                 // per-question doc keeps its original shape and publishing works
                 // under the deployed rules without a rules change.
                 const data = {
                   points: q.points || 0, q: q.q || "", a: q.a || "",
-                  image: keepImg(q.image, prev && prev.image),
-                  answerImage: keepImg(q.answerImage, prev && prev.answerImage), idx: i
+                  image: keepImg(q.image, src && src.image),
+                  answerImage: keepImg(q.answerImage, src && src.answerImage), idx: i
                 };
                 if (!prev || prev.points !== data.points || prev.q !== data.q || prev.a !== data.a
                     || prev.image !== data.image || prev.answerImage !== data.answerImage || prev.idx !== data.idx) {

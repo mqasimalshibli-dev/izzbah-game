@@ -62,6 +62,34 @@ readers it took 12. A job that looks hung is usually just serial — measure wit
 lookups will do (`orderBy(__name__).limit(20)` burned the full 300s deadline
 and returned nothing, while `getAll()` of the same docs worked fine).
 
+## Pictures sitting on the WRONG question — the re-pairing bug (build .353, 2026-10-07)
+
+Owner: *"some categories have the pictures mixed again… the places in oman."*
+Not the August blanking bug: nothing was empty, the pictures were present and
+one question late. Worst case «العاب» — q42…q147 each held the NEXT row's photo.
+
+- **Cause.** Question docs are keyed `q0..qN` by POSITION. The untrusted
+  (media-lite) path of `cloudPublish` fell back to "the stored image of slot i".
+  Any publish that MOVES questions — the duplicate remover splicing one out, an
+  insert — shifted every later question up while the pictures stayed put.
+- **Fix.** `pairStoredMedia(list, stored)` pairs a stored entry by what the
+  question SAYS (q + a, nearest slot wins among repeats), never by slot; a new
+  question gets nothing. Used by `cloudPublish` and `adminSetCommunityQuestions`.
+  `tests/mediapair.mjs`. ⚠️ `tests/mediawipe.mjs` pins the `keepImg(…, src && src.image)`
+  wording — change one, change the other.
+- ⚠️ Any NEW code that inserts or reorders questions must hydrate first or go
+  through the same pairing. This was the third write path to learn the lite rule.
+- **Repair is per category, by hand.** `tools/fix-games-shift.mjs` (one-off for
+  «العاب», all-or-nothing against an audited table, backup + `--undo`,
+  `tests/gamesshift.mjs`). Then `touch-categories.mjs --only <id> --apply`,
+  or devices keep the old pictures. «مواقع في عمان» is displaced by 1–3 rows
+  that vary, so it needs a backup-based re-pair, not a constant shift.
+- ⚠️ **«قديمك نديمك» has NO pictures at all** — restore from a backup before the
+  98-day retention passes the date.
+- ⚠️ The `review-images` vision workflow badly UNDER-reports shifts (≈25 of ~105
+  in «العاب», 6 in «مواقع في عمان»): neighbouring rows look plausible one at a time.
+  Trust `tools/imgdupscan.mjs` and a contact sheet, not the flag count.
+
 ## Two roles now, not one: `admins/{uid}` and `editors/{uid}` (build .304)
 
 There used to be exactly ONE flag, and it granted content, credits,

@@ -23,14 +23,18 @@
 //
 //   node tools/touch-categories.mjs                # dry run
 //   node tools/touch-categories.mjs --apply
+//   node tools/touch-categories.mjs --only a,b --apply   # just these category ids
 import { Firestore } from "@google-cloud/firestore";
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes("--apply");
 const PROJECT = "izzbahgame";
 
-// The categories the restore wrote to.
-const IDS = [
+// The categories the August restore wrote to — the default. --only replaces it
+// with exactly the ids given, for repairs elsewhere (a media write to ANY
+// category needs this same bump before devices will refetch its pictures).
+const ONLY = argv.includes("--only") ? String(argv[argv.indexOf("--only") + 1] || "").split(",").map(s => s.trim()).filter(Boolean) : null;
+const IDS = ONLY && ONLY.length ? ONLY : [
   "culture", "history",
   "pub-1783170059396-601", "pub-1783170356019-2501", "pub-1783189666048-7547",
   "pub-1783453062866-1028", "pub-1783510423551-6465", "pub-1784240484235-8039",

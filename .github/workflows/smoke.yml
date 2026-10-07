@@ -764,6 +764,18 @@ jobs:
           IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
             node mediawipe.mjs
 
+      - name: Run media re-pairing test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: |
+          IZZBAH_CHROMIUM="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")" \
+            node mediapair.mjs
+
+      - name: Run games-shift repair-tool test
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        run: node gamesshift.mjs
+
       - name: Run media-recovery page test
         if: ${{ !cancelled() }}
         working-directory: tests
