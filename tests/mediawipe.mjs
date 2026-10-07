@@ -108,8 +108,8 @@ const src = await page.evaluate(() => fetch("index.html").then(r => r.text()));
 check("cloudPublish computes mediaTrusted from __lite + hydratedCats",
   /const mediaTrusted = !cat\.__lite \|\| hydratedCats\.has\(cat\.id\)/.test(src));
 check("cloudPublish routes both images through keepImg",
-  /image: keepImg\(q\.image, prev && prev\.image\)/.test(src)
-  && /answerImage: keepImg\(q\.answerImage, prev && prev\.answerImage\)/.test(src));
+  /image: keepImg\(q\.image, src && src\.image\)/.test(src)
+  && /answerImage: keepImg\(q\.answerImage, src && src\.answerImage\)/.test(src));
 check("the community writer takes a mediaTrusted argument",
   /adminSetCommunityQuestions = function \(catId, questions, mediaTrusted\)/.test(src));
 check("flushDupPersist passes the trust flag to the community writer",
