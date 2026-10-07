@@ -84,6 +84,16 @@ one question late. Worst case «العاب» — q42…q147 each held the NEXT r
   `tests/gamesshift.mjs`). Then `touch-categories.mjs --only <id> --apply`,
   or devices keep the old pictures. «مواقع في عمان» is displaced by 1–3 rows
   that vary, so it needs a backup-based re-pair, not a constant shift.
+- **`tools/repair-media.mjs` is the GENERAL re-pair tool** (`--source <restored-db>
+  --only <catId>`, dry run by default, `tests/repairmedia.mjs`). Identity is
+  q + a, never the doc id. It fills blanks and puts back a picture that the
+  backup gives to a DIFFERENT question; it leaves alone a live picture that is
+  nobody's in the backup (replaced since — an old photo must not beat a new
+  one), never blanks, never touches a question newer than the backup, saves the
+  overwritten values first, and `--undo` restores them. Pick the OLDEST backup
+  that post-dates the category's creation: it maximises correct pairings and
+  anything newer is simply left alone. PITR is on (7 days) since 2026-10, and
+  scheduled backups are DAILY only (no weekly), ~77 of them back to ~22 July.
 - ⚠️ **«قديمك نديمك» has NO pictures at all** — restore from a backup before the
   98-day retention passes the date.
 - ⚠️ The `review-images` vision workflow badly UNDER-reports shifts (≈25 of ~105
